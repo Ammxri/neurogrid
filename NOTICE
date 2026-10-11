@@ -1,0 +1,12 @@
+NeuroGrid
+Copyright 2026 Ammar Ahad
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+Documentation and sample data are licensed under CC BY 4.0; bundled fonts under the
+SIL Open Font License 1.1. The license of every path is listed in REUSE.toml.
+
+NeuroGrid is a pre-check tool. It does not perform a conformity assessment within the
+meaning of NMPA regulations and makes no statement about patients.
+
+Third-party components and their licenses are listed in THIRD_PARTY_NOTICES.md
+(generated for each release) and DATA_SOURCES.md (test data).

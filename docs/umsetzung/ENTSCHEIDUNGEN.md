@@ -83,17 +83,33 @@ auf einer deterministischen Stichprobe; sie wird ausgewiesen und ist bis „voll
 - Urheber „Ammar Ahad“.
 - `docs/umsetzung/` ist öffentlich, die PRD nicht.
 
-## Offene Entscheidungsfragen (STOPP 2)
+## Entscheidungen zu STOPP 2 (11.10.2026)
 
-Wortlaut und Empfehlung stehen im STOPP-2-Bericht und in KONZEPT.md Abschnitt 9.
+Der Projektverantwortliche hat das Konzept freigegeben und E1–E5 nach Empfehlung entschieden.
 
-| Nr. | Thema | Empfehlung |
-|---|---|---|
-| E1 | Auslegung von D-05 für mitgelieferte Binärteile (libquadmath in numpy/scipy unter Linux; Chrome Headless Shell mit FFmpeg/LGPL und Google-Nutzungsbedingungen) | Python-Pakete wie D-05; native Bibliotheken in Wheels mit Hinweis zulassen; Headless Shell **nicht** ins Bündel, sondern Installationsskript |
-| E2 | CI und Linux vor v0.1 | GitHub-Repo jetzt anlegen, Push auf `dev` ab P1 freigeben; zusätzlich Docker Desktop für lokale Linux- und Offline-Tests |
-| E3 | Zusätze über die PRD hinaus | siehe Liste in KONZEPT 9 (empfohlen: behalten bzw. streichen je Punkt) |
-| E4 | Testkorpus über die OpenNeuro-API statt EEGDash (LIB-09) | Abweichung freigeben (EEGDash zieht torch und NVIDIA-Pakete nach) |
-| E5 | Lesart und Referenzmessung von NG-N02 (A-50) | eine 1-GB-EDF-Datei; Messung mit 4 Kernen hier und auf einem 4-vCPU/16-GB-Runner |
+**D-08 (E1) Binärteile.**
+- D-05 gilt für Python-Pakete.
+- Native Bibliotheken in Wheels (z. B. libquadmath, libgfortran) sind mit Hinweis in den Notices erlaubt.
+- Die Chrome Headless Shell kommt nicht ins Offline-Bündel. `tools/install_pdf_browser.py` lädt sie online oder spielt eine vom Kunden bereitgestellte zip mit Prüfsumme ein.
+
+**D-09 (E2) CI und Linux.**
+- Der Projektverantwortliche legt das GitHub-Repo `neurogrid` an. Nach jeder Phase darf auf `dev` gepusht werden, nicht auf `main`.
+- Docker Desktop ist derzeit nicht verfügbar, weil der Projektverantwortliche remote arbeitet. Lokale Linux- und Offline-Tests entfallen deshalb vorerst.
+- Linux wird über die GitHub-CI geprüft, sobald das Repo angelegt und die URL genannt ist. Bis dahin bleiben TECH-05, TECH-11 und der Linux-Teil von NG-N04 offen bzw. „nicht verifiziert“.
+
+**D-10 (E3) Zusätze.** a–h ja (`--jobs`, `consent add --from`, `log --show`, `manifest --out`,
+`--strip-identifying-headers`, `--show-paths`, Release-Signatur, GitLab-CI-Vorlage); i (Bericht auf Deutsch) und
+j (`--list-checks`) nein.
+
+**D-11 (E4) Testkorpus ohne EEGDash.** Freigegebene Abweichung von §9 (LIB-09); geladen wird über OpenNeuro-API und PhysioNet.
+
+**D-12 (E5) NG-N02.** Gemessen wird an einer 1-GB-EDF-Datei:
+- hier mit 4 Kernen: < 150 s
+- auf einem Runner mit 4 vCPU/16 GB: < 300 s
+- jeweils mit 64, 128 und 256 Kanälen
+
+**D-13 Konzeptfreigabe.** KONZEPT.md ist freigegeben, einschließlich der Regel für fehlende Normtexte (normunabhängige
+Phasen vorziehen; Stopp, wenn nur normabhängige Phasen übrig sind) und der STOPPs nach v0.1 und v0.2.
 
 ## Annahmen (Nicht-Blocker)
 
@@ -406,7 +422,8 @@ ergibt Q1 (< 0,5) bis Q5 (≥ 1,5). Gilt nur für `research/`.
 - **Installation:** Bytecode wird vorkompiliert.
 
 **A-49 Netzwerkschutz.**
-- **Audit-Hook** im Python-Prozess: blockiert und protokolliert Socket-Verbindungen und DNS-Auflösungen zu Nicht-Loopback-Zielen. Ausdrücklich gilt das **nur für den Python-Prozess**.
+- **Audit-Hook** im Python-Prozess: blockiert und protokolliert Socket-Verbindungen, Datagramme (sendto, sendmsg) und alle Namensauflösungen (getaddrinfo, gethostbyname[_ex], gethostbyaddr, getnameinfo) zu Nicht-Loopback-Zielen. Ausdrücklich gilt das **nur für den Python-Prozess**.
+- **Grenze des Hooks:** Der Windows-Proactor von asyncio baut Verbindungen ohne Audit-Ereignis auf. NeuroGrid nutzt kein asyncio; ein Quelltext-Test verbietet Netzwerkmodule (asyncio, socket außerhalb des Hooks, ssl, http, urllib.request u. a.) per AST, auch als Attributzugriff.
 - **Unterprozesse** sind eigens geschützt:
   - Deno mit `--deny-net` und `DENO_NO_UPDATE_CHECK=1`
   - Chromium mit fest gesetzten Flags (`--disable-background-networking`, `--disable-component-update`, `--disable-breakpad`, `--no-pings`)
@@ -497,3 +514,119 @@ das PDF in `debian:12-slim` mit `--network none` und einer dokumentierten apt-Li
 - **Sortierung:** feste Reihenfolge error > warning > info; danach Regel-ID, Objekt, Unterschlüssel.
 - **Regel-Metadaten:** results.json enthält einen Block `rules` (ID, Klausel, Titel, Phase, Schweregrad, Nachweisart, `source_status`) und den SHA-256 je Paket; `report` liest nur results.json.
 - **Wirksame Konfiguration:** steht kanonisch und bereinigt in results.json und im Anhang.
+
+## Annahmen aus der Umsetzung
+
+**A-62 Regelpaket-Feld `norm` (P1).** Das Regelpaket-Format erhält das optionale Feld `norm` (Standard
+`false`). Nur Pakete mit `norm: true` und `source_status` inventory/final bekommen ein Abdeckungsmaß (A-16);
+`core` und `bids` sind keine Normpakete. Kleine, rückwärtsverträgliche Erweiterung des Formats aus §11.
+
+**A-63 Konfigurationsabschnitte (P1).** `neurogrid.toml` hat zusätzlich den Abschnitt `[dataset]` (id, name,
+version, source, license – die Felder von DM-01, soweit nicht aus `dataset_description.json` lesbar). Die
+Begründung für gemischte Abtastraten (M03, A-18) steht in `[metadata] mixed_sampling_rates_reason`.
+Ohne Datensatz-ID steht im Ergebnis „unnamed“; der Ordnername wird nicht verwendet (könnte identifizierend sein).
+
+**A-64 Heuristik für identifizierende Kopfzeilen (CORE-M01-05).** Überarbeitet nach dem Review von P1.
+- **EDF+, Patientenfeld:** identifizierend, wenn Code, Geburtsdatum, Name oder weiterer Text nicht „X“ ist. Platzhalter ist in EDF+ nur „X“. Das Geschlecht zählt nur, wenn dort etwas anderes als M, F oder X steht.
+- **EDF+, Aufnahmefeld:**
+  - Krankenhaus-Code oder Techniker nicht „X“ → `recording`. Zusätzliche Unterfelder nach der Gerätebezeichnung werden wie Freitext geprüft (Name, sechs und mehr Ziffern, Nicht-ASCII → `recording`; Datum → `date`).
+  - Datum im Startdate-Unterfeld nicht „X“ und nicht „01-JAN-JJJJ“ → `date`. Die Gerätebezeichnung zählt nicht.
+  - Fehlt das Schlüsselwort „Startdate“, wird das Feld als Freitext geprüft.
+- **Einfaches EDF:** Das Patientenfeld ist Freitext und gilt als identifizierend, sobald es etwas anderes als Platzhalter enthält (X, -, _, 0, anonymous, anon, unknown, n/a, none). Im Aufnahmefeld führt ein Datum zu `date` (auch ISO-Form JJJJ-MM-TT; Platzhalter wie 01-JAN-JJJJ oder JJJJ-01-01 ausgenommen), sechs und mehr Ziffern oder Nicht-ASCII-Bytes zu `recording`.
+- **Unterstriche** gelten bei der Namenssuche als Leerzeichen (EDF+ schreibt Leerzeichen in Unterfeldern als `_`).
+- **Startdatum (festes Feld):** Nur ein im Kalender gültiges TT.MM.JJ außer 01.01.JJ gilt als echtes Datum. Ein leeres, fehlerhaftes oder unmögliches Datum (00.00.00, 31.02.21) ist ein Kopfzeilenfehler (CORE-M01-02), kein Datum.
+- **Ausgabe:** Nur die Feldnamen werden ausgegeben, nie die Werte. Schweregrad info. Auch pseudonyme Codes (z. B. `sub-01` aus MNE-Exporten) gelten als Kennung; bei info ist ein Hinweis zu viel gewollt.
+
+**A-65 Übersprungene Ordner und Lesbarkeit.**
+- **Übersprungen:** In BIDS-Datensätzen die Ordner `derivatives`, `sourcedata`, `code` und `stimuli` (keine Rohdaten); in allen Datensätzen versteckte Einträge (`.neurogrid`, Punktdateien).
+- **Lesbarkeit (M01-01):** MNE liest den ersten und den letzten Sekundenblock. Eine abgeschnittene EDF liest MNE ohne Fehler; erkannt wird sie über die Kopfprüfung (CORE-M01-02, Dateigröße gegen Kopf).
+
+## Annahmen aus dem Review von P1
+
+Ein Review mit drei Prüfrichtungen (Korrektheit, Sicherheit/Datenschutz, DoD-Treue) und Gegenprüfung der
+wesentlichen Befunde hat 29 kleine und 21 gegengeprüfte Befunde geliefert. Behoben sind alle bestätigten. Diese
+Annahmen halten fest, wie dabei Lücken der Spezifikation gefüllt wurden.
+
+**A-66 Projektwurzel und Pfade in `neurogrid.toml` (A-52).**
+- Die Projektwurzel ist:
+  - für eine toml in einem Ordner `.neurogrid` der Ordner darüber (auch bei `--config`);
+  - für eine andere toml im Datensatz die Datensatzwurzel;
+  - sonst der Ordner der toml.
+- Pfade in der toml (`check.rulepacks`, `ai.splits`, `vault.path`) sind nur relativ zulässig: kein `..`, keine Laufwerks-, UNC- oder Gerätepfade. Verstöße enden beim Laden mit Exit 2 und Feldangabe.
+- Regelpakete aus der toml werden innerhalb der Projektwurzel aufgelöst, ohne Links zu folgen. Pfade auf der Kommandozeile (`--rulepack`, `--config`, `--out`) sind Bedienerpfade und beziehen sich auf das Arbeitsverzeichnis.
+- Ein Link als `.neurogrid` oder als toml am Standardort wird nicht verfolgt (Exit 2).
+- Bedienerpfade dürfen über Links führen (der Bediener hat den Pfad gewählt). Innerhalb des Datensatzes werden Links nie verfolgt, ebenso wenig eine verlinkte Einzeldatei als Ziel.
+- Eine einzelne Datei als Ziel wird wie ein Rohordner mit genau dieser Datei geprüft. Die ID folgt der gespeicherten Schreibweise des Namens, nicht der getippten.
+- Dasselbe Regelpaket, auf mehreren Wegen genannt (toml und Kommandozeile, andere Schreibweise), wird einmal geladen. Zwei verschiedene Dateien mit gleichem Paketnamen sind ein Fehler (Exit 2).
+
+**A-67 Netzwerkpfade auf der Kommandozeile (A-52, NG-N01).** Unter Windows gilt jede Wurzel aus zwei Trennzeichen
+(Schrägstrich und Backslash in beliebiger Mischung) als UNC- oder Gerätepfad. Die Prüfung wird auf dem aufgelösten
+Pfad wiederholt (Links auf Netzfreigaben). Verbundene Netzlaufwerke werden ebenfalls abgelehnt. Geräte- und
+Namensraumpfade (`\\?\`, `\\.\`, `\??\`, GLOBALROOT) werden schon vor jedem Dateizugriff abgelehnt, ebenso
+reservierte Gerätenamen (CON, PRN, AUX, NUL, CONIN$, CONOUT$, COM/LPT mit 1–9 und ¹²³) in jedem Pfadteil. Dieselbe
+Liste gilt für Pfade aus Dateien (A-52). Doppelpunkte nach dem Laufwerk (Datenströme)
+sind nur unter Windows verboten; unter Linux sind sie gültige Zeichen.
+
+**A-68 Stabile Befundschlüssel und Ausnahme-Abgleich (A-09, A-14).**
+- Intern hat jede Aufnahme drei stabile Namen: den relativen POSIX-Pfad, die pseudonyme ID und den pseudonymen Dateinamen (ID plus Endung, wie er in Rohordnern angezeigt wird).
+- Ausnahme-Muster werden gegen alle drei und gegen die angezeigte ID geprüft. Der Befundschlüssel wird über den relativen Pfad gebildet.
+- `--show-paths` ändert damit nur die Anzeige, nie Status, Exitcode oder Schlüssel.
+
+**A-69 Ausnahme-Muster in Ausgaben (A-51).** Bei Rohordnern ohne `--show-paths` erscheinen Muster, die mehr als
+Platzhalter (`*`, `**`, `*.ext`) oder pseudonyme IDs enthalten, in results.json und im Bericht nur als
+`pattern-<sha256[:8]>`. Der Konfigurations-Hash wird weiter über die echte Konfiguration gebildet.
+
+**A-70 Dateiname in M01-Befunden (A-12 und A-51).** „Mit Dateinamen“ heißt bei Rohordnern: pseudonyme ID plus
+Endung (z. B. `rec-2c710f52.cnt`). Den Klarnamen zeigt `--show-paths`. In BIDS-Datensätzen steht immer der relative Pfad.
+
+**A-71 Hinweis auf identifizierende Dateinamen (A-51).**
+- Enthält ein Pfadsegment einer Datendatei Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern in Folge, gibt es einen Hinweis.
+- Er erscheint in `check` als Notice und in `scan` auf der Konsole sowie als `suspicious_names`.
+- Er nennt nur die Anzahl, keine Namen.
+
+**A-72 Probanden in `scan` (CLI-01).** Bei BIDS-Datensätzen zählt `scan` die `sub`-Labels der Datendateien. Bei
+Rohordnern steht „unbekannt“, bis die Zuordnung aus der toml (A-05, P2) vorliegt. Aus BIDS-Dateinamen werden
+`subject`, `session`, `task` und `run` in das Datenmodell übernommen (Herkunft `bids_filename`).
+
+**A-73 Kommandozeile.**
+- `--rulepack` ist wiederholbar und wird nicht an Kommas getrennt. Groß-/Kleinschreibung bleibt erhalten. Kommalisten gibt es nur für `--lang` und `--format` (A-08).
+- `rulepacks = []` in der toml ist ungültig.
+- Sprachangaben in Locale-Form werden normalisiert (`zh_CN.UTF-8` → `zh`). Eine nicht verfügbare oder leere Sprache in `--lang` oder `NEUROGRID_LANG` endet mit Exit 2 statt mit stillem Rückfall.
+- `--out` darf kein Ordner sein (auch kein Pfad mit Trennzeichen am Ende). Geschrieben wird über eine temporäre Datei im Zielordner, die bei Fehlern gelöscht wird (A-54). Ist der Zielort nicht beschreibbar, gibt es eine eigene Meldung (Exit 2).
+- Warnungen von Bibliotheken erscheinen nur als übersetzter Hinweis mit ihrer Kategorie, ohne Fremdtext und Pfade (A-07, A-51). Beim Lesen der Daten werden sie ganz unterdrückt; das Ergebnis zählt.
+- Mit `--debug` ist der Traceback frei von Steuerzeichen; Benutzerverzeichnis und Datensatzwurzel sind ersetzt, und Pfade unterhalb der Datensatzwurzel werden nach `<dataset>/` abgeschnitten.
+- Ohne Argumente zeigt `neurogrid` die Hilfe (Exit 2).
+
+**A-74 Eingaben.**
+- **Ordnerformate:** EGI-MFF (`.mff`) und MEF3 (`.mefd`) sind Ordner. Jeder solche Ordner zählt als eine nicht unterstützte Aufnahme (M01-04) und wird nicht betreten.
+- **Kodierung:** `neurogrid.toml` und Regelpakete werden als UTF-8 mit oder ohne BOM gelesen. Andere Kodierungen enden mit Exit 2 und klarer Meldung. Der SHA-256 eines Regelpakets wird über die Dateibytes gebildet (prüfbar mit `sha256sum`).
+- **Größe und Tiefe:** Größengrenzen gelten vor dem Lesen; die YAML-Tiefe wird schon beim Einlesen begrenzt. Dateinamen, die kein gültiges Unicode sind, werden mit Escape-Folgen angezeigt und brechen den Lauf nicht ab.
+- **Nicht lesbare Einträge:** Ordner, die nicht aufgelistet werden können, und Datendateien, die sich nicht öffnen lassen (z. B. Namen mit Punkt am Ende unter Windows), sind CORE-M01-01-Fehler mit pseudonymer ID. Sie werden nicht still übersprungen. `scan` listet sie als „nicht lesbare Einträge“.
+- **Links im Datensatz:** Nicht verfolgte Links und Junctions meldet auch `check`, als Notice mit Anzahl (Stufe warning) und auf der Konsole.
+- **Reine Annotationsdateien** (EDF+ nur mit „EDF Annotations“, z. B. Hypnogramme) sind lesbar. Sie zählen aber nicht als Aufnahme für „Datensatz ohne lesbare Aufnahme“.
+- **`dataset_description.json`:** Übernommen werden nur Name (200 Zeichen), License (80), BIDSVersion und DatasetType (je 40), ohne Steuerzeichen. Eine unlesbare oder zu tief verschachtelte Datei gilt als leer.
+- **BrainVision-Begleitdatei:** Ob eine `.eeg` zu einer `.vhdr` gehört, wird auf allen Plattformen ohne Rücksicht auf Groß-/Kleinschreibung entschieden.
+- **Ausnahme-Muster:** Ausnahme-Muster laufen mit einem linearen Matcher, auch bei vielen `**`.
+- **Übersetzung:** Unbekannte Schlüssel (etwa aus einer fremden results.json) werden nie als Formatvorlage benutzt.
+
+**A-75 Nicht-endliche Werte (A-61, A-60).**
+- Zahlenfelder im EDF-Kopf müssen schlichte Dezimalzahlen sein (Spezifikation). Ein Exponent mit höchstens zwei Ziffern wird geduldet. Alles andere, etwa `nan`, `inf`, `1e-320`, `0x10` oder `1_000`, ist ein Kopfzeilenfehler. Damit bleiben alle abgeleiteten Werte endlich.
+- Eine Datensatzdauer von 0 ist nur bei reinen Annotationsdateien zulässig.
+- `nan`/`inf` in toml und Regelpaketen sind Fehler mit Feldangabe (Exit 2), ebenso Ganzzahlen außerhalb des darstellbaren Bereichs: Zahlen-Parameter müssen als Gleitkommazahl endlich sein, Ganzzahl-Parameter höchstens 2^53 betragen, `seed` liegt zwischen 0 und 2^63−1.
+- Abtastraten werden exakt aus den ASCII-Feldern berechnet (550 Samples je 1,1 s = 500 Hz).
+- Fehlt die Rate trotz EEG-Kanälen, lautet der Grund `signal.rate_unknown`.
+- Erreicht trotzdem ein nicht-endlicher Messwert den Regelmotor, wird der Befund not_checkable (`value.non_finite`) mit Messwert null.
+
+**A-76 Datenmodell und Phasenplan.**
+- **Datenmodell:** Die Adapter liefern das Datenmodell `Recording` mit `Channel` (ARC-01, A-24). Kanäle tragen zusätzlich ihre eigene Abtastrate (EDF erlaubt eine Rate je Signal). `Recording.sampling_rate_hz` ist die niedrigste EEG-Rate. Die Abbildungstabelle PRD → Englisch steht in `docs/en|zh/data-model.md` (D-03).
+- **Phasenplan, korrigierte Zuordnungen:**
+  - RP-05 schließt in P4 ab (Auswertung halbautomatischer Nachweise nach A-15).
+  - ARC-01 schließt in P6 ab (Zulieferer NeuroVault).
+  - TECH-01 schließt in P12 ab (§13-Struktur vollständig erst nach P7/P9).
+- **Befunde:** Jeder Befund trägt die wirksamen Schwellen mit Herkunft (`params`, A-13). In results.json heißen die Einstellungen `config.effective_settings`; dazu kommt `config.sampling` (KONZEPT 2.3).
+- **Bericht:**
+  - Befunde aus Platzhalter-Paketen stehen in einem eigenen Abschnitt „nicht bewertet“, mit dem Klauseltext aus A-41. Auch ihre bestandenen Prüfungen zählen nicht mit.
+  - Ein hinterlegter Nachweis erscheint mit dem Wortlaut aus A-15. Der Dokumentverweis folgt mit dem Nachweisblock in P4.
+  - Strukturierte Messwerte erscheinen mit übersetzten Beschriftungen statt als JSON.
+- **Ausnahmen:** Ausnahmen greifen auch über den angezeigten Dateinamen (z. B. `rec-2c710f52.cnt`, A-70).
+- **Rückverfolgbarkeit (TECH-12):** `tools/check_commit_ids.py` prüft jeden datierten Fortschrittseintrag außer denen der Planungsphasen 0–2 und kann eine Commit-Nachricht vor dem Commit prüfen (`--message-file`).

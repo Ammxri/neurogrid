@@ -1,0 +1,1035 @@
+{
+  "$defs": {
+    "ConfigInfo": {
+      "additionalProperties": false,
+      "description": "KONZEPT 2.3: hash, reference date, seed, sampling, effective parameters and settings (cleaned).",
+      "properties": {
+        "as_of": {
+          "format": "date",
+          "title": "As Of",
+          "type": "string"
+        },
+        "canonical_sha256": {
+          "title": "Canonical Sha256",
+          "type": "string"
+        },
+        "effective_params": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "$ref": "#/$defs/EffectiveParam"
+            },
+            "type": "object"
+          },
+          "title": "Effective Params",
+          "type": "object"
+        },
+        "effective_settings": {
+          "additionalProperties": true,
+          "title": "Effective Settings",
+          "type": "object"
+        },
+        "sampling": {
+          "additionalProperties": true,
+          "title": "Sampling",
+          "type": "object"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "strict": {
+          "title": "Strict",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "canonical_sha256",
+        "as_of",
+        "seed",
+        "strict",
+        "sampling",
+        "effective_params",
+        "effective_settings"
+      ],
+      "title": "ConfigInfo",
+      "type": "object"
+    },
+    "Dataset": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "is_bids": {
+          "default": false,
+          "title": "Is Bids",
+          "type": "boolean"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        },
+        "manifest_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manifest Hash"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "rulepacks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Rulepacks",
+          "type": "array"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "Dataset",
+      "type": "object"
+    },
+    "Disclaimer": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "zh": {
+          "title": "Zh",
+          "type": "string"
+        }
+      },
+      "required": [
+        "zh",
+        "en"
+      ],
+      "title": "Disclaimer",
+      "type": "object"
+    },
+    "EffectiveParam": {
+      "additionalProperties": false,
+      "description": "A threshold as applied, with its origin (A-13: toml > rule pack > check default).",
+      "properties": {
+        "origin": {
+          "enum": [
+            "check",
+            "rulepack",
+            "config"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value",
+        "origin"
+      ],
+      "title": "EffectiveParam",
+      "type": "object"
+    },
+    "EnvironmentInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "blas_threads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blas Threads"
+        },
+        "libraries": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Libraries",
+          "type": "object"
+        },
+        "platform": {
+          "title": "Platform",
+          "type": "string"
+        },
+        "python": {
+          "title": "Python",
+          "type": "string"
+        }
+      },
+      "required": [
+        "python",
+        "platform",
+        "libraries"
+      ],
+      "title": "EnvironmentInfo",
+      "type": "object"
+    },
+    "ExceptionEntry": {
+      "additionalProperties": false,
+      "description": "A justified exception from neurogrid.toml (NG-F18, A-14).\n\n``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well.",
+      "properties": {
+        "approved_by": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "title": "Reason",
+          "type": "string"
+        },
+        "rule": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Rule",
+          "type": "string"
+        },
+        "subkey": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkey"
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid Until"
+        }
+      },
+      "required": [
+        "rule",
+        "reason"
+      ],
+      "title": "ExceptionEntry",
+      "type": "object"
+    },
+    "ExceptionUse": {
+      "additionalProperties": false,
+      "properties": {
+        "entry": {
+          "$ref": "#/$defs/ExceptionEntry"
+        },
+        "expired": {
+          "title": "Expired",
+          "type": "boolean"
+        },
+        "used": {
+          "title": "Used",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "entry",
+        "used",
+        "expired"
+      ],
+      "title": "ExceptionUse",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "description": "One finding per rule × object × subkey.\n\n``params`` holds the effective thresholds of the rule with their origin (A-13). ``key`` is stable across\nruns and independent of the display option ``--show-paths`` (A-09).",
+      "properties": {
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "clause": {
+          "title": "Clause",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "measured_value": {
+          "default": null,
+          "title": "Measured Value"
+        },
+        "message_key": {
+          "title": "Message Key",
+          "type": "string"
+        },
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "$ref": "#/$defs/EffectiveParam"
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "rulepack": {
+          "title": "Rulepack",
+          "type": "string"
+        },
+        "rulepack_version": {
+          "title": "Rulepack Version",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "source_status": {
+          "$ref": "#/$defs/SourceStatus"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "subkey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkey"
+        },
+        "threshold": {
+          "default": null,
+          "title": "Threshold"
+        },
+        "time_ranges": {
+          "items": {
+            "$ref": "#/$defs/TimeRange"
+          },
+          "title": "Time Ranges",
+          "type": "array"
+        },
+        "time_ranges_duration_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Ranges Duration S"
+        },
+        "time_ranges_total": {
+          "default": 0,
+          "title": "Time Ranges Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "key",
+        "rule_id",
+        "rulepack",
+        "rulepack_version",
+        "source_status",
+        "clause",
+        "phase",
+        "severity",
+        "status",
+        "object",
+        "message_key"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "Light": {
+      "enum": [
+        "red",
+        "yellow",
+        "green",
+        "grey"
+      ],
+      "title": "Light",
+      "type": "string"
+    },
+    "Notice": {
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/Severity"
+        },
+        "message_key": {
+          "title": "Message Key",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "required": [
+        "level",
+        "message_key"
+      ],
+      "title": "Notice",
+      "type": "object"
+    },
+    "PassedCount": {
+      "additionalProperties": false,
+      "description": "Passed checks are counted per rule and object instead of being listed (A-59).",
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "object",
+        "count"
+      ],
+      "title": "PassedCount",
+      "type": "object"
+    },
+    "Phase": {
+      "enum": [
+        "acquisition",
+        "processing",
+        "annotation",
+        "storage",
+        "access"
+      ],
+      "title": "Phase",
+      "type": "string"
+    },
+    "PhaseSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "errors": {
+          "default": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "light": {
+          "$ref": "#/$defs/Light"
+        },
+        "open_evidence": {
+          "default": 0,
+          "title": "Open Evidence",
+          "type": "integer"
+        },
+        "warnings": {
+          "default": 0,
+          "title": "Warnings",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "light"
+      ],
+      "title": "PhaseSummary",
+      "type": "object"
+    },
+    "RecordingSummary": {
+      "additionalProperties": false,
+      "description": "One recording as seen by the checks (no path; ``id`` is pseudonymous in raw folders).",
+      "properties": {
+        "duration_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration S"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "metadata_sources": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Metadata Sources",
+          "type": "object"
+        },
+        "metrics": {
+          "additionalProperties": true,
+          "title": "Metrics",
+          "type": "object"
+        },
+        "n_channels": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Channels"
+        },
+        "n_eeg_channels": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "N Eeg Channels"
+        },
+        "run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run"
+        },
+        "sampling_rate_hz": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sampling Rate Hz"
+        },
+        "session": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session"
+        },
+        "streamable": {
+          "default": true,
+          "title": "Streamable",
+          "type": "boolean"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subject"
+        },
+        "task": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task"
+        }
+      },
+      "required": [
+        "id",
+        "format"
+      ],
+      "title": "RecordingSummary",
+      "type": "object"
+    },
+    "RuleInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "title": "Check",
+          "type": "string"
+        },
+        "clause": {
+          "title": "Clause",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "rulepack": {
+          "title": "Rulepack",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "source_status": {
+          "$ref": "#/$defs/SourceStatus"
+        },
+        "title_en": {
+          "title": "Title En",
+          "type": "string"
+        },
+        "title_zh": {
+          "title": "Title Zh",
+          "type": "string"
+        },
+        "verification": {
+          "$ref": "#/$defs/Verification"
+        }
+      },
+      "required": [
+        "id",
+        "rulepack",
+        "clause",
+        "title_zh",
+        "title_en",
+        "phase",
+        "check",
+        "severity",
+        "verification",
+        "source_status"
+      ],
+      "title": "RuleInfo",
+      "type": "object"
+    },
+    "RulepackInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "norm": {
+          "title": "Norm",
+          "type": "boolean"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "source_status": {
+          "$ref": "#/$defs/SourceStatus"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "source",
+        "source_status",
+        "norm",
+        "sha256"
+      ],
+      "title": "RulepackInfo",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "SourceStatus": {
+      "description": "Where the rules of a pack come from (A-41).",
+      "enum": [
+        "placeholder",
+        "secondary",
+        "inventory",
+        "final"
+      ],
+      "title": "SourceStatus",
+      "type": "string"
+    },
+    "Status": {
+      "enum": [
+        "passed",
+        "failed",
+        "excepted",
+        "not_applicable",
+        "not_checkable",
+        "evidence_open"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "Summary": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "title": "Coverage",
+          "type": "object"
+        },
+        "errors": {
+          "title": "Errors",
+          "type": "integer"
+        },
+        "exit_code": {
+          "title": "Exit Code",
+          "type": "integer"
+        },
+        "phases": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PhaseSummary"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/Phase"
+          },
+          "title": "Phases",
+          "type": "object"
+        },
+        "warnings": {
+          "title": "Warnings",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "phases",
+        "coverage",
+        "errors",
+        "warnings",
+        "exit_code"
+      ],
+      "title": "Summary",
+      "type": "object"
+    },
+    "TimeRange": {
+      "additionalProperties": false,
+      "properties": {
+        "end_s": {
+          "title": "End S",
+          "type": "number"
+        },
+        "start_s": {
+          "title": "Start S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_s",
+        "end_s"
+      ],
+      "title": "TimeRange",
+      "type": "object"
+    },
+    "ToolInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "neurogrid",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "ToolInfo",
+      "type": "object"
+    },
+    "Verification": {
+      "enum": [
+        "automatic",
+        "semi_automatic",
+        "manual"
+      ],
+      "title": "Verification",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "config": {
+      "$ref": "#/$defs/ConfigInfo"
+    },
+    "dataset": {
+      "$ref": "#/$defs/Dataset"
+    },
+    "disclaimer": {
+      "$ref": "#/$defs/Disclaimer"
+    },
+    "environment": {
+      "$ref": "#/$defs/EnvironmentInfo"
+    },
+    "exceptions": {
+      "items": {
+        "$ref": "#/$defs/ExceptionUse"
+      },
+      "title": "Exceptions",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "notices": {
+      "items": {
+        "$ref": "#/$defs/Notice"
+      },
+      "title": "Notices",
+      "type": "array"
+    },
+    "passed": {
+      "items": {
+        "$ref": "#/$defs/PassedCount"
+      },
+      "title": "Passed",
+      "type": "array"
+    },
+    "recordings": {
+      "items": {
+        "$ref": "#/$defs/RecordingSummary"
+      },
+      "title": "Recordings",
+      "type": "array"
+    },
+    "rulepacks": {
+      "items": {
+        "$ref": "#/$defs/RulepackInfo"
+      },
+      "title": "Rulepacks",
+      "type": "array"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/RuleInfo"
+      },
+      "title": "Rules",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolInfo"
+    }
+  },
+  "required": [
+    "disclaimer",
+    "tool",
+    "environment",
+    "dataset",
+    "rulepacks",
+    "rules",
+    "config",
+    "recordings",
+    "findings",
+    "passed",
+    "exceptions",
+    "notices",
+    "summary"
+  ],
+  "title": "Results",
+  "type": "object"
+}

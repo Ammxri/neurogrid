@@ -1,0 +1,108 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "neurogrid"
+dynamic = ["version"]
+description = "Local, offline pre-check of EEG datasets for AI-based BCI devices: format checks, EEG-BIDS conversion, quality metrics and zh/en reports. A pre-check, not a conformity assessment."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Ammar Ahad" }]
+requires-python = ">=3.11,<3.14"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+# NeuroGrid is shipped as an application: every library that influences results is pinned exactly (A-48).
+# numpy/scipy stay on the last line that still supports Python 3.11, so all versions compute alike (A-11).
+dependencies = [
+    "edfio==0.4.18",
+    "jinja2==3.1.6",
+    "matplotlib==3.11.2",
+    "mne==1.13.2",
+    "numpy==2.4.6",
+    "pydantic==2.14.0",
+    "pyyaml==6.0.3",
+    "scipy==1.17.1",
+    "threadpoolctl==3.7.0",
+    "typer==0.27.3",
+]
+
+[project.scripts]
+neurogrid = "neurogrid.cli:main"
+
+[dependency-groups]
+dev = [
+    "jsonschema==4.26.0",
+    "mypy==2.4.0",
+    "pip-licenses==5.5.5",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.17.0",
+    "types-PyYAML==6.0.12.20260906",
+]
+
+[tool.hatch.version]
+path = "src/neurogrid/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neurogrid"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/neurogrid", "LICENSE", "NOTICE", "README.md", "pyproject.toml"]
+
+[tool.uv]
+# Supply chain (A-48): dependencies are installed from wheels only, never built from source distributions.
+# The project itself is still built (editable) by its own backend.
+no-build = true
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "PTH", "PLW1514", "S506", "S602", "S604", "S605"]
+preview = true
+explicit-preview-rules = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "-m", "not corpus and not perf", "-p", "no:cacheprovider"]
+markers = [
+    "corpus: needs the public test corpus in .local/corpus (tools/corpus.py)",
+    "perf: performance measurements (NG-N02)",
+]
+filterwarnings = ["error::EncodingWarning:neurogrid"]
+
+[tool.coverage.run]
+source = ["neurogrid"]
+branch = true
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

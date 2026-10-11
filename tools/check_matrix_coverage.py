@@ -11,6 +11,7 @@ the plan mentions an ID that is not in the matrix.
 
 from __future__ import annotations
 
+import io
 import re
 import sys
 from collections import defaultdict
@@ -20,7 +21,9 @@ ROOT = Path(__file__).resolve().parent.parent
 MATRIX = ROOT / "docs" / "umsetzung" / "ANFORDERUNGEN.md"
 CONCEPT = ROOT / "docs" / "umsetzung" / "KONZEPT.md"
 
-ID_PATTERN = r"(?:NG-F|NG-N|NV-F|MET-|DM-|RP-|GX-|CLI-|REP-|POS-|ARC-|LIB-|TECH-|CON-|UF-|NA-|NZ-|BIZ-|V-|M)\d{2}"
+ID_PATTERN = (
+    r"(?:NG-F|NG-N|NV-F|MET-|DM-|RP-|GX-|CLI-|REP-|POS-|ARC-|LIB-|TECH-|CON-|UF-|NA-|NZ-|BIZ-|V-|M)\d{2}"
+)
 RANGE = re.compile(rf"({ID_PATTERN})\s*[–-]\s*({ID_PATTERN})")
 SINGLE = re.compile(rf"(?<![A-Z0-9-]){ID_PATTERN}")
 PHASE_ROW = re.compile(r"^\|\s*(P\d+)\b")
@@ -69,7 +72,8 @@ def phase_table() -> dict[str, tuple[set[str], set[str]]]:
 
 
 def main() -> int:
-    sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding="utf-8")
     required = matrix_ids()
     phases = phase_table()
     closing: dict[str, list[str]] = defaultdict(list)
@@ -83,8 +87,10 @@ def main() -> int:
     multi_close = sorted(i for i, p in closing.items() if len(p) > 1)
     unknown = sorted(mentioned - required)
 
-    print(f"Matrix-IDs: {len(required)}  Phasen: {len(phases)}  "
-          f"mit genau einer abschließenden Phase: {len(required) - len(no_close) - len(multi_close)}")
+    print(
+        f"Matrix-IDs: {len(required)}  Phasen: {len(phases)}  "
+        f"mit genau einer abschließenden Phase: {len(required) - len(no_close) - len(multi_close)}"
+    )
     for name, (closes, contributes) in phases.items():
         print(f"  {name}: schließt {len(closes)} ab, trägt zu {len(contributes)} bei")
     if no_close:

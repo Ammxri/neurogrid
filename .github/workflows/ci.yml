@@ -1,0 +1,115 @@
+# NeuroGrid CI (TECH-05, NG-N04, NG-N07, NG-N08). Runs on push/PR; never uploads datasets.
+name: ci
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.13.0"
+  PYTHONWARNDEFAULTENCODING: "1"
+  UV_PYTHON_DOWNLOADS: automatic
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Install (locked, no source builds)
+        run: uv sync --locked --no-build --python ${{ matrix.python }}
+      - name: Lint and format
+        run: |
+          uv run --no-sync ruff check .
+          uv run --no-sync ruff format --check .
+      - name: Types (strict for the kernel)
+        run: |
+          uv run --no-sync mypy --strict src/neurogrid/kernel
+          uv run --no-sync mypy src/neurogrid tools
+      - name: Tests with coverage
+        run: uv run --no-sync pytest -q --cov=neurogrid --cov-report=json:coverage.json --cov-report=term
+      - name: Coverage gates (Kern >= 90 %, Prüfer >= 80 %)
+        run: uv run --no-sync python tools/coverage_gates.py coverage.json
+      - name: Determinism sample for cross-platform comparison
+        run: uv run --no-sync neurogrid check tests/fixtures/synthetic/edf_mixed --as-of 2026-10-11 --out results-${{ matrix.os }}-${{ matrix.python }}.json || test $? -eq 0
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.os }}-${{ matrix.python }}
+          path: results-${{ matrix.os }}-${{ matrix.python }}.json
+
+  compare:
+    name: cross-platform comparison (reported, not enforced)
+    needs: test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+          merge-multiple: true
+      - name: Compare results without the environment block
+        run: |
+          python3 - <<'EOF'
+          import json, pathlib
+          docs = {p.name: json.loads(p.read_text(encoding="utf-8")) for p in pathlib.Path("results").glob("*.json")}
+          for d in docs.values():
+              d.pop("environment", None)
+          reference = next(iter(docs.values()))
+          for name, doc in sorted(docs.items()):
+              print(name, "identical" if doc == reference else "DIFFERS")
+          EOF
+
+  traceability:
+    name: requirement IDs in commits and progress entries (TECH-12, A-43)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 tools/check_commit_ids.py
+
+  licenses:
+    name: license gate (runtime and dev)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-build --python 3.12
+      - run: uv run --no-sync python tools/licenses.py
+
+  powershell51:
+    name: Windows PowerShell 5.1 command line
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-build --python 3.12
+      - name: check, report and exit codes
+        run: |
+          .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\edf_ok --out r.json
+          if ($LASTEXITCODE -ne 0) { throw "expected exit 0, got $LASTEXITCODE" }
+          .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\empty --out e.json
+          if ($LASTEXITCODE -ne 1) { throw "expected exit 1, got $LASTEXITCODE" }
+          .\.venv\Scripts\neurogrid.exe report r.json --lang "zh,en" --format html
+          if ($LASTEXITCODE -ne 0) { throw "report failed" }
+          if (-not (Test-Path report.zh.html)) { throw "report.zh.html missing" }
+          $global:LASTEXITCODE = 0

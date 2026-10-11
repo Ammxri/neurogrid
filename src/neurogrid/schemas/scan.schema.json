@@ -1,0 +1,161 @@
+{
+  "$defs": {
+    "Disclaimer": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "zh": {
+          "title": "Zh",
+          "type": "string"
+        }
+      },
+      "required": [
+        "zh",
+        "en"
+      ],
+      "title": "Disclaimer",
+      "type": "object"
+    },
+    "ScanFile": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Format"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "size_bytes": {
+          "title": "Size Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "size_bytes"
+      ],
+      "title": "ScanFile",
+      "type": "object"
+    },
+    "ToolInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "neurogrid",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "ToolInfo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "disclaimer": {
+      "$ref": "#/$defs/Disclaimer"
+    },
+    "formats": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Formats",
+      "type": "object"
+    },
+    "is_bids": {
+      "title": "Is Bids",
+      "type": "boolean"
+    },
+    "links_skipped": {
+      "title": "Links Skipped",
+      "type": "integer"
+    },
+    "other_files": {
+      "title": "Other Files",
+      "type": "integer"
+    },
+    "recordings": {
+      "items": {
+        "$ref": "#/$defs/ScanFile"
+      },
+      "title": "Recordings",
+      "type": "array"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "subjects": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Subjects"
+    },
+    "suspicious_names": {
+      "default": 0,
+      "title": "Suspicious Names",
+      "type": "integer"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolInfo"
+    },
+    "total_bytes": {
+      "title": "Total Bytes",
+      "type": "integer"
+    },
+    "unreadable": {
+      "items": {
+        "$ref": "#/$defs/ScanFile"
+      },
+      "title": "Unreadable",
+      "type": "array"
+    },
+    "unsupported": {
+      "items": {
+        "$ref": "#/$defs/ScanFile"
+      },
+      "title": "Unsupported",
+      "type": "array"
+    }
+  },
+  "required": [
+    "disclaimer",
+    "tool",
+    "is_bids",
+    "formats",
+    "recordings",
+    "unsupported",
+    "other_files",
+    "links_skipped",
+    "total_bytes"
+  ],
+  "title": "ScanResult",
+  "type": "object"
+}

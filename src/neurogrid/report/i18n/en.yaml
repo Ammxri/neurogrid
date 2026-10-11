@@ -1,0 +1,268 @@
+# NeuroGrid language table – English. Every key must exist in zh.yaml and de.yaml (tests/unit/test_i18n.py).
+disclaimer: "Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations."
+
+cli:
+  scan:
+    title: "Inventory"
+    bids: "BIDS dataset"
+    "yes": "yes"
+    "no": "no"
+    formats: "Formats"
+    recordings: "Recordings"
+    unsupported: "Unsupported data files"
+    other: "Other files"
+    links: "Links skipped (not followed)"
+    subjects: "Subjects"
+    subjects_unknown: "unknown (raw folder without mapping)"
+    names_hint: "Hint: {count} data file path(s) contain non-ASCII letters or six or more digits in a row and may identify persons."
+    unreadable: "Unreadable entries (not checked)"
+    size: "Total size"
+    written: "Inventory written to {path}"
+  check:
+    passes: "The dataset passes the checks of the loaded rule packs ({packs})."
+    fails: "The dataset does not pass all checks of the loaded rule packs ({packs})."
+    counts: "{errors} error(s), {warnings} warning(s)"
+    written: "Results written to {path}"
+    placeholder: "Placeholder rule packs are loaded. Their findings are not based on a norm text and do not count."
+  report:
+    written: "Report written to {path}"
+  error:
+    prefix: "Error"
+    internal: "Internal error ({type}). Run again with --debug for details."
+    usage: "Invalid command line: {problem}"
+  warning:
+    library: "Note: a library reported a warning ({type}); results are not affected."
+
+errors:
+  yaml:
+    alias: "YAML aliases are not allowed (line {line})."
+    duplicate_key: "Duplicate key '{name}' (line {line})."
+    syntax: "YAML syntax error (line {line})."
+    too_large: "File is too large (limit {limit} bytes)."
+    too_deep: "File is nested too deeply (limit {limit})."
+  path:
+    invalid: "Invalid path."
+    absolute: "Only relative paths are allowed here."
+    colon: "Paths with ':' (drives, data streams) are not allowed here."
+    parent: "Paths with '..' are not allowed."
+    trailing: "Path elements must not end with a space or a dot."
+    reserved: "Reserved device names are not allowed in paths."
+    link: "Links and junctions are not followed."
+    outside: "The path leads outside the dataset."
+    unc: "Network paths (UNC) are not allowed; NeuroGrid works offline."
+    device: "Device and namespace paths (\\\\?\\, \\\\.\\, \\??\\) are not allowed."
+  file:
+    too_large: "File is too large (limit {limit} bytes)."
+    encoding: "File is not UTF-8 text."
+  rulepack:
+    not_mapping: "A rule pack must be a YAML mapping."
+    invalid: "Invalid rule pack: field '{field}' ({problem})."
+    duplicate_rule: "Rule ID {rule} occurs more than once."
+    duplicate_pack: "Rule pack {rulepack} is loaded more than once."
+    unknown_check: "Rule {rule} uses the unknown check '{check}'."
+    manual_needs_evidence: "Manual rule {rule} must use the check 'evidence.document'."
+    unknown_param: "Rule {rule} sets the unknown parameter '{param}'."
+    param_type: "Rule {rule}: parameter '{param}' has the wrong type."
+    not_found: "Rule pack '{rulepack}' not found."
+    placeholder_needs_flag: "Rule pack {rulepack} is a placeholder (not based on a norm text). Load it only with --allow-draft-rulepacks."
+    encoding: "Rule pack is not UTF-8 text."
+  config:
+    invalid: "Invalid configuration: field '{field}' ({problem})."
+    syntax: "Configuration syntax error: {problem}."
+    too_large: "Configuration file is too large."
+    not_found: "Configuration file not found."
+    unknown_param: "Configuration: rule {rule} has no parameter '{param}'."
+    param_type: "Configuration: rule {rule}, parameter '{param}' has the wrong type."
+    encoding: "Configuration file is not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    unsafe_path: "Configuration: field '{field}' must be a relative path inside the project (no '..', drive, network or device paths)."
+    too_deep: "Configuration file is nested too deeply."
+  input:
+    not_found: "Input path not found."
+    unknown_format: "Unknown or unsupported format: {file}. Supported: {known}."
+    results_invalid: "The file is not a valid NeuroGrid results file."
+    bad_date: "Invalid date; expected YYYY-MM-DD."
+  i18n:
+    invalid_table: "Language table {language} is invalid."
+    unknown_language: "Unknown language '{language}'. Available: zh, en."
+    empty: "No language given. Available: zh, en."
+  report:
+    format_unavailable: "Output format '{format}' is not available in this version."
+  output:
+    is_directory: "The output path is a folder; please give a file name."
+    not_writable: "The output cannot be written there (folder missing, a file in the way, or no permission)."
+
+notice:
+  override_unused: "Configuration sets parameters for rule {rule}, which is not loaded."
+  exception_expired: "Exception for rule {rule} expired on {valid_until} and was not applied."
+  exception_unused: "Exception for rule {rule} matched no finding."
+  names_look_identifying: "{count} data file path(s) contain non-ASCII letters or six or more digits in a row and may identify persons. Please check the file names."
+  links_skipped: "{count} link(s) or junction(s) in the dataset were not followed; their contents were not checked."
+
+severity:
+  error: "Error"
+  warning: "Warning"
+  info: "Note"
+
+status:
+  passed: "passed"
+  failed: "not passed"
+  excepted: "exception (justified)"
+  not_applicable: "not applicable"
+  not_checkable: "not checkable"
+  evidence_open: "evidence open"
+
+phase:
+  acquisition: "Acquisition"
+  processing: "Processing"
+  annotation: "Annotation"
+  storage: "Storage"
+  access: "Access"
+
+light:
+  red: "red"
+  yellow: "yellow"
+  green: "green"
+  grey: "grey"
+  legend: "Red: at least one failed error rule. Yellow: at least one failed warning rule. Green: no failed error or warning rule in the loaded rule packs. Grey: no rules for this phase."
+
+reason:
+  read:
+    failed: "The data could not be read."
+    unlistable: "The folder could not be read; its contents were not checked."
+  dataset:
+    no_readable_recording: "The dataset contains no readable recording."
+  format:
+    unsupported: "Data file in a format NeuroGrid cannot read."
+  header:
+    unreadable: "The file header could not be read."
+  signal:
+    no_eeg_channels: "No EEG channels found."
+    rate_unknown: "The header gives no valid sampling rate."
+  evidence:
+    missing: "No evidence entry."
+    open: "Evidence marked as open."
+    partial: "Evidence only partially provided."
+    not_applicable: "Marked as not applicable (with justification)."
+    no_document: "No document referenced."
+    document_missing: "Referenced document not found."
+    hash_mismatch: "Document changed since its hash was recorded."
+  value:
+    non_finite: "The measured value is not a finite number."
+
+issue:
+  header:
+    non_ascii: "Header contains non-ASCII characters."
+    number_field: "A numeric header field cannot be parsed."
+    digital_range: "Digital minimum is not below the digital maximum."
+    physical_range: "Physical minimum equals the physical maximum."
+    samples_per_record: "Samples per data record must be positive."
+    size_field: "Header size field does not match the number of signals."
+    record_duration: "Invalid data record duration."
+    records_unknown: "Number of data records is unknown or invalid."
+    file_truncated: "File is shorter than the header announces (truncated)."
+    file_trailing_data: "File is longer than the header announces."
+    startdate: "Start date field is malformed."
+    edfio_rejected: "edfio rejects the header."
+    too_short: "File is too short for a header."
+    bad_version: "Not an EDF/BDF file (version field)."
+    bad_signal_count: "Invalid number of signals."
+    io_error: "File could not be opened."
+    unreadable: "Header could not be read."
+  fields:
+    patient: "patient field"
+    recording: "recording field"
+    date: "recording date"
+
+check:
+  structure:
+    readable: "Data readable (MNE)"
+    header_consistent: "Header consistent"
+    supported_format: "Format supported"
+    identifying_header: "No identifying header content"
+  signal:
+    sampling_rate_min: "Sampling rate"
+    sampling_rate_uniform: "Sampling rates uniform"
+    sampling_rate_consistency: "Sampling rate documented and consistent"
+  evidence:
+    document: "Evidence document"
+
+report:
+  title: "NeuroGrid pre-check report"
+  placeholder_banner: "This report contains rule packs marked as placeholders. Their rules are not based on the norm text, are shown without clause reference and are not counted."
+  section:
+    cover: "1 Cover"
+    summary: "2 Summary"
+    findings: "3 Findings by severity"
+    metrics: "4 Metrics per recording"
+    evidence: "5 Manual evidence"
+    appendix: "6 Appendix"
+  label:
+    dataset: "Dataset"
+    dataset_id: "Dataset ID"
+    version: "Version"
+    license: "License"
+    rulepacks: "Rule packs"
+    source_status: "Source status"
+    date: "Date"
+    tool_version: "Tool version"
+    manifest_hash: "Manifest hash"
+    phase: "Phase"
+    light: "Traffic light"
+    errors: "Errors"
+    warnings: "Warnings"
+    open_evidence: "Open evidence"
+    coverage: "Coverage"
+    rule: "Rule"
+    clause: "Clause"
+    title: "Check"
+    status: "Status"
+    file: "File"
+    measured: "Measured value"
+    threshold: "Threshold"
+    time_range: "Time range"
+    reason: "Reason"
+    recording: "Recording"
+    format: "Format"
+    sampling_rate: "Sampling rate (Hz)"
+    duration: "Duration (s)"
+    channels: "Channels (EEG)"
+    passed_checks: "Passed checks"
+    effective_params: "Effective thresholds"
+    origin: "Origin"
+    exceptions: "Justified exceptions"
+    exception_reason: "Justification"
+    approved_by: "Approved by"
+    valid_until: "Valid until"
+    used: "Applied"
+    notices: "Notices"
+    configuration: "Configuration"
+    parameter: "Parameter"
+    disclaimer: "Note"
+    placeholder_findings: "Placeholder rules (not evaluated, not counted)"
+  value:
+    none: "–"
+    whole_recording: "whole recording"
+    dataset_level: "dataset"
+    not_applicable_value: "– (not measured for this rule)"
+    "yes": "yes"
+    "no": "no"
+    na: "n/a"
+    placeholder_clause: "placeholder – not from the norm text"
+    placeholder_status: "not evaluated (placeholder rule)"
+    evidence_provided: "evidence filed (user's statement, not assessed by NeuroGrid)"
+  text:
+    no_findings: "No findings with these severities."
+    no_recordings: "No recordings."
+    no_manual_rules: "The loaded rule packs contain no manual rules."
+    no_exceptions: "No exceptions configured."
+    no_notices: "No notices."
+    overall_passes: "The dataset passes the checks of the loaded rule packs."
+    overall_fails: "The dataset does not pass all checks of the loaded rule packs."
+    origin_check: "check default"
+    origin_rulepack: "rule pack"
+    origin_config: "neurogrid.toml"
+  measure:
+    documented: "documented"
+    rate_hz: "rate (Hz)"
+    rates_hz: "rates (Hz)"
+    uniform: "uniform"

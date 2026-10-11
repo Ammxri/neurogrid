@@ -1,0 +1,268 @@
+# NeuroGrid-Sprachtabelle – Deutsch (Kern-Tabelle laut PRD §1; Bericht offiziell zh/en, D-10 i).
+disclaimer: "Vorprüfung mit NeuroGrid. Keine Konformitätsbewertung im Sinne der NMPA-Vorschriften."
+
+cli:
+  scan:
+    title: "Bestandsaufnahme"
+    bids: "BIDS-Datensatz"
+    "yes": "ja"
+    "no": "nein"
+    formats: "Formate"
+    recordings: "Aufnahmen"
+    unsupported: "Nicht unterstützte Datendateien"
+    other: "Sonstige Dateien"
+    links: "Übersprungene Links (nicht verfolgt)"
+    subjects: "Probanden"
+    subjects_unknown: "unbekannt (Rohordner ohne Zuordnung)"
+    names_hint: "Hinweis: {count} Datendatei-Pfad(e) enthalten Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern in Folge und könnten Personen kennzeichnen."
+    unreadable: "Nicht lesbare Einträge (nicht geprüft)"
+    size: "Gesamtgröße"
+    written: "Bestandsaufnahme geschrieben nach {path}"
+  check:
+    passes: "Der Datensatz besteht die Prüfungen der geladenen Regelpakete ({packs})."
+    fails: "Der Datensatz besteht nicht alle Prüfungen der geladenen Regelpakete ({packs})."
+    counts: "{errors} Fehler, {warnings} Warnung(en)"
+    written: "Ergebnis geschrieben nach {path}"
+    placeholder: "Platzhalter-Regelpakete sind geladen. Ihre Befunde beruhen nicht auf einem Normtext und zählen nicht."
+  report:
+    written: "Bericht geschrieben nach {path}"
+  error:
+    prefix: "Fehler"
+    internal: "Interner Fehler ({type}). Für Details erneut mit --debug ausführen."
+    usage: "Ungültige Kommandozeile: {problem}"
+  warning:
+    library: "Hinweis: Eine Bibliothek hat eine Warnung gemeldet ({type}); die Ergebnisse sind davon nicht betroffen."
+
+errors:
+  yaml:
+    alias: "YAML-Aliase sind nicht erlaubt (Zeile {line})."
+    duplicate_key: "Doppelter Schlüssel '{name}' (Zeile {line})."
+    syntax: "YAML-Syntaxfehler (Zeile {line})."
+    too_large: "Datei ist zu groß (Grenze {limit} Byte)."
+    too_deep: "Datei ist zu tief verschachtelt (Grenze {limit})."
+  path:
+    invalid: "Ungültiger Pfad."
+    absolute: "Hier sind nur relative Pfade erlaubt."
+    colon: "Pfade mit ':' (Laufwerke, Datenströme) sind hier nicht erlaubt."
+    parent: "Pfade mit '..' sind nicht erlaubt."
+    trailing: "Pfadteile dürfen nicht auf Leerzeichen oder Punkt enden."
+    reserved: "Reservierte Gerätenamen sind in Pfaden nicht erlaubt."
+    link: "Links und Junctions werden nicht verfolgt."
+    outside: "Der Pfad führt aus dem Datensatz heraus."
+    unc: "Netzwerkpfade (UNC) sind nicht erlaubt; NeuroGrid arbeitet offline."
+    device: "Geräte- und Namensraumpfade (\\\\?\\, \\\\.\\, \\??\\) sind nicht erlaubt."
+  file:
+    too_large: "Die Datei ist zu groß (Grenze {limit} Bytes)."
+    encoding: "Die Datei ist kein UTF-8-Text."
+  rulepack:
+    not_mapping: "Ein Regelpaket muss ein YAML-Mapping sein."
+    invalid: "Ungültiges Regelpaket: Feld '{field}' ({problem})."
+    duplicate_rule: "Regel-ID {rule} kommt mehrfach vor."
+    duplicate_pack: "Regelpaket {rulepack} ist mehrfach geladen."
+    unknown_check: "Regel {rule} nutzt die unbekannte Prüfung '{check}'."
+    manual_needs_evidence: "Manuelle Regel {rule} muss die Prüfung 'evidence.document' nutzen."
+    unknown_param: "Regel {rule} setzt den unbekannten Parameter '{param}'."
+    param_type: "Regel {rule}: Parameter '{param}' hat den falschen Typ."
+    not_found: "Regelpaket '{rulepack}' nicht gefunden."
+    placeholder_needs_flag: "Regelpaket {rulepack} ist ein Platzhalter (nicht aus dem Normtext). Nur mit --allow-draft-rulepacks laden."
+    encoding: "Das Regelpaket ist kein UTF-8-Text."
+  config:
+    invalid: "Ungültige Konfiguration: Feld '{field}' ({problem})."
+    syntax: "Syntaxfehler in der Konfiguration: {problem}."
+    too_large: "Konfigurationsdatei ist zu groß."
+    not_found: "Konfigurationsdatei nicht gefunden."
+    unknown_param: "Konfiguration: Regel {rule} hat keinen Parameter '{param}'."
+    param_type: "Konfiguration: Regel {rule}, Parameter '{param}' hat den falschen Typ."
+    encoding: "Die Konfigurationsdatei ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird angenommen)."
+    unsafe_path: "Konfiguration: Feld '{field}' muss ein relativer Pfad im Projekt sein (kein '..', kein Laufwerks-, Netz- oder Gerätepfad)."
+    too_deep: "Die Konfigurationsdatei ist zu tief verschachtelt."
+  input:
+    not_found: "Eingabepfad nicht gefunden."
+    unknown_format: "Unbekanntes oder nicht unterstütztes Format: {file}. Unterstützt: {known}."
+    results_invalid: "Die Datei ist keine gültige NeuroGrid-Ergebnisdatei."
+    bad_date: "Ungültiges Datum; erwartet JJJJ-MM-TT."
+  i18n:
+    invalid_table: "Sprachtabelle {language} ist ungültig."
+    unknown_language: "Unbekannte Sprache '{language}'. Verfügbar: zh, en."
+    empty: "Keine Sprache angegeben. Verfügbar: zh, en."
+  report:
+    format_unavailable: "Ausgabeformat '{format}' ist in dieser Version nicht verfügbar."
+  output:
+    is_directory: "Der Ausgabepfad ist ein Ordner; bitte einen Dateinamen angeben."
+    not_writable: "Die Ausgabe kann dort nicht geschrieben werden (Ordner fehlt, eine Datei steht im Weg oder es fehlen Rechte)."
+
+notice:
+  override_unused: "Die Konfiguration setzt Parameter für Regel {rule}, die nicht geladen ist."
+  exception_expired: "Ausnahme für Regel {rule} ist am {valid_until} abgelaufen und wurde nicht angewendet."
+  exception_unused: "Ausnahme für Regel {rule} hat keinen Befund getroffen."
+  names_look_identifying: "{count} Datendatei-Pfad(e) enthalten Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern in Folge und könnten Personen kennzeichnen. Bitte die Dateinamen prüfen."
+  links_skipped: "{count} Link(s) oder Junction(s) im Datensatz wurden nicht verfolgt; ihr Inhalt wurde nicht geprüft."
+
+severity:
+  error: "Fehler"
+  warning: "Warnung"
+  info: "Hinweis"
+
+status:
+  passed: "bestanden"
+  failed: "nicht bestanden"
+  excepted: "Ausnahme (begründet)"
+  not_applicable: "nicht anwendbar"
+  not_checkable: "nicht prüfbar"
+  evidence_open: "Nachweis offen"
+
+phase:
+  acquisition: "Erfassung"
+  processing: "Verarbeitung"
+  annotation: "Annotation"
+  storage: "Speicherung"
+  access: "Zugriff"
+
+light:
+  red: "rot"
+  yellow: "gelb"
+  green: "grün"
+  grey: "grau"
+  legend: "Rot: mindestens eine Fehler-Regel nicht bestanden. Gelb: mindestens eine Warn-Regel nicht bestanden. Grün: keine nicht bestandene Fehler- oder Warn-Regel in den geladenen Regelpaketen. Grau: keine Regeln für diese Phase."
+
+reason:
+  read:
+    failed: "Die Daten konnten nicht gelesen werden."
+    unlistable: "Der Ordner konnte nicht gelesen werden; sein Inhalt wurde nicht geprüft."
+  dataset:
+    no_readable_recording: "Der Datensatz enthält keine lesbare Aufnahme."
+  format:
+    unsupported: "Datendatei in einem Format, das NeuroGrid nicht lesen kann."
+  header:
+    unreadable: "Die Kopfzeile konnte nicht gelesen werden."
+  signal:
+    no_eeg_channels: "Keine EEG-Kanäle gefunden."
+    rate_unknown: "Der Kopf nennt keine gültige Abtastrate."
+  evidence:
+    missing: "Kein Nachweiseintrag."
+    open: "Nachweis als offen markiert."
+    partial: "Nachweis nur teilweise hinterlegt."
+    not_applicable: "Als nicht anwendbar markiert (mit Begründung)."
+    no_document: "Kein Dokument angegeben."
+    document_missing: "Angegebenes Dokument nicht gefunden."
+    hash_mismatch: "Dokument wurde seit Erfassung des Hashwerts verändert."
+  value:
+    non_finite: "Der Messwert ist keine endliche Zahl."
+
+issue:
+  header:
+    non_ascii: "Kopfzeile enthält Nicht-ASCII-Zeichen."
+    number_field: "Ein Zahlenfeld der Kopfzeile ist nicht lesbar."
+    digital_range: "Digitales Minimum liegt nicht unter dem digitalen Maximum."
+    physical_range: "Physikalisches Minimum gleicht dem physikalischen Maximum."
+    samples_per_record: "Samples je Datensatz müssen positiv sein."
+    size_field: "Größenfeld der Kopfzeile passt nicht zur Zahl der Signale."
+    record_duration: "Ungültige Dauer eines Datensatzes."
+    records_unknown: "Zahl der Datensätze unbekannt oder ungültig."
+    file_truncated: "Datei ist kürzer als im Kopf angegeben (abgeschnitten)."
+    file_trailing_data: "Datei ist länger als im Kopf angegeben."
+    startdate: "Startdatum-Feld ist fehlerhaft."
+    edfio_rejected: "edfio weist die Kopfzeile zurück."
+    too_short: "Datei ist zu kurz für eine Kopfzeile."
+    bad_version: "Keine EDF/BDF-Datei (Versionsfeld)."
+    bad_signal_count: "Ungültige Zahl von Signalen."
+    io_error: "Datei konnte nicht geöffnet werden."
+    unreadable: "Kopfzeile konnte nicht gelesen werden."
+  fields:
+    patient: "Patientenfeld"
+    recording: "Aufnahmefeld"
+    date: "Aufnahmedatum"
+
+check:
+  structure:
+    readable: "Daten lesbar (MNE)"
+    header_consistent: "Kopfzeile konsistent"
+    supported_format: "Format unterstützt"
+    identifying_header: "Keine identifizierenden Kopfzeileninhalte"
+  signal:
+    sampling_rate_min: "Abtastrate"
+    sampling_rate_uniform: "Abtastraten einheitlich"
+    sampling_rate_consistency: "Abtastrate dokumentiert und einheitlich"
+  evidence:
+    document: "Nachweisdokument"
+
+report:
+  title: "NeuroGrid-Vorprüfungsbericht"
+  placeholder_banner: "Dieser Bericht enthält Regelpakete, die als Platzhalter markiert sind. Ihre Regeln beruhen nicht auf dem Normtext, erscheinen ohne Klauselbezug und zählen nicht."
+  section:
+    cover: "1 Deckblatt"
+    summary: "2 Zusammenfassung"
+    findings: "3 Befunde nach Schweregrad"
+    metrics: "4 Metriken je Aufnahme"
+    evidence: "5 Manuelle Nachweise"
+    appendix: "6 Anhang"
+  label:
+    dataset: "Datensatz"
+    dataset_id: "Datensatz-ID"
+    version: "Version"
+    license: "Lizenz"
+    rulepacks: "Regelpakete"
+    source_status: "Quellenstatus"
+    date: "Datum"
+    tool_version: "Werkzeugversion"
+    manifest_hash: "Manifest-Hash"
+    phase: "Phase"
+    light: "Ampel"
+    errors: "Fehler"
+    warnings: "Warnungen"
+    open_evidence: "Offene Nachweise"
+    coverage: "Abdeckung"
+    rule: "Regel"
+    clause: "Klausel"
+    title: "Prüfung"
+    status: "Status"
+    file: "Datei"
+    measured: "Messwert"
+    threshold: "Schwelle"
+    time_range: "Zeitbereich"
+    reason: "Grund"
+    recording: "Aufnahme"
+    format: "Format"
+    sampling_rate: "Abtastrate (Hz)"
+    duration: "Dauer (s)"
+    channels: "Kanäle (EEG)"
+    passed_checks: "Bestandene Prüfungen"
+    effective_params: "Wirksame Schwellen"
+    origin: "Herkunft"
+    exceptions: "Begründete Ausnahmen"
+    exception_reason: "Begründung"
+    approved_by: "Genehmigt von"
+    valid_until: "Gültig bis"
+    used: "Angewendet"
+    notices: "Hinweise"
+    configuration: "Konfiguration"
+    parameter: "Parameter"
+    disclaimer: "Hinweis"
+    placeholder_findings: "Platzhalter-Regeln (nicht bewertet, nicht gezählt)"
+  value:
+    none: "–"
+    whole_recording: "gesamte Aufnahme"
+    dataset_level: "Datensatz"
+    not_applicable_value: "– (für diese Regel nicht gemessen)"
+    "yes": "ja"
+    "no": "nein"
+    na: "n/a"
+    placeholder_clause: "Platzhalter – nicht aus dem Normtext"
+    placeholder_status: "nicht bewertet (Platzhalter-Regel)"
+    evidence_provided: "Nachweis hinterlegt (Angabe des Nutzers, nicht von NeuroGrid bewertet)"
+  text:
+    no_findings: "Keine Befunde dieser Schweregrade."
+    no_recordings: "Keine Aufnahmen."
+    no_manual_rules: "Die geladenen Regelpakete enthalten keine manuellen Regeln."
+    no_exceptions: "Keine Ausnahmen konfiguriert."
+    no_notices: "Keine Hinweise."
+    overall_passes: "Der Datensatz besteht die Prüfungen der geladenen Regelpakete."
+    overall_fails: "Der Datensatz besteht nicht alle Prüfungen der geladenen Regelpakete."
+    origin_check: "Standardwert der Prüfung"
+    origin_rulepack: "Regelpaket"
+    origin_config: "neurogrid.toml"
+  measure:
+    documented: "dokumentiert"
+    rate_hz: "Rate (Hz)"
+    rates_hz: "Raten (Hz)"
+    uniform: "einheitlich"

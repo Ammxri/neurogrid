@@ -1,0 +1,4 @@
+# Packages whose metadata carries the full license text instead of an identifier, so no allowlist entry
+# can match. Each entry is version-pinned and was reviewed by hand; every upgrade needs a fresh review.
+# Format: name:version   # result of the manual review
+# (none in the current dependency set)

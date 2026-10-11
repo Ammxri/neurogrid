@@ -1,0 +1,15 @@
+# Text files are stored with LF everywhere so hashes, golden files and manifests match across platforms.
+* text=auto eol=lf
+
+# Binary test data must never be touched by line-ending conversion.
+tests/fixtures/** -text
+*.edf binary
+*.bdf binary
+*.eeg binary
+*.fdt binary
+*.set binary
+*.fif binary
+*.ttf binary
+*.woff2 binary
+*.png binary
+*.pdf binary

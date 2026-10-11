@@ -15,7 +15,7 @@ Umsetzungsplans stehen in KONZEPT.md und sind davon unabhängig.
 **Status:** `offen` · `in Arbeit` · `erfüllt` · `teilweise` · `nicht verifiziert` · `blockiert (extern)` ·
 `bewusst abgewichen` · `außerhalb Umfang`.
 
-*Stand: Phase 2 (STOPP 2), noch kein Produktivcode. Zeilen gesamt: 166 (davon 9 Nicht-Ziele, 6 Geschäftsaufgaben).
+*Stand: Phase P1 abgeschlossen (TECH-11 teilweise: CI wartet auf die Repo-URL, D-09); weiter mit P2. Zeilen gesamt: 166 (davon 9 Nicht-Ziele, 6 Geschäftsaufgaben).
 Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschnitt 6, geprüft mit
 `tools/check_matrix_coverage.py`).*
 
@@ -30,11 +30,11 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 | D-05 | eegprep entfällt; MPL-2.0-Ausnahme; Python 3.11–3.13 | entschieden |
 | D-06 | Downloads und Testkorpus | entschieden |
 | D-07 | Lokales Git, Push nur nach Freigabe | entschieden |
-| E1 | D-05 für mitgelieferte Binärteile (libquadmath, Headless Shell) | offen (STOPP 2) |
-| E2 | CI und Linux vor v0.1 | offen (STOPP 2) |
-| E3 | Zusätze über die PRD hinaus | offen (STOPP 2) |
-| E4 | Testkorpus ohne EEGDash | offen (STOPP 2) |
-| E5 | Lesart und Messung von NG-N02 | offen (STOPP 2) |
+| D-08 | D-05 für mitgelieferte Binärteile (libquadmath, Headless Shell) | entschieden |
+| D-09 | CI und Linux vor v0.1 | entschieden |
+| D-10 | Zusätze über die PRD hinaus | entschieden |
+| D-11 | Testkorpus ohne EEGDash | entschieden |
+| D-12 | Lesart und Messung von NG-N02 | entschieden |
 
 
 ---
@@ -53,14 +53,14 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 | NG-F08 | Annotationsprüfung M10 | Uneinheitliche Ereigniscodes, Lücken, Überlappungen und Cohens κ zwischen Annotatoren werden berichtet | §7 S.6 | v0.1 | offen | A-17 | |
 | NG-F09 | KI-Datensatzstruktur M11–M12: Klassenbalance, Demografie, Split-Integrität, Duplikate | Ein Proband in Training und Test zugleich führt zu einem Fehler; doppelte Aufnahmen werden über Signal-Hash gefunden | §7 S.6 | v0.1 | offen | A-04, A-21 | |
 | NG-F10 | Provenienz-Manifest M13 | `neurogrid verify` erkennt jede geänderte Datei | §7 S.6 | v0.1 | offen | A-22 | |
-| NG-F11 | Regelpakete laden: `bids`, `gxdsl008`, `yyt2029`, eigene | Ein neues Regelpaket ist ohne Codeänderung einbindbar | §7 S.6 | v0.1 (Lader, bids, gxdsl008) / v0.2 (yyt2029) | offen | A-02, A-13, A-41 | |
-| NG-F12 | Nachweis-Checkliste für nicht messbare Anforderungen (z. B. SOPs, Qualifikation der Annotatoren) | Jede manuelle Regel hat Status und Verweis auf ein Nachweisdokument in `evidence.yaml` | §7 S.7 | v0.2 | offen | A-15 | |
-| NG-F13 | Bericht HTML und PDF in zh und en | Jeder Befund nennt Regel-ID, Klausel, Messwert, Schwelle, Datei, Zeitbereich | §7 S.7 | v0.1 | offen | A-08, A-09, A-10, A-26, A-51, A-57, A-59 | |
-| NG-F14 | Maschinenlesbare Ausgabe und Exitcodes | JSON nach `results.schema.json`; Exitcode 0 = keine Fehler, 1 = Fehler, 2 = Werkzeugfehler | §7 S.7 | v0.1 | offen | D-03, A-09, A-11, A-12, A-61 | |
+| NG-F11 | Regelpakete laden: `bids`, `gxdsl008`, `yyt2029`, eigene | Ein neues Regelpaket ist ohne Codeänderung einbindbar | §7 S.6 | v0.1 (Lader, bids, gxdsl008) / v0.2 (yyt2029) | in Arbeit | A-02, A-13, A-41 | P1: Lader für eingebaute und eigene Pakete (Pfad auf der Kommandozeile oder in der toml); Test „eigenes Paket ohne Codeänderung“; bids/gxdsl008 in P2/P4 |
+| NG-F12 | Nachweis-Checkliste für nicht messbare Anforderungen (z. B. SOPs, Qualifikation der Annotatoren) | Jede manuelle Regel hat Status und Verweis auf ein Nachweisdokument in `evidence.yaml` | §7 S.7 | v0.2 | in Arbeit | A-15 | P1: Nachweismodell im Kern (EvidenceItem, Status evidence_open, Wortlaut nach A-15 im Bericht); Auswertung von evidence.yaml in P4 |
+| NG-F13 | Bericht HTML und PDF in zh und en | Jeder Befund nennt Regel-ID, Klausel, Messwert, Schwelle, Datei, Zeitbereich | §7 S.7 | v0.1 | in Arbeit | A-08, A-09, A-10, A-26, A-51, A-57, A-59 | P1: HTML-Bericht zh/en, jeder Befund mit Regel-ID, Klausel, Messwert, Schwelle, Datei, Zeitbereich (Test je Zeile); PDF in P5 |
+| NG-F14 | Maschinenlesbare Ausgabe und Exitcodes | JSON nach `results.schema.json`; Exitcode 0 = keine Fehler, 1 = Fehler, 2 = Werkzeugfehler | §7 S.7 | v0.1 | in Arbeit | D-03, A-09, A-11, A-12, A-61 | P1: results.json nach `results.schema.json` (Test), Exit 0/1/2 je Testfall auch als echter Unterprozess |
 | NG-F15 | Versionsvergleich zweier Prüfläufe | Neue, behobene und veränderte Befunde werden getrennt gelistet | §7 S.7 | v1.0 | offen | D-01, A-33, A-09 | |
 | NG-F16 | NeuroVault (§15) | siehe NV-F01 bis NV-F07 | §7 S.7 | v0.2 / v1.0 | offen | D-01, A-30 | |
 | NG-F17 | Qualitätsabhängige Decoder-Auswertung (§16) | Technischer Bericht mit Kurve „Genauigkeit über Qualitätsstufe“ | §7 S.7 | v1.x | offen | D-01, A-36, A-45 | |
-| NG-F18 | Projektkonfiguration `neurogrid.toml` mit Schwellen und Ausnahmen | Jede Ausnahme braucht eine Begründung, und der Bericht zeigt sie an | §7 S.7 | v0.1 | offen | A-13, A-14 | |
+| NG-F18 | Projektkonfiguration `neurogrid.toml` mit Schwellen und Ausnahmen | Jede Ausnahme braucht eine Begründung, und der Bericht zeigt sie an | §7 S.7 | v0.1 | in Arbeit | A-13, A-14 | P1: neurogrid.toml strikt validiert; Schwellen; Ausnahmen mit Pflichtbegründung, Muster auf relativen Pfaden, Anzeige im Bericht |
 
 ### A2. Versionsinhalte ohne eigene NG-F-ID (§6) und Produktprofil (§2)
 
@@ -73,7 +73,7 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 | V-05 | v1.x: Server-Variante für Teams | – (PRD nicht spezifiziert; Spannung zu NZ-03) | §6 S.5 | v1.x | offen (PRD nicht spezifiziert) | D-01 | |
 | V-06 | Version 0.1 ist unabhängig vom Normtext YY/T 2029 | v0.1 nutzt keinen Inhalt aus YY/T 2029 | §6 S.5 | v0.1 | offen | | |
 | V-07 | Werkzeug prüft, konvertiert und erzeugt einen zweisprachigen Prüfbericht; prüft gegen YY/T 2029-2026, GB/T 47127-2026, ISO/IEC TS 27571:2026, EEG-BIDS | Gesamtabnahme | §2 S.2 | Q | offen | D-02, A-08 | |
-| V-08 | Fünf Prüfphasen Erfassung, Verarbeitung, Annotation, Speicherung, Zugriff (Ziel: 合规、可用、可追溯) | jede Regel hat eine Phase | §3 S.3, §11 | Q | offen | A-02 | |
+| V-08 | Fünf Prüfphasen Erfassung, Verarbeitung, Annotation, Speicherung, Zugriff (Ziel: 合规、可用、可追溯) | jede Regel hat eine Phase | §3 S.3, §11 | Q | erfüllt | A-02 | Fünf Phasen als Enum, jede Regel trägt genau eine; Ampel je Phase im Bericht (P1) |
 
 ## B. Modul NeuroVault (§15)
 
@@ -95,14 +95,14 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Anforderung | Prüfung | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
-| NG-N01 | Läuft lokal und offline. Keine Telemetrie. Der BIDS-Validator wird mitgeliefert, nicht nachgeladen | Lauf ohne Netz; Socket-Sperre in Tests; Code-Scan | §8 S.7 | Q | offen | A-06, A-25, A-26, A-49, E1 | |
-| NG-N02 | 1 GB EDF wird auf einem Laptop mit 16 GB RAM in unter 5 Minuten geprüft; Daten werden blockweise gelesen | Laufzeit- und Spitzenspeicher-Messung mit synthetischer 1-GB-EDF | §8 S.7 | Q | offen | D-04, A-50, E5 | |
-| NG-N03 | Reproduzierbar: gleiche Daten, Konfiguration und Regelpaketversion ergeben identisches JSON; Zufallsverfahren wie ICA mit festem Seed | zwei Läufe, Byte-Vergleich | §8 S.7 | Q | offen | A-11, A-61 | |
-| NG-N04 | Windows 10/11 (PowerShell) und Linux; Python 3.11–3.13 | CI-Matrix | §8 S.8 | Q | offen | D-05, A-26, A-42, A-48, A-58, E2 | |
-| NG-N05 | Berichte enthalten standardmäßig keine Rohsignale und nur pseudonyme IDs | Test auf Berichtsinhalt | §8 S.8 | Q | offen | A-05, A-09, A-51 | |
+| NG-N01 | Läuft lokal und offline. Keine Telemetrie. Der BIDS-Validator wird mitgeliefert, nicht nachgeladen | Lauf ohne Netz; Socket-Sperre in Tests; Code-Scan | §8 S.7 | Q | offen | A-06, A-25, A-26, A-49, D-08 | |
+| NG-N02 | 1 GB EDF wird auf einem Laptop mit 16 GB RAM in unter 5 Minuten geprüft; Daten werden blockweise gelesen | Laufzeit- und Spitzenspeicher-Messung mit synthetischer 1-GB-EDF | §8 S.7 | Q | offen | D-04, A-50, D-12 | |
+| NG-N03 | Reproduzierbar: gleiche Daten, Konfiguration und Regelpaketversion ergeben identisches JSON; Zufallsverfahren wie ICA mit festem Seed | zwei Läufe, Byte-Vergleich | §8 S.7 | Q | in Arbeit | A-11, A-61 | P1: zwei Läufe byte-gleich (Test); 3.11/3.12/3.13 gleich bis auf `environment` |
+| NG-N04 | Windows 10/11 (PowerShell) und Linux; Python 3.11–3.13 | CI-Matrix | §8 S.8 | Q | offen | D-05, A-26, A-42, A-48, A-58, D-09 | |
+| NG-N05 | Berichte enthalten standardmäßig keine Rohsignale und nur pseudonyme IDs | Test auf Berichtsinhalt | §8 S.8 | Q | in Arbeit | A-05, A-09, A-51 | P1: pseudonyme IDs in Rohordnern, Kopffelder nur als Feldnamen, Pfadfilter für Konsole/Traceback, Ausnahme-Muster geschwärzt (A-69), Namenshinweis (A-71) |
 | NG-N06 | Alle Meldungen in zh und en | Vollständigkeitstest der Sprachtabellen | §8 S.8 | Q | offen | A-07 | |
-| NG-N07 | Abhängigkeiten nur mit permissiven Lizenzen; die CI prüft das mit pip-licenses | CI-Schritt | §8 S.8 | Q | offen | D-05, A-56, E1 (D-05: permissiv + MPL-2.0) | |
-| NG-N08 | Testabdeckung: Kern 90 %, Prüfer 80 %; jede Regel hat mindestens einen Test mit Positiv- und Negativfall | Coverage-Bericht, Regel-Test-Abgleich | §8 S.8 | Q | offen | A-23 | |
+| NG-N07 | Abhängigkeiten nur mit permissiven Lizenzen; die CI prüft das mit pip-licenses | CI-Schritt | §8 S.8 | Q | in Arbeit | D-05, A-56, D-08 (D-05: permissiv + MPL-2.0) | P1: Lizenz-Gate zweistufig (Allowlist + Copyleft-Sperre) für Laufzeit und Dev grün |
+| NG-N08 | Testabdeckung: Kern 90 %, Prüfer 80 %; jede Regel hat mindestens einen Test mit Positiv- und Negativfall | Coverage-Bericht, Regel-Test-Abgleich | §8 S.8 | Q | in Arbeit | A-23 | P1: Abdeckung Kern 97,4 %, Prüfer 95,2 %; Positiv-/Negativfall je eingebauter Regel mit Meta-Test |
 
 ## D. Qualitätsmetriken (§12)
 
@@ -110,9 +110,9 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Metrik | Methode (PRD) | Startschwelle (PRD) | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|---|
-| M01 | Lesbarkeit und Kopfzeile | Einlesen mit MNE; EDF-Kopfzeile mit edfio prüfen | Fehler bei Lesefehler | §12 S.12 | v0.1 | offen | A-24, A-46, A-05 | |
+| M01 | Lesbarkeit und Kopfzeile | Einlesen mit MNE; EDF-Kopfzeile mit edfio prüfen | Fehler bei Lesefehler | §12 S.12 | v0.1 | in Arbeit | A-24, A-46, A-05 | P1: EDF lesbar (MNE), Kopf eigener Parser + edfio, unterstütztes Format inkl. Ordnerformate, Kennungen im Kopf (A-64); weitere Formate in P2 |
 | M02 | Metadaten-Vollständigkeit | Pflichtfelder EEG-BIDS: EEGReference, SamplingFrequency, PowerLineFrequency, SoftwareFilters, TaskName; channels.tsv name/type/units | Fehler je fehlendem Feld | §12 S.12 | v0.1 | offen | A-03, A-46 | |
-| M03 | Abtastrate | Wert je Aufnahme; Einheitlichkeit im Datensatz | Warnung unter 500 Hz (T/GXDSL 008); Warnung bei gemischten Raten ohne Dokumentation | §12 S.12 | v0.1 | offen | A-18, A-46 | |
+| M03 | Abtastrate | Wert je Aufnahme; Einheitlichkeit im Datensatz | Warnung unter 500 Hz (T/GXDSL 008); Warnung bei gemischten Raten ohne Dokumentation | §12 S.12 | v0.1 | in Arbeit | A-18, A-46 | P1: Rate je Aufnahme exakt aus dem Kopf, Warnung < 500 Hz, gemischte Raten ohne Begründung als Warnung; Sidecar-Vergleich in P2 |
 | M04 | Kanalsatz und Montage | Kanalnamen gegen 10-20/10-10; Positionen vorhanden; gleicher Kanalsatz je Aufgabe | Fehler bei unbekannten Namen ohne Abbildung | §12 S.12 | v0.1 | offen | A-18, A-46 | |
 | M05 | Impedanz | Werte vorhanden? Unter Schwelle? | Warnung über 5 kΩ nass (T/GXDSL 008); Warnung, wenn nicht dokumentiert | §12 S.12 | v0.1 | offen | A-04 | |
 | M06 | Schlechte Kanäle | pyprep NoisyChannels | kalibrieren | §12 S.12 | v0.1 | offen | D-04, A-19, A-20, A-44, A-60 | |
@@ -125,7 +125,7 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | M13 | Provenienz | SHA-256 je Datei, Verarbeitungsschritte, Softwareversionen | Fehler bei fehlendem Manifest im Modus `--strict` | §12 S.13 | v0.1 | offen | A-22 | |
 | M14 | Einwilligungsumfang | Nutzung im Split durch Einwilligung gedeckt? | Fehler (ab v0.2) | §12 S.13 | v0.2 | offen | A-30 | |
 | MET-01 | Schwellen ohne Quelle (M06, M07, M09) werden kalibriert: Startwert = 95. Perzentil über mindestens drei öffentliche Datensätze | Kalibrierlauf dokumentiert, Werte mit Herkunft im Regelpaket | §12 S.12 | v0.1 | offen | D-06, A-20 | |
-| MET-02 | Alle Schwellen sind in `neurogrid.toml` überschreibbar | Test je Schwelle | §12 S.12 | v0.1 | offen | A-13 | |
+| MET-02 | Alle Schwellen sind in `neurogrid.toml` überschreibbar | Test je Schwelle | §12 S.12 | v0.1 | in Arbeit | A-13 | P1: Meta-Test über alle Registry-Parameter (Ergebnis kippt) und alle eingebauten Regeln (Herkunft config) |
 
 ## E. Datenmodell (§10)
 
@@ -133,33 +133,33 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Objekt | Wichtigste Felder (PRD) | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
-| DM-01 | Dataset | id, name, version, quelle, lizenz, regelpakete[], manifest_hash | §10 S.9 | v0.1 | offen | D-03 | |
-| DM-02 | Subject | pseudo_id, alter_gruppe, geschlecht, diagnose_code (optional), consent_ref | §10 S.9 | v0.1 | offen | D-03, A-21 | |
-| DM-03 | Recording | id, subject, session, task, format, pfad, abtastrate_hz, dauer_s, geraet, elektrodentyp (nass/trocken), referenz, netzfrequenz_hz | §10 S.10 | v0.1 | offen | D-03, A-04 | |
-| DM-04 | Channel | name, typ (EEG/EOG/EMG/…), einheit, position (10-20/10-10), impedanz_kohm, status (gut/schlecht) | §10 S.10 | v0.1 | offen | D-03 | |
-| DM-05 | Annotation | onset_s, dauer_s, code, label, annotator_id, quelle | §10 S.10 | v0.1 | offen | D-03, A-17 | |
-| DM-06 | Split | name (train/val/test), recording_ids[] | §10 S.10 | v0.1 | offen | D-03 | |
-| DM-07 | ProcessingStep | schritt, werkzeug, version, parameter, eingabe_hash, ausgabe_hash | §10 S.10 | v0.1 | offen | D-03, A-22 | |
+| DM-01 | Dataset | id, name, version, quelle, lizenz, regelpakete[], manifest_hash | §10 S.9 | v0.1 | erfüllt | D-03 | `model/dataset.py` Dataset (+ is_bids); Abbildung in `docs/en| `model/dataset.py` Dataset (+ is_bids); Abbildung in `docs/en|zh/data-model.md`; tests/unit/test_data_model.py (P1) |
+| DM-02 | Subject | pseudo_id, alter_gruppe, geschlecht, diagnose_code (optional), consent_ref | §10 S.9 | v0.1 | erfüllt | D-03, A-21 | `Subject`; diagnosis_code und Rohalter nie serialisiert (Test); Abbildung in der Doku (P1) |
+| DM-03 | Recording | id, subject, session, task, format, pfad, abtastrate_hz, dauer_s, geraet, elektrodentyp (nass/trocken), referenz, netzfrequenz_hz | §10 S.10 | v0.1 | erfüllt | D-03, A-04 | `Recording` (+ run, streamable, metadata_sources); der EDF-Adapter liefert es (ARC-01, A-24); Test und Doku (P1) |
+| DM-04 | Channel | name, typ (EEG/EOG/EMG/…), einheit, position (10-20/10-10), impedanz_kohm, status (gut/schlecht) | §10 S.10 | v0.1 | erfüllt | D-03 | `Channel` (+ recording_id, resolution, physical_range, Rate je Kanal) aus dem Adapter; Test und Doku (P1) |
+| DM-05 | Annotation | onset_s, dauer_s, code, label, annotator_id, quelle | §10 S.10 | v0.1 | erfüllt | D-03, A-17 | `Annotation` (+ recording_id); Felder per Test und Doku; befüllt ab P4 (M10) (P1) |
+| DM-06 | Split | name (train/val/test), recording_ids[] | §10 S.10 | v0.1 | erfüllt | D-03 | `Split` (train/val/test); Felder per Test und Doku; befüllt ab P4 (M12) (P1) |
+| DM-07 | ProcessingStep | schritt, werkzeug, version, parameter, eingabe_hash, ausgabe_hash | §10 S.10 | v0.1 | erfüllt | D-03, A-22 | `ProcessingStep`; Felder per Test und Doku; befüllt ab P2/P4 (P1) |
 | DM-08 | ConsentScope | subject, version, datum, erlaubte_nutzungen{training, validierung, veroeffentlichung, weitergabe, kommerziell}, widerruf, ethikvotum_ref | §10 S.10 | v0.2 | offen | D-03 | |
 | DM-09 | AccessEvent | zeit, rolle, aktion, objekte[], zweck, genehmigung_ref, vorheriger_hash, hash | §10 S.10 | v0.2 | offen | D-03 | |
-| DM-10 | Finding | regel_id, klausel, schweregrad, status, messwert, schwelle, objekt, belege[] | §10 S.10 | v0.1 | offen | D-03, A-09 | |
+| DM-10 | Finding | regel_id, klausel, schweregrad, status, messwert, schwelle, objekt, belege[] | §10 S.10 | v0.1 | erfüllt | D-03, A-09 | `Finding` (details statt belege, D-03; + params mit Herkunft, key, Paket, Phase …); Test und Doku (P1) |
 
 ## F. Regelpakete und Klausel-Inventar (§11)
 
 | ID | Anforderung | Abnahme / Prüfung | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
-| RP-01 | Regelpaket-Format YAML: `rulepack`, `version`, `quelle`, `regeln[]` mit `id`, `klausel`, `titel_zh`, `titel_en`, `phase` (erfassung\|verarbeitung\|annotation\|speicherung\|zugriff), `pruefung`, `parameter`, `schweregrad` (fehler\|warnung\|hinweis), `nachweis` (automatisch\|halbautomatisch\|manuell) | Schema-Validierung aller Pakete | §11 S.10–11 | v0.1 | offen | D-03, A-13 | |
+| RP-01 | Regelpaket-Format YAML: `rulepack`, `version`, `quelle`, `regeln[]` mit `id`, `klausel`, `titel_zh`, `titel_en`, `phase` (erfassung\|verarbeitung\|annotation\|speicherung\|zugriff), `pruefung`, `parameter`, `schweregrad` (fehler\|warnung\|hinweis), `nachweis` (automatisch\|halbautomatisch\|manuell) | Schema-Validierung aller Pakete | §11 S.10–11 | v0.1 | erfüllt | D-03, A-13 | YAML-Format mit englischen Schlüsseln (D-03), `schemas/rulepack.schema.json`, Lader mit Registry-Abgleich; tests/unit/test_rulepack_config.py (P1) |
 | RP-02 | Jede Klausel der Norm wird eine YAML-Regel mit Klauselnummer, Phase, Prüfung und Schweregrad (Klausel-Inventar) | Inventar ↔ Regelpaket vollständig | §11 S.10–11 | v0.2 | blockiert (extern): Normtext YY/T 2029 | D-02 | |
 | RP-03 | Schweregrad aus Normsprache nach GB/T 1.1: 应/不应 → fehler, 宜 → warnung, 可 → hinweis | Inventar-Prüfung | §11 S.11 | v0.2 | blockiert (extern): Normtext | D-02 | |
-| RP-04 | Jede Regel einer der fünf Phasen zugeordnet | Schema-Pflichtfeld | §11 S.11 | v0.1 | offen | | |
-| RP-05 | Einstufung automatisch / halbautomatisch (Konfiguration oder Existenz eines Dokuments) / manuell (Nachweisdokument) | Schema-Pflichtfeld; Prüfer für halbautomatisch | §11 S.11 | v0.1 | offen | A-15 | |
+| RP-04 | Jede Regel einer der fünf Phasen zugeordnet | Schema-Pflichtfeld | §11 S.11 | v0.1 | erfüllt | | `phase` Pflichtfeld im strikten Schema; Paket ohne gültige Phase wird abgewiesen (Test) (P1) |
+| RP-05 | Einstufung automatisch / halbautomatisch (Konfiguration oder Existenz eines Dokuments) / manuell (Nachweisdokument) | Schema-Pflichtfeld; Prüfer für halbautomatisch | §11 S.11 | v0.1 | in Arbeit | A-15 | P1: `verification` Pflichtfeld im Schema; Prüfer für halbautomatische Nachweise in P4 (A-15, Abschluss) |
 | RP-06 | Nennt die Norm eine Prüfmethode (检验方法), wird sie genau so implementiert, und der Code verweist auf die Klausel | Code-Review | §11 S.11 | v0.2 | blockiert (extern): Normtext | D-02 | |
 | RP-07 | Abdeckungsmaß = Anteil der Muss-Klauseln, die automatisch oder halbautomatisch prüfbar sind; Ziel v0.2 ≥ 60 % | berechnet, im Bericht | §11 S.11 | v0.2 (Berechnung v0.1) | offen | A-16 | |
 | RP-08 | Liste „Auslegungsfragen“ für unsichere Auslegungen | Datei im Repo | §11 S.11 | v0.2 | blockiert (extern): Normtext | D-02 | |
 | RP-09 | Regelpaket `bids` | Paket lädt, Validator-Befunde | §6, §7 | v0.1 | offen | A-06 | |
 | RP-10 | Regelpaket `yyt2029` Version `0.2.0-draft`; Parameter sind Platzhalter, bis der Normtext gelesen ist (Beispielregel YYT2029-ACQ-001, Klausel 5.1.2, `signal.sampling_rate_consistency`, `min_hz: 500`) | Paket lädt; Platzhalter markiert | §11 S.10–11 | v0.2 | offen (Inhalt blockiert) | D-02, A-41 | |
 | RP-11 | Regelpaket `gbt47127` | siehe NG-F03 | §9 Abb., §13 | v0.2 | blockiert (extern): Normtext | D-02 | |
-| RP-12 | Regelpakete werden versioniert (Gegenmaßnahme „neue Normen“) | Version in jedem Paket und im JSON | §20 S.21 | Q | offen | | |
+| RP-12 | Regelpakete werden versioniert (Gegenmaßnahme „neue Normen“) | Version in jedem Paket und im JSON | §20 S.21 | Q | erfüllt | | `version` Pflichtfeld je Paket; Version und SHA-256 über die Dateibytes in results.json und auf dem Deckblatt (P1) |
 | GX-00 | Regelpaket `gxdsl008`: Startwerte aus T/GXDSL 008-2025 (Guangxi, 18.3.2025), bis der YY/T-Normtext vorliegt | Paket lädt, je Regel Positiv-/Negativtest | §11 S.11 | v0.1 | offen (Normtext T/GXDSL nicht zugänglich) | D-02, A-40 | |
 | GX-01 | gxdsl008: Impedanz unter 5 kΩ bei nassen Elektroden | Regel + Tests | §11 S.11 | v0.1 | offen | A-40 | |
 | GX-02 | gxdsl008: Abtastrate mindestens 500 Hz empfohlen | Regel + Tests | §11 S.11 | v0.1 | offen | A-40 | |
@@ -173,11 +173,11 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Befehl | Zweck | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
-| CLI-01 | `neurogrid scan PFAD` | Bestandsaufnahme: Formate, Probanden, Aufnahmen, Größen | §13 S.14 | v0.1 | offen | A-31 | |
+| CLI-01 | `neurogrid scan PFAD` | Bestandsaufnahme: Formate, Probanden, Aufnahmen, Größen | §13 S.14 | v0.1 | in Arbeit | A-31 | P1: `scan` mit Formaten, Probanden (BIDS), Aufnahmen, Größen, nicht unterstützten Dateien, Namenshinweis |
 | CLI-02 | `neurogrid convert PFAD --to bids --out ZIEL` | Konvertierung | §13 S.14 | v0.1 | offen | A-05 | |
-| CLI-03 | `neurogrid check PFAD --rulepack yyt2029 --rulepack bids --config neurogrid.toml --out results.json` | Prüfung | §13 S.14 | v0.1 | offen | A-03, A-31 | |
+| CLI-03 | `neurogrid check PFAD --rulepack yyt2029 --rulepack bids --config neurogrid.toml --out results.json` | Prüfung | §13 S.14 | v0.1 | in Arbeit | A-03, A-31 | P1: `check` mit --rulepack/--config/--out/--strict/--as-of/--allow-draft-rulepacks/--show-paths |
 | CLI-04 | Modus `--strict` (fehlendes Manifest = Fehler) | M13 | §12 S.13 | v0.1 | offen | A-22 | |
-| CLI-05 | `neurogrid report results.json --lang zh,en --format html,pdf` | Bericht | §13 S.14 | v0.1 | offen | A-08 | |
+| CLI-05 | `neurogrid report results.json --lang zh,en --format html,pdf` | Bericht | §13 S.14 | v0.1 | in Arbeit | A-08 | P1: `report` HTML zh/en mit Kommalisten; PDF in P5 |
 | CLI-06 | `neurogrid manifest PFAD` / `neurogrid verify PFAD --manifest manifest.json` | Provenienz | §13 S.14 | v0.1 | offen | A-22 | |
 | CLI-07 | `neurogrid diff alt.json neu.json` | Versionsvergleich | §13 S.14 | v1.0 | offen | D-01, A-33 | |
 | CLI-08 | `neurogrid vault init` / `consent add` / `log` / `export` | NeuroVault | §13 S.14 | v0.2/v1.0 | offen | A-30 | |
@@ -190,7 +190,7 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | REP-00 | Bericht so gebaut, dass eine RA-Leiterin ihn ohne Nacharbeit in die Registrierungsunterlagen legen kann | §14 S.14 | v0.1 | offen | A-08 | |
 | REP-01 | Deckblatt: Datensatz und Version, Regelpakete mit Versionen, Datum, Werkzeugversion, Manifest-Hash | §14 S.14 | v0.1 | offen | A-08, A-11 | |
 | REP-02 | Zusammenfassung: je Phase (Erfassung, Verarbeitung, Annotation, Speicherung, Zugriff) eine Ampel, Zahl der Fehler und Warnungen, Abdeckungsmaß | §14 S.14 | v0.1 | offen | A-16 | |
-| REP-03 | Befunde nach Schweregrad, jeweils mit Klausel, Messwert, Schwelle, Datei und Zeitbereich | §14 S.14 | v0.1 | offen | A-09, A-10 | |
+| REP-03 | Befunde nach Schweregrad, jeweils mit Klausel, Messwert, Schwelle, Datei und Zeitbereich | §14 S.14 | v0.1 | in Arbeit | A-09, A-10 | P1: Befunde nach Schweregrad mit Klausel, Messwert, Schwelle, Datei, Zeitbereich; Platzhalter-Befunde getrennt |
 | REP-04 | Metriken je Aufnahme als Tabelle und kleine Verteilungsgrafiken | §14 S.14 | v0.1 | offen | A-08 | |
 | REP-05 | Manuelle Nachweise mit Status und Dokumentverweis | §14 S.14 | v0.2 (Abschnitt ab v0.1) | offen | A-15 | |
 | REP-06 | Anhang: Konfiguration und begründete Ausnahmen | §14 S.14 | v0.1 | offen | A-14 | |
@@ -203,9 +203,9 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Anforderung | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|
-| ARC-01 | Fünf Stufen: Datensatz → Adapter/Datenmodell → Prüfer (Struktur, Metadaten, Signal, Annotation, KI-Struktur, Provenienz, Einwilligung) → Regelmotor → Ausgabe (JSON, Bericht HTML/PDF zh/en, Exitcode); Zulieferer BIDS-Validator, NeuroVault, Regelpakete | §9 S.8 Abb. | v0.1 | offen | | |
-| ARC-02 | Prüfer liefern Messwerte, der Regelmotor bewertet sie gegen die Regelpakete; ein Befund je Regel, mit Klausel und Beleg | §9 S.9 Abb. | v0.1 | offen | A-02, A-09 | |
-| ARC-03 | Internes Paket `kernel`: Regelmotor, Belege, Bericht, Provenienz, Sprachtabellen zh/en/de; geteilt mit Proof und RegOps; „was ein zweites Produkt braucht, wandert in den Kern“ | §1 S.1, §9 | v0.1 | offen | A-07, A-23 | |
+| ARC-01 | Fünf Stufen: Datensatz → Adapter/Datenmodell → Prüfer (Struktur, Metadaten, Signal, Annotation, KI-Struktur, Provenienz, Einwilligung) → Regelmotor → Ausgabe (JSON, Bericht HTML/PDF zh/en, Exitcode); Zulieferer BIDS-Validator, NeuroVault, Regelpakete | §9 S.8 Abb. | v0.1 | in Arbeit | | P1: Datensatz → Adapter/Datenmodell → Prüfer → Regelmotor → Ausgabe verdrahtet; Validator in P2, NeuroVault in P6 (Abschluss) |
+| ARC-02 | Prüfer liefern Messwerte, der Regelmotor bewertet sie gegen die Regelpakete; ein Befund je Regel, mit Klausel und Beleg | §9 S.9 Abb. | v0.1 | erfüllt | A-02, A-09 | Prüfer liefern nur `Measurement`, allein `kernel/engine.py` bewertet; ein Befund je Regel × Objekt × Unterschlüssel; tests/unit/test_engine.py (P1) |
+| ARC-03 | Internes Paket `kernel`: Regelmotor, Belege, Bericht, Provenienz, Sprachtabellen zh/en/de; geteilt mit Proof und RegOps; „was ein zweites Produkt braucht, wandert in den Kern“ | §1 S.1, §9 | v0.1 | erfüllt | A-07, A-23 | Paket `neurogrid.kernel` (Regelmotor, Befunde, Bericht, Provenienz, Sprachtabellen zh/en/de); AST-Test der Importgrenze inkl. relativer Importe; mypy --strict (P1) |
 | ARC-04 | Adapter wiederverwendbar (RehabLoop nutzt die NeuroGrid-Adapter für Gerätelogs im Format GB/T 47127-2026) | §1 S.1 | v0.1 (GB/T-Adapter v0.2) | offen | A-24 | |
 | ARC-05 | Entwickler- und Compliance-Werkzeug, kein Medizinprodukt: keine Aussage über Patienten | §2 S.2 | Q | offen | | |
 | ARC-06 | Läuft beim Kunden, offline: keine Daten verlassen den Rechner | §9 Abb., §22 | Q | offen | A-25 | |
@@ -217,31 +217,31 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | LIB-06 | autoreject 0.5.1 (BSD-3): Verwerfungsrate je Epoche | §9 S.9 | v0.1 | offen | A-19 | |
 | LIB-07 | mne-icalabel 0.10.0 (BSD-3): Anteil nicht-hirnbedingter ICA-Komponenten | §9 S.9 | v0.1 | offen | A-19 | |
 | LIB-08 | edfio 0.4.18 (Apache-2.0) / pyEDFlib 0.1.42 (BSD): EDF-Kopfzeilen prüfen | §9 S.9 | v0.1 | offen | A-24 (edfio; pyEDFlib nicht verwendet) | |
-| LIB-09 | EEGDash 0.9.1 (BSD-3): Katalog öffentlicher BIDS-Datensätze als Testkorpus | §9 S.9 | v0.1 | offen (Abweichung beantragt, E4) | A-29, E4 | |
-| LIB-10 | NWB Inspector 0.7.2 (BSD): Vorbild für Schweregrade und Prüfer-Aufbau (keine Abhängigkeit) | §9 S.9 | v0.1 | offen | A-09 | |
+| LIB-09 | EEGDash 0.9.1 (BSD-3): Katalog öffentlicher BIDS-Datensätze als Testkorpus | §9 S.9 | v0.1 | bewusst abgewichen (D-11: Korpus über OpenNeuro-API) | A-29, D-11 | |
+| LIB-10 | NWB Inspector 0.7.2 (BSD): Vorbild für Schweregrade und Prüfer-Aufbau (keine Abhängigkeit) | §9 S.9 | v0.1 | erfüllt | A-09 | Schweregrade error/warning/info nach NWB Inspector (CRITICAL/BEST_PRACTICE_*), Prüfer als Registry; Docstring `kernel/findings.py`; keine Abhängigkeit (P1) |
 
 ## J. Technischer Standard und Repository (§13, §22)
 
 | ID | Anforderung | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|
-| TECH-01 | Repository-Aufbau nach §13: `pyproject.toml`; `src/neurogrid/` mit `cli.py`, `io/` (edf, bdf, brainvision, eeglab, fif, gbt47127), `model/` (dataset, consent, results), `checks/` (structure, metadata, signal, annotation, ai_dataset, provenance, consent), `rulepacks/` (bids, gxdsl008, yyt2029, gbt47127 .yaml), `vault/` (ledger, roles, pia), `report/` (templates/, i18n/zh.yaml, i18n/en.yaml); `tests/` (fixtures/ mit kleinen synthetischen EDFs, test_*.py); `docs/` (zh/, en/) | §13 S.13 | v0.1 | offen | A-23 | |
-| TECH-02 | Python 3.12 als Entwicklungsstandard; uv | §13 S.14 | v0.1 | offen | D-06 | |
-| TECH-03 | Typer (CLI), Pydantic v2 (Modelle) | §13 S.14 | v0.1 | offen | | |
-| TECH-04 | pytest, ruff, mypy streng für `kernel` | §13 S.14 | v0.1 | offen | A-23 | |
-| TECH-05 | GitHub Actions: Windows und Linux, Python 3.11–3.13 | §13 S.14 | v0.1 | offen | D-05, D-07, E2 | |
+| TECH-01 | Repository-Aufbau nach §13: `pyproject.toml`; `src/neurogrid/` mit `cli.py`, `io/` (edf, bdf, brainvision, eeglab, fif, gbt47127), `model/` (dataset, consent, results), `checks/` (structure, metadata, signal, annotation, ai_dataset, provenance, consent), `rulepacks/` (bids, gxdsl008, yyt2029, gbt47127 .yaml), `vault/` (ledger, roles, pia), `report/` (templates/, i18n/zh.yaml, i18n/en.yaml); `tests/` (fixtures/ mit kleinen synthetischen EDFs, test_*.py); `docs/` (zh/, en/) | §13 S.13 | v0.1 | in Arbeit | A-23 | P1: Gerüst nach §13 (cli, io/edf, model/dataset+results, checks/structure+signal, rulepacks/core, kernel, report, schemas, tools); Abschluss P12 |
+| TECH-02 | Python 3.12 als Entwicklungsstandard; uv | §13 S.14 | v0.1 | erfüllt | D-06 | `.python-version` 3.12, Entwicklung in `.venv` (3.12.15); `uv lock --check` und `uv sync --locked --no-build` mit uv 0.13.0 (P1) |
+| TECH-03 | Typer (CLI), Pydantic v2 (Modelle) | §13 S.14 | v0.1 | erfüllt | | Typer 0.27.3 (`cli.py`), Pydantic 2.14 strikt (Modelle; Schemas aus Pydantic erzeugt); tests/cli, tests/unit (P1) |
+| TECH-04 | pytest, ruff, mypy streng für `kernel` | §13 S.14 | v0.1 | erfüllt | A-23 | pytest 347 bestanden unter 3.11/3.12/3.13; `ruff check`/`ruff format --check` sauber; `mypy --strict src/neurogrid/kernel` ohne Befund (P1) |
+| TECH-05 | GitHub Actions: Windows und Linux, Python 3.11–3.13 | §13 S.14 | v0.1 | in Arbeit | D-05, D-07, D-09 | P1: `ci.yml` (Windows/Linux × 3.11–3.13); lokal 3.11/3.12/3.13 grün; Lauf erst nach Push (D-09) |
 | TECH-06 | Dokumentation mit MkDocs, zh/en | §13 S.14 | v0.1 | offen | A-28 | |
-| TECH-07 | Berichte über Jinja2 und Playwright mit Noto-CJK | §13 S.14 | v0.1 | offen | A-26, A-27, A-26, A-27, E1 | |
+| TECH-07 | Berichte über Jinja2 und Playwright mit Noto-CJK | §13 S.14 | v0.1 | offen | A-26, A-27, A-26, A-27, D-08 | |
 | TECH-08 | Gitee-Spiegel für China | §13 S.14 | v0.1 | offen (Konto des Nutzers nötig) | D-07 (Konto des Projektverantwortlichen) | |
-| TECH-09 | Pfade nur über `pathlib` | §13 S.14 | Q | offen | | |
-| TECH-10 | Lizenzen: Code Apache-2.0; Dokumentation und Beispieldaten CC BY 4.0 | §22 S.22, §2 | v0.1 | offen | A-38, A-27, A-56 | |
-| TECH-11 | Repository `neurogrid` nach §13 angelegt, Apache-2.0, CI aktiv | §1 S.1 | v0.1 | offen (GitHub-Zugang fehlt) | D-07, E2 | |
-| TECH-12 | Jede Arbeitskarte (Commit, Fortschrittseintrag) trägt die Anforderungs-ID | §7 S.5 | Q | offen | A-43 | |
+| TECH-09 | Pfade nur über `pathlib` | §13 S.14 | Q | erfüllt | | ruff-Regeln PTH und PLW1514 aktiv, `ruff check .` sauber (P1) |
+| TECH-10 | Lizenzen: Code Apache-2.0; Dokumentation und Beispieldaten CC BY 4.0 | §22 S.22, §2 | v0.1 | in Arbeit | A-38, A-27, A-56 | P1: LICENSE Apache-2.0, NOTICE, REUSE.toml (Code Apache-2.0; Doku und Fixtures CC BY 4.0) |
+| TECH-11 | Repository `neurogrid` nach §13 angelegt, Apache-2.0, CI aktiv | §1 S.1 | v0.1 | teilweise | D-07, D-09 | Repository lokal nach §13, Apache-2.0, `.github/workflows/ci.yml`; CI erst nach Push auf GitHub aktiv (Repo-URL fehlt, D-09) – nicht verifiziert |
+| TECH-12 | Jede Arbeitskarte (Commit, Fortschrittseintrag) trägt die Anforderungs-ID | §7 S.5 | Q | erfüllt | A-43 | `tools/check_commit_ids.py` + CI-Job prüfen Commits ab dem Konzept-Commit und FORTSCHRITT-Phaseneinträge; P1-Commit und -Eintrag mit IDs, lokal grün (P1) |
 
 ## K. Rahmenbedingungen mit Software-Bezug (§20, §22)
 
 | ID | Anforderung | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|
-| CON-01 | Keine GPL-Software im Kern (ausdrücklich nicht MetaBCI GPL-2.0, nicht OpenViBE AGPL) | §22 S.22 | Q | offen | D-05 | |
+| CON-01 | Keine GPL-Software im Kern (ausdrücklich nicht MetaBCI GPL-2.0, nicht OpenViBE AGPL) | §22 S.22 | Q | in Arbeit | D-05 | P1: keine GPL im Kern; Copyleft-Sperre im Lizenz-Gate grün |
 | CON-02 | Das Werkzeug darf sensible Daten nie selbst exportieren (PIPL, grenzüberschreitende Übermittlung) | §22 S.22 | Q | offen | A-25, A-30, A-34 | |
 | CON-03 | Entwicklung nur mit öffentlichen Datensätzen (OpenNeuro, EEGDash, MOABB); nie identifizierbare Patientendaten | §22 S.22 | Q | offen | D-06, A-29 | |
 | CON-04 | Beim Kunden läuft alles lokal; Daten verlassen das Haus nicht (auch Zusage der Kontaktnachricht §18) | §22 S.22, §18, §20 | Q | offen | A-25, A-49 | |

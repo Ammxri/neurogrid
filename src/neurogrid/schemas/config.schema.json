@@ -1,0 +1,556 @@
+{
+  "$defs": {
+    "AISection": {
+      "additionalProperties": false,
+      "properties": {
+        "labels": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Labels"
+        },
+        "splits": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Splits"
+        }
+      },
+      "title": "AISection",
+      "type": "object"
+    },
+    "AnnotationSection": {
+      "additionalProperties": false,
+      "properties": {
+        "epoch_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Epoch S"
+        },
+        "mode": {
+          "default": "events",
+          "enum": [
+            "continuous",
+            "events"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "vocabulary": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vocabulary"
+        }
+      },
+      "title": "AnnotationSection",
+      "type": "object"
+    },
+    "CheckSection": {
+      "additionalProperties": false,
+      "properties": {
+        "as_of": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "As Of"
+        },
+        "rulepacks": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rulepacks"
+        },
+        "seed": {
+          "default": 20261011,
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "strict": {
+          "default": false,
+          "title": "Strict",
+          "type": "boolean"
+        }
+      },
+      "title": "CheckSection",
+      "type": "object"
+    },
+    "ConsentSection": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_uses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Dataset Uses",
+          "type": "array"
+        },
+        "split_use": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Split Use",
+          "type": "object"
+        }
+      },
+      "title": "ConsentSection",
+      "type": "object"
+    },
+    "ConvertSection": {
+      "additionalProperties": false,
+      "properties": {
+        "pattern": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pattern"
+        }
+      },
+      "title": "ConvertSection",
+      "type": "object"
+    },
+    "DatasetSection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "title": "DatasetSection",
+      "type": "object"
+    },
+    "ExceptionEntry": {
+      "additionalProperties": false,
+      "description": "A justified exception from neurogrid.toml (NG-F18, A-14).\n\n``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well.",
+      "properties": {
+        "approved_by": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "title": "Reason",
+          "type": "string"
+        },
+        "rule": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Rule",
+          "type": "string"
+        },
+        "subkey": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkey"
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid Until"
+        }
+      },
+      "required": [
+        "rule",
+        "reason"
+      ],
+      "title": "ExceptionEntry",
+      "type": "object"
+    },
+    "MetadataDefaults": {
+      "additionalProperties": false,
+      "properties": {
+        "device": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Device"
+        },
+        "electrode_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "wet",
+                "dry"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Electrode Type"
+        },
+        "line_frequency_hz": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line Frequency Hz"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reference"
+        }
+      },
+      "title": "MetadataDefaults",
+      "type": "object"
+    },
+    "MetadataSection": {
+      "additionalProperties": false,
+      "properties": {
+        "defaults": {
+          "$ref": "#/$defs/MetadataDefaults"
+        },
+        "mixed_sampling_rates_reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mixed Sampling Rates Reason"
+        }
+      },
+      "title": "MetadataSection",
+      "type": "object"
+    },
+    "RuleOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "params": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Params",
+          "type": "object"
+        }
+      },
+      "title": "RuleOverride",
+      "type": "object"
+    },
+    "SamplingSection": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "default": "sample",
+          "enum": [
+            "sample",
+            "full"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "segment_s": {
+          "default": 60.0,
+          "exclusiveMinimum": 0,
+          "maximum": 3600,
+          "title": "Segment S",
+          "type": "number"
+        },
+        "segments": {
+          "default": 10,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Segments",
+          "type": "integer"
+        }
+      },
+      "title": "SamplingSection",
+      "type": "object"
+    },
+    "VaultSection": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_ref": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approval Ref"
+        },
+        "path": {
+          "default": ".neurogrid/vault",
+          "title": "Path",
+          "type": "string"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        }
+      },
+      "title": "VaultSection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "ai": {
+      "$ref": "#/$defs/AISection"
+    },
+    "annotation": {
+      "$ref": "#/$defs/AnnotationSection"
+    },
+    "check": {
+      "$ref": "#/$defs/CheckSection"
+    },
+    "consent": {
+      "$ref": "#/$defs/ConsentSection"
+    },
+    "convert": {
+      "$ref": "#/$defs/ConvertSection"
+    },
+    "dataset": {
+      "$ref": "#/$defs/DatasetSection"
+    },
+    "exceptions": {
+      "items": {
+        "$ref": "#/$defs/ExceptionEntry"
+      },
+      "title": "Exceptions",
+      "type": "array"
+    },
+    "metadata": {
+      "$ref": "#/$defs/MetadataSection"
+    },
+    "rules": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RuleOverride"
+      },
+      "title": "Rules",
+      "type": "object"
+    },
+    "sampling": {
+      "$ref": "#/$defs/SamplingSection"
+    },
+    "vault": {
+      "$ref": "#/$defs/VaultSection"
+    }
+  },
+  "title": "Config",
+  "type": "object"
+}

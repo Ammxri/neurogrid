@@ -1,0 +1,269 @@
+# NeuroGrid 语言表 – 中文（简体）。所有键必须与 en.yaml、de.yaml 一致。
+# 本文件为开发者翻译，发布 v0.1 前须由母语人士审校（A-07）。
+disclaimer: "使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。"
+
+cli:
+  scan:
+    title: "数据清点"
+    bids: "BIDS 数据集"
+    "yes": "是"
+    "no": "否"
+    formats: "格式"
+    recordings: "记录"
+    unsupported: "不支持的数据文件"
+    other: "其他文件"
+    links: "已跳过的链接（未跟随）"
+    subjects: "受试者"
+    subjects_unknown: "未知（原始文件夹，无映射）"
+    names_hint: "提示：{count} 个数据文件路径含有非 ASCII 字母或连续六位以上数字，可能可识别个人身份。"
+    unreadable: "无法读取的条目（未检查）"
+    size: "总大小"
+    written: "清点结果已写入 {path}"
+  check:
+    passes: "该数据集通过了已加载规则包（{packs}）的各项检查。"
+    fails: "该数据集未通过已加载规则包（{packs}）的全部检查。"
+    counts: "{errors} 个错误，{warnings} 个警告"
+    written: "结果已写入 {path}"
+    placeholder: "已加载占位规则包。其结果并非依据标准原文，不计入统计。"
+  report:
+    written: "报告已写入 {path}"
+  error:
+    prefix: "错误"
+    internal: "内部错误（{type}）。请加 --debug 重新运行以查看详情。"
+    usage: "命令行无效：{problem}"
+  warning:
+    library: "提示：某个库发出了警告（{type}）；结果不受影响。"
+
+errors:
+  yaml:
+    alias: "不允许使用 YAML 别名（第 {line} 行）。"
+    duplicate_key: "键 '{name}' 重复（第 {line} 行）。"
+    syntax: "YAML 语法错误（第 {line} 行）。"
+    too_large: "文件过大（上限 {limit} 字节）。"
+    too_deep: "文件嵌套层级过深（上限 {limit}）。"
+  path:
+    invalid: "路径无效。"
+    absolute: "此处只允许相对路径。"
+    colon: "此处不允许含 ':' 的路径（盘符、数据流）。"
+    parent: "不允许包含 '..' 的路径。"
+    trailing: "路径各级不得以空格或句点结尾。"
+    reserved: "路径中不允许使用保留设备名。"
+    link: "不跟随链接和目录联接。"
+    outside: "该路径指向数据集之外。"
+    unc: "不允许网络路径（UNC）；NeuroGrid 离线运行。"
+    device: "不允许使用设备和命名空间路径（\\\\?\\、\\\\.\\、\\??\\）。"
+  file:
+    too_large: "文件过大（上限 {limit} 字节）。"
+    encoding: "文件不是 UTF-8 文本。"
+  rulepack:
+    not_mapping: "规则包必须是 YAML 映射。"
+    invalid: "规则包无效：字段 '{field}'（{problem}）。"
+    duplicate_rule: "规则编号 {rule} 出现多次。"
+    duplicate_pack: "规则包 {rulepack} 被重复加载。"
+    unknown_check: "规则 {rule} 使用了未知检查项 '{check}'。"
+    manual_needs_evidence: "人工规则 {rule} 必须使用检查项 'evidence.document'。"
+    unknown_param: "规则 {rule} 设置了未知参数 '{param}'。"
+    param_type: "规则 {rule}：参数 '{param}' 类型错误。"
+    not_found: "未找到规则包 '{rulepack}'。"
+    placeholder_needs_flag: "规则包 {rulepack} 为占位版本（并非依据标准原文）。仅可在使用 --allow-draft-rulepacks 时加载。"
+    encoding: "规则包不是 UTF-8 文本。"
+  config:
+    invalid: "配置无效：字段 '{field}'（{problem}）。"
+    syntax: "配置语法错误：{problem}。"
+    too_large: "配置文件过大。"
+    not_found: "未找到配置文件。"
+    unknown_param: "配置：规则 {rule} 没有参数 '{param}'。"
+    param_type: "配置：规则 {rule} 的参数 '{param}' 类型错误。"
+    encoding: "配置文件不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
+    unsafe_path: "配置：字段 '{field}' 必须是项目内的相对路径（不得含 '..'、盘符、网络或设备路径）。"
+    too_deep: "配置文件嵌套层级过深。"
+  input:
+    not_found: "未找到输入路径。"
+    unknown_format: "未知或不支持的格式：{file}。支持的格式：{known}。"
+    results_invalid: "该文件不是有效的 NeuroGrid 结果文件。"
+    bad_date: "日期无效；格式应为 YYYY-MM-DD。"
+  i18n:
+    invalid_table: "语言表 {language} 无效。"
+    unknown_language: "未知语言 '{language}'。可用：zh、en。"
+    empty: "未指定语言。可用：zh、en。"
+  report:
+    format_unavailable: "本版本不提供输出格式 '{format}'。"
+  output:
+    is_directory: "输出路径是文件夹；请给出文件名。"
+    not_writable: "无法在该位置写入输出（文件夹不存在、存在同名文件或没有权限）。"
+
+notice:
+  override_unused: "配置为未加载的规则 {rule} 设置了参数。"
+  exception_expired: "规则 {rule} 的例外已于 {valid_until} 过期，未予应用。"
+  exception_unused: "规则 {rule} 的例外未匹配任何结果。"
+  names_look_identifying: "{count} 个数据文件路径含有非 ASCII 字母或连续六位以上数字，可能可识别个人身份。请检查文件名。"
+  links_skipped: "数据集中有 {count} 个链接或目录联接未被跟随；其内容未被检查。"
+
+severity:
+  error: "错误"
+  warning: "警告"
+  info: "提示"
+
+status:
+  passed: "通过"
+  failed: "未通过"
+  excepted: "例外（已说明理由）"
+  not_applicable: "不适用"
+  not_checkable: "无法检查"
+  evidence_open: "证明材料待补"
+
+phase:
+  acquisition: "采集"
+  processing: "处理"
+  annotation: "标注"
+  storage: "存储"
+  access: "访问"
+
+light:
+  red: "红"
+  yellow: "黄"
+  green: "绿"
+  grey: "灰"
+  legend: "红：至少一条错误级规则未通过。黄：至少一条警告级规则未通过。绿：已加载规则包中没有未通过的错误级或警告级规则。灰：该阶段没有规则。"
+
+reason:
+  read:
+    failed: "无法读取数据。"
+    unlistable: "无法读取该文件夹；其内容未被检查。"
+  dataset:
+    no_readable_recording: "数据集中没有可读取的记录。"
+  format:
+    unsupported: "NeuroGrid 无法读取该格式的数据文件。"
+  header:
+    unreadable: "无法读取文件头。"
+  signal:
+    no_eeg_channels: "未找到脑电通道。"
+    rate_unknown: "文件头未给出有效的采样率。"
+  evidence:
+    missing: "没有证明材料条目。"
+    open: "证明材料标记为待补。"
+    partial: "证明材料仅部分提供。"
+    not_applicable: "标记为不适用（附理由）。"
+    no_document: "未引用文件。"
+    document_missing: "未找到所引用的文件。"
+    hash_mismatch: "文件自记录哈希值后已被修改。"
+  value:
+    non_finite: "测量值不是有限数值。"
+
+issue:
+  header:
+    non_ascii: "文件头含有非 ASCII 字符。"
+    number_field: "文件头中的数值字段无法解析。"
+    digital_range: "数字最小值不小于数字最大值。"
+    physical_range: "物理最小值等于物理最大值。"
+    samples_per_record: "每个数据记录的采样点数必须为正。"
+    size_field: "文件头长度字段与信号数量不一致。"
+    record_duration: "数据记录时长无效。"
+    records_unknown: "数据记录数未知或无效。"
+    file_truncated: "文件长度小于文件头所声明的长度（已截断）。"
+    file_trailing_data: "文件长度大于文件头所声明的长度。"
+    startdate: "起始日期字段格式错误。"
+    edfio_rejected: "edfio 拒绝该文件头。"
+    too_short: "文件过短，无法包含文件头。"
+    bad_version: "不是 EDF/BDF 文件（版本字段）。"
+    bad_signal_count: "信号数量无效。"
+    io_error: "无法打开文件。"
+    unreadable: "无法读取文件头。"
+  fields:
+    patient: "受试者字段"
+    recording: "记录字段"
+    date: "记录日期"
+
+check:
+  structure:
+    readable: "数据可读取（MNE）"
+    header_consistent: "文件头一致"
+    supported_format: "格式受支持"
+    identifying_header: "文件头不含身份信息"
+  signal:
+    sampling_rate_min: "采样率"
+    sampling_rate_uniform: "采样率统一"
+    sampling_rate_consistency: "采样率已记录且一致"
+  evidence:
+    document: "证明文件"
+
+report:
+  title: "NeuroGrid 预检报告"
+  placeholder_banner: "本报告包含标记为占位的规则包。其规则并非依据标准原文，显示时不附条款号，且不计入统计。"
+  section:
+    cover: "1 封面"
+    summary: "2 摘要"
+    findings: "3 按严重程度排列的结果"
+    metrics: "4 各记录指标"
+    evidence: "5 人工证明材料"
+    appendix: "6 附录"
+  label:
+    dataset: "数据集"
+    dataset_id: "数据集编号"
+    version: "版本"
+    license: "许可"
+    rulepacks: "规则包"
+    source_status: "来源状态"
+    date: "日期"
+    tool_version: "工具版本"
+    manifest_hash: "清单哈希值"
+    phase: "阶段"
+    light: "信号灯"
+    errors: "错误"
+    warnings: "警告"
+    open_evidence: "待补证明"
+    coverage: "覆盖率"
+    rule: "规则"
+    clause: "条款"
+    title: "检查项"
+    status: "状态"
+    file: "文件"
+    measured: "测量值"
+    threshold: "阈值"
+    time_range: "时间范围"
+    reason: "原因"
+    recording: "记录"
+    format: "格式"
+    sampling_rate: "采样率（Hz）"
+    duration: "时长（秒）"
+    channels: "通道（脑电）"
+    passed_checks: "已通过的检查"
+    effective_params: "生效阈值"
+    origin: "来源"
+    exceptions: "已说明理由的例外"
+    exception_reason: "理由"
+    approved_by: "批准人"
+    valid_until: "有效期至"
+    used: "已应用"
+    notices: "说明"
+    configuration: "配置"
+    parameter: "参数"
+    disclaimer: "声明"
+    placeholder_findings: "占位规则（未评价，不计入统计）"
+  value:
+    none: "–"
+    whole_recording: "整段记录"
+    dataset_level: "数据集"
+    not_applicable_value: "–（该规则不测量数值）"
+    "yes": "是"
+    "no": "否"
+    na: "不适用"
+    placeholder_clause: "占位 – 并非出自标准原文"
+    placeholder_status: "未评价（占位规则）"
+    evidence_provided: "已提交证明材料（用户声明，NeuroGrid 未作评价）"
+  text:
+    no_findings: "没有此类严重程度的结果。"
+    no_recordings: "没有记录。"
+    no_manual_rules: "已加载的规则包不含人工规则。"
+    no_exceptions: "未配置例外。"
+    no_notices: "没有说明。"
+    overall_passes: "该数据集通过了已加载规则包的各项检查。"
+    overall_fails: "该数据集未通过已加载规则包的全部检查。"
+    origin_check: "检查项默认值"
+    origin_rulepack: "规则包"
+    origin_config: "neurogrid.toml"
+  measure:
+    documented: "已说明"
+    rate_hz: "采样率（Hz）"
+    rates_hz: "采样率（Hz）"
+    uniform: "一致"

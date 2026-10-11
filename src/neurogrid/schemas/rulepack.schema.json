@@ -1,0 +1,166 @@
+{
+  "$defs": {
+    "Phase": {
+      "enum": [
+        "acquisition",
+        "processing",
+        "annotation",
+        "storage",
+        "access"
+      ],
+      "title": "Phase",
+      "type": "string"
+    },
+    "Rule": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "maxLength": 80,
+          "pattern": "^[a-z0-9_]+(\\.[a-z0-9_]+)+$",
+          "title": "Check",
+          "type": "string"
+        },
+        "clause": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Clause",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 64,
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Params",
+          "type": "object"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "title_en": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title En",
+          "type": "string"
+        },
+        "title_zh": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Title Zh",
+          "type": "string"
+        },
+        "verification": {
+          "$ref": "#/$defs/Verification"
+        }
+      },
+      "required": [
+        "id",
+        "clause",
+        "title_zh",
+        "title_en",
+        "phase",
+        "check",
+        "severity",
+        "verification"
+      ],
+      "title": "Rule",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "SourceStatus": {
+      "description": "Where the rules of a pack come from (A-41).",
+      "enum": [
+        "placeholder",
+        "secondary",
+        "inventory",
+        "final"
+      ],
+      "title": "SourceStatus",
+      "type": "string"
+    },
+    "Verification": {
+      "enum": [
+        "automatic",
+        "semi_automatic",
+        "manual"
+      ],
+      "title": "Verification",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "norm": {
+      "default": false,
+      "title": "Norm",
+      "type": "boolean"
+    },
+    "rulepack": {
+      "maxLength": 40,
+      "pattern": "^[a-z0-9_]+$",
+      "title": "Rulepack",
+      "type": "string"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/Rule"
+      },
+      "minItems": 1,
+      "title": "Rules",
+      "type": "array"
+    },
+    "source": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    },
+    "source_status": {
+      "$ref": "#/$defs/SourceStatus"
+    },
+    "version": {
+      "maxLength": 40,
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "rulepack",
+    "version",
+    "source",
+    "source_status",
+    "rules"
+  ],
+  "title": "Rulepack",
+  "type": "object"
+}

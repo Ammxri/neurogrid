@@ -1,0 +1,29 @@
+# Words and phrases NeuroGrid must never use about a dataset (POS-01, A-57).
+# NeuroGrid says "passes the checks of the loaded rule packs", never "conforms". The fixed disclaimer
+# sentence (key 'disclaimer') and the negations under 'allowed' are the only exceptions.
+# Patterns are Python regular expressions; 'allowed' entries are exact phrases removed before scanning.
+allowed:
+  - "not a conformity assessment"
+  - "conformity is assessed by test institutes and the NMPA"
+  - "performs no conformity assessment"
+zh:
+  - "符合.{0,12}要求"
+  - "合格"
+  - "认证"
+  - "达标"
+  - "合规"
+  - "通过\\s*(YY/T|GB/T|ISO)"
+  - "防篡改"
+en:
+  - "(?i)\\bconform(s|ity|ant|ing)?\\b"
+  - "(?i)\\bcompliant\\b"
+  - "(?i)\\bcompliance with\\b"
+  - "(?i)\\bcertif(ied|ication|ies)\\b"
+  - "(?i)meets? the requirements"
+  - "(?i)tamper[- ]proof"
+de:
+  - "(?i)\\bkonform\\b"
+  - "(?i)Konformität"
+  - "(?i)zertifiziert"
+  - "(?i)erfüllt die Norm"
+  - "(?i)manipulationssicher"

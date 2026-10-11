@@ -1,0 +1,63 @@
+# NeuroGrid core rule pack (A-02). Clause = metric ID from the public metric documentation
+# (docs/<lang>/metrics.md). Rule IDs follow CORE-Mxx-NN by design (documented exception to PACK-PHASE-NNN).
+# Further metrics are added phase by phase (KONZEPT.md §2.2).
+rulepack: core
+version: "0.1.0"
+source: "NeuroGrid core metrics (docs/metrics.md)"
+source_status: final
+norm: false
+rules:
+  - id: CORE-M01-01
+    clause: M01
+    title_zh: 数据文件可读取
+    title_en: Data file can be read
+    phase: storage
+    check: structure.readable
+    severity: error
+    verification: automatic
+
+  - id: CORE-M01-02
+    clause: M01
+    title_zh: 文件头一致
+    title_en: File header is consistent
+    phase: storage
+    check: structure.header_consistent
+    severity: error
+    verification: automatic
+
+  - id: CORE-M01-04
+    clause: M01
+    title_zh: 数据文件格式受支持
+    title_en: Data file format is supported
+    phase: storage
+    check: structure.supported_format
+    severity: error
+    verification: automatic
+
+  - id: CORE-M01-05
+    clause: M01
+    title_zh: 文件头不含个人标识或真实日期
+    title_en: Header contains no person identifier or real date
+    phase: storage
+    check: structure.identifying_header
+    severity: info
+    verification: automatic
+
+  - id: CORE-M03-01
+    clause: M03
+    title_zh: 采样率不低于最低值
+    title_en: Sampling rate at or above the minimum
+    phase: acquisition
+    check: signal.sampling_rate_min
+    params: {min_hz: 500}
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M03-02
+    clause: M03
+    title_zh: 采样率统一或已说明原因
+    title_en: Sampling rates are uniform or the difference is documented
+    phase: acquisition
+    check: signal.sampling_rate_uniform
+    severity: warning
+    verification: automatic
