@@ -1,0 +1,45 @@
+{
+  "EEGCoordinateSystem": "CTF",
+  "EEGCoordinateUnits": "m",
+  "EEGCoordinateSystemDescription": "Synthetic positions.",
+  "FiducialsCoordinates": {
+    "NAS": [
+      0.0,
+      0.085,
+      0.0
+    ],
+    "LPA": [
+      -0.07,
+      0.0,
+      0.0
+    ],
+    "RPA": [
+      0.07,
+      0.0,
+      0.0
+    ]
+  },
+  "FiducialsCoordinateSystem": "CTF",
+  "FiducialsCoordinateUnits": "m",
+  "FiducialsCoordinateSystemDescription": "Synthetic positions.",
+  "AnatomicalLandmarkCoordinates": {
+    "NAS": [
+      0.0,
+      0.085,
+      0.0
+    ],
+    "LPA": [
+      -0.07,
+      0.0,
+      0.0
+    ],
+    "RPA": [
+      0.07,
+      0.0,
+      0.0
+    ]
+  },
+  "AnatomicalLandmarkCoordinateSystem": "CTF",
+  "AnatomicalLandmarkCoordinateUnits": "m",
+  "AnatomicalLandmarkCoordinateSystemDescription": "Synthetic positions."
+}

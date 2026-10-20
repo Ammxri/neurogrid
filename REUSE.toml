@@ -1,13 +1,13 @@
 version = 1
 
 [[annotations]]
-path = ["src/**", "tests/**/*.py", "tools/**", ".github/**", "pyproject.toml", "uv.lock", ".gitattributes", ".gitignore", "REUSE.toml", "NOTICE", "licenses/**"]
+path = ["src/**", "tests/**/*.py", "tests/fixtures/*.toml", "tools/**", ".github/**", "pyproject.toml", "uv.lock", ".gitattributes", ".gitignore", "REUSE.toml", "NOTICE", "licenses/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = ["docs/**", "README.md"]
+path = ["docs/**", "README.md", "DATA_SOURCES.md"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"
 SPDX-License-Identifier = "CC-BY-4.0"

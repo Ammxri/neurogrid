@@ -251,9 +251,13 @@ def test_scan_bids_and_hidden(tmp_path: Path) -> None:
         "License": "CC0",
         "BIDSVersion": "1.11.1",
     }
-    assert [f.display_id for f in result.recordings] == ["sub-01/eeg/sub-01_ses-a_task-rest_run-1_eeg.edf"]
+    assert [f.display_id for f in result.recordings] == [
+        "sub-01/eeg/sub-01_ses-a_task-rest_run-1_eeg.edf",
+        "sub-01/eeg/sub-02_task-rest_eeg.vhdr",  # BrainVision is read since P2; .eeg is its companion
+    ]
     assert dict(result.recordings[0].entities) == {"sub": "01", "ses": "a", "task": "rest", "run": "1"}
-    assert [f.suffix for f in result.unsupported] == [".vhdr"]
+    assert "sub-01/eeg/sub-02_task-rest_eeg.eeg" in [f.relative.as_posix() for f in result.other]
+    assert result.unsupported == []
     assert result.subjects == 2 and result.total_bytes > 0
 
 
@@ -455,7 +459,9 @@ def test_identifying_edge_cases(
 def test_brainvision_companion_is_case_insensitive(tmp_path: Path) -> None:
     (tmp_path / "rec.VHDR").write_text("", encoding="utf-8")
     (tmp_path / "rec.eeg").write_bytes(b"")
-    assert [f.suffix for f in scan(tmp_path).unsupported] == [".vhdr"]
+    result = scan(tmp_path)
+    assert [f.suffix for f in result.recordings] == [".vhdr"]
+    assert [f.relative.name for f in result.other] == ["rec.eeg"] and result.unsupported == []
 
 
 def test_long_and_hostile_description_fields(tmp_path: Path) -> None:

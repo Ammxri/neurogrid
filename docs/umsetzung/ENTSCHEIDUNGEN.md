@@ -630,3 +630,141 @@ Rohordnern steht „unbekannt“, bis die Zuordnung aus der toml (A-05, P2) vorl
   - Strukturierte Messwerte erscheinen mit übersetzten Beschriftungen statt als JSON.
 - **Ausnahmen:** Ausnahmen greifen auch über den angezeigten Dateinamen (z. B. `rec-2c710f52.cnt`, A-70).
 - **Rückverfolgbarkeit (TECH-12):** `tools/check_commit_ids.py` prüft jeden datierten Fortschrittseintrag außer denen der Planungsphasen 0–2 und kann eine Commit-Nachricht vor dem Commit prüfen (`--message-file`).
+
+## Annahmen aus der Umsetzung von P2
+
+**A-77 Formate, Metadaten, Validator und Konvertierung (Stand nach dem Review von P2).**
+- **Verweise in Dateien (A-52):** NeuroGrid öffnet nur Dateien, deren Verweis ein einfacher Dateiname neben der verweisenden Datei ist, kein Link. Verweise mit Ordnern, absolute, UNC- oder `..`-Pfade gelten als unsicher (M01-03 `companion.unsafe_reference`). Sie werden nie geöffnet, auch nicht über MNE: Die Leseprüfung meldet dann `UnsafePathError` (M01-01), und `convert` wandelt die Aufnahme nicht um.
+  - BrainVision:
+    - Der Kopf wird mit der Grammatik von MNE gelesen: configparser ohne Interpolation auf dem Text vor `[Comment]`, Schlüssel ohne Groß-/Kleinschreibung, `=` und `:` als Trenner, der Abschnitt „Common Infos“ mit Rückfall auf „Common infos“. Doppelte Schlüssel behalten den letzten Wert; bis zu 100 Zeilen ohne Schlüssel werden übersprungen.
+    - `DataFile` und `MarkerFile` werden zusätzlich genau so gelesen, wie MNE sie liest (Kodierung nach `Codepage`). Beide Lesarten gehen durch die Pfadprüfung.
+    - MNE wird für die Leseprüfung nur aufgerufen, wenn beide Verweise eine vorhandene Datei neben dem Kopf nennen. Sonst lautet das Ergebnis `UnsafePathError`, `FileNotFoundError` oder `HeaderUnreadable`. Fehlt die Markerdatei, schlägt M01-01 also fehl.
+  - FIF: Die Kette der Split-Teile wird vor jedem Lesen mit den Funktionen von MNE verfolgt. Jeder Teil muss ein einfacher Dateiname im selben Ordner sein, ohne Link. Eine Kette, die zu einem früheren Teil zurückführt, oder eine mit mehr als 1000 Teilen gilt als unsicher. Dann liest `read()` nur die Messinformation der Datei selbst, und die Dauer bleibt unbekannt.
+  - EEGLAB:
+    - `EEG.data` muss ein einfacher Dateiname sein.
+    - Jede `.set`, die HDF5 öffnen kann (MAT v7.3), wird vor dem Lesen vollständig durchgegangen; dabei werden nur harte Links aufgelöst. Externe Links, externe Speicherung und virtuelle Datensätze ergeben `header.external_reference`. Weiche Links, Zyklen und unbekannte Objekte ergeben `header.unreadable_container`. In beiden Fällen gilt M01-01/M01-02, und MNE wird nicht aufgerufen.
+    - Strukturen, bei denen MNE oder MNE-BIDS eine andere Struktur lesen würde als die geprüfte, werden ebenfalls als `header.unreadable_container` abgelehnt: verschachteltes `EEG.EEG`, `EEG` neben einer Variablen `data` auf oberster Ebene und in v7.3 `EEG` oder `EEG.data` in einer Zelle. EEGLAB schreibt keine davon.
+  - Discovery: Links und versteckte Dateien werden aussortiert, bevor nach Begleitdateien gesucht wird; nur reguläre Dateien werden geöffnet. Ein Kopf kann nur Dateien als Begleitdatei beanspruchen, die weder Aufnahme noch Datendatei eines anderen Formats sind (`.eeg` und `.fdt` immer).
+  - Die Zuordnungsvorlage wird nie über einen Link geschrieben. Geschrieben wird über eine temporäre Datei, die dann die Vorlage ersetzt. Ist das nicht möglich, endet der Lauf mit `errors.convert.mapping_missing_unwritable` (Exit 2). Dateinamen stehen TOML-sicher darin: Steuerzeichen und DEL als `\uXXXX`.
+- **Größen und Eingaben (A-53):**
+  - EEGLAB:
+    - Die Grenze von 4 GB gilt für die Datei, für die deklarierten Größen der HDF5-Datensätze und für die entpackte Größe komprimierter MAT-v5-Variablen; mehr ergibt `header.too_large`.
+    - Geladen werden nur die Kopffelder, die NeuroGrid nutzt; eingebettete Messwerte liest NeuroGrid selbst nicht.
+    - Höchstens 4096 Standardkanäle.
+  - BrainVision: Mehr als 100 Zeilen ohne Schlüssel vor `[Comment]`, ein Schlüssel mit mehr als 64 Leerraumzeichen in Folge (in der Lesart von NeuroGrid oder von MNE) und `Codepage=punycode` machen den Kopf unlesbar (`header.unreadable`); MNE wird dann nicht aufgerufen. Grund: configparser, ältere CPython-Versionen und punycode brauchen dafür quadratische Zeit. Impedanzzeilen werden am ersten Doppelpunkt geteilt. Der Kopf darf höchstens 2 MB groß sein.
+  - Die Suche nach Namen in Freitext (A-51) begrenzt jeden Namensteil auf 40 und die Trennzeichen auf 8 Zeichen; die Laufzeit ist damit linear.
+  - Ein Zahlenwert im Sidecar, der nicht in eine Gleitkommazahl passt, gilt als keine Zahl und führt nie zum Absturz.
+  - Muster in `[convert] pattern`:
+    - Abgelehnt werden mit `config.unsafe_pattern` (Exit 2) Rückverweise, bedingte Gruppen sowie Wiederholungen oder Alternativen in einem Teil, der sich selbst wiederholt.
+    - Nicht erkannt werden nebeneinanderliegende, überlappende Wiederholungen. Sie können einen Lauf sehr lange dauern lassen; das betrifft nur die Verfügbarkeit, und Strg+C beendet den Lauf. Die Entscheidung darüber ist offen (A-78).
+- **Adapter:**
+  - BrainVision:
+    - Kodierung des Kopfes für die eigenen Angaben: UTF-8, wenn gültig; sonst GBK, wenn der Kopf Folgen von Nicht-ASCII-Bytes enthält, wie chinesischer Text sie hat; sonst Latin-1 (westlicher ANSI-Kopf, z. B. „µV“).
+    - Die Größe der Datendatei wird gegen Kanalzahl × Bytes je Wert geprüft.
+    - Impedanzen kommen aus dem letzten Impedanzblock im Kommentar (kΩ). Der Block endet an der ersten Zeile, die nicht „Kanal: Wert“ für einen Kanal des Kopfes oder für Ref/Gnd ist; „Out of Range“ zählt als nicht dokumentiert. Alles andere im Kommentar wird nur auf Kennungen geprüft (A-51).
+  - EEGLAB:
+    - Gelesen mit pymatreader (MAT v5 und v7.3).
+    - nbchan, pnts und trials müssen positive ganze Zahlen sein; sonst gibt es nur `header.number_field` und keine Größen- oder Formprüfung.
+    - Die Form eingebetteter Daten wird ohne Achsen der Länge 1 verglichen, damit ein Datensatz mit einem Kanal, einer Epoche oder einem Wert gültig ist.
+    - Fehlen Kanalorte ganz oder teilweise, heißen die fehlenden Kanäle wie bei MNE „EEG 000“, „EEG 001“ usw. (Typ EEG, µV).
+    - Die Abtastrate der Aufnahme ist `srate`. Eingebettete Daten gelten als nicht streambar; der Bericht weist das aus (R14).
+    - `subject`, `filepath`, `comments`, `history` und `setname` sind nur Hinweise; leere MATLAB-Texte zählen nicht als Kennung. Epochierte Datensätze liest MNE als Epochen.
+  - FIF:
+    - Kanaltypen einschließlich MEG, Positionen aus `loc`, Netzfrequenz aus `line_freq`.
+    - `subject_info`, `experimenter` und `meas_date` sind Hinweise. Nach `raw.anonymize()` gelten die Platzhalter von MNE („mne_anonymize“, his_id „0“, verschobenes Geburts- und Messdatum) nicht als Kennung.
+  - EDF+D wird wie eine fortlaufende Datei gelesen und als diskontinuierlich markiert (A-12); die Zeitstruktur zählt erst ab P3.
+  - Nicht unterstützte Formate (M01-04 `format.unsupported`, verglichen ohne Groß-/Kleinschreibung):
+    - `.cnt`, `.mff`, `.xdf`, `.xdfz`, `.fif.gz`, `.gdf`, `.nwb`, `.cdt`, `.dap`, `.mefd`, `.nxe`, `.ahdr`, `.lay`, `.nedf`, `.easy`, `.trc`, `.e`, `.ns1`–`.ns6`, `.nev` und `.ncs`.
+    - Allgemeine Endungen wie `.dat`, `.txt`, `.bin`, `.mat` und `.gz` sowie Begleitdateien zählen als sonstige Dateien.
+    - Eine FieldTrip-Layoutdatei `.lay` wird wie ein Persyst-Kopf gemeldet.
+  - Begleitdateien ohne Hauptdatei (`.eeg`, `.fdt`) ergeben M01-04 mit dem Grund „verwaiste Begleitdatei“; `convert` nennt denselben Grund. `scan` führt sie in einer eigenen Liste (`orphans`, Konsole „nicht zuordenbare Datendateien“) und zählt sie nicht als nicht unterstützte Formate.
+  - Dateien nur mit Annotationskanälen (z. B. Hypnogramme) sind lesbar, zählen aber nicht als Aufnahme; M02–M05 sind dort nicht anwendbar.
+- **Kanaltypen (A-18, A-04):**
+  - Der Typ wird am Label ohne vorangestelltes „EEG“ bestimmt. EOG, ECG/EKG und EMG zählen an beliebiger Stelle (VEOG, HEOG, „EEG EKG1-REF“).
+  - Als erstes Wort gelten LOC, ROC, LUC, RUC, LLC und RLC sowie die AASM-Ableitungen E1/E2 gegen M1/M2/A1/A2 als EOG. HEO und VEO (Neuroscan) gelten als EOG.
+  - Atemkanäle gelten als RESP. Sättigung, Puls, Pleth/PPG, GSR/EDA, ERG, Temperatur, Schnarchen, Licht, Photic, Lage sowie Ereignis- und Markersignale gelten als MISC. LEG und CHIN gelten als EMG, STATUS/TRIG/STI als TRIG.
+  - Alles andere bleibt EEG (die Liste ist nicht vollständig, z. B. BioSemi EXG1–8). Kein 10-20/10-10/10-05-Name ist betroffen.
+  - In BIDS gewinnt jeder angegebene Typ in `channels.tsv` gegen das Label. Bekannte Typen werden übernommen; MEG-Typen werden zu MEG, alle übrigen (GSR, PPG, TEMP, …) zu MISC. Annotationskanäle werden nie umgetypt.
+- **Metadaten (A-03, A-04):**
+  - Die Entitäten in BIDS-Dateinamen liest MNE-BIDS (LIB-02); Namen mit Entitäten, die BIDS nicht kennt, mit doppelten Entitäten oder mit Werten, die nicht nur aus Buchstaben und Ziffern bestehen, gelten nicht als BIDS-Namen.
+  - Der Sidecar hat dasselbe Suffix wie die Datendatei und folgt dem Vererbungsprinzip. `channels.tsv` und `electrodes.tsv` werden in der nächstgelegenen Datei gesucht; bei `electrodes.tsv` spielt `space` keine Rolle. Eine `channels.tsv` ohne Zeilen ist keine Quelle (auch nicht für M04-04).
+  - Die Spalten name/type/units:
+    - `channels.tsv` ist die Quelle, wenn jeder Kanal außer den Annotationskanälen dort eine Zeile mit Wert hat; `n/a` zählt als Wert.
+    - Sonst ist eine Spalte dokumentiert, wenn jeder Kanal den Wert in seiner Zeile oder im Kopf hat.
+  - Prüfungen in M02-02:
+    - TaskName wird mit dem task-Label nur über Buchstaben und Ziffern und ohne Groß-/Kleinschreibung verglichen.
+    - BIDSVersion muss die Form `x.y.z` haben.
+    - Name gilt als leer, wenn er leer ist oder `n/a` lautet.
+  - `ManufacturersModelName` mit `n/a` dokumentiert kein Gerät.
+  - Rohordner:
+    - Die Zuordnung kommt aus `[[convert.files]]` (hat Vorrang) oder `[convert] pattern` (benannte Gruppen subject, session, task, run; subject und task Pflicht).
+    - Nennt eine Gruppe einen Wert, der nicht nur aus Buchstaben und Ziffern besteht, oder ist run keine Zahl, gilt die Datei als nicht zugeordnet. Abgeglichen wird mit dem relativen Pfad oder dem Dateinamen.
+    - `scan` zählt die Probanden aus der Zuordnung in `.neurogrid/neurogrid.toml`, wenn jede Aufnahme außer reinen Annotationsdateien zugeordnet ist (A-72); sonst bleibt „unbekannt“.
+  - Ob Elektroden nass oder trocken sind, steht nur in `neurogrid.toml` (`metadata.defaults.electrode_type`). Ohne Angabe ist M05-02 nicht prüfbar. Bei trockenen Elektroden ist M05-02 nicht anwendbar, weil die Schwelle der PRD für nasse gilt.
+- **M04:**
+  - Kanalnamen werden ohne vorangestelltes „EEG“ und ohne Referenz-Endung (REF, AVG, AR, LE, RE, Cz) verglichen. Bipolare oder referenzielle Ableitungen gelten als Standard, wenn beide Teile Standardnamen sind.
+  - Die Namenslisten stammen aus den MNE-Montagen standard_1020 und standard_1005 (`tools/gen_montage_names.py --check`). `[metadata.channel_map]` bildet eigene Namen ab.
+  - M04-04 vergleicht die EEG-Kanalzahl in Sidecar, `channels.tsv` und Datei sowie die Gesamtzahl in `channels.tsv` und Datei (ohne Annotationskanäle).
+  - Der Titel von M04-05 nennt die geprüfte Eigenschaft („Kanalname innerhalb 10-20/10-10“), damit „nicht bestanden“ richtig gelesen wird.
+- **Validator (A-06, A-09, A-14):**
+  - **Befunde:**
+    - Je Regel, Objekt und Validator-Code entsteht ein Befund; der Unterschlüssel ist der Code.
+    - Die Details nennen die Gesamtzahl und die Anzahl je Unter-Code (z. B. Feldname); der Bericht nennt die Unter-Codes nach dem Text („Betrifft: …“, höchstens 100).
+    - Eine Ausnahme auf einen Code deckt alle Unter-Codes ab.
+  - **Zuordnung:**
+    - Eine Meldung gehört zur Aufnahme, deren Datei sie nennt, oder zu deren Begleitdatei (`.eeg`/`.vmrk`, `.fdt`). Andere Dateien, etwa Sidecars, behalten ihren Ort.
+    - Meldungen an oder unter einem Link, dem Discovery nicht gefolgt ist, werden verworfen; der Hinweis auf nicht verfolgte Links deckt sie ab.
+    - Eine einzelne Datei als Ziel wird nicht validiert (BIDS-STO-001 bis -003 nicht anwendbar).
+  - **Texte und HED:**
+    - Die eigenen Texte stehen in `report/validator_codes.yaml`, ein Satz je Code in zh/en/de, für alle Codes des gebündelten Validators.
+    - HED-Schemas, die der Validator nicht mitbringt, ergeben offline `HED_ERROR` mit Unter-Code `SCHEMA_LOAD_FAILED` und damit BIDS-STO-003.
+  - **Warnungen:** Synthetische BIDS-Testdaten brauchen alle empfohlenen Felder, um ohne Warnung zu bleiben. Echte Datensätze haben fast immer Warnungen (BIDS-STO-002); das gibt den Validator wieder.
+  - **Arbeitsordner:** Lässt er sich neben der Ausgabe nicht anlegen, endet der Lauf wie bei einer nicht schreibbaren Ausgabe (Exit 2, A-54).
+- **Konvertierung (A-05):**
+  - **Eingang und Ausgabe:**
+    - Eingang ist nur ein Rohordner (ein BIDS-Eingang ergibt Exit 2).
+    - Die Ausgabe muss ein leerer oder neuer Ordner außerhalb des Eingangs sein; eine Datei an ihrer Stelle und Pfade mit Komma werden abgelehnt, bevor etwas geschrieben wird.
+    - Fehlt eine Zuordnung, wird die Vorlage geschrieben (Exit 2).
+    - Ziele werden ohne Groß-/Kleinschreibung verglichen (`duplicate_target`). Subjekt- oder Sitzungs-Labels, die sich nur darin unterscheiden, werden abgelehnt (`label_case`, Exit 2), weil sie unter Windows und macOS im selben Ordner landen.
+  - **Was umgewandelt wird:**
+    - Nur Aufnahmen ohne Begleitdatei-Problem (M01-03) und ohne Kopfproblem, das die Daten betrifft (M01-02). Kopfprobleme nur in Textfeldern (Nicht-ASCII, Startdatum, Ablehnung durch edfio) halten nicht auf.
+    - Nicht umgewandelt werden: epochierte EEGLAB-Datensätze, weil EEG-BIDS fortlaufende Daten erwartet; Aufnahmen ohne EEG-Kanal (`convert.no_eeg_channels`); reine Annotationsdateien, die gelesen, aber nicht zugeordnet werden müssen.
+    - Jede nicht umgewandelte Datei steht mit Grund auf der Konsole.
+  - **Fehler bei einer Aufnahme:** Er bricht den Lauf nie ab. Die Ausgabe wird auf den Stand vor dieser Aufnahme zurückgesetzt: neue Dateien entfernt, geänderte TSV- und JSON-Dateien auf Datensatz- und Probandenebene wiederhergestellt. Die Aufnahme steht als `convert.failed` (Exit 1) auf der Konsole.
+  - **Formate:**
+    - EDF/BDF (einschließlich EDF+D) übernimmt MNE-BIDS als Dateikopie. Kann MNE-BIDS die Datei unter ihrem Namen oder Pfad nicht finden (mehrere Punkte, Großbuchstaben in der Endung, `.eeg`/`.fdt`/`.dat` im Pfad, `.ds` im Ordnernamen), wird sie zuerst als `recording.<ext>` in den Arbeitsordner verlinkt oder kopiert.
+    - Hat erst der Pfad des Arbeitsordners selbst ein solches Merkmal, wird eine fortlaufende EDF/BDF als BrainVision geschrieben. Ein EDF+D wird dann als `convert.failed` gelistet.
+    - BrainVision und EEGLAB werden kopiert, wenn MNE-BIDS sie finden kann. Sonst, und bei MAT v7.3 und eingebetteten Daten, werden sie aus den gelesenen Daten als BrainVision geschrieben.
+    - FIF wird nur mit EEG- und Begleitkanälen nach BrainVision geschrieben.
+    - Elektrodenpositionen aus EEGLAB und aus BrainVision-`[Coordinates]` werden nicht übernommen (möglicherweise Vorlagepositionen).
+  - **Sidecars und `channels.tsv`:**
+    - Nicht dokumentierte Pflichtfelder werden als `n/a` geschrieben und gelistet. Für EEGReference und PowerLineFrequency meldet `check` sie danach (M02-01). Für SoftwareFilters ist `n/a` nach BIDS gültig; die Konsole sagt, dass `check` es nicht meldet.
+    - Ohne `[dataset] name` ist auch der Name `n/a` (M02-02). Autoren werden nicht erfunden. `Manufacturer`, das MNE-BIDS nur aus dem Dateiformat ableitet, wird weggelassen.
+    - In `channels.tsv` einer kopierten EDF/BDF bekommt jeder Kanal die Abtastrate und Einheit seines eigenen Signals; Einheiten werden bis zum ersten NUL-Byte gelesen, als UTF-8 oder sonst Latin-1. Filtergrenzen stehen dort nur, wenn das Vorfilterfeld des Kanals sie nennt, sonst `n/a`.
+  - **`--strip-identifying-headers`:**
+    - EDF/BDF: Patienten- und Aufnahmefeld werden durch die Platzhalter der EDF+-Spezifikation ersetzt, das Startdatum durch 01.01.85.
+    - BrainVision: Bearbeitet werden die Bytes. Aus dem Kommentar bleibt nur der Impedanzblock, die Ziffern des Datums im Marker „New Segment“ werden genullt, sonst wird nichts umkodiert.
+    - Vor dem Schreiben entfernt MNE Messdatum, `subject_info`, `experimenter` und `description`; EEGLAB-Eingang wird dann als BrainVision geschrieben.
+  - **Verarbeitungsschritte (DM-07):** `input_hash` und `output_hash` sind SHA-256 über die sortierten Zeilen „Dateiname, Tab, SHA-256“ aller Dateien der Aufnahme (Kopf, Daten-, Markerdatei, `.fdt`, FIF-Teile).
+  - **Exitcodes:** 0, wenn mindestens eine und jede Aufnahme umgewandelt ist und der Validator keinen Fehler meldet. 1 bei nicht umgewandelten Dateien oder Validator-Fehlern; ist gar nichts umgewandelt, bleibt keine Ausgabe stehen. 2 bei Werkzeugfehlern.
+  - **Abbruch** (Werkzeugfehler, Validator-Fehler, Strg+C mit Exit 130): Eine neu angelegte Ausgabe wird entfernt; ein Ausgabeordner, der vorher leer war, wird wieder geleert.
+- **Umgebung in results.json (A-11, A-48):** Neben den bisherigen Bibliotheken stehen dort bids-validator-deno, deno, h5py und pymatreader.
+- **Offline-Nachweis des Validators (NG-N01, A-49):** Der CI-Job `offline-strace` (Linux) führt `check` mit dem Paket `bids` und `convert` unter `strace -e trace=connect` aus und schlägt bei jedem `connect` mit AF_INET/AF_INET6 fehl. Er läuft erst nach einem Push (D-09).
+- **Testkorpus (E4, LIB-09):** `tools/corpus.py` lädt die sechs Datensätze über die OpenNeuro-API und PhysioNet und prüft sie offline gegen `tools/corpus_lock.json`. Für OpenNeuro gibt es keine veröffentlichten Prüfsummen; sie wurden beim ersten Laden zusammen mit dem Snapshot-Commit festgehalten. Lizenzen und Zitate stehen in `DATA_SOURCES.md`.
+
+
+**A-78 Phasenplan, Bibliotheken und offene Restpunkte aus P2.**
+- **Phasenplan:** LIB-01 (MNE: Einlesen, Filter, ICA) schließt in P3 ab, weil Filter und ICA erst mit M06/M09 genutzt werden; P2 trägt das Einlesen bei.
+- **LIB-02 (MNE-BIDS lesen und schreiben):**
+  - Geschrieben wird mit `write_raw_bids`.
+  - Gelesen werden die Entitäten der Dateinamen mit `get_entities_from_fname`.
+  - Die Werte der Sidecars liest NeuroGrid selbst, weil jede Angabe ihre Herkunft behalten muss (A-04) und weil `read_raw_bids` bei inkonsistenten Datensätzen abbricht, die M04-04 gerade melden soll (z. B. abweichende Kanalzahl).
+- **Offene Restpunkte** (bekannte Grenzen, keine Datendefekte; Entscheidung des Projektverantwortlichen bei STOPP G1):
+  1. Muster in `[convert] pattern` mit nebeneinanderliegenden, überlappenden Wiederholungen werden nicht erkannt und können einen Lauf sehr lange dauern lassen (nur Verfügbarkeit; Strg+C beendet den Lauf).
+     Möglichkeiten:
+     - eine Engine mit linearer Laufzeit (neue Abhängigkeit, z. B. google-re2),
+     - eine eingeschränkte Mustersyntax,
+     - die Grenze akzeptieren.
+  2. MAT-v5-Zellen und -Strukturen mit sehr großen deklarierten Dimensionen belegen beim Laden viel Speicher (gemessen: 2 kB Datei → rund 470 MB). Die Grenze von 4 GB zählt dort nur entpackte Bytes, keine Elemente. Schließen würde das ein eigener Elementlauf über MAT v5.
+  3. Sonderdateien wie FIFOs (Linux, z. B. aus Archiven) werden von Discovery und beim Verfolgen von FIF-Teilen nicht ausgeschlossen; Lesen kann dann blockieren.
+  4. Kanaltypen nach Label sind nicht vollständig (z. B. BioSemi EXG1–8 bleiben EEG). Eine Tabelle `[metadata.channel_types]` in `neurogrid.toml` für Rohordner wäre möglich, geht aber über die PRD hinaus und ist deshalb nicht umgesetzt.

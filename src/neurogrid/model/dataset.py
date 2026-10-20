@@ -62,7 +62,8 @@ class Channel(BaseModel):
 class Recording(BaseModel):
     """PRD fields plus run, streamable and metadata_sources (KONZEPT 2.1).
 
-    ``sampling_rate_hz`` is the lowest EEG channel rate; the channels carry their own rates.
+    ``sampling_rate_hz`` is the lowest EEG channel rate (EEGLAB: ``srate``, one rate for all channels, A-77);
+    the channels carry their own rates.
     ``metadata_sources`` names where each documented value came from (A-04: toml, sidecar, header).
     """
 

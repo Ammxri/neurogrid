@@ -1,0 +1,9 @@
+name	type	units
+Fp1	EEG	uV
+Fp2	EEG	uV
+F3	EEG	uV
+F4	EEG	uV
+C3	EEG	uV
+C4	EEG	uV
+AFF1h	EEG	uV
+EXG1	EEG	uV

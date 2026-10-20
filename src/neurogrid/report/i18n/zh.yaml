@@ -11,10 +11,11 @@ cli:
     formats: "格式"
     recordings: "记录"
     unsupported: "不支持的数据文件"
+    orphans: "无法归属的数据文件"
     other: "其他文件"
     links: "已跳过的链接（未跟随）"
     subjects: "受试者"
-    subjects_unknown: "未知（原始文件夹，无映射）"
+    subjects_unknown: "未知（并非每条记录都已映射到受试者）"
     names_hint: "提示：{count} 个数据文件路径含有非 ASCII 字母或连续六位以上数字，可能可识别个人身份。"
     unreadable: "无法读取的条目（未检查）"
     size: "总大小"
@@ -27,6 +28,15 @@ cli:
     placeholder: "已加载占位规则包。其结果并非依据标准原文，不计入统计。"
   report:
     written: "报告已写入 {path}"
+  convert:
+    converted: "已转换的记录：{count}"
+    skipped: "未转换：{id} – {reason}"
+    missing_field: "未记录，已写为 n/a：{field}（{count} 条记录）；见 'check' 中的 M02。"
+    missing_field_na_valid: "未记录，已写为 n/a：{field}（{count} 条记录）；BIDS 允许该字段为 n/a，因此 'check' 不会报告此项。"
+    missing_name: "未记录，已写为 n/a：dataset_description.json 中的 Name；请在 neurogrid.toml 的 [dataset] 中设置 name。"
+    validator: "对输出运行 BIDS 验证器：{errors} 个错误，{warnings} 个警告"
+    written: "BIDS 数据集已写入 {path}"
+    nothing: "没有转换任何记录；未写入 BIDS 数据集。"
   error:
     prefix: "错误"
     internal: "内部错误（{type}）。请加 --debug 重新运行以查看详情。"
@@ -76,6 +86,7 @@ errors:
     param_type: "配置：规则 {rule} 的参数 '{param}' 类型错误。"
     encoding: "配置文件不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
     unsafe_path: "配置：字段 '{field}' 必须是项目内的相对路径（不得含 '..'、盘符、网络或设备路径）。"
+    unsafe_pattern: "配置：字段 '{field}' 中的正则表达式在某些文件名上可能运行极长时间（重复部分内含另一重复或分支，或使用了反向引用）。请简化该表达式。"
     too_deep: "配置文件嵌套层级过深。"
   input:
     not_found: "未找到输入路径。"
@@ -91,6 +102,20 @@ errors:
   output:
     is_directory: "输出路径是文件夹；请给出文件名。"
     not_writable: "无法在该位置写入输出（文件夹不存在、存在同名文件或没有权限）。"
+  validator:
+    missing: "未安装 BIDS 验证器或其不完整。"
+    failed: "BIDS 验证器运行失败（退出码 {code}）。"
+    timeout: "BIDS 验证器未能按时完成。"
+    comma_path: "含逗号的路径无法验证（deno 权限列表）；请重命名。"
+  convert:
+    target_unavailable: "本版本不提供转换目标 '{target}'（可用：bids）。"
+    already_bids: "输入已经是 BIDS 数据集。"
+    output_not_empty: "输出文件夹不为空。"
+    output_inside_input: "输出文件夹不得位于输入文件夹内。"
+    mapping_missing: "{count} 个数据文件缺少受试者/任务映射；模板已写入 .neurogrid/{template}。"
+    mapping_missing_unwritable: "{count} 个数据文件缺少受试者/任务映射；无法写入模板 .neurogrid/{template}（文件夹不可写，或为不跟随的链接）。"
+    duplicate_target: "两个文件映射到同一个 BIDS 记录（受试者 {subject}，任务 {task}）。"
+    label_case: "标签 {first} 与 {second} 仅大小写不同；在 Windows 和 macOS 上二者会位于同一文件夹。请使用可区分的标签。"
 
 notice:
   override_unused: "配置为未加载的规则 {rule} 设置了参数。"
@@ -98,6 +123,7 @@ notice:
   exception_unused: "规则 {rule} 的例外未匹配任何结果。"
   names_look_identifying: "{count} 个数据文件路径含有非 ASCII 字母或连续六位以上数字，可能可识别个人身份。请检查文件名。"
   links_skipped: "数据集中有 {count} 个链接或目录联接未被跟随；其内容未被检查。"
+  bids_not_checked: "该数据集不是 BIDS 数据集；未检查 BIDS 结构。"
 
 severity:
   error: "错误"
@@ -130,15 +156,34 @@ reason:
   read:
     failed: "无法读取数据。"
     unlistable: "无法读取该文件夹；其内容未被检查。"
+  recording:
+    annotations_only: "仅含标注（如睡眠分期图），无信号通道。"
+  bids:
+    not_bids: "不是 BIDS 数据集；未检查 BIDS 结构。"
   dataset:
     no_readable_recording: "数据集中没有可读取的记录。"
+  convert:
+    damaged: "文件头与数据不一致（CORE-M01-02）；未转换。"
+    companion: "伴随文件缺失或其引用不可用（CORE-M01-03）；未转换。"
+    epoched: "分段的 EEGLAB 数据集；EEG-BIDS 需要连续数据。"
+    failed: "无法写入该记录；输出中不保留其任何部分。"
+    no_eeg_channels: "没有可写入的 EEG 通道（EEG-BIDS 至少需要一个）；未转换。"
   format:
     unsupported: "NeuroGrid 无法读取该格式的数据文件。"
+    orphan_companion: "没有文件头引用的数据文件（无法归属）。"
   header:
     unreadable: "无法读取文件头。"
   signal:
     no_eeg_channels: "未找到脑电通道。"
     rate_unknown: "文件头未给出有效的采样率。"
+  metadata:
+    no_task_name: "没有可比较的 TaskName 或任务标签。"
+    not_bids: "不是 BIDS 数据集。"
+    no_sidecar: "没有包含通道数的附带文件。"
+    no_sidecar_rate: "附带文件中没有采样率。"
+    electrode_type_unknown: "未记录电极类型（湿/干）；请在 neurogrid.toml 中设置。"
+  impedance:
+    dry_electrodes: "干电极：5 kΩ 阈值仅适用于湿电极。"
   evidence:
     missing: "没有证明材料条目。"
     open: "证明材料标记为待补。"
@@ -169,6 +214,21 @@ issue:
     bad_signal_count: "信号数量无效。"
     io_error: "无法打开文件。"
     unreadable: "无法读取文件头。"
+    missing_key: "缺少必需的文件头条目。"
+    channel_count: "通道数与通道列表不一致。"
+    sampling_interval: "采样间隔无效。"
+    sampling_rate: "采样率无效。"
+    data_format: "数据格式不受支持或无效。"
+    data_shape: "内嵌数据与文件头不一致（通道数 × 采样点数）。"
+    variant_mismatch: "文件头类型与文件扩展名不符（EDF/BDF）。"
+    unreadable_container: "无法按该格式打开文件。"
+    external_reference: "HDF5 容器引用了其他文件（外部链接、外部存储或虚拟数据集）；这些文件不会被打开（A-52）。"
+    too_large: "文件头或其声明的内容超出大小上限（BrainVision 文件头 2 MB；EEGLAB 数据集 4 GB，或超过 4096 个未命名通道）。"
+  companion:
+    data_file: "文件头中指定的数据文件缺失。"
+    marker_file: "文件头中指定的标记文件缺失。"
+    fdt: "文件头中指定的 .fdt 数据文件缺失。"
+    unsafe_reference: "文件头中的文件引用不是与文件头位于同一文件夹的普通文件名（A-52）。"
   fields:
     patient: "受试者字段"
     recording: "记录字段"
@@ -178,12 +238,30 @@ check:
   structure:
     readable: "数据可读取（MNE）"
     header_consistent: "文件头一致"
+    companions_present: "伴随文件和引用存在"
     supported_format: "格式受支持"
     identifying_header: "文件头不含身份信息"
+  metadata:
+    required_fields: "必填元数据字段已记录"
+    consistent: "元数据一致"
+  channels:
+    standard_names: "标准通道名"
+    positions: "电极位置已记录"
+    same_set_per_task: "每个任务的通道组相同"
+    count_consistent: "通道数一致"
+    only_1005: "通道名在 10-20/10-10 范围内"
+  impedance:
+    documented: "阻抗已记录"
+    max: "阻抗低于阈值"
+  bids:
+    validator_errors: "BIDS 验证器：错误"
+    validator_warnings: "BIDS 验证器：警告"
+    hed_schema_available: "离线可用 HED 模式"
   signal:
     sampling_rate_min: "采样率"
     sampling_rate_uniform: "采样率统一"
     sampling_rate_consistency: "采样率已记录且一致"
+    sidecar_rate: "附带文件采样率与数据一致"
   evidence:
     document: "证明文件"
 
@@ -251,6 +329,7 @@ report:
     placeholder_clause: "占位 – 并非出自标准原文"
     placeholder_status: "未评价（占位规则）"
     evidence_provided: "已提交证明材料（用户声明，NeuroGrid 未作评价）"
+    not_streamable: "无法分块读取"
   text:
     no_findings: "没有此类严重程度的结果。"
     no_recordings: "没有记录。"
@@ -264,6 +343,19 @@ report:
     origin_config: "neurogrid.toml"
   measure:
     documented: "已说明"
+    channel_sets: "通道组数"
+    channels_tsv_eeg: "channels.tsv 中的 EEG"
+    channels_tsv_total: "channels.tsv 行数"
+    data_hz: "数据（Hz）"
+    eeg_channels: "EEG 通道"
+    file_eeg: "文件中的 EEG"
+    file_total: "文件中的通道"
+    sidecar_eeg: "EEGChannelCount"
+    sidecar_hz: "附带文件（Hz）"
     rate_hz: "采样率（Hz）"
     rates_hz: "采样率（Hz）"
     uniform: "一致"
+  validator:
+    generic: "BIDS 验证器问题 {code}。"
+    count: "（共 {count} 处）"
+    sub_codes: "涉及：{names}"

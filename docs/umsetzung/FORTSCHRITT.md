@@ -6,12 +6,56 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P1 abgeschlossen, P2 als Nächstes.** Konzept freigegeben (D-08 bis D-13), Freigabemodus A bis zum
+**Phase P2 abgeschlossen, P3 als Nächstes.** Konzept freigegeben (D-08 bis D-13), Freigabemodus A bis zum
 STOPP nach P5. Git: `main` (Doku-Commit), Arbeitszweig `dev` (lokal; Push erst mit Repo-URL, D-09).
 Offen beim Nutzer: GitHub-Repo-URL (TECH-05/TECH-11, Linux-Lauf), GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
 ISO-TS vor P10, muttersprachliche zh-Prüfung vor v0.1, Docker Desktop bei Gelegenheit.
 
 ## Verlauf
+
+### 2026-10-20 – P2 Formate und BIDS
+- **Abgeschlossen:** NG-F01, NG-F02, NG-F05, NG-F06, M01 bis M05, CLI-01, CLI-02, RP-09, LIB-02, LIB-03, LIB-08, CON-03. LIB-09 bleibt bewusst abgewichen (D-11); der Ersatz ist umgesetzt.
+- **Beigetragen zu:** LIB-01 (Filter und ICA folgen in P3, A-78), ARC-04, NG-N01, NG-N05, UF-02, UF-04, DM-07, MET-02, NG-N08.
+- **Gebaut:**
+  - Adapter für BDF, BrainVision, EEGLAB (MAT v5/v7.3) und FIF; EDF+D wird gelesen.
+  - Discovery mit Begleitdateien, verwaisten Dateien und weiteren bekannten, nicht unterstützten Formaten.
+  - BIDS-Metadaten nach dem Vererbungsprinzip, mit Herkunft je Feld (A-04). Entitäten liest MNE-BIDS. Zuordnung im Rohordner über Tabelle oder Muster.
+  - Prüfungen:
+    - Paket `core`: M02-01/02, M03-03, M04-01 bis -05, M05-01/02; zusammen 17 Regeln.
+    - Paket `bids`: BIDS-STO-001 bis -003 mit dem gebündelten Validator; eigene Texte für 200 Validator-Codes in zh/en/de.
+  - `convert --to bids` über MNE-BIDS: mit Zuordnungsvorlage, `--strip-identifying-headers`, Verarbeitungsschritten und Validatorlauf auf der Ausgabe.
+  - Korpus-Werkzeug `tools/corpus.py` mit Sperrdatei (297 Dateien, SHA-256), `DATA_SOURCES.md` und Korpus-Tests (`-m corpus`).
+  - Fixtures für alle Formate und zwei BIDS-Datensätze: einer vollständig, einer mit je einem Fehler pro Regel.
+- **Review von P2:**
+  - Ein Agent je Testmodul, jedes Modul gegengeprüft. Dabei rund 20 Fehler gefunden und behoben, u. a.:
+    - Die Leseprüfung folgte Verweisen außerhalb des Ordners.
+    - Beschädigte Dateien wurden umgewandelt.
+    - Eingebettete und epochierte EEGLAB-Daten brachen `convert` ab.
+    - Das New-Segment-Datum blieb beim Entfernen der Kennungen stehen.
+  - Review in fünf Richtungen mit Gegenprüfung: 48 Befunde bestätigt, 9 verworfen. Behoben in fünf getrennten Gruppen, jede mit eigener Gegenprüfung. Schwerpunkte:
+    - Pfadsicherheit: BrainVision-Kopf wie MNE gelesen, FIF-Split-Ketten, HDF5-Links in EEGLAB, Links im Validator-Lauf.
+    - Robuste Umwandlung: Ein Fehler bei einer Aufnahme bricht den Lauf nicht mehr ab, und die Ausgabe wird zurückgesetzt.
+    - Kanaltypen nach Label und aus `channels.tsv`.
+    - Ein Validator-Befund je Code.
+  - In der Gegenprüfung zusätzlich gefunden und behoben: quadratische Laufzeiten bei manipulierten Köpfen und Kommentaren, mehrdeutige EEGLAB-Strukturen.
+  - Neue bzw. überarbeitete Annahmen: A-77, A-78. Phasenplan: LIB-01 schließt in P3 ab.
+  - Praxistest auf dem Korpus: Golden-Liste echter Metadatenfehler bestätigt (ds000248, ds002778, ds004148, ds004504); ds003775 ohne Fehler.
+- **Ergebnisse (lokal, Windows 11):**
+  - pytest 1449 bestanden unter Python 3.11, 3.12 und 3.13; 7 übersprungen (Datei-Symlinks brauchen den Entwicklermodus, POSIX-Fälle).
+  - Korpus: 20 bestanden (6 Datensätze, 5 Formate); je eine Aufnahme pro Format mit und ohne `--strip-identifying-headers` umgewandelt, jeweils 0 Validator-Fehler.
+  - ruff, `mypy --strict` (Kern) und mypy über `src` und `tools` sauber.
+  - Abdeckung: Kern 97,3 %, Prüfer 97,0 %.
+  - Lizenz-Gate grün; Fixtures, Schemas, Montage-Namen und Matrix reproduzierbar bzw. vollständig.
+  - Zwei `check`-Läufe byte-gleich, zwei `convert`-Läufe dateigleich; 3.11 und 3.12 gleich bis auf `environment`.
+  - Rauchtest unter Windows PowerShell 5.1: Exitcodes 0/1/1/0/0/0/2/0, Berichte zh/en.
+- **Nicht verifiziert:**
+  - „Validator unter strace ohne connect“: Der CI-Job `offline-strace` ist angelegt, läuft aber erst nach einem Push (D-09); lokal gibt es kein Linux und kein Docker.
+  - Linux- und CI-Lauf allgemein (TECH-05, TECH-11).
+- **Offen zur Entscheidung (A-78):**
+  - Muster mit überlappenden Wiederholungen.
+  - Speicherbedarf bei großen MAT-v5-Dimensionen.
+  - Sonderdateien (FIFO).
+  - Kanaltyp-Tabelle für Rohordner.
 
 ### 2026-10-11 – P1 Gerüst und Durchstich
 - **Abgeschlossen:** TECH-02, TECH-03, TECH-04, TECH-09, TECH-12, ARC-02, ARC-03, LIB-10, DM-01 bis DM-07, DM-10,

@@ -15,7 +15,7 @@ Umsetzungsplans stehen in KONZEPT.md und sind davon unabhängig.
 **Status:** `offen` · `in Arbeit` · `erfüllt` · `teilweise` · `nicht verifiziert` · `blockiert (extern)` ·
 `bewusst abgewichen` · `außerhalb Umfang`.
 
-*Stand: Phase P1 abgeschlossen (TECH-11 teilweise: CI wartet auf die Repo-URL, D-09); weiter mit P2. Zeilen gesamt: 166 (davon 9 Nicht-Ziele, 6 Geschäftsaufgaben).
+*Stand: Phase P2 abgeschlossen (NG-N01 offline-strace und TECH-11 warten auf die Repo-URL, D-09); weiter mit P3. Zeilen gesamt: 166 (davon 9 Nicht-Ziele, 6 Geschäftsaufgaben).
 Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschnitt 6, geprüft mit
 `tools/check_matrix_coverage.py`).*
 
@@ -43,12 +43,12 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 
 | ID | Anforderung | Abnahmekriterium (PRD) | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
-| NG-F01 | Einlesen von EDF/EDF+, BDF, BrainVision (.vhdr), EEGLAB (.set), FIF | Drei öffentliche Datensätze in mindestens zwei Formaten werden ohne Fehler eingelesen; unbekannte Formate erzeugen eine klare Fehlermeldung mit Dateiname | §7 S.6 | v0.1 | offen | D-06, A-24, A-29, A-12 (EDF+D lesbar) | |
-| NG-F02 | Konvertierung nach EEG-BIDS (Spezifikation 1.11.x) über MNE-BIDS | Ausgabe besteht den BIDS-Validator v3 ohne Fehler | §7 S.6 | v0.1 | offen | A-05, A-06 | |
+| NG-F01 | Einlesen von EDF/EDF+, BDF, BrainVision (.vhdr), EEGLAB (.set), FIF | Drei öffentliche Datensätze in mindestens zwei Formaten werden ohne Fehler eingelesen; unbekannte Formate erzeugen eine klare Fehlermeldung mit Dateiname | §7 S.6 | v0.1 | erfüllt | D-06, A-24, A-29, A-12 (EDF+D lesbar) | P2: Adapter EDF/EDF+ (inkl. EDF+D), BDF, BrainVision, EEGLAB (MAT v5/v7.3), FIF; alle 6 Korpus-Datensätze (5 Formate) ohne M01-Fehler (`tests/corpus/test_corpus.py`); `.cnt`/`.xdf` und weitere bekannte Formate → M01-04 mit Dateiname (`test_cnt_and_xdf_files_are_m01_errors_with_their_file_name`, A-77) |
+| NG-F02 | Konvertierung nach EEG-BIDS (Spezifikation 1.11.x) über MNE-BIDS | Ausgabe besteht den BIDS-Validator v3 ohne Fehler | §7 S.6 | v0.1 | erfüllt | A-05, A-06 | P2: `convert --to bids` über MNE-BIDS 0.20; Ausgabe für EDF, BDF, BrainVision, EEGLAB, FIF (synthetisch, `tests/integration/test_convert.py`) und je eine Korpus-Aufnahme je Format, mit und ohne `--strip-identifying-headers`: 0 Validator-Fehler |
 | NG-F03 | Prüfung und Konvertierung gegen GB/T 47127-2026 | Regelpaket `gbt47127` deckt alle Pflichtelemente des Normtexts ab | §7 S.6 | v0.2 | blockiert (extern): Normtext (kostenlos auf openstd.samr.gov.cn, nur manuell ladbar) | D-01, D-02, A-32 | |
 | NG-F04 | Abbildungstabelle ISO/IEC TS 27571 ↔ BIDS ↔ GB/T 47127 | Jedes Pflichtfeld der TS ist einem Feld in BIDS oder GB/T zugeordnet oder als Lücke markiert | §7 S.6 | v1.0 | blockiert (extern): TS 27571 kostenpflichtig (CHF 100), GB/T 47127 | D-01, D-02, A-55 | |
-| NG-F05 | Strukturprüfung über BIDS-Validator v3 (Deno, als Unterprozess) | Validator-Meldungen erscheinen als normale Befunde mit Schweregrad | §7 S.6 | v0.1 | offen | A-06 | |
-| NG-F06 | Metadaten-Vollständigkeit (M02) | Fehlende Pflichtfelder werden je Datei gelistet | §7 S.6 | v0.1 | offen | A-03, A-04 | |
+| NG-F05 | Strukturprüfung über BIDS-Validator v3 (Deno, als Unterprozess) | Validator-Meldungen erscheinen als normale Befunde mit Schweregrad | §7 S.6 | v0.1 | erfüllt | A-06 | P2: bids-validator-deno 3.0.2 als Unterprozess (`--deny-net`, nur Leserecht auf den Datensatz); Meldungen als Befunde BIDS-STO-001 (error), -002 (warning), -003 (HED-Schema), Unterschlüssel = Code (`tests/unit/test_validator.py`, Regelfälle) |
+| NG-F06 | Metadaten-Vollständigkeit (M02) | Fehlende Pflichtfelder werden je Datei gelistet | §7 S.6 | v0.1 | erfüllt | A-03, A-04 | P2: CORE-M02-01 je Aufnahme und fehlendem Feld (Unterschlüssel = Feldname); `convert` listet nicht dokumentierte Felder (`tests/rules`, `tests/unit/test_bids_metadata.py`) |
 | NG-F07 | Signalqualitätsmetriken M03–M09 | Für jede Aufnahme liegen alle Werte im JSON vor; Laufzeit nach NG-N02 | §7 S.6 | v0.1 | offen | D-04, A-18, A-19 | |
 | NG-F08 | Annotationsprüfung M10 | Uneinheitliche Ereigniscodes, Lücken, Überlappungen und Cohens κ zwischen Annotatoren werden berichtet | §7 S.6 | v0.1 | offen | A-17 | |
 | NG-F09 | KI-Datensatzstruktur M11–M12: Klassenbalance, Demografie, Split-Integrität, Duplikate | Ein Proband in Training und Test zugleich führt zu einem Fehler; doppelte Aufnahmen werden über Signal-Hash gefunden | §7 S.6 | v0.1 | offen | A-04, A-21 | |
@@ -95,11 +95,11 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Anforderung | Prüfung | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
-| NG-N01 | Läuft lokal und offline. Keine Telemetrie. Der BIDS-Validator wird mitgeliefert, nicht nachgeladen | Lauf ohne Netz; Socket-Sperre in Tests; Code-Scan | §8 S.7 | Q | offen | A-06, A-25, A-26, A-49, D-08 | |
+| NG-N01 | Läuft lokal und offline. Keine Telemetrie. Der BIDS-Validator wird mitgeliefert, nicht nachgeladen | Lauf ohne Netz; Socket-Sperre in Tests; Code-Scan | §8 S.7 | Q | in Arbeit | A-06, A-25, A-26, A-49, D-08 | P2: Validator mitgeliefert, `--deny-net`, bereinigte Umgebung; CI-Job `offline-strace` angelegt, nicht verifiziert (läuft erst nach Push, D-09); Abschluss P5 |
 | NG-N02 | 1 GB EDF wird auf einem Laptop mit 16 GB RAM in unter 5 Minuten geprüft; Daten werden blockweise gelesen | Laufzeit- und Spitzenspeicher-Messung mit synthetischer 1-GB-EDF | §8 S.7 | Q | offen | D-04, A-50, D-12 | |
 | NG-N03 | Reproduzierbar: gleiche Daten, Konfiguration und Regelpaketversion ergeben identisches JSON; Zufallsverfahren wie ICA mit festem Seed | zwei Läufe, Byte-Vergleich | §8 S.7 | Q | in Arbeit | A-11, A-61 | P1: zwei Läufe byte-gleich (Test); 3.11/3.12/3.13 gleich bis auf `environment` |
 | NG-N04 | Windows 10/11 (PowerShell) und Linux; Python 3.11–3.13 | CI-Matrix | §8 S.8 | Q | offen | D-05, A-26, A-42, A-48, A-58, D-09 | |
-| NG-N05 | Berichte enthalten standardmäßig keine Rohsignale und nur pseudonyme IDs | Test auf Berichtsinhalt | §8 S.8 | Q | in Arbeit | A-05, A-09, A-51 | P1: pseudonyme IDs in Rohordnern, Kopffelder nur als Feldnamen, Pfadfilter für Konsole/Traceback, Ausnahme-Muster geschwärzt (A-69), Namenshinweis (A-71) |
+| NG-N05 | Berichte enthalten standardmäßig keine Rohsignale und nur pseudonyme IDs | Test auf Berichtsinhalt | §8 S.8 | Q | in Arbeit | A-05, A-09, A-51 | P1/P2: pseudonyme IDs in Rohordnern, Kopffelder nur als Feldnamen, Pfadfilter, Ausnahme-Muster geschwärzt, Namenshinweis; `convert` gibt keine Klarnamen aus, `--strip-identifying-headers` (A-77) |
 | NG-N06 | Alle Meldungen in zh und en | Vollständigkeitstest der Sprachtabellen | §8 S.8 | Q | offen | A-07 | |
 | NG-N07 | Abhängigkeiten nur mit permissiven Lizenzen; die CI prüft das mit pip-licenses | CI-Schritt | §8 S.8 | Q | in Arbeit | D-05, A-56, D-08 (D-05: permissiv + MPL-2.0) | P1: Lizenz-Gate zweistufig (Allowlist + Copyleft-Sperre) für Laufzeit und Dev grün |
 | NG-N08 | Testabdeckung: Kern 90 %, Prüfer 80 %; jede Regel hat mindestens einen Test mit Positiv- und Negativfall | Coverage-Bericht, Regel-Test-Abgleich | §8 S.8 | Q | in Arbeit | A-23 | P1: Abdeckung Kern 97,4 %, Prüfer 95,2 %; Positiv-/Negativfall je eingebauter Regel mit Meta-Test |
@@ -110,11 +110,11 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Metrik | Methode (PRD) | Startschwelle (PRD) | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|---|
-| M01 | Lesbarkeit und Kopfzeile | Einlesen mit MNE; EDF-Kopfzeile mit edfio prüfen | Fehler bei Lesefehler | §12 S.12 | v0.1 | in Arbeit | A-24, A-46, A-05 | P1: EDF lesbar (MNE), Kopf eigener Parser + edfio, unterstütztes Format inkl. Ordnerformate, Kennungen im Kopf (A-64); weitere Formate in P2 |
-| M02 | Metadaten-Vollständigkeit | Pflichtfelder EEG-BIDS: EEGReference, SamplingFrequency, PowerLineFrequency, SoftwareFilters, TaskName; channels.tsv name/type/units | Fehler je fehlendem Feld | §12 S.12 | v0.1 | offen | A-03, A-46 | |
-| M03 | Abtastrate | Wert je Aufnahme; Einheitlichkeit im Datensatz | Warnung unter 500 Hz (T/GXDSL 008); Warnung bei gemischten Raten ohne Dokumentation | §12 S.12 | v0.1 | in Arbeit | A-18, A-46 | P1: Rate je Aufnahme exakt aus dem Kopf, Warnung < 500 Hz, gemischte Raten ohne Begründung als Warnung; Sidecar-Vergleich in P2 |
-| M04 | Kanalsatz und Montage | Kanalnamen gegen 10-20/10-10; Positionen vorhanden; gleicher Kanalsatz je Aufgabe | Fehler bei unbekannten Namen ohne Abbildung | §12 S.12 | v0.1 | offen | A-18, A-46 | |
-| M05 | Impedanz | Werte vorhanden? Unter Schwelle? | Warnung über 5 kΩ nass (T/GXDSL 008); Warnung, wenn nicht dokumentiert | §12 S.12 | v0.1 | offen | A-04 | |
+| M01 | Lesbarkeit und Kopfzeile | Einlesen mit MNE; EDF-Kopfzeile mit edfio prüfen | Fehler bei Lesefehler | §12 S.12 | v0.1 | erfüllt | A-24, A-46, A-05 | P1/P2: Lesbarkeit (MNE), Kopf je Format (eigene Parser, edfio für EDF), Begleitdateien und sichere Verweise (A-52, A-77), unterstütztes Format, Kennungen im Kopf; Positiv- und Negativfälle aller fünf Regeln (`tests/rules/test_builtin_rules.py`), Korpus ohne M01-Fehler |
+| M02 | Metadaten-Vollständigkeit | Pflichtfelder EEG-BIDS: EEGReference, SamplingFrequency, PowerLineFrequency, SoftwareFilters, TaskName; channels.tsv name/type/units | Fehler je fehlendem Feld | §12 S.12 | v0.1 | erfüllt | A-03, A-46 | P2: CORE-M02-01 Pflichtfelder (A-03/A-04, Herkunft je Feld), CORE-M02-02 TaskName/BIDSVersion/Name (A-46); Golden-Liste echter Fehler im Korpus bestätigt |
+| M03 | Abtastrate | Wert je Aufnahme; Einheitlichkeit im Datensatz | Warnung unter 500 Hz (T/GXDSL 008); Warnung bei gemischten Raten ohne Dokumentation | §12 S.12 | v0.1 | erfüllt | A-18, A-46 | P1/P2: Rate je Aufnahme, Warnung < 500 Hz, gemischte Raten ohne Begründung, Sidecar-Rate gegen Daten (CORE-M03-03) |
+| M04 | Kanalsatz und Montage | Kanalnamen gegen 10-20/10-10; Positionen vorhanden; gleicher Kanalsatz je Aufgabe | Fehler bei unbekannten Namen ohne Abbildung | §12 S.12 | v0.1 | erfüllt | A-18, A-46 | P2: Namen gegen 10-20/10-10 (MNE-Montagen, `channel_map`), Positionen, gleicher Kanalsatz je Aufgabe, Kanalzahl (A-46), Hinweis 10-05; Golden-Liste (ds004148 Kanalzahl, ds002778 EXG1–8) |
+| M05 | Impedanz | Werte vorhanden? Unter Schwelle? | Warnung über 5 kΩ nass (T/GXDSL 008); Warnung, wenn nicht dokumentiert | §12 S.12 | v0.1 | erfüllt | A-04 | P2: CORE-M05-01 dokumentiert, CORE-M05-02 > 5 kΩ bei nassen Elektroden (Schwelle überschreibbar, MET-02-Effekttest); trocken → nicht anwendbar, unbekannt → nicht prüfbar |
 | M06 | Schlechte Kanäle | pyprep NoisyChannels | kalibrieren | §12 S.12 | v0.1 | offen | D-04, A-19, A-20, A-44, A-60 | |
 | M07 | Netzbrummen | Leistung 50 Hz ± 1 Hz im Verhältnis zu 1–40 Hz | kalibrieren | §12 S.12 | v0.1 | offen | A-18, A-20, A-44, A-47 | |
 | M08 | Flatline und Übersteuerung | Abschnitte ohne Varianz oder an der Messbereichsgrenze | Fehler über 5 % der Dauer (Startwert) | §12 S.12 | v0.1 | offen | A-18 (je Format) | |
@@ -139,7 +139,7 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | DM-04 | Channel | name, typ (EEG/EOG/EMG/…), einheit, position (10-20/10-10), impedanz_kohm, status (gut/schlecht) | §10 S.10 | v0.1 | erfüllt | D-03 | `Channel` (+ recording_id, resolution, physical_range, Rate je Kanal) aus dem Adapter; Test und Doku (P1) |
 | DM-05 | Annotation | onset_s, dauer_s, code, label, annotator_id, quelle | §10 S.10 | v0.1 | erfüllt | D-03, A-17 | `Annotation` (+ recording_id); Felder per Test und Doku; befüllt ab P4 (M10) (P1) |
 | DM-06 | Split | name (train/val/test), recording_ids[] | §10 S.10 | v0.1 | erfüllt | D-03 | `Split` (train/val/test); Felder per Test und Doku; befüllt ab P4 (M12) (P1) |
-| DM-07 | ProcessingStep | schritt, werkzeug, version, parameter, eingabe_hash, ausgabe_hash | §10 S.10 | v0.1 | erfüllt | D-03, A-22 | `ProcessingStep`; Felder per Test und Doku; befüllt ab P2/P4 (P1) |
+| DM-07 | ProcessingStep | schritt, werkzeug, version, parameter, eingabe_hash, ausgabe_hash | §10 S.10 | v0.1 | erfüllt | D-03, A-22 | `ProcessingStep`; Felder per Test und Doku; befüllt in P2 durch `convert` (Hash über alle Dateien der Aufnahme, A-77) |
 | DM-08 | ConsentScope | subject, version, datum, erlaubte_nutzungen{training, validierung, veroeffentlichung, weitergabe, kommerziell}, widerruf, ethikvotum_ref | §10 S.10 | v0.2 | offen | D-03 | |
 | DM-09 | AccessEvent | zeit, rolle, aktion, objekte[], zweck, genehmigung_ref, vorheriger_hash, hash | §10 S.10 | v0.2 | offen | D-03 | |
 | DM-10 | Finding | regel_id, klausel, schweregrad, status, messwert, schwelle, objekt, belege[] | §10 S.10 | v0.1 | erfüllt | D-03, A-09 | `Finding` (details statt belege, D-03; + params mit Herkunft, key, Paket, Phase …); Test und Doku (P1) |
@@ -156,7 +156,7 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | RP-06 | Nennt die Norm eine Prüfmethode (检验方法), wird sie genau so implementiert, und der Code verweist auf die Klausel | Code-Review | §11 S.11 | v0.2 | blockiert (extern): Normtext | D-02 | |
 | RP-07 | Abdeckungsmaß = Anteil der Muss-Klauseln, die automatisch oder halbautomatisch prüfbar sind; Ziel v0.2 ≥ 60 % | berechnet, im Bericht | §11 S.11 | v0.2 (Berechnung v0.1) | offen | A-16 | |
 | RP-08 | Liste „Auslegungsfragen“ für unsichere Auslegungen | Datei im Repo | §11 S.11 | v0.2 | blockiert (extern): Normtext | D-02 | |
-| RP-09 | Regelpaket `bids` | Paket lädt, Validator-Befunde | §6, §7 | v0.1 | offen | A-06 | |
+| RP-09 | Regelpaket `bids` | Paket lädt, Validator-Befunde | §6, §7 | v0.1 | erfüllt | A-06 | P2: Paket `bids` (BIDS-STO-001 bis -003) lädt, Validator-Befunde mit Unterschlüssel; Positiv-/Negativfall je Regel |
 | RP-10 | Regelpaket `yyt2029` Version `0.2.0-draft`; Parameter sind Platzhalter, bis der Normtext gelesen ist (Beispielregel YYT2029-ACQ-001, Klausel 5.1.2, `signal.sampling_rate_consistency`, `min_hz: 500`) | Paket lädt; Platzhalter markiert | §11 S.10–11 | v0.2 | offen (Inhalt blockiert) | D-02, A-41 | |
 | RP-11 | Regelpaket `gbt47127` | siehe NG-F03 | §9 Abb., §13 | v0.2 | blockiert (extern): Normtext | D-02 | |
 | RP-12 | Regelpakete werden versioniert (Gegenmaßnahme „neue Normen“) | Version in jedem Paket und im JSON | §20 S.21 | Q | erfüllt | | `version` Pflichtfeld je Paket; Version und SHA-256 über die Dateibytes in results.json und auf dem Deckblatt (P1) |
@@ -173,8 +173,8 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 
 | ID | Befehl | Zweck | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
-| CLI-01 | `neurogrid scan PFAD` | Bestandsaufnahme: Formate, Probanden, Aufnahmen, Größen | §13 S.14 | v0.1 | in Arbeit | A-31 | P1: `scan` mit Formaten, Probanden (BIDS), Aufnahmen, Größen, nicht unterstützten Dateien, Namenshinweis |
-| CLI-02 | `neurogrid convert PFAD --to bids --out ZIEL` | Konvertierung | §13 S.14 | v0.1 | offen | A-05 | |
+| CLI-01 | `neurogrid scan PFAD` | Bestandsaufnahme: Formate, Probanden, Aufnahmen, Größen | §13 S.14 | v0.1 | erfüllt | A-31 | P1/P2: `scan` mit Formaten, Probanden (BIDS und Zuordnung im Rohordner, A-72), Aufnahmen, Größen, nicht unterstützten und nicht zuordenbaren Dateien |
+| CLI-02 | `neurogrid convert PFAD --to bids --out ZIEL` | Konvertierung | §13 S.14 | v0.1 | erfüllt | A-05 | P2: `neurogrid convert PFAD --to bids --out ZIEL` mit `--config` und `--strip-identifying-headers`; Exitcodes 0/1/2 nach A-77 (`tests/integration/test_convert.py`, `tests/integration/test_review_p2_convert.py`) |
 | CLI-03 | `neurogrid check PFAD --rulepack yyt2029 --rulepack bids --config neurogrid.toml --out results.json` | Prüfung | §13 S.14 | v0.1 | in Arbeit | A-03, A-31 | P1: `check` mit --rulepack/--config/--out/--strict/--as-of/--allow-draft-rulepacks/--show-paths |
 | CLI-04 | Modus `--strict` (fehlendes Manifest = Fehler) | M13 | §12 S.13 | v0.1 | offen | A-22 | |
 | CLI-05 | `neurogrid report results.json --lang zh,en --format html,pdf` | Bericht | §13 S.14 | v0.1 | in Arbeit | A-08 | P1: `report` HTML zh/en mit Kommalisten; PDF in P5 |
@@ -206,18 +206,18 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | ARC-01 | Fünf Stufen: Datensatz → Adapter/Datenmodell → Prüfer (Struktur, Metadaten, Signal, Annotation, KI-Struktur, Provenienz, Einwilligung) → Regelmotor → Ausgabe (JSON, Bericht HTML/PDF zh/en, Exitcode); Zulieferer BIDS-Validator, NeuroVault, Regelpakete | §9 S.8 Abb. | v0.1 | in Arbeit | | P1: Datensatz → Adapter/Datenmodell → Prüfer → Regelmotor → Ausgabe verdrahtet; Validator in P2, NeuroVault in P6 (Abschluss) |
 | ARC-02 | Prüfer liefern Messwerte, der Regelmotor bewertet sie gegen die Regelpakete; ein Befund je Regel, mit Klausel und Beleg | §9 S.9 Abb. | v0.1 | erfüllt | A-02, A-09 | Prüfer liefern nur `Measurement`, allein `kernel/engine.py` bewertet; ein Befund je Regel × Objekt × Unterschlüssel; tests/unit/test_engine.py (P1) |
 | ARC-03 | Internes Paket `kernel`: Regelmotor, Belege, Bericht, Provenienz, Sprachtabellen zh/en/de; geteilt mit Proof und RegOps; „was ein zweites Produkt braucht, wandert in den Kern“ | §1 S.1, §9 | v0.1 | erfüllt | A-07, A-23 | Paket `neurogrid.kernel` (Regelmotor, Befunde, Bericht, Provenienz, Sprachtabellen zh/en/de); AST-Test der Importgrenze inkl. relativer Importe; mypy --strict (P1) |
-| ARC-04 | Adapter wiederverwendbar (RehabLoop nutzt die NeuroGrid-Adapter für Gerätelogs im Format GB/T 47127-2026) | §1 S.1 | v0.1 (GB/T-Adapter v0.2) | offen | A-24 | |
+| ARC-04 | Adapter wiederverwendbar (RehabLoop nutzt die NeuroGrid-Adapter für Gerätelogs im Format GB/T 47127-2026) | §1 S.1 | v0.1 (GB/T-Adapter v0.2) | in Arbeit | A-24 | P2: gemeinsamer Adaptervertrag `FormatAdapter` (read/inspect/read_check) für fünf Formate; GB/T-47127-Adapter in v0.2 |
 | ARC-05 | Entwickler- und Compliance-Werkzeug, kein Medizinprodukt: keine Aussage über Patienten | §2 S.2 | Q | offen | | |
 | ARC-06 | Läuft beim Kunden, offline: keine Daten verlassen den Rechner | §9 Abb., §22 | Q | offen | A-25 | |
-| LIB-01 | MNE-Python 1.13.2 (BSD-3): Einlesen, Filter, ICA | §9 S.9 | v0.1 | offen | | |
-| LIB-02 | MNE-BIDS 0.20.0 (BSD-3): BIDS lesen und schreiben | §9 S.9 | v0.1 | offen | A-05 | |
-| LIB-03 | BIDS-Validator v3 (Deno) 3.0.2 (MIT): Strukturprüfung | §9 S.9 | v0.1 | offen | A-06 | |
+| LIB-01 | MNE-Python 1.13.2 (BSD-3): Einlesen, Filter, ICA | §9 S.9 | v0.1 | in Arbeit | | P2: MNE 1.13.2 liest alle Formate (read_raw_*, Leseprüfung); Filter und ICA folgen mit M06/M09 in P3 (A-78) |
+| LIB-02 | MNE-BIDS 0.20.0 (BSD-3): BIDS lesen und schreiben | §9 S.9 | v0.1 | erfüllt | A-05, A-78 | P2: MNE-BIDS 0.20.0 schreibt BIDS (`write_raw_bids`) und liest die Entitäten der Dateinamen (`get_entities_from_fname`); Sidecar-Werte liest NeuroGrid selbst (A-04, A-78) |
+| LIB-03 | BIDS-Validator v3 (Deno) 3.0.2 (MIT): Strukturprüfung | §9 S.9 | v0.1 | erfüllt | A-06 | P2: bids-validator-deno 3.0.2 (Schema 1.2.7 = BIDS 1.11.1) mit deno 2.9.7 gebündelt und gepinnt; Aufruf nach A-06 |
 | LIB-04 | pyprep 0.9.0 (MIT): schlechte Kanäle (PREP) | §9 S.9 | v0.1 | offen | A-19 | |
 | LIB-05 | eegprep 0.4.0 (BSD-2): ASR-Artefaktmetriken | §9 S.9 | v0.1 | bewusst abgewichen (D-05: eegprep entfällt) | D-05 | |
 | LIB-06 | autoreject 0.5.1 (BSD-3): Verwerfungsrate je Epoche | §9 S.9 | v0.1 | offen | A-19 | |
 | LIB-07 | mne-icalabel 0.10.0 (BSD-3): Anteil nicht-hirnbedingter ICA-Komponenten | §9 S.9 | v0.1 | offen | A-19 | |
-| LIB-08 | edfio 0.4.18 (Apache-2.0) / pyEDFlib 0.1.42 (BSD): EDF-Kopfzeilen prüfen | §9 S.9 | v0.1 | offen | A-24 (edfio; pyEDFlib nicht verwendet) | |
-| LIB-09 | EEGDash 0.9.1 (BSD-3): Katalog öffentlicher BIDS-Datensätze als Testkorpus | §9 S.9 | v0.1 | bewusst abgewichen (D-11: Korpus über OpenNeuro-API) | A-29, D-11 | |
+| LIB-08 | edfio 0.4.18 (Apache-2.0) / pyEDFlib 0.1.42 (BSD): EDF-Kopfzeilen prüfen | §9 S.9 | v0.1 | erfüllt | A-24 (edfio; pyEDFlib nicht verwendet) | P1/P2: edfio 0.4.18 prüft EDF-Köpfe gegen den eigenen Parser (`header.edfio_rejected`) |
+| LIB-09 | EEGDash 0.9.1 (BSD-3): Katalog öffentlicher BIDS-Datensätze als Testkorpus | §9 S.9 | v0.1 | bewusst abgewichen (D-11: Korpus über OpenNeuro-API) | A-29, D-11 | P2: Ersatz umgesetzt: `tools/corpus.py` lädt über OpenNeuro-API und PhysioNet und prüft offline gegen `tools/corpus_lock.json` (297 Dateien, SHA-256); `DATA_SOURCES.md` |
 | LIB-10 | NWB Inspector 0.7.2 (BSD): Vorbild für Schweregrade und Prüfer-Aufbau (keine Abhängigkeit) | §9 S.9 | v0.1 | erfüllt | A-09 | Schweregrade error/warning/info nach NWB Inspector (CRITICAL/BEST_PRACTICE_*), Prüfer als Registry; Docstring `kernel/findings.py`; keine Abhängigkeit (P1) |
 
 ## J. Technischer Standard und Repository (§13, §22)
@@ -243,7 +243,7 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 |---|---|---|---|---|---|---|
 | CON-01 | Keine GPL-Software im Kern (ausdrücklich nicht MetaBCI GPL-2.0, nicht OpenViBE AGPL) | §22 S.22 | Q | in Arbeit | D-05 | P1: keine GPL im Kern; Copyleft-Sperre im Lizenz-Gate grün |
 | CON-02 | Das Werkzeug darf sensible Daten nie selbst exportieren (PIPL, grenzüberschreitende Übermittlung) | §22 S.22 | Q | offen | A-25, A-30, A-34 | |
-| CON-03 | Entwicklung nur mit öffentlichen Datensätzen (OpenNeuro, EEGDash, MOABB); nie identifizierbare Patientendaten | §22 S.22 | Q | offen | D-06, A-29 | |
+| CON-03 | Entwicklung nur mit öffentlichen Datensätzen (OpenNeuro, EEGDash, MOABB); nie identifizierbare Patientendaten | §22 S.22 | Q | erfüllt | D-06, A-29 | P2: Korpus nur aus öffentlichen Datensätzen (CC0, CC BY 4.0; `DATA_SOURCES.md`), Fixtures synthetisch; keine Patientendaten im Repository |
 | CON-04 | Beim Kunden läuft alles lokal; Daten verlassen das Haus nicht (auch Zusage der Kontaktnachricht §18) | §22 S.22, §18, §20 | Q | offen | A-25, A-49 | |
 | CON-05 | Offener Code als Vertrauensmaßnahme | §20 S.20 | Q | offen | D-07 | |
 
@@ -252,9 +252,9 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | ID | Flow | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|
 | UF-01 | RA-Leiterin (Frau Li): `check` mit Regelpaketen → Bericht zh/en als PDF mit Klauselbezug → in Registrierungsunterlagen legen; manuelle Nachweise und Ausnahmen im Bericht | §4, §14 | v0.1 (Nachweise v0.2) | offen | | |
-| UF-02 | Datenteam (Herr Wang): Daten mehrerer Kliniken `scan` → `convert --to bids` → `check` in der Pipeline (JSON, Exitcodes) → `diff` zweier Läufe | §4, §13 | v0.1 (diff/CI v1.0) | offen | | |
+| UF-02 | Datenteam (Herr Wang): Daten mehrerer Kliniken `scan` → `convert --to bids` → `check` in der Pipeline (JSON, Exitcodes) → `diff` zweier Läufe | §4, §13 | v0.1 (diff/CI v1.0) | in Arbeit | | P2: Ablauf `scan` → `convert --to bids` → `check` mit JSON und Exitcodes geprüft; `diff` folgt in v1.0 |
 | UF-03 | Klinik-Forschungsgruppe (Dr. Zhao): Datensatz aufbauen → Nachweis, dass er die Prüfungen besteht → Einwilligung dokumentieren (`vault`) → Prüfpaket für Weitergabe | §4, §15 | v0.2/v1.0 | offen | | |
-| UF-04 | Prüfinstitut/Verfasser: offene Referenzimplementierung; eigenes Regelpaket ohne Codeänderung; Massenprüfungen per Skript | §4, NG-F11 | v0.1 | offen | | |
+| UF-04 | Prüfinstitut/Verfasser: offene Referenzimplementierung; eigenes Regelpaket ohne Codeänderung; Massenprüfungen per Skript | §4, NG-F11 | v0.1 | in Arbeit | | P1/P2: offene Implementierung, eigene Regelpakete ohne Codeänderung (P1), Paket `bids`; Massenprüfungen per Skript über CLI und JSON |
 | UF-05 | Provenienz: `manifest` → Weitergabe → `verify` erkennt jede Änderung | §12 M13, NG-F10 | v0.1 | offen | | |
 | UF-06 | NeuroVault: `vault init` → `consent add` → `log` → `verify` → `export` (ZIP für Inspektionen) | §13, §15 | v0.2/v1.0 | offen | | |
 | UF-07 | Ausnahmen in `neurogrid.toml` mit Begründung, Nachweise in `evidence.yaml` → beides im Bericht | §7, §14 | v0.1/v0.2 | offen | | |

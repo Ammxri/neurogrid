@@ -1,0 +1,9 @@
+# Documents the EEG-BIDS required fields for the raw synthetic fixtures (M02-01, A-03, A-05).
+# Used by tests and CI whose subject is something else, so that only that subject decides the exit code.
+[metadata.defaults]
+reference = "Cz"
+line_frequency_hz = 50
+software_filters = "n/a"
+
+[convert]
+pattern = '(?P<task>[A-Za-z0-9]+)(?:_(?P<subject>[A-Za-z0-9]+))?\.(?:edf|bdf)'

@@ -10,10 +10,11 @@ cli:
     formats: "Formate"
     recordings: "Aufnahmen"
     unsupported: "Nicht unterstützte Datendateien"
+    orphans: "Nicht zuordenbare Datendateien"
     other: "Sonstige Dateien"
     links: "Übersprungene Links (nicht verfolgt)"
     subjects: "Probanden"
-    subjects_unknown: "unbekannt (Rohordner ohne Zuordnung)"
+    subjects_unknown: "unbekannt (nicht jede Aufnahme ist einem Probanden zugeordnet)"
     names_hint: "Hinweis: {count} Datendatei-Pfad(e) enthalten Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern in Folge und könnten Personen kennzeichnen."
     unreadable: "Nicht lesbare Einträge (nicht geprüft)"
     size: "Gesamtgröße"
@@ -26,6 +27,15 @@ cli:
     placeholder: "Platzhalter-Regelpakete sind geladen. Ihre Befunde beruhen nicht auf einem Normtext und zählen nicht."
   report:
     written: "Bericht geschrieben nach {path}"
+  convert:
+    converted: "Umgewandelte Aufnahmen: {count}"
+    skipped: "Nicht umgewandelt: {id} – {reason}"
+    missing_field: "Nicht dokumentiert, als n/a geschrieben: {field} ({count} Aufnahme(n)); siehe M02 in 'check'."
+    missing_field_na_valid: "Nicht dokumentiert, als n/a geschrieben: {field} ({count} Aufnahme(n)); BIDS lässt hier n/a zu, daher meldet 'check' das Feld nicht."
+    missing_name: "Nicht dokumentiert, als n/a geschrieben: Name in dataset_description.json; [dataset] name in neurogrid.toml setzen."
+    validator: "BIDS-Validator auf der Ausgabe: {errors} Fehler, {warnings} Warnung(en)"
+    written: "BIDS-Datensatz geschrieben nach {path}"
+    nothing: "Keine Aufnahme umgewandelt; es wurde kein BIDS-Datensatz geschrieben."
   error:
     prefix: "Fehler"
     internal: "Interner Fehler ({type}). Für Details erneut mit --debug ausführen."
@@ -75,6 +85,7 @@ errors:
     param_type: "Konfiguration: Regel {rule}, Parameter '{param}' hat den falschen Typ."
     encoding: "Die Konfigurationsdatei ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird angenommen)."
     unsafe_path: "Konfiguration: Feld '{field}' muss ein relativer Pfad im Projekt sein (kein '..', kein Laufwerks-, Netz- oder Gerätepfad)."
+    unsafe_pattern: "Konfiguration: Der reguläre Ausdruck in Feld '{field}' kann bei manchen Dateinamen sehr lange laufen (ein wiederholter Teil enthält eine weitere Wiederholung oder Alternativen, oder er nutzt einen Rückverweis). Bitte vereinfachen."
     too_deep: "Die Konfigurationsdatei ist zu tief verschachtelt."
   input:
     not_found: "Eingabepfad nicht gefunden."
@@ -90,6 +101,20 @@ errors:
   output:
     is_directory: "Der Ausgabepfad ist ein Ordner; bitte einen Dateinamen angeben."
     not_writable: "Die Ausgabe kann dort nicht geschrieben werden (Ordner fehlt, eine Datei steht im Weg oder es fehlen Rechte)."
+  validator:
+    missing: "Der BIDS-Validator ist nicht installiert oder unvollständig."
+    failed: "Der BIDS-Validator ist fehlgeschlagen (Exitcode {code})."
+    timeout: "Der BIDS-Validator wurde nicht rechtzeitig fertig."
+    comma_path: "Pfade mit Komma lassen sich nicht validieren (deno-Rechtelisten); bitte umbenennen."
+  convert:
+    target_unavailable: "Das Umwandlungsziel '{target}' gibt es in dieser Version nicht (bids)."
+    already_bids: "Die Eingabe ist bereits ein BIDS-Datensatz."
+    output_not_empty: "Der Ausgabeordner ist nicht leer."
+    output_inside_input: "Der Ausgabeordner darf nicht im Eingabeordner liegen."
+    mapping_missing: "{count} Datendatei(en) ohne Zuordnung zu Proband/Aufgabe; eine Vorlage liegt in .neurogrid/{template}."
+    mapping_missing_unwritable: "{count} Datendatei(en) ohne Zuordnung zu Proband/Aufgabe; die Vorlage .neurogrid/{template} konnte nicht geschrieben werden (Ordner nicht beschreibbar oder ein Link, dem nicht gefolgt wird)."
+    duplicate_target: "Zwei Dateien ergeben dieselbe BIDS-Aufnahme (Proband {subject}, Aufgabe {task})."
+    label_case: "Die Labels {first} und {second} unterscheiden sich nur in der Groß-/Kleinschreibung; unter Windows und macOS lägen sie im selben Ordner. Bitte eindeutig benennen."
 
 notice:
   override_unused: "Die Konfiguration setzt Parameter für Regel {rule}, die nicht geladen ist."
@@ -97,6 +122,7 @@ notice:
   exception_unused: "Ausnahme für Regel {rule} hat keinen Befund getroffen."
   names_look_identifying: "{count} Datendatei-Pfad(e) enthalten Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern in Folge und könnten Personen kennzeichnen. Bitte die Dateinamen prüfen."
   links_skipped: "{count} Link(s) oder Junction(s) im Datensatz wurden nicht verfolgt; ihr Inhalt wurde nicht geprüft."
+  bids_not_checked: "Der Datensatz ist kein BIDS-Datensatz; die BIDS-Struktur wurde nicht geprüft."
 
 severity:
   error: "Fehler"
@@ -129,15 +155,34 @@ reason:
   read:
     failed: "Die Daten konnten nicht gelesen werden."
     unlistable: "Der Ordner konnte nicht gelesen werden; sein Inhalt wurde nicht geprüft."
+  recording:
+    annotations_only: "Nur Annotationen (z. B. ein Hypnogramm); keine Signalkanäle."
+  bids:
+    not_bids: "Kein BIDS-Datensatz; die BIDS-Struktur wird nicht geprüft."
   dataset:
     no_readable_recording: "Der Datensatz enthält keine lesbare Aufnahme."
+  convert:
+    damaged: "Der Kopf passt nicht zu den Daten (CORE-M01-02); nicht umgewandelt."
+    companion: "Eine Begleitdatei fehlt oder ihr Verweis ist nicht nutzbar (CORE-M01-03); nicht umgewandelt."
+    epoched: "Epochierter EEGLAB-Datensatz; EEG-BIDS braucht fortlaufende Daten."
+    failed: "Die Aufnahme konnte nicht geschrieben werden; nichts davon bleibt in der Ausgabe."
+    no_eeg_channels: "Kein EEG-Kanal zum Schreiben (EEG-BIDS braucht mindestens einen); nicht umgewandelt."
   format:
     unsupported: "Datendatei in einem Format, das NeuroGrid nicht lesen kann."
+    orphan_companion: "Datendatei ohne zugehörigen Kopf (nicht zuordenbar)."
   header:
     unreadable: "Die Kopfzeile konnte nicht gelesen werden."
   signal:
     no_eeg_channels: "Keine EEG-Kanäle gefunden."
     rate_unknown: "Der Kopf nennt keine gültige Abtastrate."
+  metadata:
+    no_task_name: "Kein TaskName oder kein Task-Label zum Vergleich."
+    not_bids: "Kein BIDS-Datensatz."
+    no_sidecar: "Kein Sidecar mit Kanalzahl."
+    no_sidecar_rate: "Keine Abtastrate in einem Sidecar."
+    electrode_type_unknown: "Elektrodentyp (nass/trocken) nicht dokumentiert; in neurogrid.toml angeben."
+  impedance:
+    dry_electrodes: "Trockenelektroden: Die 5-kOhm-Grenze gilt nur für nasse Elektroden."
   evidence:
     missing: "Kein Nachweiseintrag."
     open: "Nachweis als offen markiert."
@@ -168,6 +213,21 @@ issue:
     bad_signal_count: "Ungültige Zahl von Signalen."
     io_error: "Datei konnte nicht geöffnet werden."
     unreadable: "Kopfzeile konnte nicht gelesen werden."
+    missing_key: "Ein erforderlicher Kopfeintrag fehlt."
+    channel_count: "Die Kanalzahl stimmt nicht mit der Kanalliste überein."
+    sampling_interval: "Das Abtastintervall ist ungültig."
+    sampling_rate: "Die Abtastrate ist ungültig."
+    data_format: "Das Datenformat wird nicht unterstützt oder ist ungültig."
+    data_shape: "Die eingebetteten Daten passen nicht zum Kopf (Kanäle × Samples)."
+    variant_mismatch: "Die Kopfvariante passt nicht zur Dateiendung (EDF/BDF)."
+    unreadable_container: "Die Datei konnte in diesem Format nicht geöffnet werden."
+    external_reference: "Der HDF5-Container verweist auf andere Dateien (externer Link, externe Speicherung oder virtueller Datensatz); sie werden nicht geöffnet (A-52)."
+    too_large: "Der Kopf oder der von ihm angegebene Inhalt überschreitet die Größengrenze (BrainVision-Kopf 2 MB; EEGLAB-Datensatz 4 GB oder mehr als 4096 unbenannte Kanäle)."
+  companion:
+    data_file: "Die im Kopf genannte Datendatei fehlt."
+    marker_file: "Die im Kopf genannte Markerdatei fehlt."
+    fdt: "Die im Kopf genannte .fdt-Datendatei fehlt."
+    unsafe_reference: "Ein Dateiverweis im Kopf ist kein einfacher Dateiname neben dem Kopf (A-52)."
   fields:
     patient: "Patientenfeld"
     recording: "Aufnahmefeld"
@@ -177,12 +237,30 @@ check:
   structure:
     readable: "Daten lesbar (MNE)"
     header_consistent: "Kopfzeile konsistent"
+    companions_present: "Begleitdateien und Verweise vorhanden"
     supported_format: "Format unterstützt"
     identifying_header: "Keine identifizierenden Kopfzeileninhalte"
+  metadata:
+    required_fields: "Pflichtfeld der Metadaten dokumentiert"
+    consistent: "Metadaten konsistent"
+  channels:
+    standard_names: "Standard-Kanalname"
+    positions: "Elektrodenpositionen dokumentiert"
+    same_set_per_task: "Gleicher Kanalsatz je Aufgabe"
+    count_consistent: "Kanalzahl konsistent"
+    only_1005: "Kanalname innerhalb 10-20/10-10"
+  impedance:
+    documented: "Impedanz dokumentiert"
+    max: "Impedanz unter der Grenze"
+  bids:
+    validator_errors: "BIDS-Validator: Fehler"
+    validator_warnings: "BIDS-Validator: Warnungen"
+    hed_schema_available: "HED-Schema offline verfügbar"
   signal:
     sampling_rate_min: "Abtastrate"
     sampling_rate_uniform: "Abtastraten einheitlich"
     sampling_rate_consistency: "Abtastrate dokumentiert und einheitlich"
+    sidecar_rate: "Sidecar-Abtastrate entspricht den Daten"
   evidence:
     document: "Nachweisdokument"
 
@@ -250,6 +328,7 @@ report:
     placeholder_clause: "Platzhalter – nicht aus dem Normtext"
     placeholder_status: "nicht bewertet (Platzhalter-Regel)"
     evidence_provided: "Nachweis hinterlegt (Angabe des Nutzers, nicht von NeuroGrid bewertet)"
+    not_streamable: "nicht blockweise lesbar"
   text:
     no_findings: "Keine Befunde dieser Schweregrade."
     no_recordings: "Keine Aufnahmen."
@@ -263,6 +342,19 @@ report:
     origin_config: "neurogrid.toml"
   measure:
     documented: "dokumentiert"
+    channel_sets: "Kanalsätze"
+    channels_tsv_eeg: "EEG in channels.tsv"
+    channels_tsv_total: "Zeilen in channels.tsv"
+    data_hz: "Daten (Hz)"
+    eeg_channels: "EEG-Kanäle"
+    file_eeg: "EEG in der Datei"
+    file_total: "Kanäle in der Datei"
+    sidecar_eeg: "EEGChannelCount"
+    sidecar_hz: "Sidecar (Hz)"
     rate_hz: "Rate (Hz)"
     rates_hz: "Raten (Hz)"
     uniform: "einheitlich"
+  validator:
+    generic: "BIDS-Validator-Meldung {code}."
+    count: "({count} Vorkommen)"
+    sub_codes: "Betrifft: {names}"

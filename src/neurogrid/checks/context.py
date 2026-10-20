@@ -1,5 +1,5 @@
-"""Shared state for one check run: discovered files, the data model per recording, header integrity facts
-and lazily computed readability (ARC-01: adapters → data model → checks)."""
+"""Shared state for one check run: discovered files, the data model per recording with its metadata from all
+sources, header integrity facts and lazily computed readability (ARC-01: adapters → data model → checks)."""
 
 from __future__ import annotations
 
@@ -10,21 +10,14 @@ from neurogrid.config import Config
 from neurogrid.io import ADAPTERS
 from neurogrid.io.base import FormatAdapter, HeaderInspection, HeaderUnreadable
 from neurogrid.io.discover import DatasetScan, FoundFile
+from neurogrid.metadata import ENTITY_FIELDS, RecordingMetadata, collect
 from neurogrid.model.dataset import Recording
+from neurogrid.validator import ValidatorResult
+from neurogrid.validator import run as run_validator
+
+__all__ = ["ENTITY_FIELDS", "CheckContext", "RecordingState"]
 
 _UNSET = object()
-ENTITY_FIELDS = (("subject", "sub"), ("session", "ses"), ("task", "task"), ("run", "run"))
-
-
-def _with_entities(recording: Recording, found: FoundFile) -> Recording:
-    """BIDS file name entities fill subject/session/task/run; raw folders get them from the mapping (P2)."""
-    update: dict[str, object] = {
-        name: found.entity(entity) for name, entity in ENTITY_FIELDS if found.entity(entity) is not None
-    }
-    if not update:
-        return recording
-    sources = {**recording.metadata_sources, **dict.fromkeys(update, "bids_filename")}
-    return recording.model_copy(update={**update, "metadata_sources": sources})
 
 
 @dataclass
@@ -35,6 +28,7 @@ class RecordingState:
     recording: Recording | None = None
     inspection: HeaderInspection | None = None
     header_error: str | None = None
+    metadata: RecordingMetadata = field(default_factory=RecordingMetadata)
     _read_error: object = field(default=_UNSET, repr=False)
 
     @property
@@ -49,6 +43,15 @@ class RecordingState:
     def identity(self) -> tuple[str, ...]:
         return self.found.identity
 
+    @property
+    def annotations_only(self) -> bool:
+        """An EDF+/BDF+ file with annotations only (e.g. a hypnogram): readable, but no signal recording."""
+        return (
+            self.recording is not None
+            and bool(self.recording.channels)
+            and all(ch.type == "ANNOT" for ch in self.recording.channels)
+        )
+
     def read_error(self) -> str | None:
         """None if MNE can read the data, else the exception class name. Computed once."""
         if self._read_error is _UNSET:
@@ -62,27 +65,38 @@ class CheckContext:
     scan: DatasetScan
     config: Config
     recordings: list[RecordingState]
+    work: Path | None = None  # private folder of this run (A-54), e.g. for the validator output
+    _validator: ValidatorResult | None = field(default=None, repr=False)
+
+    def validator_result(self) -> ValidatorResult:
+        """The BIDS validator result for the dataset; computed once per run."""
+        if self._validator is None:
+            if self.work is None:
+                raise RuntimeError("the BIDS validator needs a work folder")
+            self._validator = run_validator(self.root, self.work / "validator")
+        return self._validator
 
     @classmethod
-    def build(cls, scan: DatasetScan, config: Config) -> CheckContext:
+    def build(cls, scan: DatasetScan, config: Config, work: Path | None = None) -> CheckContext:
         states = []
         for found in scan.recordings:
             path = scan.root.joinpath(*found.relative.parts)
             state = RecordingState(found=found, path=path, adapter=ADAPTERS[found.suffix])
+            recording = None
             try:
                 recording = state.adapter.read(
                     path, recording_id=found.display_id, relative_path=found.relative.as_posix()
                 )
-                state.recording = _with_entities(recording, found)
                 state.inspection = state.adapter.inspect(path)
             except HeaderUnreadable as exc:
-                state.recording = None
+                recording = None
                 state.header_error = exc.reason
             except OSError:
-                state.recording = None
+                recording = None
                 state.header_error = "header.io_error"
             except (ArithmeticError, ValueError):  # defensive: a header value no model can hold (A-75)
-                state.recording = None
+                recording = None
                 state.header_error = "header.number_field"
+            state.recording, state.metadata = collect(scan.root, found, recording, config, scan.is_bids)
             states.append(state)
-        return cls(root=scan.root, scan=scan, config=config, recordings=states)
+        return cls(root=scan.root, scan=scan, config=config, recordings=states, work=work)

@@ -13,6 +13,17 @@ TOOLS = Path(__file__).parent.parent / "tools"
 if str(TOOLS) not in sys.path:
     sys.path.insert(0, str(TOOLS))  # lets tests reuse the fixture writer in tools/gen_fixtures.py
 AS_OF = date(2026, 10, 11)
+# Raw folders must document the EEG-BIDS required fields in neurogrid.toml (M02-01, A-03, A-05). Tests whose
+# subject is something else use this configuration (also used by CI) so that only their subject decides the
+# exit code.
+DOCUMENTED_TOML = (FIXTURES.parent / "documented.toml").read_text(encoding="utf-8")
+
+
+def documented_config(folder: Path, extra: str = "", name: str = "documented.toml") -> Path:
+    """A neurogrid.toml in ``folder`` that documents the required metadata, plus ``extra`` lines."""
+    path = folder / name
+    path.write_text(DOCUMENTED_TOML + extra, encoding="utf-8")
+    return path
 
 
 @pytest.fixture(scope="session", autouse=True)

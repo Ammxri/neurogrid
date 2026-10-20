@@ -43,7 +43,7 @@ jobs:
       - name: Coverage gates (Kern >= 90 %, Prüfer >= 80 %)
         run: uv run --no-sync python tools/coverage_gates.py coverage.json
       - name: Determinism sample for cross-platform comparison
-        run: uv run --no-sync neurogrid check tests/fixtures/synthetic/edf_mixed --as-of 2026-10-11 --out results-${{ matrix.os }}-${{ matrix.python }}.json || test $? -eq 0
+        run: uv run --no-sync neurogrid check tests/fixtures/synthetic/edf_mixed --config tests/fixtures/documented.toml --as-of 2026-10-11 --out results-${{ matrix.os }}-${{ matrix.python }}.json
         shell: bash
       - uses: actions/upload-artifact@v4
         with:
@@ -91,6 +91,59 @@ jobs:
       - run: uv sync --locked --no-build --python 3.12
       - run: uv run --no-sync python tools/licenses.py
 
+  offline-strace:
+    # NG-N01, CON-04, ARC-06 (KONZEPT §6): check and convert, including the BIDS validator (deno), open no
+    # network connection. strace -f follows every child process; any AF_INET/AF_INET6 connect fails the job.
+    name: no network connection under strace (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-build --python 3.12
+      - name: Install strace
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y strace
+      - name: check under strace (validator included, exit 0 expected)
+        run: strace -f -e trace=connect -o trace.txt uv run --no-sync neurogrid check tests/fixtures/synthetic/bids_ok --rulepack bids --out r.json
+      - name: convert under strace (validator on the output, exit 0 expected)
+        run: |
+          work="$RUNNER_TEMP/convert"
+          mkdir -p "$work"
+          cp -r tests/fixtures/synthetic/edf_ok "$work/raw"
+          cat > "$work/neurogrid.toml" <<'EOF'
+          # metadata as in tests/fixtures/documented.toml; one mapping row per recording (A-05)
+          [metadata.defaults]
+          reference = "Cz"
+          line_frequency_hz = 50
+          software_filters = "n/a"
+
+          [[convert.files]]
+          path = "rec_a.edf"
+          subject = "01"
+          task = "rest"
+
+          [[convert.files]]
+          path = "rec_b.edf"
+          subject = "02"
+          task = "rest"
+          EOF
+          strace -A -f -e trace=connect -o trace.txt uv run --no-sync neurogrid convert "$work/raw" --to bids --out "$work/bids" --config "$work/neurogrid.toml"
+      - name: No AF_INET or AF_INET6 connect in the trace
+        run: |
+          grep -c connect trace.txt || true
+          if grep -E 'AF_INET6?' trace.txt; then
+            echo "network connection attempted (see the lines above)"
+            exit 1
+          fi
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strace-connect
+          path: trace.txt
+
   powershell51:
     name: Windows PowerShell 5.1 command line
     runs-on: windows-latest
@@ -105,7 +158,7 @@ jobs:
       - run: uv sync --locked --no-build --python 3.12
       - name: check, report and exit codes
         run: |
-          .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\edf_ok --out r.json
+          .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\edf_ok --config tests\fixtures\documented.toml --out r.json
           if ($LASTEXITCODE -ne 0) { throw "expected exit 0, got $LASTEXITCODE" }
           .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\empty --out e.json
           if ($LASTEXITCODE -ne 1) { throw "expected exit 1, got $LASTEXITCODE" }

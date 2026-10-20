@@ -14,6 +14,8 @@ from neurogrid.kernel.rules import CheckSpec, Evaluation, Measurement, ParamSpec
 RATE_MIN = "signal.sampling_rate_min"
 RATE_UNIFORM = "signal.sampling_rate_uniform"
 RATE_CONSISTENCY = "signal.sampling_rate_consistency"
+SIDECAR_RATE = "signal.sidecar_rate"
+RELATIVE_TOLERANCE = 1e-6  # rates are decimals in the sidecar; the data rate is exact (A-75)
 
 
 def _uniform(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
@@ -29,10 +31,17 @@ def _consistency(measurement: Measurement, params: Mapping[str, ParamValue]) -> 
     return Evaluation(passed=bool(ok_rate and ok_uniform), threshold=limit)
 
 
+def _rate_matches(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
+    value = measurement.value
+    difference = abs(value["sidecar_hz"] - value["data_hz"])
+    return Evaluation(passed=difference <= RELATIVE_TOLERANCE * max(1.0, value["data_hz"]))
+
+
 SPECS = (
     CheckSpec(id=RATE_MIN, evaluate=at_least("min_hz"), params={"min_hz": ParamSpec("number", 500)}),
     CheckSpec(id=RATE_UNIFORM, evaluate=_uniform),
     CheckSpec(id=RATE_CONSISTENCY, evaluate=_consistency, params={"min_hz": ParamSpec("number", 500)}),
+    CheckSpec(id=SIDECAR_RATE, evaluate=_rate_matches),
 )
 
 
@@ -43,6 +52,15 @@ def _eeg_rates(rec: RecordingState) -> list[float]:
 
 
 def _not_checkable(check_id: str, rec: RecordingState) -> Measurement:
+    if rec.annotations_only:
+        return Measurement(
+            check_id=check_id,
+            object=rec.object_id,
+            file=rec.file,
+            state="not_applicable",
+            reason="recording.annotations_only",
+            identity=rec.identity,
+        )
     if rec.recording is None:
         reason = "header.unreadable"
     elif rec.recording.eeg_channels:
@@ -135,7 +153,42 @@ def measure_rate_consistency(ctx: CheckContext) -> list[Measurement]:
     return out
 
 
+def measure_sidecar_rate(ctx: CheckContext) -> list[Measurement]:
+    """M03-03 (A-46): the sampling rate in the BIDS sidecar equals the rate of the data."""
+    out: list[Measurement] = []
+    for rec in ctx.recordings:
+        sidecar = rec.metadata.sidecar_rate
+        rates = _eeg_rates(rec)
+        if rec.annotations_only:
+            out.append(_not_checkable(SIDECAR_RATE, rec))
+        elif sidecar is None:
+            out.append(
+                Measurement(
+                    check_id=SIDECAR_RATE,
+                    object=rec.object_id,
+                    file=rec.file,
+                    state="not_applicable",
+                    reason="metadata.no_sidecar_rate",
+                    identity=rec.identity,
+                )
+            )
+        elif not rates:
+            out.append(_not_checkable(SIDECAR_RATE, rec))
+        else:
+            out.append(
+                Measurement(
+                    check_id=SIDECAR_RATE,
+                    object=rec.object_id,
+                    file=rec.file,
+                    value={"sidecar_hz": sidecar, "data_hz": min(rates)},
+                    identity=rec.identity,
+                )
+            )
+    return out
+
+
 MEASURERS = {
+    SIDECAR_RATE: measure_sidecar_rate,
     RATE_MIN: measure_rate_min,
     RATE_UNIFORM: measure_rate_uniform,
     RATE_CONSISTENCY: measure_rate_consistency,

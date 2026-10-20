@@ -1,4 +1,4 @@
-"""Command line (PRD §13): scan, check, report. Further commands follow in later phases.
+"""Command line (PRD §13): scan, convert, check, report. Further commands follow in later phases.
 
 Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error.
 """
@@ -23,6 +23,7 @@ from neurogrid.kernel import canonical, netguard
 from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError
 from neurogrid.kernel.i18n import detect_language, normalize_language
 from neurogrid.kernel.safety import check_operator_path, read_limited, redact_paths
+from neurogrid.metadata import NA_IS_MISSING
 from neurogrid.model.results import Results
 from neurogrid.report.texts import REPORT_LANGUAGES, translator
 
@@ -154,6 +155,12 @@ def scan(
     typer.echo(f"  {tr('cli.scan.unsupported')}: {len(result.unsupported)}")
     for item in result.unsupported:
         typer.echo(f"    - {_clean(item.id)} ({item.format})")
+    if result.orphans:
+        # a .eeg/.fdt that no header refers to cannot be assigned to a recording; it is no format
+        # NeuroGrid cannot read (A-77, CORE-M01-04)
+        typer.echo(f"  {tr('cli.scan.orphans')}: {len(result.orphans)}")
+        for item in result.orphans:
+            typer.echo(f"    - {_clean(item.id)} ({item.format}) – {tr('reason.format.orphan_companion')}")
     typer.echo(f"  {tr('cli.scan.other')}: {result.other_files}")
     typer.echo(f"  {tr('cli.scan.links')}: {result.links_skipped}")
     typer.echo(f"  {tr('cli.scan.size')}: {result.total_bytes / 1_000_000:.1f} MB")
@@ -202,6 +209,7 @@ def check(
         except ValueError:
             raise InputError("input.bad_date") from None
     _state["dataset_root"] = pipeline.resolve_target(path).root
+    target = _output_file(out)
     options = pipeline.CheckOptions(
         rulepacks=tuple(_rulepack_refs(rulepack or [])),
         config_path=Path(config) if config else None,
@@ -209,8 +217,8 @@ def check(
         as_of=reference,
         allow_draft_rulepacks=allow_draft_rulepacks,
         show_paths=show_paths,
+        work_base=target.absolute().parent,  # work folder next to the results file (A-54)
     )
-    target = _output_file(out)
     results = pipeline.run_check(path, options)
     _write_atomic(target, canonical.dumps(results))
     packs = ", ".join(p.name for p in results.rulepacks)
@@ -224,6 +232,49 @@ def check(
     _say("cli.check.written", path=_display_path(target))
     _say("disclaimer")
     raise typer.Exit(code=results.summary.exit_code)
+
+
+@app.command()
+def convert(
+    path: Annotated[str, typer.Argument(help="Raw data folder or single data file.")],
+    to: Annotated[str, typer.Option("--to", help="Target structure: bids.")],
+    out: Annotated[str, typer.Option("--out", help="Output folder (must be empty or missing).")],
+    config: Annotated[str | None, typer.Option("--config", help="Path to neurogrid.toml.")] = None,
+    strip_identifying_headers: Annotated[
+        bool,
+        typer.Option(
+            "--strip-identifying-headers", help="Replace identifying header fields by placeholders."
+        ),
+    ] = False,
+) -> None:
+    """Convert a raw folder to EEG-BIDS and validate the result."""
+    if to.strip().lower() != "bids":
+        raise NeuroGridError("errors.convert.target_unavailable", target=to)
+    _state["dataset_root"] = pipeline.resolve_target(path).root
+    output = check_operator_path(out)
+    summary = pipeline.run_convert(
+        path,
+        output,
+        config_path=Path(config) if config else None,
+        strip_identifying_headers=strip_identifying_headers,
+        work_base=output.absolute().parent,
+    )
+    _say("cli.convert.converted", count=summary.converted)
+    for item_id, reason in summary.skipped:
+        _say("cli.convert.skipped", id=_clean(item_id), reason=translator(_lang()).t(f"reason.{reason}"))
+    for name, count in summary.missing_fields.items():
+        # n/a documents SoftwareFilters in BIDS (A-03), so 'check' reports only the other fields
+        key = "cli.convert.missing_field" if name in NA_IS_MISSING else "cli.convert.missing_field_na_valid"
+        _say(key, field=name, count=count)
+    if summary.name_missing:
+        _say("cli.convert.missing_name")
+    if summary.converted:
+        _say("cli.convert.validator", errors=summary.validator_errors, warnings=summary.validator_warnings)
+        _say("cli.convert.written", path=_display_path(output))
+    else:
+        _say("cli.convert.nothing")
+    _say("disclaimer")
+    raise typer.Exit(code=summary.exit_code)
 
 
 @app.command()

@@ -1,0 +1,24 @@
+Brain Vision Data Exchange Header File Version 1.0
+; Synthetic test data written by NeuroGrid tools/gen_fixtures.py
+
+[Common Infos]
+Codepage=UTF-8
+DataFile=../outside.eeg
+MarkerFile=rec.vmrk
+DataFormat=BINARY
+DataOrientation=MULTIPLEXED
+NumberOfChannels=8
+SamplingInterval=2000
+
+[Binary Infos]
+BinaryFormat=INT_16
+
+[Channel Infos]
+Ch1=Fp1,,0.1,µV
+Ch2=Fp2,,0.1,µV
+Ch3=F3,,0.1,µV
+Ch4=F4,,0.1,µV
+Ch5=C3,,0.1,µV
+Ch6=C4,,0.1,µV
+Ch7=O1,,0.1,µV
+Ch8=O2,,0.1,µV

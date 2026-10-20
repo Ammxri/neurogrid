@@ -230,6 +230,9 @@ def run(inp: EngineInput) -> EngineResult:
     used = [False] * len(active)
 
     findings: list[Finding] = []
+    stable_object: dict[
+        int, str
+    ] = {}  # id(finding) -> identity[0]: the order must not depend on --show-paths
     passed: Counter[tuple[str, str]] = Counter()
     for loaded in inp.packs:
         pack = loaded.pack
@@ -255,9 +258,10 @@ def run(inp: EngineInput) -> EngineResult:
                 if status is Status.PASSED:
                     passed[(rule.id, m.object)] += 1
                     continue
+                stable = m.identity[0] if m.identity else m.object
                 findings.append(
                     Finding(
-                        key=finding_key(rule.id, m.identity[0] if m.identity else m.object, m.subkey),
+                        key=finding_key(rule.id, stable, m.subkey),
                         rule_id=rule.id,
                         rulepack=pack.rulepack,
                         rulepack_version=pack.version,
@@ -281,6 +285,7 @@ def run(inp: EngineInput) -> EngineResult:
                         reason=outcome.reason,
                     )
                 )
+                stable_object[id(findings[-1])] = stable
 
     for index, entry in enumerate(active):
         if not used[index]:
@@ -295,7 +300,7 @@ def run(inp: EngineInput) -> EngineResult:
         if entry.valid_until is not None and entry.valid_until < inp.as_of
     ] + [ExceptionUse(entry=entry, used=used[i], expired=False) for i, entry in enumerate(active)]
 
-    findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.rule_id, f.object, f.subkey or ""))
+    findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.rule_id, stable_object[id(f)], f.subkey or ""))
     passed_list = [PassedCount(rule_id=r, object=o, count=c) for (r, o), c in sorted(passed.items())]
     phases = _phase_summary(inp.packs, findings)
     exit_code = 1 if any(summary.errors for summary in phases.values()) else 0

@@ -12,14 +12,16 @@ from typing import Any
 from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
 from neurogrid.kernel.report import render_html
 from neurogrid.model.results import Results
-from neurogrid.report.texts import translator
+from neurogrid.report.texts import translator, validator_text
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 MAX_TIME_RANGES_SHOWN = 20
+MAX_SUB_CODES_SHOWN = 100  # sub-codes are schema fields or table columns; a bound for odd tables
 
 
 class _Formatter:
     def __init__(self, lang: str) -> None:
+        self.lang = lang
         self.tr = translator(lang).t
         self.has = translator(lang).has
 
@@ -80,11 +82,36 @@ class _Formatter:
             parts.append(", ".join(self.tr(f"issue.fields.{name}") for name in fields))
         if "issue" in finding.details:
             parts.append(self.tr(f"issue.{finding.details['issue']}"))
+        if "validator_code" in finding.details:  # NeuroGrid's text, never the validator's message (A-06)
+            code = str(finding.details["validator_code"])
+            parts.append(validator_text(code, self.lang) or self.tr("report.validator.generic", code=code))
+            count = finding.details.get("count")
+            if isinstance(count, int) and count > 1:
+                parts.append(self.tr("report.validator.count", count=count))
+            names = self.sub_codes(finding.details.get("sub_codes"))
+            if names:
+                parts.append(self.tr("report.validator.sub_codes", names=names))
         if "error_type" in finding.details:  # foreign exception: only its type name (A-07)
             parts.append(str(finding.details["error_type"]))
         if "exception_reason" in finding.details:
             parts.append(str(finding.details["exception_reason"]))
         return " ".join(parts) if parts else self.tr("report.value.none")
+
+    @staticmethod
+    def sub_codes(value: Any) -> str:
+        """What one validator finding covers (A-06, A-77): the sub-codes of the validator code, e.g. the
+        sidecar fields, as 'a, b (2), c' (the count only when above 1; at most MAX_SUB_CODES_SHOWN names).
+
+        Plain text: sub-codes are schema identifiers or names from the dataset (TSV columns), and the
+        template escapes them (A-53)."""
+        if not isinstance(value, dict):
+            return ""
+        names = [
+            f"{name} ({count})" if isinstance(count, int) and count > 1 else str(name)
+            for name, count in sorted(value.items())
+        ]
+        extra = len(names) - MAX_SUB_CODES_SHOWN
+        return ", ".join(names[:MAX_SUB_CODES_SHOWN]) + (f" (+{extra})" if extra > 0 else "")
 
 
 def build_context(results: Results, lang: str) -> dict[str, Any]:

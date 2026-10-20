@@ -1,0 +1,35 @@
+# NeuroGrid rule pack for the BIDS structure (RP-09, A-06). The checks run the bundled BIDS validator
+# (bids-validator-deno 3.0.2, BIDS schema 1.2.7 = BIDS 1.11.1) offline; every validator issue becomes a finding
+# with the validator code as subkey. Rule IDs follow PACK-PHASE-NNN.
+rulepack: bids
+version: "0.1.0"
+source: "BIDS 1.11.1 via BIDS validator 3.0.2"
+source_status: final
+norm: false
+rules:
+  - id: BIDS-STO-001
+    clause: "BIDS 1.11.1"
+    title_zh: BIDS 验证器未报告错误
+    title_en: BIDS validator reports no error
+    phase: storage
+    check: bids.validator_errors
+    severity: error
+    verification: automatic
+
+  - id: BIDS-STO-002
+    clause: "BIDS 1.11.1"
+    title_zh: BIDS 验证器未报告警告
+    title_en: BIDS validator reports no warning
+    phase: storage
+    check: bids.validator_warnings
+    severity: warning
+    verification: automatic
+
+  - id: BIDS-STO-003
+    clause: "BIDS 1.11.1"
+    title_zh: 离线可用 HED 模式
+    title_en: HED schema available offline
+    phase: storage
+    check: bids.hed_schema_available
+    severity: warning
+    verification: automatic

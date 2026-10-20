@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 import jsonschema
 import pytest
 
+from conftest import DOCUMENTED_TOML, documented_config  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.kernel import canonical
 from neurogrid.kernel.errors import ConfigError, InputError, RulepackError, UnsafePathError
@@ -96,7 +97,10 @@ def test_rulepack_errors(tmp_path: Path) -> None:
         pipeline.run_check(FIX / "edf_ok", pipeline.CheckOptions(rulepacks=(str(draft),)))
     assert info.value.message_key == "rulepack.placeholder_needs_flag"
     allowed = pipeline.run_check(
-        FIX / "edf_ok", pipeline.CheckOptions(rulepacks=(str(draft),), allow_draft_rulepacks=True)
+        FIX / "edf_ok",
+        pipeline.CheckOptions(
+            rulepacks=(str(draft),), allow_draft_rulepacks=True, config_path=documented_config(tmp_path)
+        ),
     )
     assert allowed.summary.exit_code == 0
     assert any(f.rule_id == "LAB-ACQ-001" and f.status is Status.FAILED for f in allowed.findings)
@@ -145,6 +149,9 @@ def test_show_paths_reveals_names_only_on_request() -> None:
 def test_environment_block() -> None:
     env = pipeline.run_check(FIX / "edf_ok", OPTIONS).environment
     assert env.libraries["mne"] != "missing" and env.python.count(".") == 1
+    # The BIDS validator, its runtime and the EEGLAB readers change results as well (A-11, A-48).
+    for name in ("bids-validator-deno", "deno", "pymatreader", "h5py"):
+        assert env.libraries[name] != "missing", name
 
 
 LAB_PACK = CUSTOM.replace("rulepack: lab", "rulepack: lab")
@@ -207,7 +214,7 @@ def _raw_with_exception(tmp_path: Path, pattern: str) -> tuple[Path, Path]:
     (site / "legacy.cnt").write_bytes(b"x")
     config = tmp_path / "neurogrid.toml"
     config.write_text(
-        f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{pattern}"\n'
+        DOCUMENTED_TOML + f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{pattern}"\n'
         'reason = "Legacy export kept (SOP-9)."\n',
         encoding="utf-8",
     )
@@ -236,7 +243,8 @@ def test_pseudonymous_exception_pattern_works_in_both_modes(tmp_path: Path) -> N
     rec_id = pseudonym(PurePosixPath("Mustermann_Max_1985/legacy.cnt"))
     config = tmp_path / "pseudo.toml"
     config.write_text(
-        f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{rec_id}"\nreason = "SOP-9"\n', encoding="utf-8"
+        DOCUMENTED_TOML + f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{rec_id}"\nreason = "SOP-9"\n',
+        encoding="utf-8",
     )
     for show in (False, True):
         results = pipeline.run_check(
@@ -301,20 +309,24 @@ def test_undecodable_name_does_not_crash_check(tmp_path: Path) -> None:
         canonical.dumps(results)
 
 
-def test_annotation_only_files_are_readable_but_no_recording(tmp_path: Path) -> None:
+def test_annotation_only_files_are_readable_but_no_recording(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "unit"))  # also when run on its own
     from test_io import _annotation_only_edf  # type: ignore[import-not-found]
 
     psg = tmp_path / "psg"
     psg.mkdir()
     (psg / "night.edf").write_bytes((FIX / "edf_ok" / "rec_a.edf").read_bytes())
     _annotation_only_edf(psg / "night_hypnogram.edf")
-    results = pipeline.run_check(psg, OPTIONS)
+    documented = pipeline.CheckOptions(config_path=documented_config(tmp_path), as_of=OPTIONS.as_of)
+    results = pipeline.run_check(psg, documented)
     assert results.summary.exit_code == 0
     assert not [f for f in results.findings if f.rule_id == "CORE-M01-01"]
     only = tmp_path / "only"
     only.mkdir()
     _annotation_only_edf(only / "h.edf")
-    alone = pipeline.run_check(only, OPTIONS)
+    alone = pipeline.run_check(only, documented)
     reasons = {f.reason for f in alone.findings if f.rule_id == "CORE-M01-01"}
     assert alone.summary.exit_code == 1 and reasons == {"dataset.no_readable_recording"}
 
@@ -336,7 +348,8 @@ def test_extreme_header_values_never_stop_the_run(
     data = bytearray((FIX / "edf_ok" / "rec_a.edf").read_bytes())
     data[offset : offset + 8] = value
     (folder / "bad.edf").write_bytes(bytes(data))
-    results = pipeline.run_check(folder, OPTIONS)
+    options = pipeline.CheckOptions(config_path=documented_config(tmp_path), as_of=OPTIONS.as_of)
+    results = pipeline.run_check(folder, options)
     canonical.dumps(results)
     assert results.summary.exit_code == exit_code
 
@@ -430,7 +443,9 @@ def test_exception_by_displayed_file_name(tmp_path: Path) -> None:
     shown_name = pseudonym(PurePosixPath("Mustermann_Max_1985/legacy.cnt")) + ".cnt"
     config = tmp_path / "file.toml"
     config.write_text(
-        f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{shown_name}"\nreason = "SOP-9"\n', encoding="utf-8"
+        DOCUMENTED_TOML
+        + f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{shown_name}"\nreason = "SOP-9"\n',
+        encoding="utf-8",
     )
     results = pipeline.run_check(dataset, pipeline.CheckOptions(config_path=config, as_of=OPTIONS.as_of))
     assert results.summary.exit_code == 0 and results.exceptions[0].used
@@ -479,7 +494,9 @@ def test_exception_by_displayed_file_name_ignores_show_paths(tmp_path: Path) -> 
     shown_name = pseudonym(PurePosixPath("Mustermann_Max_1985/legacy.cnt")) + ".cnt"
     config = tmp_path / "file.toml"
     config.write_text(
-        f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{shown_name}"\nreason = "SOP-9"\n', encoding="utf-8"
+        DOCUMENTED_TOML
+        + f'[[exceptions]]\nrule = "CORE-M01-04"\nobject = "{shown_name}"\nreason = "SOP-9"\n',
+        encoding="utf-8",
     )
     keys = []
     for show in (False, True):
@@ -533,3 +550,40 @@ def test_config_folder_name_is_case_insensitive_on_windows(tmp_path: Path) -> No
         FIX / "edf_ok", pipeline.CheckOptions(config_path=config, as_of=OPTIONS.as_of)
     )
     assert [p.name for p in results.rulepacks] == ["core", "lab"]
+
+
+def test_edf_plus_d_with_annotation_channel_documents_all_channel_columns(tmp_path: Path) -> None:
+    """An EDF+ annotation signal has no unit; it is no channel and does not undo the header columns (A-77)."""
+    results = pipeline.run_check(
+        FIX / "edf_plus_d",
+        pipeline.CheckOptions(config_path=documented_config(tmp_path), as_of=OPTIONS.as_of),
+    )
+    failed = {(f.rule_id, f.subkey) for f in results.findings if f.status is Status.FAILED}
+    assert not {rule for rule, _subkey in failed} & {"CORE-M01-01", "CORE-M01-02", "CORE-M01-03"}
+    assert not [subkey for rule, subkey in failed if rule == "CORE-M02-01"]
+    assert results.summary.exit_code == 0
+
+
+@pytest.mark.parametrize("show_paths", [False, True])
+def test_cnt_and_xdf_files_are_m01_errors_with_their_file_name(tmp_path: Path, show_paths: bool) -> None:
+    """KONZEPT P2: a folder with .cnt/.xdf gives an M01 error that names the file (A-12, A-70)."""
+    from neurogrid.io.discover import pseudonym
+
+    dataset = tmp_path / "ds"
+    dataset.mkdir()
+    (dataset / "rec.edf").write_bytes((FIX / "edf_ok" / "rec_a.edf").read_bytes())
+    for name in ("session.xdf", "legacy.cnt"):
+        (dataset / name).write_bytes(b"\x00" * 32)
+    options = pipeline.CheckOptions(
+        config_path=documented_config(tmp_path), as_of=OPTIONS.as_of, show_paths=show_paths
+    )
+    results = pipeline.run_check(dataset, options)
+    unsupported = sorted((f.file, f.status, f.reason) for f in results.findings if f.rule_id == "CORE-M01-04")
+    names = ("legacy.cnt", "session.xdf")
+    shown = (
+        list(names)
+        if show_paths
+        else [f"{pseudonym(PurePosixPath(n))}{PurePosixPath(n).suffix}" for n in names]
+    )
+    assert unsupported == sorted((name, Status.FAILED, "format.unsupported") for name in shown)
+    assert results.summary.exit_code == 1

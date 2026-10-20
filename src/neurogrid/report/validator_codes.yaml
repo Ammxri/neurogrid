@@ -1,0 +1,1028 @@
+# NeuroGrid-owned explanation texts per BIDS validator 3.0.2 issue code (decision A-06).
+# Source of meaning: bids_validator_deno/bids-validator.js (issue list, schema rules, schema rules.errors).
+# Texts are paraphrased; the validator's English messages are not reproduced.
+# Fields: category (general|eeg|meg|ieeg|other_modality), en, zh, de.
+
+ACCEL_CHANNEL_COUNT:
+  category: "other_modality"
+  en: "ACCELChannelCount in the NIRS sidecar does not match the number of ACCEL channels in channels.tsv."
+  zh: "NIRS sidecar 中的 ACCELChannelCount 与 channels.tsv 中 ACCEL 类型通道的数量不一致。"
+  de: "ACCELChannelCount im NIRS-Sidecar stimmt nicht mit der Anzahl der ACCEL-Kanäle in channels.tsv überein."
+AGE_89:
+  category: "general"
+  en: "participants.tsv contains ages of 89 or above, which HIPAA de-identification guidance treats as identifying."
+  zh: "participants.tsv 中存在 89 岁及以上的年龄值，按 HIPAA 去标识化指引属于可识别信息。"
+  de: "participants.tsv enthält Altersangaben ab 89 Jahren, die nach der HIPAA-De-Identifizierungsregel als identifizierend gelten."
+ALL_FILENAME_RULES_HAVE_ISSUES:
+  category: "general"
+  en: "The file name fits several naming rules, but each of these rules reports at least one problem."
+  zh: "该文件名可匹配多条命名规则，但每条规则下都存在至少一个问题。"
+  de: "Der Dateiname passt zu mehreren Benennungsregeln, doch bei jeder dieser Regeln tritt mindestens ein Problem auf."
+AMBIGUOUS_AFFINE:
+  category: "other_modality"
+  en: "The spatial orientation of the NIfTI image is undetermined, which may point to an invalid affine transform."
+  zh: "无法确定该 NIfTI 文件的图像方向，可能是仿射矩阵无效所致。"
+  de: "Die Bildorientierung der NIfTI-Datei lässt sich nicht bestimmen, vermutlich wegen einer ungültigen Affinmatrix."
+ASLCONTEXT_TSV_NOT_CONSISTENT:
+  category: "other_modality"
+  en: "aslcontext.tsv describes a different number of volumes than the ASL NIfTI image contains."
+  zh: "aslcontext.tsv 的行数与 ASL NIfTI 头中的体积数不一致。"
+  de: "Die Zeilenzahl in aslcontext.tsv stimmt nicht mit der Volumenanzahl im ASL-NIfTI-Header überein."
+ASSOCIATED_EMPTY_ROOM:
+  category: "meg"
+  en: "AssociatedEmptyRoom names an empty-room recording that cannot be found, or uses a path form other than dataset-relative or BIDS URI."
+  zh: "AssociatedEmptyRoom 指向的空房间记录不存在，或其路径既非数据集相对路径也非 BIDS URI。"
+  de: "AssociatedEmptyRoom nennt eine nicht auffindbare Leerraum-Messung oder nutzt weder datensatzrelativen Pfad noch BIDS-URI."
+ATLAS_DESCRIPTION_RECOMMENDED:
+  category: "general"
+  en: "A derivative file with an atlas entity has no matching atlas-*_description.json file (recommended)."
+  zh: "带有 atlas 实体的衍生数据文件缺少对应的 atlas-*_description.json 文件（建议提供）。"
+  de: "Zu einer Derivat-Datei mit atlas-Entität fehlt die passende Datei atlas-*_description.json (empfohlen)."
+ATLAS_DESCRIPTION_REQUIRED:
+  category: "general"
+  en: "A derivative file with atlas and template entities has no matching atlas-*_description.json file."
+  zh: "带有 atlas 与 template 实体的衍生数据文件缺少必需的 atlas-*_description.json 文件。"
+  de: "Zu einer Derivat-Datei mit atlas- und template-Entität fehlt die erforderliche Datei atlas-*_description.json."
+AUTHORS_AND_CITATION_FILE_MUTUALLY_EXCLUSIVE:
+  category: "general"
+  en: "CITATION.cff is present, but dataset_description.json still has an Authors field; only one of the two may hold authors."
+  zh: "数据集中已有 CITATION.cff，但 dataset_description.json 仍包含 Authors 字段，作者信息只能保留在其中一处。"
+  de: "CITATION.cff ist vorhanden, dataset_description.json enthält aber weiterhin Authors; Autoren dürfen nur an einer Stelle stehen."
+B0_FIELD_IDENTIFIER_RECOMMENDED:
+  category: "other_modality"
+  en: "A field map has neither B0FieldIdentifier nor IntendedFor, so it cannot be assigned for distortion correction."
+  zh: "场图文件既无 B0FieldIdentifier 也无 IntendedFor，无法将其分配用于畸变校正。"
+  de: "Eine Feldkarte hat weder B0FieldIdentifier noch IntendedFor und lässt sich daher keiner Verzerrungskorrektur zuordnen."
+B0_FIELD_SOURCE_RECOMMENDED:
+  category: "other_modality"
+  en: "A DWI, functional or perfusion image in a dataset with field maps lacks the recommended B0FieldSource field."
+  zh: "在含场图的数据集中，某个 DWI、功能或灌注图像缺少建议字段 B0FieldSource。"
+  de: "Einem DWI-, funktionellen oder Perfusionsbild in einem Datensatz mit Feldkarten fehlt das empfohlene Feld B0FieldSource."
+BACKGROUND_SUPPRESSION_PULSE_NUMBER_NOT_CONSISTENT:
+  category: "other_modality"
+  en: "BackgroundSuppressionNumberPulses differs from the number of times listed in BackgroundSuppressionPulseTime."
+  zh: "BackgroundSuppressionNumberPulses 与 BackgroundSuppressionPulseTime 中的条目数不一致。"
+  de: "BackgroundSuppressionNumberPulses stimmt nicht mit der Anzahl der Einträge in BackgroundSuppressionPulseTime überein."
+BEH_ONSET_DURATION:
+  category: "other_modality"
+  en: "A behavioral (beh) TSV file has onset and duration columns and may belong under the events suffix instead."
+  zh: "行为数据（beh）TSV 文件包含 onset 和 duration 列，可能应改用 events 后缀。"
+  de: "Eine Verhaltensdatei (beh, TSV) hat onset- und duration-Spalten und gehört möglicherweise zum Suffix events."
+BLACKLISTED_MODALITY:
+  category: "general"
+  en: "The dataset contains a data type directory that the validator configuration excludes."
+  zh: "数据集中包含被验证器配置排除的数据类型目录。"
+  de: "Der Datensatz enthält ein Datentyp-Verzeichnis, das durch die Validator-Konfiguration ausgeschlossen ist."
+BOLD_NOT_4D:
+  category: "other_modality"
+  en: "A BOLD NIfTI image is not four-dimensional."
+  zh: "BOLD NIfTI 图像不是四维的。"
+  de: "Ein BOLD-NIfTI-Bild ist nicht vierdimensional."
+BOLUS_CUT_OFF_DELAY_TIME_GREATER:
+  category: "other_modality"
+  en: "BolusCutOffDelayTime is greater than 10, which suggests the value is not given in seconds."
+  zh: "BolusCutOffDelayTime 大于 10，该值可能并非以秒为单位。"
+  de: "BolusCutOffDelayTime ist größer als 10; der Wert ist vermutlich nicht in Sekunden angegeben."
+BOLUS_CUT_OFF_DELAY_TIME_NOT_MONOTONICALLY_INCREASING:
+  category: "other_modality"
+  en: "The list in BolusCutOffDelayTime is not sorted in ascending order."
+  zh: "BolusCutOffDelayTime 中的列表未按升序排列。"
+  de: "Die Liste in BolusCutOffDelayTime ist nicht aufsteigend sortiert."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+BRAINVISION_LINKS_BROKEN:
+  category: "eeg"
+  en: "The internal references between BrainVision files (.vhdr, .vmrk, .eeg) are broken or a file of the set is missing."
+  zh: "BrainVision 文件组（.vhdr、.vmrk、.eeg）之间的内部引用已损坏，或其中某个文件缺失。"
+  de: "Die internen Verweise zwischen den BrainVision-Dateien (.vhdr, .vmrk, .eeg) sind defekt oder eine Datei des Satzes fehlt."
+BVAL_MULTIPLE_ROWS:
+  category: "other_modality"
+  en: "The b-values in the .bval file are not written on a single line."
+  zh: ".bval 文件中的 b 值未写在同一行。"
+  de: "Die b-Werte in der .bval-Datei stehen nicht in einer einzigen Zeile."
+BVEC_NUMBER_ROWS:
+  category: "other_modality"
+  en: "The .bvec file does not have three rows (x, y and z gradient components)."
+  zh: ".bvec 文件不是三行（梯度的 x、y、z 分量）。"
+  de: "Die .bvec-Datei hat nicht drei Zeilen (x-, y- und z-Komponente der Gradienten)."
+# Listed in the schema error catalogue; the 3.0.2 .bvec reader throws it as {key: ...} without a code field, so the association loader drops it and it is never reported.
+BVEC_ROW_LENGTH:
+  category: "other_modality"
+  en: "The rows of the .bvec file contain different numbers of values."
+  zh: ".bvec 文件各行的数值个数不一致。"
+  de: "Die Zeilen der .bvec-Datei enthalten unterschiedlich viele Werte."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+B_FILE:
+  category: "other_modality"
+  en: "A .bval or .bvec file is not separated by single spaces or contains non-numeric values."
+  zh: ".bval 或 .bvec 文件未以单个空格分隔，或包含非数值内容。"
+  de: "Eine .bval- oder .bvec-Datei ist nicht durch einzelne Leerzeichen getrennt oder enthält nicht-numerische Werte."
+CASE_COLLISION:
+  category: "general"
+  en: "Several files have the same name and differ only in upper or lower case."
+  zh: "存在多个名称相同、仅大小写不同的文件。"
+  de: "Mehrere Dateien tragen denselben Namen und unterscheiden sich nur in der Groß- oder Kleinschreibung."
+CHECK_ERROR:
+  category: "general"
+  en: "A check defined in the BIDS schema failed at the reported location (a file, a folder or the dataset); the rule has no issue code of its own."
+  zh: "在所报告的位置（文件、文件夹或数据集）上未通过 BIDS schema 中定义的某项检查，该规则没有单独的问题代码。"
+  de: "Eine im BIDS-Schema definierte Prüfung ist an der gemeldeten Stelle (Datei, Ordner oder Datensatz) fehlgeschlagen; die Regel hat keinen eigenen Befundcode."
+CITATION_CFF_VALIDATION_ERROR:
+  category: "general"
+  en: "CITATION.cff contains content that is invalid under the Citation File Format schema."
+  zh: "CITATION.cff 中存在按 Citation File Format schema 判定无效的内容。"
+  de: "CITATION.cff enthält Inhalte, die nach dem Schema des Citation File Format ungültig sind."
+COMPONENT_COLUMN_REQUIRED:
+  category: "other_modality"
+  en: "channels.tsv of a NIRS recording lists ACCEL, GYRO or MAGN channels but has no component column."
+  zh: "NIRS 记录的 channels.tsv 含有 ACCEL、GYRO 或 MAGN 通道，但缺少 component 列。"
+  de: "channels.tsv einer NIRS-Aufnahme listet ACCEL-, GYRO- oder MAGN-Kanäle, hat aber keine Spalte component."
+DATATYPE_MISMATCH:
+  category: "general"
+  en: "The suffix and extension of the file belong to a different data type than the directory it is stored in."
+  zh: "文件所在的数据类型目录与其后缀和扩展名不匹配。"
+  de: "Die Datei liegt in einem Datentyp-Verzeichnis, das nicht zu ihrem Suffix und ihrer Endung passt."
+DEPRECATED_ACQUISITION_DURATION:
+  category: "other_modality"
+  en: "The sidecar uses the deprecated AcquisitionDuration field instead of FrameAcquisitionDuration."
+  zh: "sidecar 使用了已弃用的 AcquisitionDuration 字段，而非 FrameAcquisitionDuration。"
+  de: "Das Sidecar verwendet das veraltete Feld AcquisitionDuration statt FrameAcquisitionDuration."
+DUPLICATE_FILES:
+  category: "general"
+  en: "A file is present twice, once compressed with .gz and once uncompressed."
+  zh: "同一文件出现两次：一次为 .gz 压缩版本，一次为未压缩版本。"
+  de: "Eine Datei liegt doppelt vor, einmal mit .gz komprimiert und einmal unkomprimiert."
+DWI_MISSING_BVAL:
+  category: "other_modality"
+  en: "A DWI scan has no associated .bval file."
+  zh: "DWI 扫描缺少对应的 .bval 文件。"
+  de: "Zu einem DWI-Scan fehlt die zugehörige .bval-Datei."
+DWI_MISSING_BVEC:
+  category: "other_modality"
+  en: "A DWI scan has no associated .bvec file."
+  zh: "DWI 扫描缺少对应的 .bvec 文件。"
+  de: "Zu einem DWI-Scan fehlt die zugehörige .bvec-Datei."
+ECG_CHANNEL_COUNT_MISMATCH:
+  category: "eeg"
+  en: "ECGChannelCount in the EEG sidecar does not match the number of ECG channels in channels.tsv."
+  zh: "EEG sidecar 中的 ECGChannelCount 与 channels.tsv 中 ECG 类型通道的数量不一致。"
+  de: "ECGChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der ECG-Kanäle in channels.tsv überein."
+ECHOTIME1_2_DIFFERENCE_UNREASONABLE:
+  category: "other_modality"
+  en: "EchoTime2 minus EchoTime1 of the phasediff field map lies outside the range 0.0001 to 0.01 seconds."
+  zh: "phasediff 场图的 EchoTime2 与 EchoTime1 之差不在 0.0001 至 0.01 秒范围内。"
+  de: "Die Differenz EchoTime2 minus EchoTime1 der phasediff-Feldkarte liegt außerhalb von 0,0001 bis 0,01 Sekunden."
+ECHO_TIME_GREATER_THAN:
+  category: "other_modality"
+  en: "EchoTime is greater than 1, which suggests the value is not given in seconds."
+  zh: "EchoTime 大于 1，该值可能并非以秒为单位。"
+  de: "EchoTime ist größer als 1; der Wert ist vermutlich nicht in Sekunden angegeben."
+ECHO_TIME_NOT_CONSISTENT:
+  category: "other_modality"
+  en: "EchoTime lists a different number of values than there are volumes in aslcontext.tsv."
+  zh: "EchoTime 的数值个数与 aslcontext.tsv 中列出的体积数不一致。"
+  de: "Die Anzahl der EchoTime-Werte stimmt nicht mit der Volumenanzahl in aslcontext.tsv überein."
+EEG_CHANNEL_COUNT_MISMATCH:
+  category: "eeg"
+  en: "EEGChannelCount in the sidecar does not match the number of EEG channels in channels.tsv."
+  zh: "sidecar 中的 EEGChannelCount 与 channels.tsv 中 EEG 类型通道的数量不一致。"
+  de: "EEGChannelCount im Sidecar stimmt nicht mit der Anzahl der EEG-Kanäle in channels.tsv überein."
+EFFECTIVEECHOSPACING_LARGER_THAN_TOTALREADOUTTIME:
+  category: "other_modality"
+  en: "EffectiveEchoSpacing is equal to or larger than TotalReadoutTime, which is physically implausible."
+  zh: "EffectiveEchoSpacing 大于或等于 TotalReadoutTime，这在物理上不合理。"
+  de: "EffectiveEchoSpacing ist gleich oder größer als TotalReadoutTime, was physikalisch nicht plausibel ist."
+EFFECTIVEECHOSPACING_TOO_LARGE:
+  category: "other_modality"
+  en: "EffectiveEchoSpacing is implausibly large: times the matrix size along phase encoding it exceeds RepetitionTime."
+  zh: "EffectiveEchoSpacing 数值异常偏大：乘以相位编码方向的矩阵尺寸后超过 RepetitionTime。"
+  de: "EffectiveEchoSpacing ist unplausibel groß: mal Matrixgröße in Phasenkodierrichtung übersteigt es RepetitionTime."
+# Rule applies to suffix eeg and to suffix emg.
+EMG_CHANNEL_COUNT_MISMATCH:
+  category: "eeg"
+  en: "EMGChannelCount in the sidecar does not match the number of EMG channels in channels.tsv."
+  zh: "sidecar 中的 EMGChannelCount 与 channels.tsv 中 EMG 类型通道的数量不一致。"
+  de: "EMGChannelCount im Sidecar stimmt nicht mit der Anzahl der EMG-Kanäle in channels.tsv überein."
+EMG_COORD_SYS_MISMATCH:
+  category: "other_modality"
+  en: "The coordinate_system column of an EMG electrodes.tsv names systems for which no coordsystem.json with that space exists."
+  zh: "EMG electrodes.tsv 中 coordinate_system 列的部分取值在任何 coordsystem.json 的 space 实体中都找不到对应项。"
+  de: "Werte der Spalte coordinate_system einer EMG-electrodes.tsv haben keine passende space-Entität in einer coordsystem.json."
+EMG_COORD_SYS_PARENTS:
+  category: "other_modality"
+  en: "A ParentCoordinateSystem named in an EMG coordsystem.json is not present as a coordinate system in the dataset."
+  zh: "EMG coordsystem.json 中引用的 ParentCoordinateSystem 在数据集中没有对应的坐标系。"
+  de: "Ein in einer EMG-coordsystem.json genanntes ParentCoordinateSystem ist im Datensatz nicht als Koordinatensystem vorhanden."
+EMPTY_DATASET_NAME:
+  category: "general"
+  en: "dataset_description.json has a Name field that is blank or contains only whitespace."
+  zh: "dataset_description.json 中的 Name 字段为空或仅含空白字符。"
+  de: "Das Feld Name in dataset_description.json ist leer oder enthält nur Leerraum."
+EMPTY_FILE:
+  category: "general"
+  en: "The file is empty (0 bytes)."
+  zh: "该文件为空（0 字节）。"
+  de: "Die Datei ist leer (0 Byte)."
+ENTITY_NOT_IN_RULE:
+  category: "general"
+  en: "The file name contains an entity that is neither required nor optional for this suffix."
+  zh: "文件名包含对该后缀而言既非必需也非可选的实体。"
+  de: "Der Dateiname enthält eine Entität, die für dieses Suffix weder erforderlich noch optional ist."
+ENTITY_WITH_NO_LABEL:
+  category: "general"
+  en: "The file name contains an entity without a label value."
+  zh: "文件名中存在没有标签值的实体。"
+  de: "Der Dateiname enthält eine Entität ohne Label-Wert."
+EOG_CHANNEL_COUNT_MISMATCH:
+  category: "eeg"
+  en: "EOGChannelCount in the EEG sidecar does not match the number of EOG channels in channels.tsv."
+  zh: "EEG sidecar 中的 EOGChannelCount 与 channels.tsv 中 EOG 类型通道的数量不一致。"
+  de: "EOGChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der EOG-Kanäle in channels.tsv überein."
+EPI_WITH_BVALS_NEEDS_SMALL_BVALS:
+  category: "other_modality"
+  en: "An EPI field map with b-values contains no small b-value (below 100)."
+  zh: "带 b 值的 EPI 场图中没有小于 100 的 b 值。"
+  de: "Eine EPI-Feldkarte mit b-Werten enthält keinen kleinen b-Wert (unter 100)."
+EVENTS_TSV_MISSING:
+  category: "general"
+  en: "A task recording whose task label does not contain rest has no associated events.tsv file."
+  zh: "task 标签不含 rest 的任务记录缺少对应的 events.tsv 文件。"
+  de: "Zu einer Task-Aufnahme, deren task-Label nicht rest enthält, fehlt die zugehörige events.tsv."
+EVENT_ONSET_ORDER:
+  category: "general"
+  en: "The onset column of events.tsv is not sorted in ascending order."
+  zh: "events.tsv 的 onset 列未按升序排列。"
+  de: "Die Spalte onset in events.tsv ist nicht aufsteigend sortiert."
+# Applies to every coordsystem.json (EEG, MEG, iEEG, NIRS, EMG ...); filed under eeg.
+EXCESSIVE_COORDSYSTEM_SPECIFICITY:
+  category: "eeg"
+  en: "A coordsystem.json file name has task, acq or run entities, although coordinate systems rarely change within a session."
+  zh: "coordsystem.json 文件名带有 task、acq 或 run 实体，而坐标系在同一 session 内通常不变。"
+  de: "Der Name einer coordsystem.json enthält task-, acq- oder run-Entitäten, obwohl Koordinatensysteme je Session meist gleich bleiben."
+# Applies to every electrodes.tsv (EEG, iEEG, EMG); filed under eeg.
+EXCESSIVE_ELECTRODE_SPECIFICITY:
+  category: "eeg"
+  en: "An electrodes.tsv file name has task, acq or run entities, although electrode setups rarely change within a session."
+  zh: "electrodes.tsv 文件名带有 task、acq 或 run 实体，而电极定义在同一 session 内通常不变。"
+  de: "Der Name einer electrodes.tsv enthält task-, acq- oder run-Entitäten, obwohl Elektrodendefinitionen je Session meist gleich bleiben."
+EXTENSION_MISMATCH:
+  category: "general"
+  en: "The file extension is not allowed for the suffix of this file."
+  zh: "该文件的扩展名不在其后缀允许的扩展名之列。"
+  de: "Die Dateiendung ist für das Suffix dieser Datei nicht zulässig."
+FIELDMAP_WITHOUT_MAGNITUDE_FILE:
+  category: "other_modality"
+  en: "A fieldmap NIfTI file has no associated magnitude image."
+  zh: "fieldmap NIfTI 文件缺少对应的 magnitude 图像。"
+  de: "Zu einer fieldmap-NIfTI-Datei fehlt das zugehörige magnitude-Bild."
+FILENAME_MISMATCH:
+  category: "general"
+  en: "The file name is not in the expected form, for example because entities are repeated or in the wrong order."
+  zh: "文件名格式与预期不一致，例如实体重复或顺序错误。"
+  de: "Der Dateiname hat nicht die erwartete Form, etwa weil Entitäten doppelt vorkommen oder falsch angeordnet sind."
+FILE_READ:
+  category: "general"
+  en: "The file could not be read; it may be corrupted, empty or an unresolved link."
+  zh: "无法读取该文件，文件可能已损坏、为空或为无法解析的链接。"
+  de: "Die Datei konnte nicht gelesen werden; sie ist womöglich beschädigt, leer oder ein nicht auflösbarer Link."
+FLIP_ANGLE_NOT_MATCHING_ASLCONTEXT_TSV:
+  category: "other_modality"
+  en: "FlipAngle lists a different number of values than there are volumes in aslcontext.tsv."
+  zh: "FlipAngle 的数值个数与 aslcontext.tsv 中列出的体积数不一致。"
+  de: "Die Anzahl der FlipAngle-Werte stimmt nicht mit der Volumenanzahl in aslcontext.tsv überein."
+FLIP_ANGLE_NOT_MATCHING_NIFTI:
+  category: "other_modality"
+  en: "FlipAngle lists a different number of values than there are volumes in the ASL NIfTI image."
+  zh: "FlipAngle 的数值个数与 ASL NIfTI 头的第四维大小不一致。"
+  de: "Die Anzahl der FlipAngle-Werte stimmt nicht mit der vierten Dimension im ASL-NIfTI-Header überein."
+GYRO_CHANNEL_COUNT:
+  category: "other_modality"
+  en: "GYROChannelCount in the NIRS sidecar does not match the number of GYRO channels in channels.tsv."
+  zh: "NIRS sidecar 中的 GYROChannelCount 与 channels.tsv 中 GYRO 类型通道的数量不一致。"
+  de: "GYROChannelCount im NIRS-Sidecar stimmt nicht mit der Anzahl der GYRO-Kanäle in channels.tsv überein."
+GZIP_HEADER_COMMENT:
+  category: "general"
+  en: "A comment text is stored in the gzip header; it may reveal information and makes the compressed file non-reproducible."
+  zh: "gzip 头中存有注释文本，可能泄露信息并导致压缩文件不可复现。"
+  de: "Im gzip-Header ist ein Kommentar gespeichert; er kann Informationen preisgeben und macht die Datei nicht reproduzierbar."
+GZIP_HEADER_FILENAME:
+  category: "general"
+  en: "The original file name is stored in the gzip header; it may reveal information and makes the file non-reproducible."
+  zh: "gzip 头中存有原始文件名，可能泄露信息并导致压缩文件不可复现。"
+  de: "Im gzip-Header ist der ursprüngliche Dateiname gespeichert; er kann Informationen preisgeben und stört die Reproduzierbarkeit."
+GZIP_HEADER_MTIME:
+  category: "general"
+  en: "A modification time is stored in the gzip header; it may reveal information and makes the file non-reproducible."
+  zh: "gzip 头中存有修改时间，可能泄露信息并导致压缩文件不可复现。"
+  de: "Im gzip-Header ist ein Änderungszeitpunkt gespeichert; er kann Informationen preisgeben und stört die Reproduzierbarkeit."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+GZ_NOT_GZIPPED:
+  category: "general"
+  en: "The file has a .gz extension but is not gzip-compressed."
+  zh: "该文件扩展名为 .gz，但实际并未经过 gzip 压缩。"
+  de: "Die Datei hat die Endung .gz, ist aber nicht gzip-komprimiert."
+HED_ERROR:
+  category: "general"
+  en: "Checking HED annotations produced an error, in an annotated file or while loading the HED schema named in dataset_description.json."
+  zh: "检查 HED 注释时出现错误，发生在某个含 HED 注释的文件中，或在加载 dataset_description.json 所指定的 HED schema 时。"
+  de: "Bei der Prüfung von HED-Annotationen ist ein Fehler aufgetreten, in einer annotierten Datei oder beim Laden des in dataset_description.json genannten HED-Schemas."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+HED_INTERNAL_ERROR:
+  category: "general"
+  en: "An internal error occurred while checking HED annotations, so HED results may be incomplete."
+  zh: "检查 HED 注释时发生内部错误，HED 结果可能不完整。"
+  de: "Bei der Prüfung der HED-Annotationen trat ein interner Fehler auf; die HED-Ergebnisse sind womöglich unvollständig."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+HED_INTERNAL_WARNING:
+  category: "general"
+  en: "An internal warning was raised while checking HED annotations."
+  zh: "检查 HED 注释时出现内部警告。"
+  de: "Bei der Prüfung der HED-Annotationen wurde eine interne Warnung ausgegeben."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+HED_MISSING_VALUE_IN_SIDECAR:
+  category: "general"
+  en: "A value in an events.tsv column has no corresponding HED entry in the JSON sidecar."
+  zh: "events.tsv 某列中的一个取值在 JSON sidecar 中没有对应的 HED 条目。"
+  de: "Ein Wert in einer Spalte von events.tsv hat im JSON-Sidecar keinen zugehörigen HED-Eintrag."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+HED_VERSION_NOT_DEFINED:
+  category: "general"
+  en: "HEDVersion is not defined, so HED annotations are checked against the latest available HED schema."
+  zh: "未定义 HEDVersion，HED 注释将按可用的最新 HED schema 进行检查。"
+  de: "HEDVersion ist nicht angegeben; HED-Annotationen werden daher gegen das neueste verfügbare HED-Schema geprüft."
+HED_WARNING:
+  category: "general"
+  en: "Checking HED annotations produced a warning, in an annotated file or while loading the HED schema named in dataset_description.json."
+  zh: "检查 HED 注释时出现警告，发生在某个含 HED 注释的文件中，或在加载 dataset_description.json 所指定的 HED schema 时。"
+  de: "Bei der Prüfung von HED-Annotationen wurde eine Warnung ausgegeben, in einer annotierten Datei oder beim Laden des in dataset_description.json genannten HED-Schemas."
+IEEG_ELECTRODES_REQUIRED:
+  category: "ieeg"
+  en: "An iEEG data file has no associated electrodes.tsv, neither directly nor through inheritance."
+  zh: "iEEG 数据文件缺少对应的 electrodes.tsv（无论直接提供还是通过继承）。"
+  de: "Zu einer iEEG-Datendatei fehlt eine zugehörige electrodes.tsv, weder direkt noch über Vererbung."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+INACCESSIBLE_REMOTE_FILE:
+  category: "general"
+  en: "The file links to remotely stored git-annex content that could not be retrieved from any configured remote."
+  zh: "该文件链接到远程存储的 git-annex 内容，但无法从任何已配置的远程源获取。"
+  de: "Die Datei verweist auf entfernt gespeicherte git-annex-Inhalte, die von keiner konfigurierten Quelle abrufbar waren."
+INCOMPLETE_STIMULUS_PRESENTATION:
+  category: "other_modality"
+  en: "For on-screen eye tracking, StimulusPresentation lacks ScreenDistance, ScreenOrigin, ScreenResolution or ScreenSize."
+  zh: "屏幕眼动数据的 StimulusPresentation 缺少 ScreenDistance、ScreenOrigin、ScreenResolution 或 ScreenSize。"
+  de: "Bei Eyetracking auf dem Bildschirm fehlt in StimulusPresentation ScreenDistance, ScreenOrigin, ScreenResolution oder ScreenSize."
+INCONSISTENT_TIFF_EXTENSION:
+  category: "other_modality"
+  en: "The TIFF variant of a microscopy file does not match its extension (.ome.tif for TIFF, .ome.btf for BigTIFF)."
+  zh: "显微图像文件的 TIFF 类型与扩展名不一致（TIFF 应为 .ome.tif，BigTIFF 应为 .ome.btf）。"
+  de: "Die TIFF-Variante einer Mikroskopiedatei passt nicht zur Endung (.ome.tif für TIFF, .ome.btf für BigTIFF)."
+INTENDED_FOR:
+  category: "general"
+  en: "IntendedFor names a file that cannot be found, or uses a path form other than a relative path or BIDS URI."
+  zh: "IntendedFor 指向的文件不存在，或其路径既非相对路径也非 BIDS URI。"
+  de: "IntendedFor nennt eine nicht auffindbare Datei oder nutzt weder relativen Pfad noch BIDS-URI."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it. In the code it only appears as HED subCode (HED_ERROR/INTERNAL_ERROR).
+INTERNAL_ERROR:
+  category: "general"
+  en: "An internal validator error occurred, so some checks may not have been carried out."
+  zh: "验证器发生内部错误，部分检查可能未执行。"
+  de: "Im Validator ist ein interner Fehler aufgetreten; einige Prüfungen wurden womöglich nicht ausgeführt."
+INVALID_ENTITY_LABEL:
+  category: "general"
+  en: "An entity label in the file name does not have the format expected for this suffix."
+  zh: "文件名中某个实体标签的格式与该后缀的预期格式不一致。"
+  de: "Ein Entitäts-Label im Dateinamen hat nicht das für dieses Suffix erwartete Format."
+INVALID_FILE_ENCODING:
+  category: "general"
+  en: "The file contains byte sequences that are not valid UTF-8."
+  zh: "该文件包含无效的 UTF-8 字节序列。"
+  de: "Die Datei enthält Bytefolgen, die kein gültiges UTF-8 sind."
+INVALID_GZIP:
+  category: "general"
+  en: "Decompressing this gzip file failed, which points to a damaged file or a wrong file extension."
+  zh: "该 gzip 文件解压失败，表明文件已损坏或扩展名有误。"
+  de: "Das Entpacken dieser gzip-Datei ist fehlgeschlagen; die Datei ist beschädigt oder die Endung falsch."
+INVALID_JSON_ENCODING:
+  category: "general"
+  en: "The JSON file contains byte sequences that are not valid UTF-8."
+  zh: "该 JSON 文件包含无效的 UTF-8 字节序列。"
+  de: "Die JSON-Datei enthält Bytefolgen, die kein gültiges UTF-8 sind."
+INVALID_LOCATION:
+  category: "general"
+  en: "The file name is valid, but the file is stored in the wrong directory."
+  zh: "文件名有效，但文件存放的目录不正确。"
+  de: "Der Dateiname ist gültig, die Datei liegt jedoch im falschen Verzeichnis."
+JSON_INVALID:
+  category: "general"
+  en: "The file cannot be parsed as JSON."
+  zh: "该文件无法解析为 JSON。"
+  de: "Die Datei lässt sich nicht als JSON einlesen."
+JSON_KEY_RECOMMENDED:
+  category: "general"
+  en: "A recommended field is missing in a JSON file."
+  zh: "JSON 文件中缺少一个建议字段。"
+  de: "In einer JSON-Datei fehlt ein empfohlenes Feld."
+JSON_KEY_REQUIRED:
+  category: "general"
+  en: "A required field is missing in a JSON file."
+  zh: "JSON 文件中缺少一个必需字段。"
+  de: "In einer JSON-Datei fehlt ein Pflichtfeld."
+JSON_NOT_AN_OBJECT:
+  category: "general"
+  en: "The JSON file parses, but its top-level value is an array or a single value instead of an object."
+  zh: "JSON 文件可以解析，但其顶层是数组或单个值而非对象。"
+  de: "Die JSON-Datei ist lesbar, ihr oberster Wert ist aber ein Array oder Einzelwert statt eines Objekts."
+JSON_SCHEMA_VALIDATION_ERROR:
+  category: "general"
+  en: "A field value in a JSON file has a type or format that the BIDS schema does not allow."
+  zh: "JSON 文件中某个字段值的类型或格式不被 BIDS schema 允许。"
+  de: "Ein Feldwert in einer JSON-Datei hat einen Typ oder ein Format, das das BIDS-Schema nicht zulässt."
+LABELING_DURATION_GREATER:
+  category: "other_modality"
+  en: "LabelingDuration is greater than 10, which suggests the value is not given in seconds."
+  zh: "LabelingDuration 大于 10，该值可能并非以秒为单位。"
+  de: "LabelingDuration ist größer als 10; der Wert ist vermutlich nicht in Sekunden angegeben."
+LABELING_DURATION_LENGTH_NOT_MATCHING_NIFTI:
+  category: "other_modality"
+  en: "LabelingDuration lists a different number of values than there are volumes in the ASL NIfTI image."
+  zh: "LabelingDuration 的数值个数与 ASL NIfTI 头的第四维大小不一致。"
+  de: "Die Anzahl der LabelingDuration-Werte stimmt nicht mit der vierten Dimension im ASL-NIfTI-Header überein."
+LABELLING_DURATION_NOT_MATCHING_ASLCONTEXT_TSV:
+  category: "other_modality"
+  en: "LabelingDuration lists a different number of values than there are volumes in aslcontext.tsv."
+  zh: "LabelingDuration 的数值个数与 aslcontext.tsv 中列出的体积数不一致。"
+  de: "Die Anzahl der LabelingDuration-Werte stimmt nicht mit der Volumenanzahl in aslcontext.tsv überein."
+LOOK_LOCKER_FLIP_ANGLE_MISSING:
+  category: "other_modality"
+  en: "FlipAngle is missing for an MRI image acquired with LookLocker set to true."
+  zh: "LookLocker 设为 true 的 MRI 图像缺少 FlipAngle。"
+  de: "Für ein MRT-Bild mit LookLocker gleich true fehlt FlipAngle."
+M0ESTIMATE_NOT_DEFINED:
+  category: "other_modality"
+  en: "M0Type is set to Estimate, but the M0Estimate field is missing."
+  zh: "M0Type 设为 Estimate，但缺少 M0Estimate 字段。"
+  de: "M0Type ist auf Estimate gesetzt, das Feld M0Estimate fehlt jedoch."
+MAGNITUDE_FILE_WITH_TOO_MANY_DIMENSIONS:
+  category: "other_modality"
+  en: "A magnitude1 or magnitude2 image does not have exactly three dimensions."
+  zh: "magnitude1 或 magnitude2 图像并非恰好三维。"
+  de: "Ein magnitude1- oder magnitude2-Bild hat nicht genau drei Dimensionen."
+MAGN_CHANNEL_COUNT:
+  category: "other_modality"
+  en: "MAGNChannelCount in the NIRS sidecar does not match the number of MAGN channels in channels.tsv."
+  zh: "NIRS sidecar 中的 MAGNChannelCount 与 channels.tsv 中 MAGN 类型通道的数量不一致。"
+  de: "MAGNChannelCount im NIRS-Sidecar stimmt nicht mit der Anzahl der MAGN-Kanäle in channels.tsv überein."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+MALFORMED_BVAL:
+  category: "other_modality"
+  en: "The .bval file is empty or so badly formatted that its values cannot be read."
+  zh: ".bval 文件为空或格式严重错误，无法读取其中的数值。"
+  de: "Die .bval-Datei ist leer oder so fehlerhaft formatiert, dass sich ihre Werte nicht lesen lassen."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+MALFORMED_BVEC:
+  category: "other_modality"
+  en: "The .bvec file is empty or so badly formatted that its values cannot be read."
+  zh: ".bvec 文件为空或格式严重错误，无法读取其中的数值。"
+  de: "Die .bvec-Datei ist leer oder so fehlerhaft formatiert, dass sich ihre Werte nicht lesen lassen."
+MISC_CHANNEL_COUNT_MISMATCH:
+  category: "eeg"
+  en: "MiscChannelCount in the EEG sidecar does not match the number of MISC channels in channels.tsv."
+  zh: "EEG sidecar 中的 MiscChannelCount 与 channels.tsv 中 MISC 类型通道的数量不一致。"
+  de: "MiscChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der MISC-Kanäle in channels.tsv überein."
+MISSING_DATASET_DESCRIPTION:
+  category: "general"
+  en: "The required dataset_description.json is missing from the dataset root."
+  zh: "数据集根目录中缺少必需的 dataset_description.json。"
+  de: "Im Wurzelverzeichnis des Datensatzes fehlt die erforderliche dataset_description.json."
+MISSING_DENSITY_DESCRIPTION:
+  category: "other_modality"
+  en: "The Density metadata object has no entry for the den entity label of this derivative file."
+  zh: "Density 元数据对象中没有该衍生数据文件 den 实体标签对应的条目。"
+  de: "Das Metadatenobjekt Density enthält keinen Eintrag für das den-Label dieser Derivat-Datei."
+MISSING_MAGNITUDE1_FILE:
+  category: "other_modality"
+  en: "A phasediff field map has no associated magnitude1 image."
+  zh: "phasediff 场图缺少对应的 magnitude1 图像。"
+  de: "Zu einer phasediff-Feldkarte fehlt das zugehörige magnitude1-Bild."
+MISSING_ONSET_COLUMN:
+  category: "other_modality"
+  en: "The OnsetSource declared for physioevents.tsv.gz is not among the columns of the associated physio recording."
+  zh: "physioevents.tsv.gz 声明的 OnsetSource 不在对应 physio 记录的列中。"
+  de: "Die für physioevents.tsv.gz angegebene OnsetSource ist keine Spalte der zugehörigen physio-Aufzeichnung."
+MISSING_REQUIRED_ENTITY:
+  category: "general"
+  en: "The file name lacks an entity that is required for this suffix."
+  zh: "文件名缺少该后缀所必需的实体。"
+  de: "Im Dateinamen fehlt eine Entität, die für dieses Suffix erforderlich ist."
+MISSING_RESOLUTION_DESCRIPTION:
+  category: "other_modality"
+  en: "The Resolution metadata object has no entry for the res entity label of this derivative file."
+  zh: "Resolution 元数据对象中没有该衍生数据文件 res 实体标签对应的条目。"
+  de: "Das Metadatenobjekt Resolution enthält keinen Eintrag für das res-Label dieser Derivat-Datei."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+MISSING_SESSION:
+  category: "general"
+  en: "The set of session directories differs between subjects."
+  zh: "各受试者的 session 目录集合不一致。"
+  de: "Die Session-Verzeichnisse unterscheiden sich zwischen den Probanden."
+MRS_MATRIX_SIZE:
+  category: "other_modality"
+  en: "MatrixSize in the MRS sidecar does not match the spatial dimensions in the NIfTI header."
+  zh: "MRS sidecar 中的 MatrixSize 与 NIfTI 头中的空间维度不一致。"
+  de: "MatrixSize im MRS-Sidecar stimmt nicht mit den räumlichen Dimensionen im NIfTI-Header überein."
+MRS_NIFTI_CONSISTENCY:
+  category: "other_modality"
+  en: "The sidecar values for ResonantNucleus or SpectrometerFrequency disagree with the NIfTI-MRS header extension."
+  zh: "NIfTI-MRS 头扩展与 sidecar 中的 ResonantNucleus 或 SpectrometerFrequency 不一致。"
+  de: "ResonantNucleus oder SpectrometerFrequency unterscheiden sich zwischen NIfTI-MRS-Header-Erweiterung und Sidecar."
+MULTIPLE_INHERITABLE_FILES:
+  category: "general"
+  en: "A directory holds several files that equally qualify as inherited metadata for the same data file."
+  zh: "同一目录中有多个文件都可作为同一数据文件的继承元数据。"
+  de: "Ein Verzeichnis enthält mehrere Dateien, die gleichermaßen als vererbte Metadaten derselben Datendatei infrage kommen."
+MULTIPLE_README_FILES:
+  category: "general"
+  en: "The dataset root contains more than one README file with different extensions."
+  zh: "数据集根目录中存在多个扩展名不同的 README 文件。"
+  de: "Im Wurzelverzeichnis liegen mehrere README-Dateien mit unterschiedlichen Endungen."
+NIFTI_DIMENSION:
+  category: "other_modality"
+  en: "The dimension field in the NIfTI header is empty or too short."
+  zh: "NIfTI 头中的维度字段为空或长度不足。"
+  de: "Das Dimensionsfeld im NIfTI-Header ist leer oder zu kurz."
+NIFTI_HEADER_UNREADABLE:
+  category: "other_modality"
+  en: "The NIfTI header cannot be read; the file may be corrupted or misnamed."
+  zh: "无法读取 NIfTI 头，文件可能已损坏或命名有误。"
+  de: "Der NIfTI-Header lässt sich nicht lesen; die Datei ist womöglich beschädigt oder falsch benannt."
+NIFTI_PE_DIRECTION_CONSISTENCY:
+  category: "other_modality"
+  en: "The dir entity (AP, PA, RL, LR, SI, IS) appears to contradict PhaseEncodingDirection combined with the image orientation."
+  zh: "PhaseEncodingDirection 与图像方向表明 dir 实体的取值（AP、PA、RL、LR、SI、IS）可能有误。"
+  de: "PhaseEncodingDirection und Bildorientierung deuten darauf hin, dass der Wert der dir-Entität (AP, PA, RL, LR, SI, IS) falsch ist."
+NIFTI_PIXDIM:
+  category: "other_modality"
+  en: "The NIfTI header indicates voxels of size zero."
+  zh: "NIfTI 头显示体素尺寸为零。"
+  de: "Der NIfTI-Header gibt Voxel der Größe null an."
+NIFTI_PIXDIM_PET:
+  category: "other_modality"
+  en: "The NIfTI header of a PET image indicates a voxel size of zero along a spatial axis."
+  zh: "PET 图像的 NIfTI 头显示某一空间轴上的体素尺寸为零。"
+  de: "Der NIfTI-Header eines PET-Bilds gibt entlang einer Raumachse eine Voxelgröße von null an."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+NIFTI_TOO_SMALL:
+  category: "other_modality"
+  en: "The NIfTI file is smaller than the minimum size of a NIfTI header."
+  zh: "该 NIfTI 文件小于 NIfTI 头的最小长度。"
+  de: "Die NIfTI-Datei ist kleiner als die Mindestgröße eines NIfTI-Headers."
+NIFTI_UNIT:
+  category: "other_modality"
+  en: "The NIfTI header does not state units for the spatial axes or, in 4D images, for the time axis."
+  zh: "NIfTI 头未注明空间轴的单位，或在四维图像中未注明时间轴的单位。"
+  de: "Der NIfTI-Header nennt keine Einheiten für die Raumachsen oder, bei 4D-Bildern, für die Zeitachse."
+NIRS_CHANNEL_COUNT:
+  category: "other_modality"
+  en: "NIRSChannelCount in the sidecar does not match the number of NIRS channels in channels.tsv."
+  zh: "sidecar 中的 NIRSChannelCount 与 channels.tsv 中 NIRS 类型通道的数量不一致。"
+  de: "NIRSChannelCount im Sidecar stimmt nicht mit der Anzahl der NIRS-Kanäle in channels.tsv überein."
+NIRS_RECOMMENDED_CHANNELS:
+  category: "other_modality"
+  en: "A NIRS recording (.snirf) has no associated channels.tsv file."
+  zh: "NIRS 记录（.snirf）缺少对应的 channels.tsv 文件。"
+  de: "Zu einer NIRS-Aufnahme (.snirf) fehlt die zugehörige channels.tsv."
+NIRS_SAMPLING_FREQUENCY:
+  category: "other_modality"
+  en: "SamplingFrequency is n/a in the NIRS sidecar and channels.tsv has no sampling_frequency column."
+  zh: "NIRS sidecar 中的 SamplingFrequency 为 n/a，且 channels.tsv 中没有 sampling_frequency 列。"
+  de: "SamplingFrequency ist im NIRS-Sidecar n/a und channels.tsv hat keine Spalte sampling_frequency."
+NOSUBJECT_FOLDERS:
+  category: "general"
+  en: "The root of a study-type dataset contains subject directories (sub-*), which are not expected there."
+  zh: "study 类型数据集的根目录中存在受试者目录（sub-*），此处不应出现。"
+  de: "Das Wurzelverzeichnis eines Datensatzes vom Typ study enthält Probandenverzeichnisse (sub-*), die dort nicht vorgesehen sind."
+NOT_INCLUDED:
+  category: "general"
+  en: "The file name does not match any naming pattern defined by BIDS, possibly because of a typo."
+  zh: "该文件名不属于 BIDS 定义的任何命名模式，可能存在拼写错误。"
+  de: "Der Dateiname entspricht keinem in BIDS definierten Benennungsmuster, möglicherweise wegen eines Tippfehlers."
+NO_AUTHORS:
+  category: "general"
+  en: "dataset_description.json has no Authors field and the dataset has no CITATION.cff."
+  zh: "dataset_description.json 中没有 Authors 字段，且数据集中没有 CITATION.cff。"
+  de: "dataset_description.json hat kein Feld Authors und der Datensatz enthält keine CITATION.cff."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+NO_VALID_DATA_FOUND_FOR_SUBJECT:
+  category: "general"
+  en: "At least one subject directory contains no usable BIDS data files."
+  zh: "至少有一个受试者目录不含可用的 BIDS 数据文件。"
+  de: "Mindestens ein Probandenverzeichnis enthält keine verwertbaren BIDS-Datendateien."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+ORPHANED_SYMLINK:
+  category: "general"
+  en: "The file is a symbolic link whose target cannot be found."
+  zh: "该文件是找不到目标的符号链接。"
+  de: "Die Datei ist ein symbolischer Link, dessen Ziel nicht auffindbar ist."
+PARTICIPANT_ID_MISMATCH:
+  category: "general"
+  en: "Some subject directories are not listed in the participant_id column of participants.tsv."
+  zh: "部分受试者目录未列在 participants.tsv 的 participant_id 列中。"
+  de: "Einige Probandenverzeichnisse sind in der Spalte participant_id von participants.tsv nicht aufgeführt."
+PASL_BOLUS_CUT_OFF_DELAY_TIME:
+  category: "other_modality"
+  en: "BolusCutOffFlag is true for this PASL image, but BolusCutOffDelayTime is missing."
+  zh: "该 PASL 图像的 BolusCutOffFlag 为 true，但缺少 BolusCutOffDelayTime。"
+  de: "BolusCutOffFlag ist für dieses PASL-Bild true, BolusCutOffDelayTime fehlt jedoch."
+PASL_BOLUS_CUT_OFF_TECHINIQUE:
+  category: "other_modality"
+  en: "BolusCutOffFlag is true for this PASL image, but BolusCutOffTechnique is missing."
+  zh: "该 PASL 图像的 BolusCutOffFlag 为 true，但缺少 BolusCutOffTechnique。"
+  de: "BolusCutOffFlag ist für dieses PASL-Bild true, BolusCutOffTechnique fehlt jedoch."
+PDT2_ECHOS_SHOULD_MATCH_NIFTI_LENGTH:
+  category: "other_modality"
+  en: "EchoTime of a 4D PDT2 image does not provide exactly one value per volume."
+  zh: "四维 PDT2 图像的 EchoTime 未做到每个体积恰好一个值。"
+  de: "EchoTime eines 4D-PDT2-Bilds enthält nicht genau einen Wert pro Volumen."
+PDT2_FILE_SHOULD_HAVE_TWO_VOLUMES:
+  category: "other_modality"
+  en: "A PDT2 image is not a 4D image with exactly two volumes."
+  zh: "PDT2 图像不是恰好包含两个体积的四维图像。"
+  de: "Ein PDT2-Bild ist kein 4D-Bild mit genau zwei Volumen."
+PET_FRAME_CONSISTENCY:
+  category: "other_modality"
+  en: "FrameDuration and FrameTimesStart in the PET sidecar describe different numbers of frames."
+  zh: "PET sidecar 中 FrameDuration 与 FrameTimesStart 描述的帧数不同。"
+  de: "FrameDuration und FrameTimesStart im PET-Sidecar beschreiben unterschiedlich viele Frames."
+PET_FRAME_CONSISTENCY_FRAME_DURATION:
+  category: "other_modality"
+  en: "The number of FrameDuration entries does not match the number of frames in the PET image."
+  zh: "FrameDuration 的条目数与 PET 图像中的帧数不一致。"
+  de: "Die Anzahl der FrameDuration-Einträge stimmt nicht mit der Frame-Anzahl im PET-Bild überein."
+PET_FRAME_CONSISTENCY_FRAME_TIMES_START:
+  category: "other_modality"
+  en: "The number of FrameTimesStart entries does not match the number of frames in the PET image."
+  zh: "FrameTimesStart 的条目数与 PET 图像中的帧数不一致。"
+  de: "Die Anzahl der FrameTimesStart-Einträge stimmt nicht mit der Frame-Anzahl im PET-Bild überein."
+PHASE_ENCODING_DIRECTION_MUST_DEFINE:
+  category: "other_modality"
+  en: "The required PhaseEncodingDirection field is missing for an EPI field map."
+  zh: "EPI 场图缺少必需字段 PhaseEncodingDirection。"
+  de: "Für eine EPI-Feldkarte fehlt das Pflichtfeld PhaseEncodingDirection."
+PHASE_SUFFIX_DEPRECATED:
+  category: "other_modality"
+  en: "A functional image uses the deprecated phase suffix instead of the part-phase entity with the bold suffix."
+  zh: "功能图像使用了已弃用的 phase 后缀，而非 part-phase 实体加 bold 后缀。"
+  de: "Ein funktionelles Bild nutzt das veraltete Suffix phase statt der Entität part-phase mit dem Suffix bold."
+PHASE_UNITS:
+  category: "other_modality"
+  en: "A phase image (part-phase) declares Units other than rad or arbitrary."
+  zh: "相位图像（part-phase）的 Units 既不是 rad 也不是 arbitrary。"
+  de: "Ein Phasenbild (part-phase) gibt als Units weder rad noch arbitrary an."
+PHENOTYPE_SUBJECTS_MISSING:
+  category: "general"
+  en: "A TSV file in phenotype/ contains participant IDs that do not appear in participants.tsv."
+  zh: "phenotype/ 中的 TSV 文件包含 participants.tsv 中不存在的受试者 ID。"
+  de: "Eine TSV-Datei in phenotype/ enthält Probanden-IDs, die in participants.tsv nicht vorkommen."
+PIXEL_SIZE_INCONSISTENT:
+  category: "other_modality"
+  en: "PixelSize in the microscopy sidecar does not match the PhysicalSizeX/Y/Z values in the OME metadata."
+  zh: "显微 sidecar 中的 PixelSize 与 OME 元数据中的 PhysicalSizeX/Y/Z 不一致。"
+  de: "PixelSize im Mikroskopie-Sidecar stimmt nicht mit PhysicalSizeX/Y/Z in den OME-Metadaten überein."
+POST_LABELING_DELAY_GREATER:
+  category: "other_modality"
+  en: "PostLabelingDelay is greater than 10, which suggests the value is not given in seconds."
+  zh: "PostLabelingDelay 大于 10，该值可能并非以秒为单位。"
+  de: "PostLabelingDelay ist größer als 10; der Wert ist vermutlich nicht in Sekunden angegeben."
+POST_LABELING_DELAY_NOT_MATCHING_ASLCONTEXT_TSV:
+  category: "other_modality"
+  en: "PostLabelingDelay lists a different number of values than there are volumes in aslcontext.tsv."
+  zh: "PostLabelingDelay 的数值个数与 aslcontext.tsv 中列出的体积数不一致。"
+  de: "Die Anzahl der PostLabelingDelay-Werte stimmt nicht mit der Volumenanzahl in aslcontext.tsv überein."
+POST_LABELING_DELAY_NOT_MATCHING_NIFTI:
+  category: "other_modality"
+  en: "PostLabelingDelay lists a different number of values than there are volumes in the ASL NIfTI image."
+  zh: "PostLabelingDelay 的数值个数与 ASL NIfTI 头的第四维大小不一致。"
+  de: "Die Anzahl der PostLabelingDelay-Werte stimmt nicht mit der vierten Dimension im ASL-NIfTI-Header überein."
+README_FILE_MISSING:
+  category: "general"
+  en: "The recommended README file is missing from the dataset root."
+  zh: "数据集根目录中缺少建议提供的 README 文件。"
+  de: "Im Wurzelverzeichnis des Datensatzes fehlt die empfohlene README-Datei."
+README_FILE_SMALL:
+  category: "general"
+  en: "The README file is very short (150 bytes or less) and likely says little about the dataset."
+  zh: "README 文件非常短（不超过 150 字节），对数据集的说明可能不足。"
+  de: "Die README-Datei ist sehr kurz (höchstens 150 Byte) und beschreibt den Datensatz vermutlich kaum."
+REPETITIONTIMEPREPARATION_NOT_MATCHING_ASLCONTEXT_TSV:
+  category: "other_modality"
+  en: "RepetitionTimePreparation lists a different number of values than there are volumes in aslcontext.tsv."
+  zh: "RepetitionTimePreparation 的数值个数与 aslcontext.tsv 中列出的体积数不一致。"
+  de: "Die Anzahl der RepetitionTimePreparation-Werte stimmt nicht mit der Volumenanzahl in aslcontext.tsv überein."
+REPETITIONTIME_PREPARATION_NOT_CONSISTENT:
+  category: "other_modality"
+  en: "RepetitionTimePreparation lists a different number of values than there are volumes in the NIfTI image."
+  zh: "RepetitionTimePreparation 的数值个数与 NIfTI 头的第四维大小不一致。"
+  de: "Die Anzahl der RepetitionTimePreparation-Werte stimmt nicht mit der vierten Dimension im NIfTI-Header überein."
+REPETITION_TIME_AND_ACQUISITION_DURATION_MUTUALLY_EXCLUSIVE:
+  category: "other_modality"
+  en: "RepetitionTime and FrameAcquisitionDuration are both set, although only one of them may be used."
+  zh: "同时设置了 RepetitionTime 与 FrameAcquisitionDuration，但二者只能使用其一。"
+  de: "RepetitionTime und FrameAcquisitionDuration sind beide gesetzt, obwohl nur eines davon verwendet werden darf."
+REPETITION_TIME_GREATER_THAN:
+  category: "other_modality"
+  en: "RepetitionTime of a BOLD scan is greater than 100, which suggests the value is not given in seconds."
+  zh: "BOLD 扫描的 RepetitionTime 大于 100，该值可能并非以秒为单位。"
+  de: "RepetitionTime eines BOLD-Scans ist größer als 100; der Wert ist vermutlich nicht in Sekunden angegeben."
+REPETITION_TIME_MISMATCH:
+  category: "other_modality"
+  en: "RepetitionTime in the sidecar does not match the repetition time stored in the NIfTI header."
+  zh: "sidecar 中的 RepetitionTime 与 NIfTI 头中记录的重复时间不一致。"
+  de: "RepetitionTime im Sidecar stimmt nicht mit der im NIfTI-Header gespeicherten Repetitionszeit überein."
+# Covers electrodes.tsv (all modalities except EMG) and NIRS optodes.tsv; filed under eeg.
+REQUIRED_COORDSYSTEM:
+  category: "eeg"
+  en: "An electrodes.tsv or optodes.tsv file has no associated coordsystem.json file."
+  zh: "electrodes.tsv 或 optodes.tsv 文件缺少对应的 coordsystem.json 文件。"
+  de: "Zu einer electrodes.tsv oder optodes.tsv fehlt die zugehörige coordsystem.json."
+REQUIRED_TEMPLATE_X:
+  category: "other_modality"
+  en: "optodes.tsv contains n/a in the x column but has no template_x column."
+  zh: "optodes.tsv 的 x 列含有 n/a，但缺少 template_x 列。"
+  de: "optodes.tsv enthält n/a in der Spalte x, hat aber keine Spalte template_x."
+REQUIRED_TEMPLATE_Y:
+  category: "other_modality"
+  en: "optodes.tsv contains n/a in the y column but has no template_y column."
+  zh: "optodes.tsv 的 y 列含有 n/a，但缺少 template_y 列。"
+  de: "optodes.tsv enthält n/a in der Spalte y, hat aber keine Spalte template_y."
+REQUIRED_TEMPLATE_Z:
+  category: "other_modality"
+  en: "optodes.tsv contains n/a in the z column but has no template_z column."
+  zh: "optodes.tsv 的 z 列含有 n/a，但缺少 template_z 列。"
+  de: "optodes.tsv enthält n/a in der Spalte z, hat aber keine Spalte template_z."
+SAMPLES_TSV_MISSING:
+  category: "other_modality"
+  en: "A dataset with microscopy data has no samples.tsv file in its root."
+  zh: "含显微数据的数据集根目录中缺少 samples.tsv 文件。"
+  de: "Einem Datensatz mit Mikroskopiedaten fehlt die Datei samples.tsv im Wurzelverzeichnis."
+SCANS_FILENAME_NOT_MATCH_DATASET:
+  category: "general"
+  en: "scans.tsv lists file names that do not exist in the dataset."
+  zh: "scans.tsv 中列出的文件名在数据集中不存在。"
+  de: "scans.tsv führt Dateinamen auf, die im Datensatz nicht existieren."
+SFORM_AND_QFORM_IN_IMAGE_HEADER_ARE_ZERO:
+  category: "other_modality"
+  en: "Both sform_code and qform_code in the NIfTI header are 0, so the image orientation is undefined."
+  zh: "NIfTI 头中的 sform_code 与 qform_code 均为 0，图像方向未定义。"
+  de: "sform_code und qform_code im NIfTI-Header sind beide 0, daher ist die Bildorientierung undefiniert."
+SHORT_CHANNEL_COUNT:
+  category: "other_modality"
+  en: "ShortChannelCount in the NIRS sidecar does not match the number of channels marked true in the short_channel column."
+  zh: "NIRS sidecar 中的 ShortChannelCount 与 short_channel 列中标记为 true 的通道数不一致。"
+  de: "ShortChannelCount im NIRS-Sidecar stimmt nicht mit der Zahl der in short_channel mit true markierten Kanäle überein."
+SIDECAR_FIELD_OVERRIDE:
+  category: "general"
+  en: "A sidecar field overrides a different value set by a sidecar at a higher directory level."
+  zh: "某个 sidecar 字段覆盖了更高目录层级 sidecar 中设置的不同取值。"
+  de: "Ein Sidecar-Feld überschreibt einen abweichenden Wert aus einem Sidecar auf höherer Verzeichnisebene."
+SIDECAR_KEY_RECOMMENDED:
+  category: "general"
+  en: "A recommended field is missing in the JSON sidecar of a data file."
+  zh: "数据文件的 JSON sidecar 中缺少一个建议字段。"
+  de: "Im JSON-Sidecar einer Datendatei fehlt ein empfohlenes Feld."
+SIDECAR_KEY_REQUIRED:
+  category: "general"
+  en: "A required field is missing in the JSON sidecar of a data file."
+  zh: "数据文件的 JSON sidecar 中缺少一个必需字段。"
+  de: "Im JSON-Sidecar einer Datendatei fehlt ein Pflichtfeld."
+SIDECAR_WITHOUT_DATAFILE:
+  category: "general"
+  en: "A JSON sidecar exists for which no matching data file is present in the dataset."
+  zh: "某个 JSON sidecar 文件没有对应的数据文件。"
+  de: "Zu einer JSON-Sidecar-Datei gibt es keine passende Datendatei."
+SINGLE_SOURCE_CITATION_FIELDS:
+  category: "general"
+  en: "CITATION.cff is present, but dataset_description.json still has HowToAcknowledge, License or ReferencesAndLinks."
+  zh: "数据集中已有 CITATION.cff，但 dataset_description.json 仍包含 HowToAcknowledge、License 或 ReferencesAndLinks。"
+  de: "CITATION.cff ist vorhanden, dataset_description.json enthält aber noch HowToAcknowledge, License oder ReferencesAndLinks."
+SLICETIMING_ELEMENTS:
+  category: "other_modality"
+  en: "The number of SliceTiming entries does not match the number of slices along the slice-encoding axis of the image."
+  zh: "SliceTiming 的条目数与图像在层面编码方向上的层数不一致。"
+  de: "Die Anzahl der SliceTiming-Einträge stimmt nicht mit der Schichtzahl entlang der Schichtkodierachse des Bilds überein."
+SLICETIMING_VALUES_GREATER_THAN_REPETITION_TIME:
+  category: "other_modality"
+  en: "SliceTiming contains values greater than RepetitionTime, possibly because they are given in milliseconds."
+  zh: "SliceTiming 中存在大于 RepetitionTime 的值，可能误用了毫秒为单位。"
+  de: "SliceTiming enthält Werte größer als RepetitionTime, möglicherweise weil sie in Millisekunden angegeben sind."
+SLICE_TIMING_NOT_DEFINED_2D_ASL:
+  category: "other_modality"
+  en: "SliceTiming is missing for an ASL or M0 image acquired with a 2D sequence."
+  zh: "采用二维序列采集的 ASL 或 M0 图像缺少 SliceTiming。"
+  de: "Für ein mit einer 2D-Sequenz aufgenommenes ASL- oder M0-Bild fehlt SliceTiming."
+SOURCE_FILE_EXIST:
+  category: "general"
+  en: "Sources in a derivative file names files that cannot be found, or uses a path form other than dataset-relative or BIDS URI."
+  zh: "衍生数据文件的 Sources 指向的文件不存在，或其路径既非数据集相对路径也非 BIDS URI。"
+  de: "Sources einer Derivat-Datei nennt nicht auffindbare Dateien oder nutzt weder datensatzrelativen Pfad noch BIDS-URI."
+STIMULUS_FILE_MISSING:
+  category: "general"
+  en: "A stimulus file named in the stim_file column cannot be found in the stimuli directory."
+  zh: "stim_file 列中指定的刺激文件在 stimuli 目录中找不到。"
+  de: "Eine in der Spalte stim_file genannte Stimulusdatei ist im Verzeichnis stimuli nicht auffindbar."
+SUBJECT_FOLDERS:
+  category: "general"
+  en: "The dataset root contains no subject directories (sub-*)."
+  zh: "数据集根目录中没有受试者目录（sub-*）。"
+  de: "Im Wurzelverzeichnis des Datensatzes gibt es keine Probandenverzeichnisse (sub-*)."
+SUSPICIOUSLY_LONG_EVENT_DESIGN:
+  category: "other_modality"
+  en: "The last event onset lies after the end of the corresponding BOLD scan."
+  zh: "最后一个事件的 onset 晚于对应 BOLD 扫描的结束时间。"
+  de: "Der Onset des letzten Ereignisses liegt nach dem Ende des zugehörigen BOLD-Scans."
+SUSPICIOUSLY_SHORT_EVENT_DESIGN:
+  category: "other_modality"
+  en: "The last event onset lies within the first half of the corresponding BOLD scan."
+  zh: "最后一个事件的 onset 位于对应 BOLD 扫描的前半段内。"
+  de: "Der Onset des letzten Ereignisses liegt in der ersten Hälfte des zugehörigen BOLD-Scans."
+SUSPICIOUS_NEGATIVE_EVENT_ONSET:
+  category: "general"
+  en: "events.tsv contains onsets more than 60 seconds before the start of the recording."
+  zh: "events.tsv 中存在早于记录开始 60 秒以上的 onset。"
+  de: "events.tsv enthält Onsets, die mehr als 60 Sekunden vor Aufnahmebeginn liegen."
+SUSPICIOUS_POSITIVE_EVENT_ONSET:
+  category: "general"
+  en: "events.tsv contains onsets more than 31 days after the start of the recording."
+  zh: "events.tsv 中存在晚于记录开始 31 天以上的 onset。"
+  de: "events.tsv enthält Onsets, die mehr als 31 Tage nach Aufnahmebeginn liegen."
+SYMLINK_BROKEN:
+  category: "general"
+  en: "A symbolic link is dangling because its target is missing."
+  zh: "符号链接的目标缺失，链接已失效。"
+  de: "Ein symbolischer Link ist verwaist, weil sein Ziel fehlt."
+SYMLINK_CYCLE:
+  category: "general"
+  en: "A chain of symbolic links forms a loop or exceeds the maximum link depth."
+  zh: "符号链接链形成循环或超过最大链接深度。"
+  de: "Eine Kette symbolischer Links bildet eine Schleife oder überschreitet die maximale Verweistiefe."
+SYMLINK_IN_SUBMODULE:
+  category: "general"
+  en: "A symbolic link points into a git submodule that has not been initialized."
+  zh: "符号链接指向尚未初始化的 git 子模块。"
+  de: "Ein symbolischer Link zeigt in ein nicht initialisiertes git-Submodul."
+SYMLINK_OUT_OF_TREE:
+  category: "general"
+  en: "A symbolic link resolves to a location outside the repository."
+  zh: "符号链接解析到仓库之外的位置。"
+  de: "Ein symbolischer Link führt zu einem Ort außerhalb des Repositorys."
+T1W_FILE_WITH_TOO_MANY_DIMENSIONS:
+  category: "other_modality"
+  en: "A T1w image does not have exactly three dimensions."
+  zh: "T1w 图像并非恰好三维。"
+  de: "Ein T1w-Bild hat nicht genau drei Dimensionen."
+TABLE_POSITION_RECOMMENDED:
+  category: "other_modality"
+  en: "The recommended TablePosition field is missing for an MRI image with a chunk entity."
+  zh: "带 chunk 实体的 MRI 图像缺少建议字段 TablePosition。"
+  de: "Für ein MRT-Bild mit chunk-Entität fehlt das empfohlene Feld TablePosition."
+TOO_FEW_AUTHORS:
+  category: "general"
+  en: "The Authors field of dataset_description.json has fewer than two entries or is missing; each author is expected as a separate entry."
+  zh: "dataset_description.json 的 Authors 字段少于两个条目或缺失；每位作者应单独列为一项。"
+  de: "Das Feld Authors in dataset_description.json hat weniger als zwei Einträge oder fehlt; jede Person wird als eigener Eintrag erwartet."
+TOTAL_ACQUIRED_VOLUMES_NOT_CONSISTENT:
+  category: "other_modality"
+  en: "TotalAcquiredPairs does not match the number of control and label volumes in aslcontext.tsv."
+  zh: "TotalAcquiredPairs 与 aslcontext.tsv 中 control 和 label 体积的数量不一致。"
+  de: "TotalAcquiredPairs stimmt nicht mit der Anzahl der control- und label-Volumen in aslcontext.tsv überein."
+TOTAL_READOUT_TIME_GREATER_THAN:
+  category: "other_modality"
+  en: "TotalReadoutTime is greater than 10, which suggests the value is not given in seconds."
+  zh: "TotalReadoutTime 大于 10，该值可能并非以秒为单位。"
+  de: "TotalReadoutTime ist größer als 10; der Wert ist vermutlich nicht in Sekunden angegeben."
+TOTAL_READOUT_TIME_MUST_DEFINE:
+  category: "other_modality"
+  en: "An EPI field map has neither TotalReadoutTime nor EffectiveEchoSpacing, so its readout time is unknown."
+  zh: "EPI 场图既无 TotalReadoutTime 也无 EffectiveEchoSpacing，读出时间无法确定。"
+  de: "Eine EPI-Feldkarte hat weder TotalReadoutTime noch EffectiveEchoSpacing; die Auslesezeit ist daher unbekannt."
+TRIGGER_CHANNEL_COUNT_MISMATCH:
+  category: "eeg"
+  en: "TriggerChannelCount in the EEG sidecar does not match the number of TRIG channels in channels.tsv."
+  zh: "EEG sidecar 中的 TriggerChannelCount 与 channels.tsv 中 TRIG 类型通道的数量不一致。"
+  de: "TriggerChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der TRIG-Kanäle in channels.tsv überein."
+TSV_ADDITIONAL_COLUMNS_MUST_DEFINE:
+  category: "general"
+  en: "A TSV file has non-standard columns without a sidecar description, which is mandatory for this file type."
+  zh: "TSV 文件含有未在 sidecar 中说明的非标准列，而该文件类型必须提供此类说明。"
+  de: "Eine TSV-Datei hat Zusatzspalten ohne Beschreibung im Sidecar, die bei diesem Dateityp Pflicht ist."
+TSV_ADDITIONAL_COLUMNS_NOT_ALLOWED:
+  category: "general"
+  en: "A TSV file has columns beyond the standard set, which this file type does not permit."
+  zh: "TSV 文件含有该文件类型不允许的额外列。"
+  de: "Eine TSV-Datei enthält zusätzliche Spalten, die für diesen Dateityp nicht zulässig sind."
+TSV_ADDITIONAL_COLUMNS_UNDEFINED:
+  category: "general"
+  en: "A TSV file has columns beyond the standard set that its JSON sidecar does not describe."
+  zh: "TSV 文件含有未在其 JSON sidecar 中说明的额外列。"
+  de: "Eine TSV-Datei enthält zusätzliche Spalten, die im zugehörigen JSON-Sidecar nicht beschrieben sind."
+TSV_COLUMN_HEADER_DUPLICATE:
+  category: "general"
+  en: "The header row of a TSV file contains duplicate column names."
+  zh: "TSV 文件的表头行中存在重复的列名。"
+  de: "Die Kopfzeile einer TSV-Datei enthält doppelte Spaltennamen."
+TSV_COLUMN_MISSING:
+  category: "general"
+  en: "A TSV file lacks a column that is mandatory for its file type."
+  zh: "TSV 文件中缺少一个必需列。"
+  de: "In einer TSV-Datei fehlt eine Pflichtspalte."
+TSV_COLUMN_ORDER_INCORRECT:
+  category: "general"
+  en: "The required leading columns of a TSV file are not in the prescribed order."
+  zh: "TSV 文件中规定的前置列未按规定顺序排列。"
+  de: "Die vorgeschriebenen ersten Spalten einer TSV-Datei stehen nicht in der festgelegten Reihenfolge."
+TSV_COLUMN_TYPE_REDEFINED:
+  category: "general"
+  en: "A sidecar redefines a standard TSV column in a way that conflicts with its BIDS definition; the redefinition is ignored."
+  zh: "某个 sidecar 对标准 TSV 列的重新定义与其 BIDS 定义冲突，该重新定义被忽略。"
+  de: "Ein Sidecar definiert eine Standardspalte einer TSV-Datei abweichend von BIDS um; diese Umdefinition wird ignoriert."
+TSV_EMPTY_LINE:
+  category: "general"
+  en: "A TSV file contains an empty line."
+  zh: "TSV 文件中存在空行。"
+  de: "Eine TSV-Datei enthält eine Leerzeile."
+TSV_EQUAL_ROWS:
+  category: "general"
+  en: "A row in a TSV file has a different number of columns than the header row."
+  zh: "TSV 文件中某一行的列数与表头行不同。"
+  de: "Eine Zeile einer TSV-Datei hat eine andere Spaltenzahl als die Kopfzeile."
+# Generic placeholder in the validator issue list (src/issues/list.ts); no code path in the 3.0.2 bundle emits it, purpose beyond 'generic TSV error' unclear.
+TSV_ERROR:
+  category: "general"
+  en: "An unspecified error was found in a TSV file."
+  zh: "TSV 文件中存在未细分类型的错误。"
+  de: "In einer TSV-Datei wurde ein nicht näher bestimmter Fehler festgestellt."
+TSV_INDEX_VALUE_NOT_UNIQUE:
+  category: "general"
+  en: "The values in the index column or columns of a TSV file are not unique."
+  zh: "TSV 文件索引列中的取值不唯一。"
+  de: "Die Werte in der Indexspalte bzw. den Indexspalten einer TSV-Datei sind nicht eindeutig."
+TSV_PSEUDO_AGE_DEPRECATED:
+  category: "general"
+  en: "The age column uses the deprecated value 89+ instead of the number 89."
+  zh: "age 列使用了已弃用的取值 89+，而非数字 89。"
+  de: "Die Spalte age verwendet den veralteten Wert 89+ statt der Zahl 89."
+TSV_VALUE_INCORRECT_TYPE:
+  category: "general"
+  en: "A value in a TSV column does not have the type or format defined for that column."
+  zh: "TSV 某列中的一个取值不是该列规定的类型或格式。"
+  de: "Ein Wert in einer TSV-Spalte hat nicht den für diese Spalte festgelegten Typ oder das Format."
+UNKNOWN_BIDS_VERSION:
+  category: "general"
+  en: "BIDSVersion in dataset_description.json is not a BIDS release known to the bundled schema."
+  zh: "dataset_description.json 中的 BIDSVersion 不是内置 schema 已知的 BIDS 版本。"
+  de: "BIDSVersion in dataset_description.json ist kein dem mitgelieferten Schema bekanntes BIDS-Release."
+UNKNOWN_PUPIL_SIZE:
+  category: "other_modality"
+  en: "The sidecar description of pupil_size leaves open whether pupil area or pupil diameter was recorded."
+  zh: "眼动 sidecar 中 pupil_size 的描述未说明其为面积还是直径。"
+  de: "Die Beschreibung von pupil_size im Eyetracking-Sidecar gibt nicht an, ob es sich um Fläche oder Durchmesser handelt."
+# Only raised with the CLI option --datasetTypes; the code is missing from the 3.0.2 issue list, so the validator would throw UnknownIssueCodeError instead of reporting it.
+UNSUPPORTED_DATASET_TYPE:
+  category: "general"
+  en: "The DatasetType of this dataset is not among the dataset types selected for validation."
+  zh: "该数据集的 DatasetType 不在所选的待验证数据集类型之列。"
+  de: "Der DatasetType dieses Datensatzes gehört nicht zu den für die Prüfung ausgewählten Datensatztypen."
+UNUSED_STIMULUS:
+  category: "general"
+  en: "The stimuli directory contains files that are not referenced in any events file."
+  zh: "stimuli 目录中存在未被任何 events 文件引用的文件。"
+  de: "Das Verzeichnis stimuli enthält Dateien, auf die keine events-Datei verweist."
+VOLUME_COUNT_MISMATCH:
+  category: "other_modality"
+  en: "The diffusion image has a different number of volumes than there are entries in its .bval and .bvec files."
+  zh: "扩散扫描的体积数与其 .bval 和 .bvec 文件中的条目数不一致。"
+  de: "Die Volumenanzahl des Diffusionsscans stimmt nicht mit der Zahl der Einträge in .bval und .bvec überein."
+VOLUME_TIMING_AND_DELAY_TIME_MUTUALLY_EXCLUSIVE:
+  category: "other_modality"
+  en: "VolumeTiming and DelayTime are both set, although they may not be used together."
+  zh: "同时设置了 VolumeTiming 与 DelayTime，但二者不能同时使用。"
+  de: "VolumeTiming und DelayTime sind beide gesetzt, obwohl sie nicht gemeinsam verwendet werden dürfen."
+VOLUME_TIMING_AND_REPETITION_TIME_MUTUALLY_EXCLUSIVE:
+  category: "other_modality"
+  en: "VolumeTiming and RepetitionTime are both set, although only one of them may be used."
+  zh: "同时设置了 VolumeTiming 与 RepetitionTime，但二者只能使用其一。"
+  de: "VolumeTiming und RepetitionTime sind beide gesetzt, obwohl nur eines davon verwendet werden darf."
+VOLUME_TIMING_MISSING_ACQUISITION_DURATION:
+  category: "other_modality"
+  en: "VolumeTiming is set, but neither FrameAcquisitionDuration nor SliceTiming is defined."
+  zh: "已设置 VolumeTiming，但未定义 FrameAcquisitionDuration 或 SliceTiming。"
+  de: "VolumeTiming ist gesetzt, aber weder FrameAcquisitionDuration noch SliceTiming ist angegeben."
+VOLUME_TIMING_NOT_MONOTONICALLY_INCREASING:
+  category: "other_modality"
+  en: "The list in VolumeTiming is not sorted in ascending order."
+  zh: "VolumeTiming 中的列表未按升序排列。"
+  de: "Die Liste in VolumeTiming ist nicht aufsteigend sortiert."
+# Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
+WRONG_NEW_LINE:
+  category: "general"
+  en: "A TSV file uses carriage-return line endings instead of line feed."
+  zh: "TSV 文件使用回车符（CR）而非换行符（LF）作为行尾。"
+  de: "Eine TSV-Datei verwendet Wagenrücklauf (CR) statt Zeilenvorschub (LF) als Zeilenende."

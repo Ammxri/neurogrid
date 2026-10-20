@@ -122,7 +122,7 @@
   <table>
     <tr><th>{{ t('report.label.recording') }}</th><th>{{ t('report.label.format') }}</th><th>{{ t('report.label.sampling_rate') }}</th><th>{{ t('report.label.duration') }}</th><th>{{ t('report.label.channels') }}</th></tr>
     {% for rec in results.recordings %}
-    <tr><td class="mono">{{ rec.id }}</td><td>{{ rec.format }}</td><td>{{ fmt.value(rec.sampling_rate_hz) }}</td><td>{{ fmt.value(rec.duration_s) }}</td><td>{{ fmt.value(rec.n_channels) }} ({{ fmt.value(rec.n_eeg_channels) }})</td></tr>
+    <tr><td class="mono">{{ rec.id }}</td><td>{{ rec.format }}{% if not rec.streamable %} – {{ t('report.value.not_streamable') }}{% endif %}</td><td>{{ fmt.value(rec.sampling_rate_hz) }}</td><td>{{ fmt.value(rec.duration_s) }}</td><td>{{ fmt.value(rec.n_channels) }} ({{ fmt.value(rec.n_eeg_channels) }})</td></tr>
     {% endfor %}
   </table>
   {% else %}

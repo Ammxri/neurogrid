@@ -44,6 +44,13 @@ def test_keys_used_in_code_exist() -> None:
             r"""reason\s*=\s*['"]([a-z_]+\.[a-z_]+)['"]""", path.read_text(encoding="utf-8")
         ):
             used.add(f"reason.{key}")
+        text = path.read_text(encoding="utf-8")
+        # reasons and header issues that are raised, not passed as reason=... (Review P2: convert.failed,
+        # header.external_reference were missing and printed as bare keys)
+        used.update(
+            f"reason.{k}" for k in re.findall(r"""_NotConverted\(\s*['"]([a-z_]+\.[a-z_]+)['"]""", text)
+        )
+        used.update(f"issue.{k}" for k in re.findall(r"""['"]((?:header|companion)\.[a-z_]+)['"]""", text))
     used = {k for k in used if not k.startswith("errors.errors.")}
     prefixes = {k for k in used if k.endswith(("_", "."))}
     missing = sorted(k for k in used - prefixes if k not in loaded)

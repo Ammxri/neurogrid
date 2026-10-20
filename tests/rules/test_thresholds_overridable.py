@@ -32,7 +32,10 @@ OVERRIDE_VALUES: dict[str, ParamValue] = {
 EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("signal.sampling_rate_min", "min_hz"): ("edf_ok", 1000),
     ("signal.sampling_rate_consistency", "min_hz"): ("edf_ok", 1000),
+    ("impedance.max", "max_kohm"): ("bids_ok", 3),  # bids_ok documents 3.5 kOhm per electrode
 }
+# check -> toml lines both runs need so that the check can be evaluated at all
+BASE_CONFIG = {"impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n'}
 
 
 def _toml_value(value: ParamValue) -> str:
@@ -91,11 +94,19 @@ def _meta_pack(tmp_path: Path, check_id: str) -> Path:
 def test_parameter_override_changes_the_outcome(tmp_path: Path, check_id: str, param: str) -> None:
     fixture, value = EFFECT_CASES[(check_id, param)]
     options = {"rulepacks": (str(_meta_pack(tmp_path, check_id)),), "as_of": AS_OF}
-    default = pipeline.run_check(FIX / fixture, pipeline.CheckOptions(**options))  # type: ignore[arg-type]
+    base = BASE_CONFIG.get(check_id, "")
+    base_config = tmp_path / "base.toml"
+    base_config.write_text(base, encoding="utf-8")
+    default = pipeline.run_check(
+        FIX / fixture,
+        pipeline.CheckOptions(config_path=base_config, **options),  # type: ignore[arg-type]
+    )
     assert not [f for f in default.findings if f.rule_id == "META-ACQ-001"]
     assert any(p.rule_id == "META-ACQ-001" for p in default.passed)
     config = tmp_path / "neurogrid.toml"
-    config.write_text(f'[rules."META-ACQ-001".params]\n{param} = {_toml_value(value)}\n', encoding="utf-8")
+    config.write_text(
+        f'{base}[rules."META-ACQ-001".params]\n{param} = {_toml_value(value)}\n', encoding="utf-8"
+    )
     overridden = pipeline.run_check(
         FIX / fixture,
         pipeline.CheckOptions(config_path=config, **options),  # type: ignore[arg-type]

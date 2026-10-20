@@ -1,7 +1,9 @@
-"""EDF/EDF+ adapter (NG-F01, M01). BDF reuses the header parser in P2.
+"""EDF/EDF+ and BDF/BDF+ adapters (NG-F01, M01, A-24).
 
-The header is parsed by NeuroGrid itself (layout per EDF/EDF+ specification) and cross-checked with
-edfio as the PRD requires for M01; data readability is checked with MNE.
+The header is parsed by NeuroGrid itself (layout per EDF/EDF+ specification; BDF differs only in the version
+field and 24-bit samples). EDF headers are cross-checked with edfio as the PRD requires for M01; edfio does
+not read BDF. Data readability is checked with MNE. EDF+D files are read like continuous files; their
+record onsets matter only for time ranges of the signal metrics (P3).
 """
 
 from __future__ import annotations
@@ -13,8 +15,16 @@ from datetime import datetime
 from fractions import Fraction
 from pathlib import Path
 
-from neurogrid.io.base import HeaderInspection, HeaderUnreadable
+from neurogrid.io.base import HeaderInspection, HeaderUnreadable, mne_read_check
 from neurogrid.io.channels import ANNOTATION_LABELS, classify
+from neurogrid.io.identifying import (
+    DATE_PLACEHOLDER,
+    LONG_NUMBER,
+    NON_ASCII,
+    looks_identifying,
+    placeholder,
+    real_dates,
+)
 from neurogrid.model.dataset import Channel, Recording
 
 FIXED_HEADER_BYTES = 256
@@ -41,17 +51,6 @@ assert sum(width for _name, width in SIGNAL_FIELDS) == SIGNAL_HEADER_BYTES
 # powers).
 _NUMBER = re.compile(r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d{1,2})?$")
 
-# Heuristics for identifying header content (A-64). Values are only inspected, never kept.
-_PLACEHOLDER_TOKENS = frozenset({"x", "-", "_", "0", "anonymous", "anon", "unknown", "n/a", "na", "none"})
-_DATE_IN_TEXT = re.compile(
-    r"\b(?:\d{1,2}[-./](?:\d{1,2}|[A-Za-z]{3})[-./]\d{2,4}|\d{4}[-./]\d{1,2}[-./]\d{1,2})\b"
-)
-_DATE_PLACEHOLDER = re.compile(
-    r"^(?:01-JAN-\d{4}|01[-./]01[-./]\d{2,4}|\d{4}[-./]0?1[-./]0?1)$", re.IGNORECASE
-)
-_NAME_LIKE = re.compile(r"\b[A-Z][A-Za-z'-]+[ ,_]+[A-Z][A-Za-z'-]+\b")
-_LONG_NUMBER = re.compile(r"\d{6,}")
-_NON_ASCII = "\ufffd"  # replacement character from decoding non-ASCII header bytes
 _STARTDATE = re.compile(r"^\d\d\.\d\d\.\d\d$")
 _STARTDATE_PLACEHOLDER = re.compile(r"^01\.01\.\d\d$")
 _EDFPLUS_SEX = frozenset({"M", "F", "X"})
@@ -109,20 +108,6 @@ def _int(raw: bytes) -> int | None:
     return int(value)
 
 
-def _placeholder(text: str) -> bool:
-    return all(token.lower() in _PLACEHOLDER_TOKENS for token in text.split())
-
-
-def _real_dates(text: str) -> bool:
-    spaced = text.replace("_", " ")  # EDF+ writes spaces inside subfields as underscores
-    return any(not _DATE_PLACEHOLDER.match(m.group(0)) for m in _DATE_IN_TEXT.finditer(spaced))
-
-
-def _looks_identifying(text: str) -> bool:
-    spaced = text.replace("_", " ")  # EDF+ writes spaces inside subfields as underscores
-    return bool(_NAME_LIKE.search(spaced) or _LONG_NUMBER.search(text) or _NON_ASCII in text)
-
-
 def _valid_startdate(text: str) -> bool:
     """dd.mm.yy that exists in the calendar (EDF specification)."""
     if not _STARTDATE.match(text):
@@ -148,27 +133,27 @@ def _identifying(patient: str, recording: str, startdate: str, plus: str | None)
         if rec_parts[:1] == ["Startdate"]:
             # Startdate dd-MMM-yyyy admin_code technician equipment[ more]; the equipment is not personal.
             date_part = rec_parts[1] if len(rec_parts) > 1 else "X"
-            if date_part.upper() != "X" and not _DATE_PLACEHOLDER.match(date_part):
+            if date_part.upper() != "X" and not DATE_PLACEHOLDER.match(date_part):
                 found.add("date")
             if any(part.upper() != "X" for part in rec_parts[2:4]):
                 found.add("recording")
             extra = " ".join(rec_parts[5:])
-            if _real_dates(extra):
+            if real_dates(extra):
                 found.add("date")
-            if _looks_identifying(extra):
+            if looks_identifying(extra):
                 found.add("recording")
         else:
-            if _real_dates(recording):
+            if real_dates(recording):
                 found.add("date")
-            if not _placeholder(recording) and _looks_identifying(recording):
+            if not placeholder(recording) and looks_identifying(recording):
                 found.add("recording")
     else:
         # Plain EDF: the patient field is free text, so anything but a placeholder counts.
-        if not _placeholder(patient):
+        if not placeholder(patient):
             found.add("patient")
-        if _real_dates(recording):
+        if real_dates(recording):
             found.add("date")
-        if _LONG_NUMBER.search(recording) or _NON_ASCII in recording:
+        if LONG_NUMBER.search(recording) or NON_ASCII in recording:
             found.add("recording")
     if _valid_startdate(startdate) and not _STARTDATE_PLACEHOLDER.match(startdate):
         found.add("date")
@@ -336,32 +321,42 @@ def to_recording(header: EdfHeader, *, recording_id: str, relative_path: str) ->
 class EdfAdapter:
     format: str = "EDF"
     extensions: tuple[str, ...] = (".edf",)
+    variant: str = "EDF"
 
     def read(self, path: Path, *, recording_id: str, relative_path: str) -> Recording:
         return to_recording(parse_header(path), recording_id=recording_id, relative_path=relative_path)
 
     def inspect(self, path: Path) -> HeaderInspection:
         header = parse_header(path)
-        issues = tuple(dict.fromkeys(header.issues + _edfio_issues(path)))
-        return HeaderInspection(issues=issues, identifying_fields=header.identifying_fields)
+        issues = list(header.issues)
+        if header.variant != self.variant:
+            issues.append("header.variant_mismatch")  # e.g. a BDF header in a file named .edf
+        issues.extend(self._cross_check(path))
+        return HeaderInspection(
+            issues=tuple(dict.fromkeys(issues)), identifying_fields=header.identifying_fields
+        )
+
+    def _cross_check(self, path: Path) -> tuple[str, ...]:
+        return _edfio_issues(path)
 
     def read_check(self, path: Path) -> str | None:
         import mne  # heavy import, only when data is actually read
 
-        try:
-            # Library warnings would print absolute install paths to the console (A-51); the outcome counts.
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                raw = mne.io.read_raw_edf(path, preload=False, verbose="error")
-                if not raw.ch_names:
-                    return None  # EDF+ with annotations only (e.g. a hypnogram): nothing else to read
-                n_times = int(raw.n_times)
-                step = max(1, min(n_times, int(raw.info["sfreq"])))
-                raw.get_data(start=0, stop=step, verbose="error")
-                raw.get_data(start=max(0, n_times - step), stop=n_times, verbose="error")
-        except Exception as exc:  # any failure means "not readable"; only the class name is kept
-            return type(exc).__name__
-        return None
+        return mne_read_check(mne.io.read_raw_edf, path)
+
+
+class BdfAdapter(EdfAdapter):
+    format: str = "BDF"
+    extensions: tuple[str, ...] = (".bdf",)
+    variant: str = "BDF"
+
+    def _cross_check(self, path: Path) -> tuple[str, ...]:
+        return ()  # edfio reads EDF only; the own parser is the BDF check (A-24)
+
+    def read_check(self, path: Path) -> str | None:
+        import mne
+
+        return mne_read_check(mne.io.read_raw_bdf, path)
 
 
 def _edfio_issues(path: Path) -> tuple[str, ...]:

@@ -1,0 +1,8 @@
+{
+  "TaskName": "rest",
+  "SamplingFrequency": 512,
+  "EEGReference": "Cz",
+  "PowerLineFrequency": 50,
+  "SoftwareFilters": "n/a",
+  "EEGChannelCount": 8
+}

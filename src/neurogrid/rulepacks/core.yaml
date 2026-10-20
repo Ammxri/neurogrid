@@ -25,6 +25,15 @@ rules:
     severity: error
     verification: automatic
 
+  - id: CORE-M01-03
+    clause: M01
+    title_zh: 伴随文件和引用存在
+    title_en: Companion files and references are present
+    phase: storage
+    check: structure.companions_present
+    severity: error
+    verification: automatic
+
   - id: CORE-M01-04
     clause: M01
     title_zh: 数据文件格式受支持
@@ -43,6 +52,24 @@ rules:
     severity: info
     verification: automatic
 
+  - id: CORE-M02-01
+    clause: M02
+    title_zh: EEG-BIDS 必填字段已记录
+    title_en: Required EEG-BIDS field is documented
+    phase: acquisition
+    check: metadata.required_fields
+    severity: error
+    verification: automatic
+
+  - id: CORE-M02-02
+    clause: M02
+    title_zh: 元数据一致（TaskName、BIDSVersion、名称）
+    title_en: Metadata are consistent (TaskName, BIDSVersion, Name)
+    phase: acquisition
+    check: metadata.consistent
+    severity: warning
+    verification: automatic
+
   - id: CORE-M03-01
     clause: M03
     title_zh: 采样率不低于最低值
@@ -59,5 +86,78 @@ rules:
     title_en: Sampling rates are uniform or the difference is documented
     phase: acquisition
     check: signal.sampling_rate_uniform
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M03-03
+    clause: M03
+    title_zh: 附带文件中的采样率与数据一致
+    title_en: Sampling rate in the sidecar matches the data
+    phase: acquisition
+    check: signal.sidecar_rate
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M04-01
+    clause: M04
+    title_zh: 通道名符合 10-20/10-10 或已映射
+    title_en: Channel names follow 10-20/10-10 or are mapped
+    phase: acquisition
+    check: channels.standard_names
+    severity: error
+    verification: automatic
+
+  - id: CORE-M04-02
+    clause: M04
+    title_zh: 电极位置已记录
+    title_en: Electrode positions are documented
+    phase: acquisition
+    check: channels.positions
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M04-03
+    clause: M04
+    title_zh: 同一任务的通道组相同
+    title_en: Same channel set for each task
+    phase: acquisition
+    check: channels.same_set_per_task
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M04-04
+    clause: M04
+    title_zh: 通道数一致
+    title_en: Channel count is consistent
+    phase: acquisition
+    check: channels.count_consistent
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M04-05
+    clause: M04
+    title_zh: 通道名在 10-20/10-10 范围内
+    title_en: Channel name is within 10-20/10-10
+    phase: acquisition
+    check: channels.only_1005
+    severity: info
+    verification: automatic
+
+  - id: CORE-M05-01
+    clause: M05
+    title_zh: 阻抗已记录
+    title_en: Impedance is documented
+    phase: acquisition
+    check: impedance.documented
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M05-02
+    clause: M05
+    title_zh: 阻抗低于阈值（湿电极）
+    title_en: Impedance below the limit (wet electrodes)
+    phase: acquisition
+    check: impedance.max
+    params: {max_kohm: 5}
     severity: warning
     verification: automatic

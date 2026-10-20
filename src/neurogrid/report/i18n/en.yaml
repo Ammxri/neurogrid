@@ -10,10 +10,11 @@ cli:
     formats: "Formats"
     recordings: "Recordings"
     unsupported: "Unsupported data files"
+    orphans: "Data files that cannot be assigned"
     other: "Other files"
     links: "Links skipped (not followed)"
     subjects: "Subjects"
-    subjects_unknown: "unknown (raw folder without mapping)"
+    subjects_unknown: "unknown (not every recording is mapped to a subject)"
     names_hint: "Hint: {count} data file path(s) contain non-ASCII letters or six or more digits in a row and may identify persons."
     unreadable: "Unreadable entries (not checked)"
     size: "Total size"
@@ -26,6 +27,15 @@ cli:
     placeholder: "Placeholder rule packs are loaded. Their findings are not based on a norm text and do not count."
   report:
     written: "Report written to {path}"
+  convert:
+    converted: "Converted recordings: {count}"
+    skipped: "Not converted: {id} – {reason}"
+    missing_field: "Not documented, written as n/a: {field} ({count} recording(s)); see M02 in 'check'."
+    missing_field_na_valid: "Not documented, written as n/a: {field} ({count} recording(s)); BIDS accepts n/a for this field, so 'check' does not report it."
+    missing_name: "Not documented, written as n/a: Name in dataset_description.json; set [dataset] name in neurogrid.toml."
+    validator: "BIDS validator on the output: {errors} error(s), {warnings} warning(s)"
+    written: "BIDS dataset written to {path}"
+    nothing: "No recording was converted; no BIDS dataset was written."
   error:
     prefix: "Error"
     internal: "Internal error ({type}). Run again with --debug for details."
@@ -75,6 +85,7 @@ errors:
     param_type: "Configuration: rule {rule}, parameter '{param}' has the wrong type."
     encoding: "Configuration file is not UTF-8 text (UTF-8 with or without BOM is accepted)."
     unsafe_path: "Configuration: field '{field}' must be a relative path inside the project (no '..', drive, network or device paths)."
+    unsafe_pattern: "Configuration: the regular expression in field '{field}' can take extremely long on some file names (a repeated part contains another repetition or alternatives, or it uses a back-reference). Please simplify it."
     too_deep: "Configuration file is nested too deeply."
   input:
     not_found: "Input path not found."
@@ -90,6 +101,20 @@ errors:
   output:
     is_directory: "The output path is a folder; please give a file name."
     not_writable: "The output cannot be written there (folder missing, a file in the way, or no permission)."
+  validator:
+    missing: "The BIDS validator is not installed or incomplete."
+    failed: "The BIDS validator failed (exit code {code})."
+    timeout: "The BIDS validator did not finish in time."
+    comma_path: "Paths with a comma cannot be validated (deno permission lists); please rename."
+  convert:
+    target_unavailable: "Conversion target '{target}' is not available in this version (bids)."
+    already_bids: "The input is already a BIDS dataset."
+    output_not_empty: "The output folder is not empty."
+    output_inside_input: "The output folder must not lie inside the input folder."
+    mapping_missing: "{count} data file(s) have no subject/task mapping; a template was written to .neurogrid/{template}."
+    mapping_missing_unwritable: "{count} data file(s) have no subject/task mapping; the template .neurogrid/{template} could not be written (folder not writable, or a link that is not followed)."
+    duplicate_target: "Two files map to the same BIDS recording (subject {subject}, task {task})."
+    label_case: "The labels {first} and {second} differ only in case; they would share one folder on Windows and macOS. Please make them distinct."
 
 notice:
   override_unused: "Configuration sets parameters for rule {rule}, which is not loaded."
@@ -97,6 +122,7 @@ notice:
   exception_unused: "Exception for rule {rule} matched no finding."
   names_look_identifying: "{count} data file path(s) contain non-ASCII letters or six or more digits in a row and may identify persons. Please check the file names."
   links_skipped: "{count} link(s) or junction(s) in the dataset were not followed; their contents were not checked."
+  bids_not_checked: "The dataset is not a BIDS dataset; the BIDS structure was not checked."
 
 severity:
   error: "Error"
@@ -129,15 +155,34 @@ reason:
   read:
     failed: "The data could not be read."
     unlistable: "The folder could not be read; its contents were not checked."
+  recording:
+    annotations_only: "Annotations only (e.g. a hypnogram); no signal channels."
+  bids:
+    not_bids: "Not a BIDS dataset; the BIDS structure is not checked."
   dataset:
     no_readable_recording: "The dataset contains no readable recording."
+  convert:
+    damaged: "The header does not match the data (CORE-M01-02); not converted."
+    companion: "A companion file is missing or its reference is not usable (CORE-M01-03); not converted."
+    epoched: "Epoched EEGLAB data set; EEG-BIDS needs continuous data."
+    failed: "The recording could not be written; nothing of it remains in the output."
+    no_eeg_channels: "No EEG channel to write (EEG-BIDS needs at least one); not converted."
   format:
     unsupported: "Data file in a format NeuroGrid cannot read."
+    orphan_companion: "Data file without a header that refers to it (cannot be assigned)."
   header:
     unreadable: "The file header could not be read."
   signal:
     no_eeg_channels: "No EEG channels found."
     rate_unknown: "The header gives no valid sampling rate."
+  metadata:
+    no_task_name: "No TaskName or no task label to compare."
+    not_bids: "Not a BIDS dataset."
+    no_sidecar: "No sidecar with a channel count."
+    no_sidecar_rate: "No sampling rate in a sidecar."
+    electrode_type_unknown: "Electrode type (wet/dry) not documented; set it in neurogrid.toml."
+  impedance:
+    dry_electrodes: "Dry electrodes: the 5 kOhm limit applies to wet electrodes only."
   evidence:
     missing: "No evidence entry."
     open: "Evidence marked as open."
@@ -168,6 +213,21 @@ issue:
     bad_signal_count: "Invalid number of signals."
     io_error: "File could not be opened."
     unreadable: "Header could not be read."
+    missing_key: "A required header entry is missing."
+    channel_count: "The number of channels does not match the channel list."
+    sampling_interval: "The sampling interval is invalid."
+    sampling_rate: "The sampling rate is invalid."
+    data_format: "The data format is not supported or invalid."
+    data_shape: "The embedded data do not match the header (channels × samples)."
+    variant_mismatch: "The header variant does not match the file extension (EDF/BDF)."
+    unreadable_container: "The file could not be opened as this format."
+    external_reference: "The HDF5 container refers to other files (external link, external storage or virtual dataset); they are not opened (A-52)."
+    too_large: "The header or the content it declares exceeds the size limit (BrainVision header 2 MB; EEGLAB data set 4 GB, or more than 4096 unnamed channels)."
+  companion:
+    data_file: "The data file named in the header is missing."
+    marker_file: "The marker file named in the header is missing."
+    fdt: "The .fdt data file named in the header is missing."
+    unsafe_reference: "A file reference in the header is not a plain file name next to the header (A-52)."
   fields:
     patient: "patient field"
     recording: "recording field"
@@ -177,12 +237,30 @@ check:
   structure:
     readable: "Data readable (MNE)"
     header_consistent: "Header consistent"
+    companions_present: "Companion files and references present"
     supported_format: "Format supported"
     identifying_header: "No identifying header content"
+  metadata:
+    required_fields: "Required metadata field documented"
+    consistent: "Metadata consistent"
+  channels:
+    standard_names: "Standard channel name"
+    positions: "Electrode positions documented"
+    same_set_per_task: "Same channel set per task"
+    count_consistent: "Channel count consistent"
+    only_1005: "Channel name within 10-20/10-10"
+  impedance:
+    documented: "Impedance documented"
+    max: "Impedance below the limit"
+  bids:
+    validator_errors: "BIDS validator: errors"
+    validator_warnings: "BIDS validator: warnings"
+    hed_schema_available: "HED schema available offline"
   signal:
     sampling_rate_min: "Sampling rate"
     sampling_rate_uniform: "Sampling rates uniform"
     sampling_rate_consistency: "Sampling rate documented and consistent"
+    sidecar_rate: "Sidecar sampling rate matches the data"
   evidence:
     document: "Evidence document"
 
@@ -250,6 +328,7 @@ report:
     placeholder_clause: "placeholder – not from the norm text"
     placeholder_status: "not evaluated (placeholder rule)"
     evidence_provided: "evidence filed (user's statement, not assessed by NeuroGrid)"
+    not_streamable: "not readable in blocks"
   text:
     no_findings: "No findings with these severities."
     no_recordings: "No recordings."
@@ -263,6 +342,19 @@ report:
     origin_config: "neurogrid.toml"
   measure:
     documented: "documented"
+    channel_sets: "channel sets"
+    channels_tsv_eeg: "EEG in channels.tsv"
+    channels_tsv_total: "rows in channels.tsv"
+    data_hz: "data (Hz)"
+    eeg_channels: "EEG channels"
+    file_eeg: "EEG in the file"
+    file_total: "channels in the file"
+    sidecar_eeg: "EEGChannelCount"
+    sidecar_hz: "sidecar (Hz)"
     rate_hz: "rate (Hz)"
     rates_hz: "rates (Hz)"
     uniform: "uniform"
+  validator:
+    generic: "BIDS validator issue {code}."
+    count: "({count} occurrences)"
+    sub_codes: "Affected: {names}"

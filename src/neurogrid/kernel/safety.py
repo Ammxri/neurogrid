@@ -241,9 +241,16 @@ def redact_paths(text: str, roots: Mapping[str, Path | None]) -> str:
 
 @contextmanager
 def work_directory(base: Path) -> Iterator[Path]:
-    """A private directory for one run; removed afterwards, also after errors."""
-    base.mkdir(parents=True, exist_ok=True)
-    path = Path(tempfile.mkdtemp(prefix="run-", dir=base))
+    """A private directory for one run; removed afterwards, also after errors.
+
+    The work folder lies next to the output, so a folder that cannot be created there (a file in the way,
+    no permission) is reported like an output that cannot be written.
+    """
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        path = Path(tempfile.mkdtemp(prefix="run-", dir=base))
+    except OSError:
+        raise InputError("output.not_writable") from None
     try:
         yield path
     finally:

@@ -1,7 +1,8 @@
 """Enforce the coverage limits of NG-N08 per module group (A-23).
 
-"Kern" (≥ 90 %): kernel, model, vault, config.  "Prüfer" (≥ 80 %): checks, io, convert, diff, dossier,
-report, cli, pipeline. Reads a ``coverage json`` report (lines and branches, like ``coverage report``).
+"Kern" (≥ 90 %): kernel, model, vault, config.  "Prüfer" (≥ 80 %): checks, io, convert, metadata,
+validator, diff, dossier, report, cli, pipeline. Reads a ``coverage json`` report (lines and branches, like
+``coverage report``).
 
 Usage: python tools/coverage_gates.py .local/coverage.json
 """
@@ -30,6 +31,8 @@ GROUPS: dict[str, tuple[float, tuple[str, ...]]] = {
             "neurogrid/checks/",
             "neurogrid/io/",
             "neurogrid/convert.py",
+            "neurogrid/metadata.py",
+            "neurogrid/validator.py",
             "neurogrid/diff.py",
             "neurogrid/dossier.py",
             "neurogrid/report/",

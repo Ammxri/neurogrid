@@ -71,6 +71,7 @@
     }
   },
   "additionalProperties": false,
+  "description": "The inventory of ``scan``. ``unsupported`` lists data files in a format NeuroGrid cannot read;\n``orphans`` lists .eeg/.fdt data files that no header refers to, so they cannot be assigned to a\nrecording (A-74, A-77; CORE-M01-04 reports both).",
   "properties": {
     "disclaimer": {
       "$ref": "#/$defs/Disclaimer"
@@ -89,6 +90,13 @@
     "links_skipped": {
       "title": "Links Skipped",
       "type": "integer"
+    },
+    "orphans": {
+      "items": {
+        "$ref": "#/$defs/ScanFile"
+      },
+      "title": "Orphans",
+      "type": "array"
     },
     "other_files": {
       "title": "Other Files",

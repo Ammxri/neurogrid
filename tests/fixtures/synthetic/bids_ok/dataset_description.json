@@ -1,0 +1,21 @@
+{
+  "Name": "NeuroGrid synthetic test dataset",
+  "BIDSVersion": "1.11.1",
+  "HEDVersion": "8.3.0",
+  "DatasetType": "raw",
+  "License": "CC-BY-4.0",
+  "Authors": [
+    "NeuroGrid fixture author A (synthetic)",
+    "NeuroGrid fixture author B (synthetic)"
+  ],
+  "GeneratedBy": [
+    {
+      "Name": "NeuroGrid tools/gen_fixtures.py"
+    }
+  ],
+  "SourceDatasets": [
+    {
+      "URL": "urn:x-neurogrid:synthetic"
+    }
+  ]
+}

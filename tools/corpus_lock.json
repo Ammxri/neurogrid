@@ -1,0 +1,2739 @@
+{
+ "datasets": [
+  {
+   "dataset": "ds000248",
+   "doi": "10.18112/openneuro.ds000248.v1.2.4",
+   "format": "FIF",
+   "license": "CC0",
+   "local_dir": "ds000248-1.2.4",
+   "snapshot_hexsha": "0a357f1276dbf7fcc3c3fc35f74cb24ffe4a68a8",
+   "source": "openneuro",
+   "version": "1.2.4"
+  },
+  {
+   "dataset": "ds002778",
+   "doi": "10.18112/openneuro.ds002778.v1.0.5",
+   "format": "BDF",
+   "license": "CC0",
+   "local_dir": "ds002778-1.0.5",
+   "snapshot_hexsha": "2890cbd8da62179735aae536a520008154630dd6",
+   "source": "openneuro",
+   "version": "1.0.5"
+  },
+  {
+   "dataset": "ds003775",
+   "doi": "10.18112/openneuro.ds003775.v1.2.1",
+   "format": "EDF",
+   "license": "CC0",
+   "local_dir": "ds003775-1.2.1",
+   "snapshot_hexsha": "cb354b249827d17fa0575b2b42521ba25982c16b",
+   "source": "openneuro",
+   "version": "1.2.1"
+  },
+  {
+   "dataset": "ds004148",
+   "doi": "10.18112/openneuro.ds004148.v1.0.1",
+   "format": "BrainVision",
+   "license": "CC0",
+   "local_dir": "ds004148-1.0.1",
+   "snapshot_hexsha": "f3ce98fa8e907b2498ebd359a1ea12f911a0964c",
+   "source": "openneuro",
+   "version": "1.0.1"
+  },
+  {
+   "dataset": "ds004504",
+   "doi": "10.18112/openneuro.ds004504.v1.0.9",
+   "format": "EEGLAB",
+   "license": "CC0",
+   "local_dir": "ds004504-1.0.9",
+   "snapshot_hexsha": "63b2ec152bc3cd4487d131124f10f767ebe543bc",
+   "source": "openneuro",
+   "version": "1.0.9"
+  },
+  {
+   "dataset": "psg-ipa",
+   "doi": "10.13026/esx0-nw71",
+   "format": "EDF+",
+   "license": "CC-BY-4.0",
+   "local_dir": "psg-ipa-1.0.0",
+   "source": "physionet",
+   "version": "1.0.0"
+  }
+ ],
+ "files": [
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "CHANGES",
+   "sha256": "1eb0c068f210affccf3dea33603ad707a52f24c90d687b418b431c59ef18109b",
+   "sha256_source": "first_download",
+   "size": 235,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/CHANGES?versionId=EllAsuqV0G718OYDbrC4BaPxwAaQN82i"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "README",
+   "sha256": "25e3476c22b52154d407716be6f3dbb66e6222996da84950390354dccacf5122",
+   "sha256_source": "first_download",
+   "size": 2697,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/README?versionId=FEOyMigypGao6zlmDdVpFNQtfl8O4Oxy"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "acq-epi_T1w.json",
+   "sha256": "bac2ed28b8a048fddbf21409f3b54bc25144c9e470160a6edcb71945368ea9cd",
+   "sha256_source": "first_download",
+   "size": 195,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/acq-epi_T1w.json?versionId=AfDL02D3Wwmd41WRJnalhvFzvp2_QB5Y"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "dataset_description.json",
+   "sha256": "07fbafe6daab4385b064c8eaa2ffb5a666f483745061328ac0dce89c34cccc71",
+   "sha256_source": "first_download",
+   "size": 1536,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/dataset_description.json?versionId=B8ir8umnoYYBXLeT9rp6VXtAb3KZLMJR"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "participants.json",
+   "sha256": "0893aafca56524606e2de362e5f90cb81395c39bd552af7aa5fe46fbdec931bf",
+   "sha256_source": "first_download",
+   "size": 553,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/participants.json?versionId=3FFicWznphbOsiQYoXsX_4oTsXsGH9YK"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "participants.tsv",
+   "sha256": "23309fc81c0f5b5054f5463de127bf5bbbf15e7d9860a749d36f2fca5c282e88",
+   "sha256_source": "first_download",
+   "size": 75,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/participants.tsv?versionId=Ubv9E71q2oAF6_kM8jDocEDa0wzLd1_X"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/meg/sub-01_acq-calibration_meg.dat",
+   "sha256": "bcee3ef7c1525b8627f49eed0deb553afb907cac30ce89a8f0e3107dcb6a2028",
+   "sha256_source": "first_download",
+   "size": 40098,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-01/meg/sub-01_acq-calibration_meg.dat?versionId=DfWGlefDIwyxHfEzVSAC0lnem8Gj5LLK"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/meg/sub-01_acq-crosstalk_meg.fif",
+   "sha256": "116e414f346ba011b17c18357cd13f94ed2b5dacdac520dac2dd4d897f93f142",
+   "sha256_source": "first_download",
+   "size": 47399,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-emptyroom/ses-20021206/meg/sub-emptyroom_ses-20021206_acq-crosstalk_meg.fif?versionId=iugBCXLGVx4L_lzHk0W3o6zgcTHGCdVR"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/meg/sub-01_coordsystem.json",
+   "sha256": "366dbb66e10e5a13b31c8218c00762fe3fe24a1583bad21f93a6a36684cdf1bf",
+   "sha256_source": "first_download",
+   "size": 1160,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-01/meg/sub-01_coordsystem.json?versionId=P9HpyIA9.xbnUw0GWRdb.W8UHC8DdRcV"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/meg/sub-01_task-audiovisual_run-01_channels.tsv",
+   "sha256": "c2564204af8912f03b9fd7652efb320678664869d601d96f17047bb560d137a5",
+   "sha256_source": "first_download",
+   "size": 39420,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-01/meg/sub-01_task-audiovisual_run-01_channels.tsv?versionId=mKQr2cr9WtkjT96Dum0.4ZaQ6m5FdeGA"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/meg/sub-01_task-audiovisual_run-01_events.tsv",
+   "sha256": "a7f7c77010c9204ebe601d44b2af23a65e3926a855dd74553e1725a1515ef1c7",
+   "sha256_source": "first_download",
+   "size": 13969,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-01/meg/sub-01_task-audiovisual_run-01_events.tsv?versionId=HamL7gw2rAvQ1N2P0rJ5MiusAewCkOYW"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/meg/sub-01_task-audiovisual_run-01_meg.fif",
+   "sha256": "d92a44c6e6e62503ec75e9e07e70e9b650cf444bc0f0e8ff37e2bed162548966",
+   "sha256_source": "first_download",
+   "size": 128461384,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-01/meg/sub-01_task-audiovisual_run-01_meg.fif?versionId=plteJGmBaF0Nlquy40KlEI2ZoHPcBowD"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/meg/sub-01_task-audiovisual_run-01_meg.json",
+   "sha256": "7f00d1d65f3e82a5fa986e8b420722761b98df0ad06a2972b7439e3aadaaa318",
+   "sha256_source": "first_download",
+   "size": 560,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-01/meg/sub-01_task-audiovisual_run-01_meg.json?versionId=mhrNcvw8RovlwjOFBVcZLLjgLEPYMFxV"
+  },
+  {
+   "dataset": "ds000248",
+   "mirror_url": null,
+   "path": "sub-01/sub-01_scans.tsv",
+   "sha256": "01a4d5f65c0e92463f7754416fc658d45844d5b638ceb25946de1a65d85c360b",
+   "sha256_source": "first_download",
+   "size": 91,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds000248/sub-01/sub-01_scans.tsv?versionId=XPFBc_DEmR_oDzX6cjbAkp1hsSMMnFrQ"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "CHANGES",
+   "sha256": "b8d2d045216291788caf76f38476db91d551f312091e9854ee84f60d8bbdd4f5",
+   "sha256_source": "first_download",
+   "size": 379,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/93c0178706f0dce951b51a92752546d97114e209?filename=CHANGES"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "README",
+   "sha256": "5ccae03263b81422b35a0035cb8fbdc34579b6a2c99f0820754140748f3adcd1",
+   "sha256_source": "first_download",
+   "size": 4657,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/ea8bacc7800903196c71b1038217d70d5d2b5c1f?filename=README"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "dataset_description.json",
+   "sha256": "4297cfd26352ad7b7531caf5b76e8c281320e4f4bf2e76532babfdae5c6ce670",
+   "sha256_source": "first_download",
+   "size": 354,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/e55a148a871db000687a2b0d6bec3600a9c948ce?filename=dataset_description.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "participants.json",
+   "sha256": "416f0c1da43442d6beb06d8f27b6edd8081e65b8c5a2e692caff74b98e354791",
+   "sha256_source": "first_download",
+   "size": 1273,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/341cc89f54cd4457a2752eda38645f7cbe49a015?filename=participants.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "participants.tsv",
+   "sha256": "e26c2cd97197a851347b2d2ce6f3861fd62370f38d1873ea67576dc1a4deea21",
+   "sha256_source": "first_download",
+   "size": 1658,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/6f6c554e7708bc43ffd7e6b4e76e07907272403f?filename=participants.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc1/ses-hc/beh/sub-hc1_ses-hc_task-rest_beh.json",
+   "sha256": "c173c38bde30d556e26bb6f64cc4b440f7d6ea4ba18b40c26515897e5e98ddf8",
+   "sha256_source": "first_download",
+   "size": 90,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/598bb592fef01829a7a5f4aa7749073f2582833e?filename=sub-hc1_ses-hc_task-rest_beh.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc1/ses-hc/beh/sub-hc1_ses-hc_task-rest_beh.tsv",
+   "sha256": "b930b8a004c867efdc85be9e5eaa7b8d4d7d36adaf9c3b80263c0dcdf8555168",
+   "sha256_source": "first_download",
+   "size": 10,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/ce8efb5a9f01ec25323363888e90cbf8f6a35927?filename=sub-hc1_ses-hc_task-rest_beh.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc1/ses-hc/eeg/sub-hc1_ses-hc_task-rest_channels.tsv",
+   "sha256": "c994911d209b00a8450c88790048ad44adc8c291be925ccf6ff3cd8169c69477",
+   "sha256_source": "first_download",
+   "size": 2271,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/6f4295b89a4389f8f1f4dbdd492b688b1c9a0a1c?filename=sub-hc1_ses-hc_task-rest_channels.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc1/ses-hc/eeg/sub-hc1_ses-hc_task-rest_eeg.bdf",
+   "sha256": "e11c5a6e901a268a2e83acf724244bed89716552e50d48cf3a6a13cc6a1a3e0e",
+   "sha256_source": "first_download",
+   "size": 12102144,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds002778/sub-hc1/ses-hc/eeg/sub-hc1_ses-hc_task-rest_eeg.bdf?versionId=e335.R25njr53HDb1.gN5Ch03WaR6y3N"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc1/ses-hc/eeg/sub-hc1_ses-hc_task-rest_eeg.json",
+   "sha256": "072e74743638063a46f05a618a13baaf770eab3825ea36b47da3c117bbdafede",
+   "sha256_source": "first_download",
+   "size": 471,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/9756671a81b4bc529e1899dd0b7dd85aa0fc4780?filename=sub-hc1_ses-hc_task-rest_eeg.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc1/ses-hc/eeg/sub-hc1_ses-hc_task-rest_events.tsv",
+   "sha256": "b6232029af437885f16f5704853e804730294b1de4a932f39de9107ff889ae45",
+   "sha256_source": "first_download",
+   "size": 65,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/850f342e394afad34dfda9dcf1e720bc7310dfd6?filename=sub-hc1_ses-hc_task-rest_events.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc1/ses-hc/sub-hc1_ses-hc_scans.tsv",
+   "sha256": "3044790968974d4d18153aed6c3b6fcc0a0bdcf96ec64a30b1e5971dd1cfeb24",
+   "sha256_source": "first_download",
+   "size": 74,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/37a93efc0fd19908ecc1723b228787db4562f0e4?filename=sub-hc1_ses-hc_scans.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc2/ses-hc/beh/sub-hc2_ses-hc_task-rest_beh.json",
+   "sha256": "bd522e481adef26d43e17cca83c59b892ab61903c88bf399df18be77e05742b7",
+   "sha256_source": "first_download",
+   "size": 90,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/19ce553434ed9bf2416015c35e3d5f7c133a25d1?filename=sub-hc2_ses-hc_task-rest_beh.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc2/ses-hc/beh/sub-hc2_ses-hc_task-rest_beh.tsv",
+   "sha256": "b930b8a004c867efdc85be9e5eaa7b8d4d7d36adaf9c3b80263c0dcdf8555168",
+   "sha256_source": "first_download",
+   "size": 10,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/ce8efb5a9f01ec25323363888e90cbf8f6a35927?filename=sub-hc2_ses-hc_task-rest_beh.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc2/ses-hc/eeg/sub-hc2_ses-hc_task-rest_channels.tsv",
+   "sha256": "c994911d209b00a8450c88790048ad44adc8c291be925ccf6ff3cd8169c69477",
+   "sha256_source": "first_download",
+   "size": 2271,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/6f4295b89a4389f8f1f4dbdd492b688b1c9a0a1c?filename=sub-hc2_ses-hc_task-rest_channels.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc2/ses-hc/eeg/sub-hc2_ses-hc_task-rest_eeg.bdf",
+   "sha256": "0a8db7e1e58bb680df2316010d6f92c88e16bb0f57b4b5da01368c64897094e1",
+   "sha256_source": "first_download",
+   "size": 12228096,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds002778/sub-hc2/ses-hc/eeg/sub-hc2_ses-hc_task-rest_eeg.bdf?versionId=NYyZedMn1rSvUVR7DFLrSy0GfJZlYlx3"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc2/ses-hc/eeg/sub-hc2_ses-hc_task-rest_eeg.json",
+   "sha256": "14a7967a6705ad17fed9695516299d72fa2f90be28c00bc4c812ce02a9b3fad6",
+   "sha256_source": "first_download",
+   "size": 471,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/a568035dcf0fcdbc5455d2f3d41e7702d953d701?filename=sub-hc2_ses-hc_task-rest_eeg.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc2/ses-hc/eeg/sub-hc2_ses-hc_task-rest_events.tsv",
+   "sha256": "6934edfa581190c68185336942f92510555eb9600f6b3bf716c551d67f0d8ca0",
+   "sha256_source": "first_download",
+   "size": 65,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/24f5b2c86f62444a34c12275ab23a37f154ef3a9?filename=sub-hc2_ses-hc_task-rest_events.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc2/ses-hc/sub-hc2_ses-hc_scans.tsv",
+   "sha256": "ae87597603097dd278d2ba0e10bcf9f6cea513e1c526b00314733a6e32411012",
+   "sha256_source": "first_download",
+   "size": 74,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/ab132bf99ce0ea4721e5e8e56bd35f7a0933d1ae?filename=sub-hc2_ses-hc_scans.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc4/ses-hc/beh/sub-hc4_ses-hc_task-rest_beh.json",
+   "sha256": "c173c38bde30d556e26bb6f64cc4b440f7d6ea4ba18b40c26515897e5e98ddf8",
+   "sha256_source": "first_download",
+   "size": 90,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/598bb592fef01829a7a5f4aa7749073f2582833e?filename=sub-hc4_ses-hc_task-rest_beh.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc4/ses-hc/beh/sub-hc4_ses-hc_task-rest_beh.tsv",
+   "sha256": "b930b8a004c867efdc85be9e5eaa7b8d4d7d36adaf9c3b80263c0dcdf8555168",
+   "sha256_source": "first_download",
+   "size": 10,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/ce8efb5a9f01ec25323363888e90cbf8f6a35927?filename=sub-hc4_ses-hc_task-rest_beh.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc4/ses-hc/eeg/sub-hc4_ses-hc_task-rest_channels.tsv",
+   "sha256": "c994911d209b00a8450c88790048ad44adc8c291be925ccf6ff3cd8169c69477",
+   "sha256_source": "first_download",
+   "size": 2271,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/6f4295b89a4389f8f1f4dbdd492b688b1c9a0a1c?filename=sub-hc4_ses-hc_task-rest_channels.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc4/ses-hc/eeg/sub-hc4_ses-hc_task-rest_eeg.bdf",
+   "sha256": "ad635b9b9ae5819b1b8548bd24630fb75ec7748811dff96746bf589bd8c02403",
+   "sha256_source": "first_download",
+   "size": 11409408,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds002778/sub-hc4/ses-hc/eeg/sub-hc4_ses-hc_task-rest_eeg.bdf?versionId=RhRjlFP_W7slmFM.dE2T3vHouzYwsAGA"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc4/ses-hc/eeg/sub-hc4_ses-hc_task-rest_eeg.json",
+   "sha256": "2883db1125918d48c516a3d729e87517267827611e5bcb15ecc76bbeba1a0be9",
+   "sha256_source": "first_download",
+   "size": 471,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/9fbdb037fe59871cc74db6c63558c0c0fd6b3757?filename=sub-hc4_ses-hc_task-rest_eeg.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc4/ses-hc/eeg/sub-hc4_ses-hc_task-rest_events.tsv",
+   "sha256": "c2dcc32c8b642bf4545b72d126cd73ac30d336a8778d9e952f036722e5d9eff6",
+   "sha256_source": "first_download",
+   "size": 43,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/e0bf02bda05ceec3147f412a31d23b4a3a2004f6?filename=sub-hc4_ses-hc_task-rest_events.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc4/ses-hc/sub-hc4_ses-hc_scans.tsv",
+   "sha256": "447c4c696ff60aae320d9b65836b1b4129858f787592afff527dd07afde96460",
+   "sha256_source": "first_download",
+   "size": 74,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/90c941cc541f55c5ec5a578588ac50137ee57bcc?filename=sub-hc4_ses-hc_scans.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc7/ses-hc/beh/sub-hc7_ses-hc_task-rest_beh.json",
+   "sha256": "1d7fb273ea345527be39a0249a49a37ed2641a2d5deeecfd6ae473851416fa44",
+   "sha256_source": "first_download",
+   "size": 90,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/386ea6d8a6492283ae6cf282bbb052953f811d58?filename=sub-hc7_ses-hc_task-rest_beh.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc7/ses-hc/beh/sub-hc7_ses-hc_task-rest_beh.tsv",
+   "sha256": "b930b8a004c867efdc85be9e5eaa7b8d4d7d36adaf9c3b80263c0dcdf8555168",
+   "sha256_source": "first_download",
+   "size": 10,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/ce8efb5a9f01ec25323363888e90cbf8f6a35927?filename=sub-hc7_ses-hc_task-rest_beh.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc7/ses-hc/eeg/sub-hc7_ses-hc_task-rest_channels.tsv",
+   "sha256": "c994911d209b00a8450c88790048ad44adc8c291be925ccf6ff3cd8169c69477",
+   "sha256_source": "first_download",
+   "size": 2271,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/6f4295b89a4389f8f1f4dbdd492b688b1c9a0a1c?filename=sub-hc7_ses-hc_task-rest_channels.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc7/ses-hc/eeg/sub-hc7_ses-hc_task-rest_eeg.bdf",
+   "sha256": "fa553ae0c15398e1969ea6d05275229c180f44c6ce61ebbc3da117a48359ee02",
+   "sha256_source": "first_download",
+   "size": 12102144,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds002778/sub-hc7/ses-hc/eeg/sub-hc7_ses-hc_task-rest_eeg.bdf?versionId=_lrJnFMMm4uWoqbK4HwdnlWLtzOCVRnO"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc7/ses-hc/eeg/sub-hc7_ses-hc_task-rest_eeg.json",
+   "sha256": "072e74743638063a46f05a618a13baaf770eab3825ea36b47da3c117bbdafede",
+   "sha256_source": "first_download",
+   "size": 471,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/9756671a81b4bc529e1899dd0b7dd85aa0fc4780?filename=sub-hc7_ses-hc_task-rest_eeg.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc7/ses-hc/eeg/sub-hc7_ses-hc_task-rest_events.tsv",
+   "sha256": "42bc9b773ae94554e8cdfbf3dd92543bb5e0c72356570ce312c085cf9a6c88eb",
+   "sha256_source": "first_download",
+   "size": 66,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/7eb2332e067ec41f168623f74d60005e531b96a4?filename=sub-hc7_ses-hc_task-rest_events.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc7/ses-hc/sub-hc7_ses-hc_scans.tsv",
+   "sha256": "05905d8d07733e1eba13de4782f651836ec340085f6fdb2997eaf6a7f83fd450",
+   "sha256_source": "first_download",
+   "size": 74,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/b53e83a913366d68cfbc39c0585693044b108878?filename=sub-hc7_ses-hc_scans.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc8/ses-hc/beh/sub-hc8_ses-hc_task-rest_beh.json",
+   "sha256": "107c58034e3d528ed15ee54be2e63be57571a9d1b57044db38f8e2efaeb25d8f",
+   "sha256_source": "first_download",
+   "size": 90,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/416c1901d185ede5a47cc13dcc486165d10926a5?filename=sub-hc8_ses-hc_task-rest_beh.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc8/ses-hc/beh/sub-hc8_ses-hc_task-rest_beh.tsv",
+   "sha256": "b930b8a004c867efdc85be9e5eaa7b8d4d7d36adaf9c3b80263c0dcdf8555168",
+   "sha256_source": "first_download",
+   "size": 10,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/ce8efb5a9f01ec25323363888e90cbf8f6a35927?filename=sub-hc8_ses-hc_task-rest_beh.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc8/ses-hc/eeg/sub-hc8_ses-hc_task-rest_channels.tsv",
+   "sha256": "c994911d209b00a8450c88790048ad44adc8c291be925ccf6ff3cd8169c69477",
+   "sha256_source": "first_download",
+   "size": 2271,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/6f4295b89a4389f8f1f4dbdd492b688b1c9a0a1c?filename=sub-hc8_ses-hc_task-rest_channels.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc8/ses-hc/eeg/sub-hc8_ses-hc_task-rest_eeg.bdf",
+   "sha256": "d24e850af2a8c2275961a16a0db8c9483f54b2074958274156211b794d84946e",
+   "sha256_source": "first_download",
+   "size": 12039168,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds002778/sub-hc8/ses-hc/eeg/sub-hc8_ses-hc_task-rest_eeg.bdf?versionId=3_jqCSPNhBZAMQrn1IUvmUYlh6uEdVQg"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc8/ses-hc/eeg/sub-hc8_ses-hc_task-rest_eeg.json",
+   "sha256": "94566d87465a3cf3e82a72b96da39fa9eefaf6ce19b63883d5646b458c5cb8c4",
+   "sha256_source": "first_download",
+   "size": 471,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/49c46da7b543aa9b17b4919b312f4a6cd1ad70b9?filename=sub-hc8_ses-hc_task-rest_eeg.json"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc8/ses-hc/eeg/sub-hc8_ses-hc_task-rest_events.tsv",
+   "sha256": "82a89f2bb92b23e65b492347e1191725073ab17b31150a87a4991d8e67bc6436",
+   "sha256_source": "first_download",
+   "size": 65,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/5a504f4c7f660c70e90116f47fa4caef863e67c9?filename=sub-hc8_ses-hc_task-rest_events.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "sub-hc8/ses-hc/sub-hc8_ses-hc_scans.tsv",
+   "sha256": "c24243c6a9e2fb8ae6c7dd57da922b6a1d70b012e8ea833b1ba8a88842596b14",
+   "sha256_source": "first_download",
+   "size": 74,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/654a838d69a5796f699afa1e9883865773a9f982?filename=sub-hc8_ses-hc_scans.tsv"
+  },
+  {
+   "dataset": "ds002778",
+   "mirror_url": null,
+   "path": "task-rest_beh.json",
+   "sha256": "6981803312197d699fe30fdf35b5955d1a7169ab2e026ed2876eb968cdc59e9e",
+   "sha256_source": "first_download",
+   "size": 215,
+   "url": "https://openneuro.org/crn/datasets/ds002778/objects/996855d79c321dad305d1e340515663974153379?filename=task-rest_beh.json"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "CHANGES",
+   "sha256": "8305f1995d1fcb52d845668f3565e5f2bdcfae124547140cfd88aadd9b432f7a",
+   "sha256_source": "first_download",
+   "size": 524,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/CHANGES?versionId=PEtkRw3NQhl582FMNCcsYtbGQjf3h3qC"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "README",
+   "sha256": "e2c2e223230ed7b9741670b335d832a2a917f4234fe8f2aea4782e5a5d69faa6",
+   "sha256_source": "first_download",
+   "size": 3961,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/README?versionId=bLT6aqSwmE7NxePNw.3lcG0PQRR7bTL4"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "dataset_description.json",
+   "sha256": "63175361241d624e2f4dea63e9c06299eff9c5c7041874884f71196bffa8e6f0",
+   "sha256_source": "first_download",
+   "size": 570,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/dataset_description.json?versionId=6lWVoT5Jv.8KfdW28m6pCBlf7ySM5nRk"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "participants.json",
+   "sha256": "3f452d484b5f219ede5f19eb1e35861d59f5c99888beb399d7fd30b49018dbcb",
+   "sha256_source": "first_download",
+   "size": 1873,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/participants.json?versionId=1ui76FJZ8i2eJzTzvWD34o3k8YQ.J_NI"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "participants.tsv",
+   "sha256": "c4979dda083196a267a6fc8c433d5d9928cf33ae042191ecc623ec916aa50cf6",
+   "sha256_source": "first_download",
+   "size": 8364,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/participants.tsv?versionId=ozyblKRInJzkV_oDNVx.2IiurR8q5p6."
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-001/ses-t1/eeg/sub-001_ses-t1_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-001/ses-t1/eeg/sub-001_ses-t1_task-resteyesc_eeg.edf",
+   "sha256": "b492c3851b27cfa4106133fbee06407e8732f121c27c6867a61704379cbf3855",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-001/ses-t1/eeg/sub-001_ses-t1_task-resteyesc_eeg.edf?versionId=jQh05qjO8NgD1idWh_oUuryQZrjnUon3"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-001/ses-t1/eeg/sub-001_ses-t1_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-001/ses-t1/sub-001_ses-t1_scans.tsv",
+   "sha256": "53db9112afcea36bd4c3cae77370e741c944622e345cfaee3b14d0da8c3c6f41",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-001/ses-t1/sub-001_ses-t1_scans.tsv?versionId=d9Irhv_87CTBUJ1cyR4hiifHLpybU2B_"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t1/eeg/sub-002_ses-t1_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t1/eeg/sub-002_ses-t1_task-resteyesc_eeg.edf",
+   "sha256": "ac7120c82a7d091838adef5278f013e1c27b701e7a66d609931b9161b1b03daf",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-002/ses-t1/eeg/sub-002_ses-t1_task-resteyesc_eeg.edf?versionId=3AB8Aiq0LAr5u1yWtPuYOn9qLAbaj2m0"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t1/eeg/sub-002_ses-t1_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t1/sub-002_ses-t1_scans.tsv",
+   "sha256": "a7e615f7b23b9738e35600f6d69e3612dc71b0762a69f31e0cb0ffb365d9f383",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-002/ses-t1/sub-002_ses-t1_scans.tsv?versionId=K9OW5WHM_0yyTnSSY49tkwRNdktbeGIR"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t2/eeg/sub-002_ses-t2_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t2/eeg/sub-002_ses-t2_task-resteyesc_eeg.edf",
+   "sha256": "6c435872ebadbfb536b17c6802d88840df9103ae3e3d0d92d74f7e23b4820896",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-002/ses-t2/eeg/sub-002_ses-t2_task-resteyesc_eeg.edf?versionId=x.P00s9dVhCRy1VXtulXfOYqRG3vyDsx"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t2/eeg/sub-002_ses-t2_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-002/ses-t2/sub-002_ses-t2_scans.tsv",
+   "sha256": "3fdd90e1cc79ddef9d3ab587086a8e0402cea5f21995c364014f4762f4bec358",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-002/ses-t2/sub-002_ses-t2_scans.tsv?versionId=sJ_zDpT0NPc1Rco.k85wrq28NOPT.Nhw"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t1/eeg/sub-003_ses-t1_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t1/eeg/sub-003_ses-t1_task-resteyesc_eeg.edf",
+   "sha256": "47d2bb99b6268ee7170a63320986231abab7979318a0a06fac1eb766ea088528",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-003/ses-t1/eeg/sub-003_ses-t1_task-resteyesc_eeg.edf?versionId=mZJUduC.kXVjZiYyFr08LvXLEVHoXWQ2"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t1/eeg/sub-003_ses-t1_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t1/sub-003_ses-t1_scans.tsv",
+   "sha256": "99037d9dda1a815c51db3d010bb1b952ff0031ac6c76ffbf853a439fd54bb2cf",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-003/ses-t1/sub-003_ses-t1_scans.tsv?versionId=LVXqwuBTcZt_Tf3B0TS24uVrjm8mbCmQ"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t2/eeg/sub-003_ses-t2_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t2/eeg/sub-003_ses-t2_task-resteyesc_eeg.edf",
+   "sha256": "a94fa8db69ae4eacd0e15093afa93d9ff5692419c32c646e7dabc3eb305a7bfd",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-003/ses-t2/eeg/sub-003_ses-t2_task-resteyesc_eeg.edf?versionId=YUqldI1.SG6kAIVaEb07Bqx5V_vrHVRs"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t2/eeg/sub-003_ses-t2_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-003/ses-t2/sub-003_ses-t2_scans.tsv",
+   "sha256": "cfc4a53b5eed098f38871e402eecb9e625db155410ba98ce8512baf20038df0b",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-003/ses-t2/sub-003_ses-t2_scans.tsv?versionId=EyjyTwZkW0A4Q3bYa_z6E1pb53Na0lti"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-004/ses-t1/eeg/sub-004_ses-t1_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-004/ses-t1/eeg/sub-004_ses-t1_task-resteyesc_eeg.edf",
+   "sha256": "a278b963f6526bbbe4a3dc79c536e046c5670bdfbf8ef0983331f592fad96d60",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-004/ses-t1/eeg/sub-004_ses-t1_task-resteyesc_eeg.edf?versionId=lzsi7f.J7cCNCpiFdXv21Vuu32CM9dtA"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-004/ses-t1/eeg/sub-004_ses-t1_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-004/ses-t1/sub-004_ses-t1_scans.tsv",
+   "sha256": "b80c644321affaafe4f82248d13d807fd613e17f68cd42ebd6f046d78527a921",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-004/ses-t1/sub-004_ses-t1_scans.tsv?versionId=1E2VOSSZC2pTsiwjwM7G0NjfDwSOZBa2"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t1/eeg/sub-005_ses-t1_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t1/eeg/sub-005_ses-t1_task-resteyesc_eeg.edf",
+   "sha256": "6610e4bfc4f3fe65e6cf62620f4c311d506490d4fc067ba754d1d9ae81872d38",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-005/ses-t1/eeg/sub-005_ses-t1_task-resteyesc_eeg.edf?versionId=Emf8bH_yVk4o0gqpoEff_lZc49xWBZfZ"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t1/eeg/sub-005_ses-t1_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t1/sub-005_ses-t1_scans.tsv",
+   "sha256": "c960842163b633b69bfb5a3300aa008c5a100d4b702f511a33a24f408e333a08",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-005/ses-t1/sub-005_ses-t1_scans.tsv?versionId=c5Z.B6ylg5jJ5M.lOJEsRGJhcgd8MPPA"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t2/eeg/sub-005_ses-t2_task-resteyesc_channels.tsv",
+   "sha256": "0b516702d82461160257ad70a41d37b7c6b67738e8a12f5d0a47edb79d3fed88",
+   "sha256_source": "first_download",
+   "size": 1092,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_channels.tsv?versionId=ESpTP9DxhZoKgdBE97ONludjyLHKVCTi"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t2/eeg/sub-005_ses-t2_task-resteyesc_eeg.edf",
+   "sha256": "bb8a2ad433405823fec7d27b672252245e277401b4cb9afaf5922d4c0b944826",
+   "sha256_source": "first_download",
+   "size": 31473920,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-005/ses-t2/eeg/sub-005_ses-t2_task-resteyesc_eeg.edf?versionId=oe.JNf1QD1vjqXdRdqb4Ed1vdqsyY_PJ"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t2/eeg/sub-005_ses-t2_task-resteyesc_eeg.json",
+   "sha256": "32f3073145756aee3b29d1ad31ddbda009cb92a2ad5e2018d2de7b52e69056ce",
+   "sha256_source": "first_download",
+   "size": 596,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/derivatives/cleaned_data/sub-111/ses-t1/eeg/sub-111_ses-t1_task-resteyesc_desc-cleaned_eeg.json?versionId=WluPZFbZgGVpEL2oR.0BIseWsusKr3ZP"
+  },
+  {
+   "dataset": "ds003775",
+   "mirror_url": null,
+   "path": "sub-005/ses-t2/sub-005_ses-t2_scans.tsv",
+   "sha256": "67c1f507b51224d209919299a65ce63293eecb8e4cfe6fbe2bbce410e86b2da6",
+   "sha256_source": "first_download",
+   "size": 82,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds003775/sub-005/ses-t2/sub-005_ses-t2_scans.tsv?versionId=_x5u7N8Vu_ler1y4OhtQq0FOcaT7g54l"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "CHANGES",
+   "sha256": "74bcedbfd8149a29c85404c79a253c356ccc67791d3357b36b75d06ad37b2bbe",
+   "sha256_source": "first_download",
+   "size": 104,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/CHANGES?versionId=AmjAZ..ojM1GDomm7ugNpcvTy_uO5tj3"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "README",
+   "sha256": "e5d237b42e26fddc8a9a82260dd55011f0b2c2d79e27e693add2d77ba6b75795",
+   "sha256_source": "first_download",
+   "size": 891,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/README?versionId=orxrUil__nPj72OIUUPwXcjWfjph15z5"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "dataset_description.json",
+   "sha256": "e769d3c81bc4405e4209a3da2d41a07abff91e6b41e84f6ab3043d00f838cd28",
+   "sha256_source": "first_download",
+   "size": 733,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/dataset_description.json?versionId=dYdhifQuVePZbl182P8sCYzBzhPxgxKH"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "participants.json",
+   "sha256": "8f4428f6eec77e1ce08b20cc858331433b029cc71761324d15996daddbefb451",
+   "sha256_source": "first_download",
+   "size": 39425,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/participants.json?versionId=KLQVTq5jXsXc61pv43PceqxisASAWd4N"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "participants.tsv",
+   "sha256": "fefc3a5b0c4a28d3cb5370bb1d0ac9be2565ad70dbe8f94c82ff619460b01521",
+   "sha256_source": "first_download",
+   "size": 39886,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/participants.tsv?versionId=wt81Mu2B3fdeiXSis5ym288A64lXRXkR"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-01/ses-session1/eeg/sub-01_ses-session1_electrodes.tsv",
+   "sha256": "43d5c914343fca86bab0be5bf0d5ae1855f9d3762e1d94474d2e9f484d576c4e",
+   "sha256_source": "first_download",
+   "size": 2959,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_electrodes.tsv?versionId=gN6X7Yeft345oR8uW0nDuQFF9CrfeSSI"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_channels.tsv",
+   "sha256": "789b745fd42c9ced16ac4feda21b921f0b26628111f415d980abdd89ca0214c3",
+   "sha256_source": "first_download",
+   "size": 983,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_task-music_channels.tsv?versionId=t0xIGmxkG9V5dQQ_HPzZQ_VPgk5A39.8"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.eeg",
+   "sha256": "022b9f34914e4314f4d9e45d17bc367031c9d9d879ea983a8d6eb43f7affbc47",
+   "sha256_source": "first_download",
+   "size": 36600000,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.eeg?versionId=NQ9bP7UKtC5mpwqcV4sAzUhs8p8H4e1t"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.json",
+   "sha256": "32250367bdfbf78d674e6badb67519c409782f4b4b1b4b370c67c0dc14ef8f9d",
+   "sha256_source": "first_download",
+   "size": 593,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.json?versionId=6e2_7gMN5qwV3dvs610q0k0rrEjwr52X"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.vhdr",
+   "sha256": "b3f437f5e1cc95b3dbedb989d9c637c832ae4406b55782f8c8aeeb2fefc96061",
+   "sha256_source": "first_download",
+   "size": 1122,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.vhdr?versionId=_WBQ8tteWlbGNnSMMI0pLn_mQjpMCIFa"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.vmrk",
+   "sha256": "c75c687404dd131319d45f76fe131af5bdbbe6d880ca2cf426a5fc1e99b5d1e4",
+   "sha256_source": "first_download",
+   "size": 5960,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_eeg.vmrk?versionId=3ESOjAkqckVEZIaxXHLMQEBdVgbIcqr_"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_events.tsv",
+   "sha256": "6dd523147337edff071f66bb9a0af0fc653eb3e9a68a797fc664994a7780e064",
+   "sha256_source": "first_download",
+   "size": 6193,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-01/ses-session1/eeg/sub-01_ses-session1_task-eyesclosed_events.tsv?versionId=nVYst4gWhyaDalf1zKV6SyX9sw0fDWTf"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-02/ses-session1/eeg/sub-02_ses-session1_electrodes.tsv",
+   "sha256": "43d5c914343fca86bab0be5bf0d5ae1855f9d3762e1d94474d2e9f484d576c4e",
+   "sha256_source": "first_download",
+   "size": 2959,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_electrodes.tsv?versionId=gN6X7Yeft345oR8uW0nDuQFF9CrfeSSI"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_channels.tsv",
+   "sha256": "789b745fd42c9ced16ac4feda21b921f0b26628111f415d980abdd89ca0214c3",
+   "sha256_source": "first_download",
+   "size": 983,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_task-music_channels.tsv?versionId=t0xIGmxkG9V5dQQ_HPzZQ_VPgk5A39.8"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_eeg.eeg",
+   "sha256": "9c9f8c321482c71657047e99a1c259aaa753bb3b5fbe09e392a06b33d8d6dacd",
+   "sha256_source": "first_download",
+   "size": 36600000,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_eeg.eeg?versionId=0bVT4GGOISZj8J5BvaMl304z4jv0_xBM"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_eeg.json",
+   "sha256": "1b40f17da5393f99652fabc8015bbd9f02503923470eb5ddf7aa3bd1e7b86efd",
+   "sha256_source": "first_download",
+   "size": 593,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-59/ses-session2/eeg/sub-59_ses-session2_task-eyesclosed_eeg.json?versionId=M.T.4FRKGMmj7EyyUzzzVcLTrwFWGLkF"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_eeg.vhdr",
+   "sha256": "d097266f899c7511470a68a2301f6c9a29d712cc3353f8b9cb4cd8daba99bfa5",
+   "sha256_source": "first_download",
+   "size": 1122,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_eeg.vhdr?versionId=TywlII76QEwEL1L6ZRJ3O0Pr27Dcr84Y"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_eeg.vmrk",
+   "sha256": "3584b2731898c2c3c776d168573985e9346cc1a4e827c0a65dbb6908cf8ea4b0",
+   "sha256_source": "first_download",
+   "size": 477,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_eeg.vmrk?versionId=6uQPtYvV.1toL24yJqEt_JZDn573gnzF"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-02/ses-session1/eeg/sub-02_ses-session1_task-eyesclosed_events.tsv",
+   "sha256": "7ec4865fdf5d060248d7e56b93d363172ddf7c9976c2f47f1524c91e37b6077c",
+   "sha256_source": "first_download",
+   "size": 59,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_task-eyesclosed_events.tsv?versionId=WrqnloG.FGaraO0ct1fvBj8qo3a2Wxd8"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-03/ses-session1/eeg/sub-03_ses-session1_electrodes.tsv",
+   "sha256": "43d5c914343fca86bab0be5bf0d5ae1855f9d3762e1d94474d2e9f484d576c4e",
+   "sha256_source": "first_download",
+   "size": 2959,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_electrodes.tsv?versionId=gN6X7Yeft345oR8uW0nDuQFF9CrfeSSI"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_channels.tsv",
+   "sha256": "789b745fd42c9ced16ac4feda21b921f0b26628111f415d980abdd89ca0214c3",
+   "sha256_source": "first_download",
+   "size": 983,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_task-music_channels.tsv?versionId=t0xIGmxkG9V5dQQ_HPzZQ_VPgk5A39.8"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_eeg.eeg",
+   "sha256": "cb135f4e93d2a5a76ff04c791934f9a73fe050297e8bcc49cb0f7e04f27b0eb3",
+   "sha256_source": "first_download",
+   "size": 36600000,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_eeg.eeg?versionId=NHzRgbSah2kgzgMNLwZZp5fZnpEEz_FF"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_eeg.json",
+   "sha256": "1b40f17da5393f99652fabc8015bbd9f02503923470eb5ddf7aa3bd1e7b86efd",
+   "sha256_source": "first_download",
+   "size": 593,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-59/ses-session2/eeg/sub-59_ses-session2_task-eyesclosed_eeg.json?versionId=M.T.4FRKGMmj7EyyUzzzVcLTrwFWGLkF"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_eeg.vhdr",
+   "sha256": "32e38ca5bde5307c6b330154b3bcb9221606db55bfa65b6cde4e3c3a1d38b841",
+   "sha256_source": "first_download",
+   "size": 1122,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_eeg.vhdr?versionId=a_udgw3sqFOzNvkxXQX03aF.Ds13xkCw"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_eeg.vmrk",
+   "sha256": "c6acfec119732da4329364d1de616a885898bf0230dc523565aadec74d959c96",
+   "sha256_source": "first_download",
+   "size": 477,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_eeg.vmrk?versionId=NBGcKBqpRxBaIDSfD44XMvmkXpxwC1TJ"
+  },
+  {
+   "dataset": "ds004148",
+   "mirror_url": null,
+   "path": "sub-03/ses-session1/eeg/sub-03_ses-session1_task-eyesclosed_events.tsv",
+   "sha256": "7ec4865fdf5d060248d7e56b93d363172ddf7c9976c2f47f1524c91e37b6077c",
+   "sha256_source": "first_download",
+   "size": 59,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004148/sub-60/ses-session3/eeg/sub-60_ses-session3_task-eyesclosed_events.tsv?versionId=WrqnloG.FGaraO0ct1fvBj8qo3a2Wxd8"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "CHANGES",
+   "sha256": "c8dede802008619762fb5c3d5c5f706774b21eb2f6d2182e23b26cd61d1d01a0",
+   "sha256_source": "first_download",
+   "size": 500,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/CHANGES?versionId=DTIJgU7ujNnIt8sRzZlnkGpqMePY50J1"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "README",
+   "sha256": "a551f7e4844f09515499da342605cbdc8aff86a627057048da95748ea6d3b48a",
+   "sha256_source": "first_download",
+   "size": 4168,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/README?versionId=E8T7962iOHTziFLVsN9OwpO8_cVuaR1K"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "dataset_description.json",
+   "sha256": "5e9b3a8be6b0d682825815b0eeda1ef8ffcf6653a8ca9919285fb349d8231632",
+   "sha256_source": "first_download",
+   "size": 2852,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/dataset_description.json?versionId=t43dyAR6LwQD30W.ITyi9IoyrU95NotC"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "participants.json",
+   "sha256": "e479ba99b89ca756d8894ec14665780eada7c0e831ca2422699439d9ae98740c",
+   "sha256_source": "first_download",
+   "size": 613,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/participants.json?versionId=wChlaNr6MPubclGHQLpmvOiKuwc5rxeq"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "participants.tsv",
+   "sha256": "bd17cf02ec9733c9029d4a6d977b2918309b3c667ff9ceb1b5dce6e3cebccbc1",
+   "sha256_source": "first_download",
+   "size": 1706,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/participants.tsv?versionId=9fsFvc4IqHBNPyexWiTppa8_LysMVAd1"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-001/eeg/sub-001_task-eyesclosed_channels.tsv",
+   "sha256": "b78bb6ff8de9632610902683435c62ed467ee81514ebff8ddd3cf29130842cf8",
+   "sha256_source": "first_download",
+   "size": 284,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-088/eeg/sub-088_task-eyesclosed_channels.tsv?versionId=yf9LhKtTao5dZnwW78.oU_.PFzoAQSTe"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-001/eeg/sub-001_task-eyesclosed_eeg.json",
+   "sha256": "cece7c2b5a9afe4bf39411596bea6bbb32dddde1cfd489d2c25b951cca62032d",
+   "sha256_source": "first_download",
+   "size": 868,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-001/eeg/sub-001_task-eyesclosed_eeg.json?versionId=hSZEeyaFG3da9YtzOXkQTO_wKakFsp_G"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-001/eeg/sub-001_task-eyesclosed_eeg.set",
+   "sha256": "98e923d2d4d5682882ef8254da3a1060d305287b26eed9af61cbbce558e885c3",
+   "sha256_source": "first_download",
+   "size": 24022128,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-001/eeg/sub-001_task-eyesclosed_eeg.set?versionId=ZYcFDo0H9iju4NnOWMkSe4MCrimnqLNJ"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-002/eeg/sub-002_task-eyesclosed_channels.tsv",
+   "sha256": "b78bb6ff8de9632610902683435c62ed467ee81514ebff8ddd3cf29130842cf8",
+   "sha256_source": "first_download",
+   "size": 284,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-088/eeg/sub-088_task-eyesclosed_channels.tsv?versionId=yf9LhKtTao5dZnwW78.oU_.PFzoAQSTe"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-002/eeg/sub-002_task-eyesclosed_eeg.json",
+   "sha256": "65c5ac052b8f2dc6b1d6fc4ee239ef6f3bf26ad4e1fe0de8153ac25abc109a40",
+   "sha256_source": "first_download",
+   "size": 868,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-002/eeg/sub-002_task-eyesclosed_eeg.json?versionId=QUUm4tc7KRCZgsjdj3d470Bfn.Iu0pU."
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-002/eeg/sub-002_task-eyesclosed_eeg.set",
+   "sha256": "3178a7b0cc07799857f564eb236cc835cf479bb161cf7745b0427bf8c08c7818",
+   "sha256_source": "first_download",
+   "size": 31770832,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-002/eeg/sub-002_task-eyesclosed_eeg.set?versionId=XPdB4Tk6wdlXpM7ZVoaRHxV0sCJzFxNZ"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-003/eeg/sub-003_task-eyesclosed_channels.tsv",
+   "sha256": "b78bb6ff8de9632610902683435c62ed467ee81514ebff8ddd3cf29130842cf8",
+   "sha256_source": "first_download",
+   "size": 284,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-088/eeg/sub-088_task-eyesclosed_channels.tsv?versionId=yf9LhKtTao5dZnwW78.oU_.PFzoAQSTe"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-003/eeg/sub-003_task-eyesclosed_eeg.json",
+   "sha256": "a40bf89d00648c29bf7ad25adf278b534d38373c2e5bd0cf36350ef84dde3212",
+   "sha256_source": "first_download",
+   "size": 868,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-003/eeg/sub-003_task-eyesclosed_eeg.json?versionId=YzSvuY_Sm.D93d_Kf0rQVQwuF8UhcaxW"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-003/eeg/sub-003_task-eyesclosed_eeg.set",
+   "sha256": "c8de6b9bfd868ed8f4d522a74a0c957a41fc9ac412a9563fe387d45dce500252",
+   "sha256_source": "first_download",
+   "size": 12330832,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-003/eeg/sub-003_task-eyesclosed_eeg.set?versionId=c71RgscXXtWzZMCkCrzyQGkI5vIUW_O."
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-004/eeg/sub-004_task-eyesclosed_channels.tsv",
+   "sha256": "b78bb6ff8de9632610902683435c62ed467ee81514ebff8ddd3cf29130842cf8",
+   "sha256_source": "first_download",
+   "size": 284,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-088/eeg/sub-088_task-eyesclosed_channels.tsv?versionId=yf9LhKtTao5dZnwW78.oU_.PFzoAQSTe"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-004/eeg/sub-004_task-eyesclosed_eeg.json",
+   "sha256": "f8666c1d24b0ce642e097d17748d058db37621f9863e6a446ddcb11200addb8b",
+   "sha256_source": "first_download",
+   "size": 868,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-033/eeg/sub-033_task-eyesclosed_eeg.json?versionId=AGmhPs2i7_9cMFd4Wpu7KmNCZF3tRGin"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-004/eeg/sub-004_task-eyesclosed_eeg.set",
+   "sha256": "2cf33a8674758403d9234774e6fd042a4e3a23be3373a9a77f7d6e621880a256",
+   "sha256_source": "first_download",
+   "size": 28330832,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-004/eeg/sub-004_task-eyesclosed_eeg.set?versionId=gWuWXenuGKt9y3Ajq0c3vEcc_mmebjWU"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-005/eeg/sub-005_task-eyesclosed_channels.tsv",
+   "sha256": "b78bb6ff8de9632610902683435c62ed467ee81514ebff8ddd3cf29130842cf8",
+   "sha256_source": "first_download",
+   "size": 284,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-088/eeg/sub-088_task-eyesclosed_channels.tsv?versionId=yf9LhKtTao5dZnwW78.oU_.PFzoAQSTe"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-005/eeg/sub-005_task-eyesclosed_eeg.json",
+   "sha256": "f197f6ed1e2195f14d7fe6dc41d1574a43d31c2c0dcc909e057db0b9221cf91c",
+   "sha256_source": "first_download",
+   "size": 868,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-005/eeg/sub-005_task-eyesclosed_eeg.json?versionId=ozp39qRADjdF_dUnb5aWGlRmMLxWXaPZ"
+  },
+  {
+   "dataset": "ds004504",
+   "mirror_url": null,
+   "path": "sub-005/eeg/sub-005_task-eyesclosed_eeg.set",
+   "sha256": "f582444e9f2cd43651d8b80aa6830420c7293759a3be86c12bcd05a3e69e6f0a",
+   "sha256_source": "first_download",
+   "size": 32210832,
+   "url": "https://s3.amazonaws.com/openneuro.org/ds004504/sub-005/eeg/sub-005_task-eyesclosed_eeg.set?versionId=Z2D0fGfaVEStu2RwOp7Lg7dvbj6gfONS"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/LICENSE.txt",
+   "path": "LICENSE.txt",
+   "sha256": "9a78e7f22742dde9f66ae235ec793ba2212019dc4d0ced75c4da09ced0b35fb2",
+   "sha256_source": "published",
+   "size": 14842,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/LICENSE.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/PSG_IPA_db_quickcheck.xml",
+   "path": "PSG_IPA_db_quickcheck.xml",
+   "sha256": "1f318b2fb20d10d23e4e1eab297e5469e672cdc9074492ba232471f0a2cf58df",
+   "sha256_source": "published",
+   "size": 11743,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/PSG_IPA_db_quickcheck.xml"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/PSG_IPA_db_quickcheck_with_scoring.xml",
+   "path": "PSG_IPA_db_quickcheck_with_scoring.xml",
+   "sha256": "35dc3dfa9194fd80dced6e8280fca70a32c2e730590766926cee44f14d460bcb",
+   "sha256_source": "published",
+   "size": 17330,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/PSG_IPA_db_quickcheck_with_scoring.xml"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/RECORDS",
+   "path": "RECORDS",
+   "sha256": "4957da17f9c2dd4a160d6f199ce8dc84128e5184e93811c494c20f56b4348d2a",
+   "sha256_source": "published",
+   "size": 754,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/RECORDS"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/SHA256SUMS.txt",
+   "path": "SHA256SUMS.txt",
+   "sha256": "3a7af8542aa07417f027ba49d05185340f51abd051f2305cbf17a240dd111c52",
+   "sha256_source": "first_download",
+   "size": 136912,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/SHA256SUMS.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN1_SleepStages_auto.edf",
+   "path": "Sleep_stages/Annotations/auto/SN1_SleepStages_auto.edf",
+   "sha256": "17aace4fc8faaf0e8771e5ca47fbd030b9334279fb7ac0ca49a563a5c84bb14a",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN1_SleepStages_auto.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN1_SleepStages_auto.txt",
+   "path": "Sleep_stages/Annotations/auto/SN1_SleepStages_auto.txt",
+   "sha256": "e0c7d709ed42001be518b37615f89e4b48df53da80108af984053825ea4a6d7b",
+   "sha256_source": "published",
+   "size": 42821,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN1_SleepStages_auto.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN2_SleepStages_auto.edf",
+   "path": "Sleep_stages/Annotations/auto/SN2_SleepStages_auto.edf",
+   "sha256": "c71c84b814d118258862a9021c9840ee1c126a48bb7e2704f92650b42da4335c",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN2_SleepStages_auto.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN2_SleepStages_auto.txt",
+   "path": "Sleep_stages/Annotations/auto/SN2_SleepStages_auto.txt",
+   "sha256": "037abbba553799bed019f72dce07e91adad5bf827c9e6e7a776371447de7b5c9",
+   "sha256_source": "published",
+   "size": 34645,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN2_SleepStages_auto.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN4_SleepStages_auto.edf",
+   "path": "Sleep_stages/Annotations/auto/SN4_SleepStages_auto.edf",
+   "sha256": "0572131f8ca147087efdf644c4d3ca5046eba42db1e8d40347fa12610af61bdb",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN4_SleepStages_auto.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN4_SleepStages_auto.txt",
+   "path": "Sleep_stages/Annotations/auto/SN4_SleepStages_auto.txt",
+   "sha256": "80e31279b3dc3bb508da6e6b89b2191121eafd751d36141762fb63365495b915",
+   "sha256_source": "published",
+   "size": 45771,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/auto/SN4_SleepStages_auto.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer1.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer1.edf",
+   "sha256": "10d325b942b24327288a79da912696ddcc21aee20b1f49dfe0b65332b7768ba0",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer1.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer1.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer1.txt",
+   "sha256": "a63fa50f175e95f4125e05dd8e49496f2cc49db166baf542757cf1942144b964",
+   "sha256_source": "published",
+   "size": 42832,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer1.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer10.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer10.edf",
+   "sha256": "496d9bcdd908bf854a51680999764fadca01ab84015f8ba8f2054a2820911552",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer10.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer10.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer10.txt",
+   "sha256": "585cc927ab384648825bccdf3b4d44e291f215514b4722dce48fc7edba85ffa1",
+   "sha256_source": "published",
+   "size": 42849,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer10.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer11.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer11.edf",
+   "sha256": "7646a3b5be6cf355eb0293734c9360bc07aaaee52881e1fd13b11f541ed4c96c",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer11.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer11.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer11.txt",
+   "sha256": "88c8ab546643c74736ad5fcc6aa5bbc7cdd6a93126fbadf182fac52630ea0f0d",
+   "sha256_source": "published",
+   "size": 42835,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer11.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer12.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer12.edf",
+   "sha256": "9c5bd87687a02b862505a51c1b84b0abfc9140a496ef32557e840ef36b969cba",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer12.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer12.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer12.txt",
+   "sha256": "e9ebeef6163565312cc13c050d94420fe2a3a52c18fee0c179f9fa7052a6b37a",
+   "sha256_source": "published",
+   "size": 42841,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer12.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer2.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer2.edf",
+   "sha256": "e89b8fab06b6bcd09e4af55684ffd1e7356e287dda013cff0197425fd9ed4c5d",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer2.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer2.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer2.txt",
+   "sha256": "01a3737a71bef287d2c1f4a80321619126977f564fda65f8bd389938cd2a3595",
+   "sha256_source": "published",
+   "size": 42832,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer2.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer3.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer3.edf",
+   "sha256": "2315d177ad4eb270e254e33b9deeabbdfa2c2d65935830520181866d20eb50f4",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer3.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer3.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer3.txt",
+   "sha256": "42c3b4ac5c32e95175888ba2a7f9e7654e2b2e9a631932a15da2670799f6a429",
+   "sha256_source": "published",
+   "size": 42849,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer3.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer4.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer4.edf",
+   "sha256": "fa435d52a1257cfdbba25763055209d4d75c1a8c567bc1f218f543b0ff65a522",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer4.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer4.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer4.txt",
+   "sha256": "8e3b76927ac21c3815919a4209dda61c6c6ff12c066f2546ac1b1f8fcc8e0ec7",
+   "sha256_source": "published",
+   "size": 42845,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer4.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer5.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer5.edf",
+   "sha256": "580f7004f4954da38071b0baaa625bc18581ca8b84da8118063f073cefa11935",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer5.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer5.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer5.txt",
+   "sha256": "639a54372a1ba5315a9035f99270de759d7051d873f8fe629268cf986142b68c",
+   "sha256_source": "published",
+   "size": 42852,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer5.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer6.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer6.edf",
+   "sha256": "56a2279e255f47f0263d8d37288a4cd5bdd1968f651612e416df2550b7328359",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer6.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer6.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer6.txt",
+   "sha256": "404d5deedf66ac91c7c9f64a4f130600ed8e234ec359d6ebbf4f7084c01ebcf5",
+   "sha256_source": "published",
+   "size": 42884,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer6.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer7.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer7.edf",
+   "sha256": "05457a1e9d167925f3817e218f03aac67525e70944d2e48079284d02cba6f475",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer7.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer7.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer7.txt",
+   "sha256": "2b05b59c313a630b13878303a7dd86199bef075e68bf17ed033f1793d5719a19",
+   "sha256_source": "published",
+   "size": 42867,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer7.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer8.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer8.edf",
+   "sha256": "7ad10e23d423597b9a0e172d2035185244327176306562b08385759ce3affeea",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer8.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer8.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer8.txt",
+   "sha256": "eb357f7239997ddcb883ae90dec6b8fa690f6b512dc7cb9653b62de979a94e31",
+   "sha256_source": "published",
+   "size": 42817,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer8.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer9.edf",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer9.edf",
+   "sha256": "9577ee5a3b6a6f5063886c752da245c81a07f2c9ff8312ada00d1d36284ec533",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer9.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer9.txt",
+   "path": "Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer9.txt",
+   "sha256": "8c7b22a502c603a9b368b55ad9a733b9f1bbd179bc4c08b78eea35a178e4671e",
+   "sha256_source": "published",
+   "size": 42814,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN1_SleepStages_manual_scorer9.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer1.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer1.edf",
+   "sha256": "9a22b8fd3f10635ff77150b089b9d5402b6f1389cd228f28284d64c3d574a7b9",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer1.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer1.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer1.txt",
+   "sha256": "b159d13bd19c205798fa26f9ff71841c265acb77e2d4c63643f336a5ea505d30",
+   "sha256_source": "published",
+   "size": 34644,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer1.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer10.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer10.edf",
+   "sha256": "0b7c0b38c1f8e26401cff4056f21acbc4059e1966abdbcb0eeb1fa8d28a774ff",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer10.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer10.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer10.txt",
+   "sha256": "f76273b3593753c5a04ec6cdc23043fc03fa460ab317e2d4a2d4cceef480d213",
+   "sha256_source": "published",
+   "size": 34661,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer10.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer11.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer11.edf",
+   "sha256": "9735412fdc94d126354addab0ac6bf8cb78dbebf159bd4c961b1e017e4d42bbf",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer11.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer11.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer11.txt",
+   "sha256": "4a541c766114a88b03855ca9928fbfb7866e9eed68b2a43ad84377afbf7c1c6f",
+   "sha256_source": "published",
+   "size": 34671,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer11.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer12.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer12.edf",
+   "sha256": "adb345d2aa35f6e644853e1fb6f8e036e5c3fa5e0bc34f7832673740ce811f40",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer12.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer12.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer12.txt",
+   "sha256": "52327bfcfacf7c8ae86ec6995ec66df7c582369695dfcdcf47e09f446db1755f",
+   "sha256_source": "published",
+   "size": 34689,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer12.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer2.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer2.edf",
+   "sha256": "0ac9d7daf5411068290f776ac7a03a17fe3df36f76cad7d42af0b49550c39752",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer2.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer2.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer2.txt",
+   "sha256": "807e6bcee31f7ff01c6d4c94fe322705ec723b5e96189ddf715756f4a50c797b",
+   "sha256_source": "published",
+   "size": 34687,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer2.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer3.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer3.edf",
+   "sha256": "b3ae2e01a2c41f24250507b881156756b30bf433ba15e2506a1b94e5b0f71575",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer3.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer3.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer3.txt",
+   "sha256": "467f95dc18c08a50c53e56984dcc640eecaae6989b3ff792bbc2eb6edb261f71",
+   "sha256_source": "published",
+   "size": 34661,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer3.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer4.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer4.edf",
+   "sha256": "8bd732c4e2f3ce8fa39d91ba43f4589c397b4603a9b6a99a11592a7265d942d9",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer4.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer4.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer4.txt",
+   "sha256": "857935b05e740aa19cc71994814a485548cdd38f6a719cde00165a735ec1ce55",
+   "sha256_source": "published",
+   "size": 34713,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer4.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer5.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer5.edf",
+   "sha256": "0427a552579378321c9b553063fdf264aeaf79c6df4f279b6da3162091348485",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer5.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer5.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer5.txt",
+   "sha256": "866f935ee179bee2c434a591aade28d1834ca5f9ce613db2e282834995528f25",
+   "sha256_source": "published",
+   "size": 34656,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer5.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer6.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer6.edf",
+   "sha256": "f6d17ff58c4ab4715a21ce16da421d25481518d3bfc73ae2240e2919809eae09",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer6.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer6.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer6.txt",
+   "sha256": "e23d799fe060e0e56d527ec6efd166a752c7e324fb635b88ce5c5cf266378b4a",
+   "sha256_source": "published",
+   "size": 34645,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer6.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer7.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer7.edf",
+   "sha256": "f2bdf1b7b438e5efd321b22c1081a0d9dceef9c55e8a60e7ada8355f1320d615",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer7.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer7.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer7.txt",
+   "sha256": "7220edf35bb5f0ae53995ef78ede70f3988cdb250bf902a830261f04d0d57cd7",
+   "sha256_source": "published",
+   "size": 34634,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer7.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer8.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer8.edf",
+   "sha256": "7a155b841c3d48c3fab969e80f4efba7bf509ed336bb77a0607c3e3433e17f24",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer8.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer8.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer8.txt",
+   "sha256": "33f2ecad02e1bb85d69139981c8e2ef8a2162b30ed47086d49cfdbf1d6fe8957",
+   "sha256_source": "published",
+   "size": 34645,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer8.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer9.edf",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer9.edf",
+   "sha256": "a09c55545c281f45d555a656397b308d0c6becfbe9f490b2bbe7d52e098dc1cb",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer9.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer9.txt",
+   "path": "Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer9.txt",
+   "sha256": "c762669eda5c116771652dfbdb4dc61d0edeb1f6e6b9777efec252a1802b1b45",
+   "sha256_source": "published",
+   "size": 34668,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN2_SleepStages_manual_scorer9.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer1.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer1.edf",
+   "sha256": "63aadab79b96d1a73d255344b595e1836627ee6086dd1dd5794d50944c5a377c",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer1.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer1.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer1.txt",
+   "sha256": "204c5eba9a307dba32cf1b54b649dd49664c8fb8663f14f49dc3aeed8c39b7e9",
+   "sha256_source": "published",
+   "size": 45765,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer1.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer10.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer10.edf",
+   "sha256": "5f6a4c8c7dc5f5756a5a00fa609d972261b04f9a91d52085614e73b8c0a4394e",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer10.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer10.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer10.txt",
+   "sha256": "3254894e9d9809ad9689a23b1b6890091576ae03b451f4ba5a5c10055cdbda26",
+   "sha256_source": "published",
+   "size": 45736,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer10.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer11.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer11.edf",
+   "sha256": "fe7089305bc8c57df8938227976ec797a17e6fd1f7a437ba6cddb8f076fd2abe",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer11.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer11.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer11.txt",
+   "sha256": "d464d6aa64994577a357395c37a277ec1ceb1b0e06fd06941b788a12ec864823",
+   "sha256_source": "published",
+   "size": 45749,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer11.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer12.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer12.edf",
+   "sha256": "bd1236742081fa6da631381fdf25558863a1c3647d0bbd32f665ce54ecd76cf5",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer12.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer12.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer12.txt",
+   "sha256": "96a9d75520538bb4340eed075629996ac793f4e924b3b557ef4b57ab2d95b7cd",
+   "sha256_source": "published",
+   "size": 45798,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer12.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer2.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer2.edf",
+   "sha256": "ae744203593cc6396321de62f0b9d71a4506807f07732c0df5f2167fec58e95c",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer2.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer2.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer2.txt",
+   "sha256": "7166ed4f65e42ce3b09d83e73238d9a3183db6854c6ec1214836d229a37b20eb",
+   "sha256_source": "published",
+   "size": 45743,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer2.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer3.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer3.edf",
+   "sha256": "73bae5b18e9b0879bb46170e318d370627087936c5e075f777a19bfa19135da1",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer3.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer3.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer3.txt",
+   "sha256": "afab6f11337d3c55f5a471b6d84a888593ca46a9d6f9681ed909606425ad8075",
+   "sha256_source": "published",
+   "size": 45729,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer3.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer4.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer4.edf",
+   "sha256": "fa9b10f61db8509561d6969c715d08cfa926b815001899d27105e99960b5ff43",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer4.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer4.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer4.txt",
+   "sha256": "e233b19ca18b053c06698375de4df730d08885ce78be7f543b9c7fc50e511877",
+   "sha256_source": "published",
+   "size": 45799,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer4.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer5.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer5.edf",
+   "sha256": "63755abfb661ee2bafaf9bd033cd3c8ffc796c746341c642ed68345bbd98182a",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer5.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer5.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer5.txt",
+   "sha256": "63398247c979e42fbc0ed34379046a1e5dddfaeee2422af60ff38bebf1fcf2cb",
+   "sha256_source": "published",
+   "size": 45770,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer5.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer6.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer6.edf",
+   "sha256": "551946ed105ebc32818acd958f33015af044f23060583d3eba9a797e245ab5b1",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer6.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer6.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer6.txt",
+   "sha256": "73369b14ddfeb583c8d04929c87537c169eb4fd68ea0384b0e799918928b16c7",
+   "sha256_source": "published",
+   "size": 45728,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer6.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer7.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer7.edf",
+   "sha256": "fae9c3f19264787aba2adedbe346d892350ed23025524dc13aed7d28908e8c1c",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer7.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer7.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer7.txt",
+   "sha256": "118c864aa25ab30b5f387505109f41300b94ae65c6ea65096bcf14737d81f934",
+   "sha256_source": "published",
+   "size": 45745,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer7.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer8.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer8.edf",
+   "sha256": "09409b9b6cba2b92b93db7f25fa98991f782ab640c1d56a1115a2a977424830f",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer8.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer8.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer8.txt",
+   "sha256": "964abbe91c75e0982539c4ac1051514bf2eed2898c5d844b88ffc37ddd0395ee",
+   "sha256_source": "published",
+   "size": 45742,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer8.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer9.edf",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer9.edf",
+   "sha256": "21f9074d440663ac31695218072fa9a8f998f7f0892ad23add88ad60c05d7922",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer9.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer9.txt",
+   "path": "Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer9.txt",
+   "sha256": "713e7ce50d3d6b67f3d64917f7828b7f4e671921c47b62df6e96f2e260d877b6",
+   "sha256_source": "published",
+   "size": 45720,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/manual/SN4_SleepStages_manual_scorer9.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer1.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer1.edf",
+   "sha256": "a2f81b94257ce6cf95514c7a9da095033cda03ef9abb7b5790a57d684735a7f6",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer1.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer1.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer1.txt",
+   "sha256": "39ed276f52210d526174a553f2ab5f8d69355cb0fa57acd37807d30fb9a933ed",
+   "sha256_source": "published",
+   "size": 42842,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer1.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer10.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer10.edf",
+   "sha256": "f6fab8973caec8f2259fd9865b86b950864c8aa2d45fdee333e2dca941cb54fa",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer10.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer10.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer10.txt",
+   "sha256": "b0e632b774e64082353fbe27ae59de8f4a6ac7730eaef2d81fe721feb7acb211",
+   "sha256_source": "published",
+   "size": 42843,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer10.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer11.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer11.edf",
+   "sha256": "aa03d4503b3d9063033d3a12b471d13b503efbdf40088905fd2f9968cd5d56b0",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer11.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer11.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer11.txt",
+   "sha256": "d964d8a75c4c79085b438007489b20da514ecb88db7c9330d802c295c9c6d5e6",
+   "sha256_source": "published",
+   "size": 42813,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer11.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer12.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer12.edf",
+   "sha256": "8a75ef19a7de45bf4ffd3ee05dfdc9193c57b6face3b841f03afc00214a4ddbd",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer12.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer12.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer12.txt",
+   "sha256": "c024b6695dec15fba0735577e07dc8b7b50066c3b329488da6945c025fd79cc5",
+   "sha256_source": "published",
+   "size": 42854,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer12.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer2.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer2.edf",
+   "sha256": "848695c9b448ab9562c682638d48911baa44550466648f3dd5acc2e4b60eb707",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer2.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer2.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer2.txt",
+   "sha256": "a26b9982ff7acd537e18310bb1c13b9b8043e2d2e41ab81a90b67c05e65d6c2f",
+   "sha256_source": "published",
+   "size": 42835,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer2.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer3.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer3.edf",
+   "sha256": "28662d059f009e0c9488bf79d1117098047b36475a49c5c204670f4ff1767969",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer3.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer3.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer3.txt",
+   "sha256": "9ab2b22b60b40bb73a7667faa753ef98d28252a29725edfcf2541a2a2ce3934b",
+   "sha256_source": "published",
+   "size": 42858,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer3.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer4.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer4.edf",
+   "sha256": "17aace4fc8faaf0e8771e5ca47fbd030b9334279fb7ac0ca49a563a5c84bb14a",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer4.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer4.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer4.txt",
+   "sha256": "e0c7d709ed42001be518b37615f89e4b48df53da80108af984053825ea4a6d7b",
+   "sha256_source": "published",
+   "size": 42821,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer4.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer5.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer5.edf",
+   "sha256": "ec86834e6813a88d98e0c14653ae8d238a4c7002fbee65563d49b599ed1e0ebe",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer5.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer5.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer5.txt",
+   "sha256": "c8c993307fd4d1e1ee445c0cc0b9762b00f09b60c64f6d8989cbaaf56d5af89c",
+   "sha256_source": "published",
+   "size": 42863,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer5.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer6.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer6.edf",
+   "sha256": "7d90d3e2b781614de51c081190f154cdbdd0f3a624364cea0de4bfb53bb214ec",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer6.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer6.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer6.txt",
+   "sha256": "8dad7af59a400ade06eb45756c38bef9c60e6d3735c5902c9413c5c140c11fca",
+   "sha256_source": "published",
+   "size": 42851,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer6.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer7.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer7.edf",
+   "sha256": "10382b2b5055670940207d8e7eca8d78b93edf62bf21a36ecaae88d70d9772e0",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer7.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer7.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer7.txt",
+   "sha256": "f1a28437174cf74f407748f6f30d9692933db7e10a3f9f92dc74815a389fb9a7",
+   "sha256_source": "published",
+   "size": 42842,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer7.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer8.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer8.edf",
+   "sha256": "09c391c40b8adab107d0f01a253eae08170858f9b68a3d11cbf1d5401b375499",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer8.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer8.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer8.txt",
+   "sha256": "0ba328484d5546c12dc875456e18340ec8f56a14af7aeecdd57d5e92d1f48ebf",
+   "sha256_source": "published",
+   "size": 42817,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer8.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer9.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer9.edf",
+   "sha256": "486456503bbf8c9c8257bf8d903538ecc3cabba93630307c91a23c424140796d",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer9.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer9.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer9.txt",
+   "sha256": "c3a2721d844aa7e04f27fe7e893fb06573e0c3dcf16bc3c1f13c67f9f10f68ad",
+   "sha256_source": "published",
+   "size": 42835,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN1_SleepStages_semiauto_scorer9.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer1.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer1.edf",
+   "sha256": "c3a23fa1e28a43c8293d2b894ae6881af66bc7a292faccef65aedad27a799bc1",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer1.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer1.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer1.txt",
+   "sha256": "9379b6019d13399bf4f3ac6d7a8feb575092b14f4dc67dbb30fad2e70fbd020a",
+   "sha256_source": "published",
+   "size": 34649,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer1.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer10.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer10.edf",
+   "sha256": "efc4da94191b94bc222c654ec865ba7328184ba9775a37e848421ae87455566e",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer10.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer10.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer10.txt",
+   "sha256": "2c2df3f648d0fd0252bfe49fddd0f50c8df2f4c1701cda770311047bcf661f8c",
+   "sha256_source": "published",
+   "size": 34657,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer10.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer11.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer11.edf",
+   "sha256": "6289d8af34b5c6110bf10876a457662bcb97dfb2adf1e3c6f21030385b0d1140",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer11.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer11.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer11.txt",
+   "sha256": "b1577caf80d8e0905558c686dfbc97780f9a3117afdb9d89d834d972bb030cfb",
+   "sha256_source": "published",
+   "size": 34661,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer11.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer12.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer12.edf",
+   "sha256": "2f3ecc7d7c3ab71822e09cdb417097d59d77c50c568f061591ff623a4e76965d",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer12.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer12.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer12.txt",
+   "sha256": "d1a2d7a255d50493c457e981b748ebc67566d0da41fad6b1a25512316badda5f",
+   "sha256_source": "published",
+   "size": 34650,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer12.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer2.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer2.edf",
+   "sha256": "c9abdce90255b477f6b0f22077ae396ff0735a8a19e5cbc6df30a21bb4add6f8",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer2.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer2.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer2.txt",
+   "sha256": "c70e4a85809ab16ca120f1568705c8f95ee1ae4df41d699e8413f3236a8a78b9",
+   "sha256_source": "published",
+   "size": 34657,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer2.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer3.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer3.edf",
+   "sha256": "00535f923b4be0b90f60f0642e270ef81b54f92ee0222da42ebfadcb554e9fd2",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer3.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer3.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer3.txt",
+   "sha256": "2f81cb4c9991ac53bc48a7b79dd0f9f1322b90e3ad45b97d063143fc6a5fd7f3",
+   "sha256_source": "published",
+   "size": 34674,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer3.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer4.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer4.edf",
+   "sha256": "54c079559ae079f597257f8367fbd8dba11e21c226b1d6e32c26f7151821077a",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer4.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer4.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer4.txt",
+   "sha256": "ea9dda085d884f24671a37de715440c3ddfaffdf455580a6d4f9bea7424bc31f",
+   "sha256_source": "published",
+   "size": 34687,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer4.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer5.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer5.edf",
+   "sha256": "ba743225ecd77190e032582a07b6f49a5df6e277f77e55f7e1e4a67c08fdb3b6",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer5.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer5.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer5.txt",
+   "sha256": "28b509125d6a582e89bf4a16e23d2d04e7dd4255505e468a5b5ca23efb8e750e",
+   "sha256_source": "published",
+   "size": 34667,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer5.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer6.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer6.edf",
+   "sha256": "3a431f0b94478830ffbb1a32bad36962079e1b5a7d5f05881f8e27af6be11344",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer6.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer6.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer6.txt",
+   "sha256": "69b47b206365c2bd50b57685135d87723615665101c8a61d3b595b4b992e7134",
+   "sha256_source": "published",
+   "size": 34672,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer6.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer7.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer7.edf",
+   "sha256": "d1a9c11f2e604032243bd52b5288013917a6b91a1f0879ed40c3624a5a10bee0",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer7.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer7.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer7.txt",
+   "sha256": "6e504cae40ee2e9b48ee9cbdfbf8135cafc55dfbe90b5a32471943cd56e95a9b",
+   "sha256_source": "published",
+   "size": 34643,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer7.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer8.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer8.edf",
+   "sha256": "fde23c5640b8e3056c94d2a915cc5c73b6ba1accec52a8d13544bcc62ee88745",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer8.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer8.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer8.txt",
+   "sha256": "eb3b25921eb0eb9d4590433e3f060ea3f4e4e4c7426a2f3303e503c0f28033aa",
+   "sha256_source": "published",
+   "size": 34641,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer8.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer9.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer9.edf",
+   "sha256": "7cd521d19e1df3f89bb14f5b38caf7cf1b4ab7d01d169fa394e3670f5b7708b4",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer9.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer9.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer9.txt",
+   "sha256": "f8411b8d630308d86dde71b2496804e317ab423afc41bfc0fbeef6a8784f3424",
+   "sha256_source": "published",
+   "size": 34646,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN2_SleepStages_semiauto_scorer9.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer1.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer1.edf",
+   "sha256": "51546a4063e5399120a6f5c1c99adb6c57896372d463e36c4c12f129cf49885a",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer1.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer1.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer1.txt",
+   "sha256": "b14f6af33883b5457e241557354bc563caa1db056755179759a36228646bb8bb",
+   "sha256_source": "published",
+   "size": 45774,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer1.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer10.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer10.edf",
+   "sha256": "03e0dce0dbd233dcd283d977448a7f141b82d84daf5a05e3d358e403e3205ecb",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer10.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer10.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer10.txt",
+   "sha256": "30453b7d10c56c1ac8e771a3d8021fae2f5ce15d3007ebf24fb469dec8beabd6",
+   "sha256_source": "published",
+   "size": 45767,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer10.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer11.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer11.edf",
+   "sha256": "b6a13c7961748cf17d616391796565211151c6a02300e024dbc3e89f99146081",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer11.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer11.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer11.txt",
+   "sha256": "2302bf7325ad380119acc704595f0ef83e7a80ce462fa4197acaa9aae28ec220",
+   "sha256_source": "published",
+   "size": 45760,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer11.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer12.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer12.edf",
+   "sha256": "425177dfb350929bb4e47e873d1c136d312aa58987dd6d168a155e7018c0e94c",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer12.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer12.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer12.txt",
+   "sha256": "322abc12d344dd932d687091bb39baa76dab60c76e0b0b97cb5874529d22e6dc",
+   "sha256_source": "published",
+   "size": 45761,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer12.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer2.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer2.edf",
+   "sha256": "807e84bcb826fc5f2686ca93ae1a7803a71687e2aa7f895b55afcc33fdb47fac",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer2.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer2.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer2.txt",
+   "sha256": "11df1ab558515d1db951af39207f55b3694955db756e6bbbca33946b6252b3e5",
+   "sha256_source": "published",
+   "size": 45766,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer2.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer3.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer3.edf",
+   "sha256": "0f0d9d628a8fe169811fedb79cda2781ed961f3b628af4adcec0bd37fc0d2a08",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer3.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer3.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer3.txt",
+   "sha256": "86e8c22a06f38aa805b550ce2760a2d67f9747e8c7365e08169dafdbe163fe6d",
+   "sha256_source": "published",
+   "size": 45762,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer3.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer4.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer4.edf",
+   "sha256": "7f4ea694ae05ad9ebde6900611fcd9be41c62d47edcd5928740a22e601c9b567",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer4.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer4.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer4.txt",
+   "sha256": "e69da96b158451bacd9bd0180f59cb86a668fc5e3be5436852d0df5a230b52fb",
+   "sha256_source": "published",
+   "size": 45826,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer4.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer5.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer5.edf",
+   "sha256": "6b5d601b9299e812116edd8a55211a30b9b59ce86c331fc5952264fff07f0968",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer5.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer5.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer5.txt",
+   "sha256": "d92dfbef02a799920ab978816452c9854ffeb10228312660c16473608f2ca57b",
+   "sha256_source": "published",
+   "size": 45779,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer5.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer6.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer6.edf",
+   "sha256": "887c2d0e1f7b2293618886eb9f08f6095677d392a00d365b9c11c47ebb257b22",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer6.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer6.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer6.txt",
+   "sha256": "8ebb4f3711f0bca2100a4debf774dd2d513392b63db987b3be4bb6fd5e82fd11",
+   "sha256_source": "published",
+   "size": 45722,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer6.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer7.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer7.edf",
+   "sha256": "6de386810c36a7e9d7f94169d9aafed3bf3fe40d670bba041c7ed84e51e65093",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer7.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer7.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer7.txt",
+   "sha256": "dcb856b7528247f58a5f2822292f63f454db2383b32d0cfb277b85195d0390ac",
+   "sha256_source": "published",
+   "size": 45761,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer7.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer8.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer8.edf",
+   "sha256": "f7d89f482dfcd11892bedcd7c69bc832c8f6c9f6bad1bd8ddbe51465ef2d28a5",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer8.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer8.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer8.txt",
+   "sha256": "0836bc12593b083867b15517b06a770b003ac6153536568a94141b421ac488c3",
+   "sha256_source": "published",
+   "size": 45747,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer8.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer9.edf",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer9.edf",
+   "sha256": "3563ddb773ee66c939d1878c89201708a3d18920965ae21d95863075cdab6a95",
+   "sha256_source": "published",
+   "size": 61952,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer9.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer9.txt",
+   "path": "Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer9.txt",
+   "sha256": "a4863d8cb1475a6005141ef3e346490881b24dd2486e7b9ba38ec5f211fd2a03",
+   "sha256_source": "published",
+   "size": 45775,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/Annotations/semiauto/SN4_SleepStages_semiauto_scorer9.txt"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/PSG/SN1_SleepStages.edf",
+   "path": "Sleep_stages/PSG/SN1_SleepStages.edf",
+   "sha256": "d45cf761dc689c4898e4eef465196aa7fd4a44b7587a1332b0fbdf9c7f6c53d4",
+   "sha256_source": "published",
+   "size": 128290832,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/PSG/SN1_SleepStages.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/PSG/SN2_SleepStages.edf",
+   "path": "Sleep_stages/PSG/SN2_SleepStages.edf",
+   "sha256": "976b4062c94768c985447080afc570a84f135c5deb2fe01ca340dc8df1353972",
+   "sha256_source": "published",
+   "size": 103954112,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/PSG/SN2_SleepStages.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/Sleep_stages/PSG/SN4_SleepStages.edf",
+   "path": "Sleep_stages/PSG/SN4_SleepStages.edf",
+   "sha256": "1321b213ff99692ac86a60e78d2dfc9cf54753385809cb1863b279221693ce2c",
+   "sha256_source": "published",
+   "size": 137394568,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/Sleep_stages/PSG/SN4_SleepStages.edf"
+  },
+  {
+   "dataset": "psg-ipa",
+   "mirror_url": "https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/subject-info.txt",
+   "path": "subject-info.txt",
+   "sha256": "919b623caa51fd5901d416d1e3da3e18bc83f88ed39efc4eb3e8b417808c04b9",
+   "sha256_source": "published",
+   "size": 790,
+   "url": "https://physionet.org/files/psg-ipa/1.0.0/subject-info.txt"
+  }
+ ],
+ "lock_version": 1
+}

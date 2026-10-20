@@ -1,4 +1,4 @@
 # Packages whose metadata carries the full license text instead of an identifier, so no allowlist entry
 # can match. Each entry is version-pinned and was reviewed by hand; every upgrade needs a fresh review.
 # Format: name:version   # result of the manual review
-# (none in the current dependency set)
+pybv:0.8.1   # BSD 3-Clause (dist-info/licenses/LICENSE, metadata 'License: BSD 3-Clause License'); reviewed 2026-10-11

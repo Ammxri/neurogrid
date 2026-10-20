@@ -1,19 +1,23 @@
-"""M01 Lesbarkeit und Kopfzeile (PRD §12): readability with MNE, header with own parser + edfio,
-supported formats (A-12) and identifying header content (A-05, values are never output)."""
+"""M01 Lesbarkeit und Kopfzeile (PRD §12): readability with MNE, header with own parsers + edfio, companion
+files and references (A-46), supported formats (A-12) and identifying header content (A-05, values are never
+output)."""
 
 from __future__ import annotations
 
 from neurogrid.checks.context import CheckContext
+from neurogrid.io import ORPHAN_SUFFIXES
 from neurogrid.kernel.rules import CheckSpec, Measurement, is_true
 
 READABLE = "structure.readable"
 HEADER = "structure.header_consistent"
+COMPANIONS = "structure.companions_present"
 SUPPORTED = "structure.supported_format"
 IDENTIFYING = "structure.identifying_header"
 
 SPECS = (
     CheckSpec(id=READABLE, evaluate=is_true),
     CheckSpec(id=HEADER, evaluate=is_true),
+    CheckSpec(id=COMPANIONS, evaluate=is_true),
     CheckSpec(id=SUPPORTED, evaluate=is_true),
     CheckSpec(id=IDENTIFYING, evaluate=is_true),
 )
@@ -92,6 +96,35 @@ def measure_header(ctx: CheckContext) -> list[Measurement]:
     return out
 
 
+def measure_companions(ctx: CheckContext) -> list[Measurement]:
+    out: list[Measurement] = []
+    for rec in ctx.recordings:
+        if rec.inspection is None:
+            out.append(
+                Measurement(
+                    check_id=COMPANIONS,
+                    object=rec.object_id,
+                    file=rec.file,
+                    state="not_checkable",
+                    reason="header.unreadable",
+                    identity=rec.identity,
+                )
+            )
+            continue
+        missing = rec.inspection.missing_companions
+        out.append(
+            Measurement(
+                check_id=COMPANIONS,
+                object=rec.object_id,
+                file=rec.file,
+                value=not missing,
+                details={"issues": list(missing)} if missing else {},
+                identity=rec.identity,
+            )
+        )
+    return out
+
+
 def measure_supported(ctx: CheckContext) -> list[Measurement]:
     out = [
         Measurement(
@@ -105,7 +138,7 @@ def measure_supported(ctx: CheckContext) -> list[Measurement]:
             object=found.display_id,
             file=found.display_file,
             value=False,
-            reason="format.unsupported",
+            reason="format.orphan_companion" if found.suffix in ORPHAN_SUFFIXES else "format.unsupported",
             details={"extension": found.suffix},
             identity=found.identity,
         )
@@ -146,6 +179,7 @@ def measure_identifying(ctx: CheckContext) -> list[Measurement]:
 MEASURERS = {
     READABLE: measure_readable,
     HEADER: measure_header,
+    COMPANIONS: measure_companions,
     SUPPORTED: measure_supported,
     IDENTIFYING: measure_identifying,
 }

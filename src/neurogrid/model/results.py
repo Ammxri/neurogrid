@@ -149,6 +149,10 @@ class ScanFile(BaseModel):
 
 
 class ScanResult(BaseModel):
+    """The inventory of ``scan``. ``unsupported`` lists data files in a format NeuroGrid cannot read;
+    ``orphans`` lists .eeg/.fdt data files that no header refers to, so they cannot be assigned to a
+    recording (A-74, A-77; CORE-M01-04 reports both)."""
+
     model_config = ConfigDict(extra="forbid")
 
     schema_version: str = SCHEMA_VERSION
@@ -158,6 +162,7 @@ class ScanResult(BaseModel):
     formats: dict[str, int]
     recordings: list[ScanFile]
     unsupported: list[ScanFile]
+    orphans: list[ScanFile] = Field(default_factory=list)
     unreadable: list[ScanFile] = Field(
         default_factory=list
     )  # folders that cannot be listed, files not opened

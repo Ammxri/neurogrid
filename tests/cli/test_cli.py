@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from conftest import documented_config  # type: ignore[import-not-found]
 from neurogrid.cli import main
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
@@ -23,10 +24,23 @@ def run(args: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str, 
 
 
 def test_check_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    documented = str(documented_config(tmp_path))
     code, out, _ = run(
-        ["check", str(FIX / "edf_ok"), "--out", str(tmp_path / "ok.json"), "--as-of", "2026-10-11"], capsys
+        [
+            "check",
+            str(FIX / "edf_ok"),
+            "--out",
+            str(tmp_path / "ok.json"),
+            "--as-of",
+            "2026-10-11",
+            "--config",
+            documented,
+        ],
+        capsys,
     )
     assert code == 0 and "passes the checks" in out and "Not a conformity assessment" in out
+    code, out, _ = run(["check", str(FIX / "edf_ok"), "--out", str(tmp_path / "raw.json")], capsys)
+    assert code == 1 and "does not pass" in out  # raw folder without documented metadata (M02-01)
     code, out, _ = run(["check", str(FIX / "edf_truncated"), "--out", str(tmp_path / "bad.json")], capsys)
     assert code == 1 and "does not pass" in out
     code, _, err = run(["check", str(FIX / "edf_ok"), "--rulepack", "nosuch"], capsys)
@@ -40,8 +54,19 @@ def test_check_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
 
 
 def test_chinese_messages(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    config = str(documented_config(tmp_path))
     code, out, _ = run(
-        ["--lang", "zh", "check", str(FIX / "edf_lowrate"), "--out", str(tmp_path / "r.json")], capsys
+        [
+            "--lang",
+            "zh",
+            "check",
+            str(FIX / "edf_lowrate"),
+            "--out",
+            str(tmp_path / "r.json"),
+            "--config",
+            config,
+        ],
+        capsys,
     )
     assert code == 0 and "通过了已加载规则包" in out and "符合性评价" in out
 
@@ -74,7 +99,8 @@ def test_scan_and_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
 def test_home_directory_is_not_printed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     out_file = Path.home() / ".neurogrid-test-results.json"
     try:
-        code, out, _ = run(["check", str(FIX / "edf_ok"), "--out", str(out_file)], capsys)
+        config = str(documented_config(tmp_path))
+        code, out, _ = run(["check", str(FIX / "edf_ok"), "--out", str(out_file), "--config", config], capsys)
         assert code == 0 and str(Path.home()) not in out and "~" in out
     finally:
         out_file.unlink(missing_ok=True)
@@ -98,8 +124,9 @@ def test_internal_error_is_exit_2(
 def test_real_subprocess_exit_codes(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
     base = [sys.executable, "-m", "neurogrid"]
+    config = str(documented_config(tmp_path))
     ok = subprocess.run(
-        [*base, "check", str(FIX / "edf_ok"), "--out", str(tmp_path / "a.json")],
+        [*base, "check", str(FIX / "edf_ok"), "--out", str(tmp_path / "a.json"), "--config", config],
         capture_output=True,
         env=env,
         check=False,
@@ -162,7 +189,17 @@ def test_custom_rulepack_path_with_capitals_and_comma(
         DUP_PACK.replace("rulepack: core", "rulepack: labqa", 1).replace("CORE-", "LABQA-"), encoding="utf-8"
     )
     code, _, err = run(
-        ["check", str(FIX / "edf_ok"), "--rulepack", str(pack), "--out", str(tmp_path / "r.json")], capsys
+        [
+            "check",
+            str(FIX / "edf_ok"),
+            "--rulepack",
+            str(pack),
+            "--out",
+            str(tmp_path / "r.json"),
+            "--config",
+            str(documented_config(tmp_path)),
+        ],
+        capsys,
     )
     assert code == 0, err
     assert [
@@ -222,7 +259,10 @@ def test_written_path_hides_the_dataset_root(tmp_path: Path, capsys: pytest.Capt
     dataset = tmp_path / "Mustermann_Max_1957"
     dataset.mkdir()
     (dataset / "rec.edf").write_bytes((FIX / "edf_ok" / "rec_a.edf").read_bytes())
-    code, out, _ = run(["check", str(dataset), "--out", str(dataset / "results.json")], capsys)
+    config = str(documented_config(tmp_path))
+    code, out, _ = run(
+        ["check", str(dataset), "--out", str(dataset / "results.json"), "--config", config], capsys
+    )
     assert code == 0 and "Mustermann" not in out and "<dataset>" in out
 
 
@@ -248,13 +288,17 @@ def test_scan_shows_subjects_and_name_hint(tmp_path: Path, capsys: pytest.Captur
     assert code == 0 and "Subjects: unknown" in out and "1 data file path" in out and "4711234" not in out
 
 
-def test_mixed_rate_edf_prints_no_library_warning(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_mixed_rate_edf_prints_no_library_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "unit"))  # also when run on its own
     from test_io import _mixed_rate_edf  # type: ignore[import-not-found]
 
     folder = tmp_path / "mixed"
     folder.mkdir()
     _mixed_rate_edf(folder / "psg.edf")
-    code, _, err = run(["check", str(folder), "--out", str(tmp_path / "r.json")], capsys)
+    config = str(documented_config(tmp_path))
+    code, _, err = run(["check", str(folder), "--out", str(tmp_path / "r.json"), "--config", config], capsys)
     assert code == 0 and "RuntimeWarning" not in err and str(Path.home()) not in err
 
 
@@ -324,7 +368,8 @@ def test_check_prints_skipped_links(tmp_path: Path, capsys: pytest.CaptureFixtur
     dataset.mkdir()
     (dataset / "rec.edf").write_bytes((FIX / "edf_ok" / "rec_a.edf").read_bytes())
     dir_link(dataset / "linked", outside)
-    code, out, _ = run(["check", str(dataset), "--out", str(tmp_path / "r.json")], capsys)
+    config = str(documented_config(tmp_path))
+    code, out, _ = run(["check", str(dataset), "--out", str(tmp_path / "r.json"), "--config", config], capsys)
     assert code == 0 and "were not followed" in out
 
 

@@ -148,7 +148,16 @@
     },
     "ConvertSection": {
       "additionalProperties": false,
+      "description": "Mapping of raw files to subject/session/task/run (A-05): a regular expression with named groups over\nthe relative path (or the file name), or a table; table rows win over the expression.",
       "properties": {
+        "files": {
+          "items": {
+            "$ref": "#/$defs/MappedFile"
+          },
+          "maxItems": 100000,
+          "title": "Files",
+          "type": "array"
+        },
         "pattern": {
           "anyOf": [
             {
@@ -313,8 +322,67 @@
       "title": "ExceptionEntry",
       "type": "object"
     },
+    "MappedFile": {
+      "additionalProperties": false,
+      "description": "One row of the mapping table for raw folders (A-05).",
+      "properties": {
+        "path": {
+          "maxLength": 1024,
+          "title": "Path",
+          "type": "string"
+        },
+        "run": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "pattern": "^[0-9]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run"
+        },
+        "session": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session"
+        },
+        "subject": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9]+$",
+          "title": "Subject",
+          "type": "string"
+        },
+        "task": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9]+$",
+          "title": "Task",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "subject",
+        "task"
+      ],
+      "title": "MappedFile",
+      "type": "object"
+    },
     "MetadataDefaults": {
       "additionalProperties": false,
+      "description": "Documented values for all recordings; they take precedence over sidecars and headers (A-04).",
       "properties": {
         "device": {
           "anyOf": [
@@ -370,6 +438,19 @@
           ],
           "default": null,
           "title": "Reference"
+        },
+        "software_filters": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Software Filters"
         }
       },
       "title": "MetadataDefaults",
@@ -378,6 +459,14 @@
     "MetadataSection": {
       "additionalProperties": false,
       "properties": {
+        "channel_map": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "maxProperties": 4096,
+          "title": "Channel Map",
+          "type": "object"
+        },
         "defaults": {
           "$ref": "#/$defs/MetadataDefaults"
         },
