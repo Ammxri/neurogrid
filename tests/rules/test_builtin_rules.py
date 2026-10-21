@@ -8,6 +8,7 @@ evidence file, and further CheckOptions fields such as ``strict``.
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import resources
@@ -37,6 +38,30 @@ class Case:
 SETUPS: dict[str, Callable[[Path, Path], tuple[Path, dict[str, object]]]] = {}
 
 
+def _ai_duplicate_copy(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+    """M12-02: a raw folder in which one recording is copied under another name (same signal hash)."""
+    folder = tmp / fixture.name
+    shutil.copytree(fixture, folder)
+    shutil.copyfile(folder / "rec_a.edf", folder / "rec_a_copy.edf")
+    return folder, {}
+
+
+def _ai_participants_split(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+    """M12-01 through the participants.tsv split column (A-04): sub-01 has a row for train and one for val;
+    without .neurogrid/splits.tsv the column is the split source."""
+    folder = tmp / fixture.name
+    shutil.copytree(fixture, folder)
+    (folder / ".neurogrid" / "splits.tsv").unlink()
+    rows = ["participant_id\tage\tsex\tsplit", "sub-01\t23\tF\ttrain", "sub-01\t23\tF\tval"]
+    rows += [f"sub-0{n}\t40\tM\ttrain" for n in range(2, 7)]
+    (folder / "participants.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    return folder, {}
+
+
+SETUPS["ai_duplicate_copy"] = _ai_duplicate_copy
+SETUPS["ai_participants_split"] = _ai_participants_split
+
+
 WET = '[metadata.defaults]\nelectrode_type = "wet"\n'
 DRY = '[metadata.defaults]\nelectrode_type = "dry"\n'
 RAW_DOCUMENTED = (
@@ -46,6 +71,7 @@ RAW_DOCUMENTED = (
 BIDS = ("bids",)
 # documents 60 Hz for data with 50 Hz line noise (A-47)
 LINE_60_HZ = "[metadata.defaults]\nline_frequency_hz = 60\n"
+AI_LABELS = '[ai]\nlabels = "events:trial_type"\n'  # M11 label source (A-81)
 
 
 CASES = [
@@ -136,6 +162,25 @@ CASES = [
     Case("CORE-M09-02", "edf_quality_ok", Status.PASSED),  # 5 of 17 components not brain (0.29)
     Case("CORE-M09-02", "edf_quality_artefacts", Status.FAILED),  # 17 of 19 components not brain (0.89)
     Case("CORE-M09-02", "edf_quality_issues", Status.NOT_CHECKABLE),  # 10 good channels, ICA needs 16
+    # P4 ai: M11/M12 (tools/gen_fixtures.py). bids_ai_ok passes every rule: classes A/B/C at 0.4/0.3/0.3 in
+    # every scope, age and sex for all six subjects, subject-disjoint splits, seven different signals.
+    # bids_ai_issues has one problem per rule.
+    Case("CORE-M11-01", "bids_ai_ok", Status.PASSED, AI_LABELS),
+    Case("CORE-M11-01", "bids_ai_issues", Status.FAILED, AI_LABELS),  # 'rare' 1 of 40 events; test lacks C
+    Case("CORE-M11-01", "edf_ok", Status.NOT_APPLICABLE),  # no [ai] labels (A-81)
+    Case("CORE-M11-01", "edf_ok", Status.NOT_CHECKABLE, AI_LABELS),  # events.tsv labels need BIDS
+    Case("CORE-M11-02", "bids_ai_ok", Status.PASSED, AI_LABELS),
+    Case("CORE-M11-02", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-03 age n/a, sub-04 without a row
+    Case("CORE-M11-02", "bids_ok", Status.FAILED),  # participants.tsv without age and sex columns
+    Case("CORE-M11-02", "edf_ok", Status.NOT_CHECKABLE),  # raw folder without mapping: subjects unknown
+    Case("CORE-M12-01", "bids_ai_ok", Status.PASSED, AI_LABELS),
+    Case("CORE-M12-01", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-02 in train and test (NG-F09)
+    Case("CORE-M12-01", "bids_ai_ok", Status.FAILED, setup="ai_participants_split"),  # sub-01 train + val
+    Case("CORE-M12-01", "bids_ok", Status.NOT_APPLICABLE),  # no splits (A-21, C11)
+    Case("CORE-M12-02", "bids_ai_ok", Status.PASSED, AI_LABELS),
+    Case("CORE-M12-02", "edf_ok", Status.PASSED),  # rec_a and rec_b have different signals
+    Case("CORE-M12-02", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-05 run-1 = sub-01 run-1
+    Case("CORE-M12-02", "edf_ok", Status.FAILED, setup="ai_duplicate_copy"),  # a copy under another name
 ]
 
 

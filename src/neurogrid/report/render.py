@@ -92,11 +92,56 @@ class _Formatter:
             names = self.sub_codes(finding.details.get("sub_codes"))
             if names:
                 parts.append(self.tr("report.validator.sub_codes", names=names))
+        parts.extend(self.ai_details(finding.details))
         if "error_type" in finding.details:  # foreign exception: only its type name (A-07)
             parts.append(str(finding.details["error_type"]))
         if "exception_reason" in finding.details:
             parts.append(str(finding.details["exception_reason"]))
         return " ".join(parts) if parts else self.tr("report.value.none")
+
+    def ai_details(self, details: dict[str, Any]) -> list[str]:
+        """M11/M12 details (A-81): class counts, free-text labels, split members and duplicate groups. Names
+        are displayed recording IDs (pseudonymous in raw folders); signal hashes never reach results.json."""
+        parts: list[str] = []
+        label_chars = details.get("label_chars")
+        if details.get("label") is None and isinstance(label_chars, int):
+            parts.append(self.tr("report.ai.free_text", count=label_chars))
+        unit = details.get("unit")
+        counted = isinstance(details.get("count"), int) and isinstance(details.get("total"), int)
+        if unit in ("events", "subjects") and counted:
+            parts.append(
+                self.tr(
+                    "report.ai.share",
+                    count=details["count"],
+                    total=details["total"],
+                    unit=self.tr(f"report.ai.unit_{unit}"),
+                )
+            )
+        recordings = details.get("split_recordings")
+        order = ("train", "val", "test")  # DM-06; results.json sorts the keys
+        for split, names in (
+            sorted(
+                recordings.items(),
+                key=lambda item: (order.index(item[0]) if item[0] in order else 3, item[0]),
+            )
+            if isinstance(recordings, dict)
+            else []
+        ):
+            if isinstance(names, list):
+                parts.append(self.tr("report.ai.split_recordings", split=split, names=self.names(names)))
+        if isinstance(details.get("duplicate_of"), list):
+            names = self.names(details["duplicate_of"], details.get("duplicates_total"))
+            parts.append(self.tr("report.ai.duplicate_of", names=names))
+            if isinstance(details.get("splits"), list):
+                parts.append(self.tr("report.ai.duplicate_splits", names=self.names(details["splits"])))
+        return parts
+
+    @staticmethod
+    def names(items: list[Any], total: Any = None) -> str:
+        """'a, b, c' plus '(+n)' when the list was cut (A-59: at most 20 IDs in details)."""
+        text = ", ".join(str(item) for item in items)
+        extra = total - len(items) if isinstance(total, int) and not isinstance(total, bool) else 0
+        return text + (f" (+{extra})" if extra > 0 else "")
 
     def label(self, prefix: str, key: Any) -> str:
         """The text for a value from results.json, or the value itself if it has none (another version)."""

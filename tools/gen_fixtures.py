@@ -462,6 +462,104 @@ def _bids_issues() -> dict[str, Callable[[Path], None]]:
     }
 
 
+# --- AI dataset structure fixtures (M11, M12) -------------------------------------------------------------
+#
+# Small BIDS datasets (4 channels, 2 s at 128 Hz per recording) for the rules CORE-M11-01 … CORE-M12-02: class
+# labels in events.tsv (trial_type), demography in participants.tsv and the splits in .neurogrid/splits.tsv.
+# Every recording has its own seed, so signals differ unless a fixture copies one on purpose.
+
+AI_LABELS = ("Fp1", "Fp2", "C3", "C4")
+
+
+def _ai_edf(path: Path, seed: int, recording: str = "Startdate X X X X") -> None:
+    write_edf(path, sfreq=128, seconds=2, labels=AI_LABELS, label_prefix="", seed=seed, recording=recording)
+
+
+def _ai_events(classes: dict[str, int]) -> str:
+    """One event of 0.1 s every 0.2 s, ``count`` events per trial_type in the given order."""
+    names = [name for name, count in classes.items() for _ in range(count)]
+    rows = "".join(f"{0.2 * index:.1f}\t0.1\t{name}\n" for index, name in enumerate(names))
+    return "onset\tduration\ttrial_type\n" + rows
+
+
+def _ai_dataset(
+    name: str,
+    participants: str,
+    recordings: dict[str, tuple[int, dict[str, int], str]],
+    headers: dict[str, str] | None = None,
+) -> dict[str, Callable[[Path], None]]:
+    """A BIDS dataset: ``recordings`` maps "<sub>/<run>" to (seed, classes, split); the split goes to
+    .neurogrid/splits.tsv with the dataset-relative path. ``headers`` gives other EDF recording fields."""
+    description = {"Name": name, "BIDSVersion": "1.11.1", "DatasetType": "raw", "License": "CC-BY-4.0"}
+    levels = {"A": "Class A (synthetic)", "B": "Class B (synthetic)", "C": "Class C (synthetic)"}
+    files: dict[str, Callable[[Path], None]] = {
+        "dataset_description.json": lambda p: _json(p, description),
+        "README": lambda p: _text(p, README),
+        "participants.tsv": lambda p: _text(p, participants),
+        "participants.json": lambda p: _json(
+            p,
+            {
+                "participant_id": {"Description": "Participant identifier"},
+                "age": {"Description": "Age (synthetic)", "Units": "year"},
+                "sex": {"Description": "Sex (synthetic)", "Levels": {"F": "female", "M": "male"}},
+            },
+        ),
+        "task-rest_events.json": lambda p: _json(p, {"trial_type": {"Levels": levels}}),
+    }
+    splits = ["recording\tsplit\n"]
+    for key, (seed, classes, split) in recordings.items():
+        sub, run = key.split("/")
+        stem = f"sub-{sub}/eeg/sub-{sub}_task-rest_run-{run}"
+        header = (headers or {}).get(key, "Startdate X X X X")
+        files[f"{stem}_eeg.edf"] = partial(_ai_edf, seed=seed, recording=header)
+        files[f"{stem}_events.tsv"] = partial(_text, content=_ai_events(classes))
+        splits.append(f"{stem}_eeg.edf\t{split}\n")
+    files[".neurogrid/splits.tsv"] = partial(_text, content="".join(splits))
+    return files
+
+
+def _bids_ai_ok() -> dict[str, Callable[[Path], None]]:
+    """Positive cases of M11/M12: six subjects (sub-01 with two runs), age and sex documented for all,
+    classes A/B/C with shares 0.4/0.3/0.3 in every scope, subject-disjoint splits (train 01-04, val 05,
+    test 06), seven different signals. Ages 37.25 and 61.75 are planted for the privacy tests (A-21)."""
+    participants = (
+        "participant_id\tage\tsex\nsub-01\t23\tF\nsub-02\t37.25\tM\nsub-03\t45\tF\n"
+        "sub-04\t61.75\tM\nsub-05\t52\tF\nsub-06\t29\tM\n"
+    )
+    even = {"A": 4, "B": 3, "C": 3}
+    recordings = {
+        "01/1": (71, even, "train"),
+        "01/2": (72, even, "train"),
+        "02/1": (73, even, "train"),
+        "03/1": (74, even, "train"),
+        "04/1": (75, even, "train"),
+        "05/1": (76, even, "val"),
+        "06/1": (77, even, "test"),
+    }
+    return _ai_dataset("NeuroGrid synthetic AI structure dataset", participants, recordings)
+
+
+def _bids_ai_issues() -> dict[str, Callable[[Path], None]]:
+    """Negative cases of M11/M12: sub-02 run-1 in train and run-2 in test; sub-03 age n/a; sub-04 without a
+    participants row; class 'rare' with 1 of 40 events (2.5 %); the test split lacks class C; sub-05 run-1
+    has the samples of sub-01 run-1 (same seed) under another recording header field and lies in test."""
+    participants = "participant_id\tage\tsex\nsub-01\t30\tF\nsub-02\t41\tM\nsub-03\tn/a\tF\nsub-05\t27\tM\n"
+    recordings = {
+        "01/1": (81, {"A": 4, "B": 2, "C": 2}, "train"),
+        "02/1": (82, {"A": 3, "B": 2, "C": 2, "rare": 1}, "train"),
+        "02/2": (83, {"A": 4, "B": 3}, "test"),
+        "03/1": (84, {"A": 3, "B": 2, "C": 2}, "train"),
+        "04/1": (85, {"A": 2, "B": 2, "C": 1}, "val"),
+        "05/1": (81, {"A": 3, "B": 2}, "test"),
+    }
+    return _ai_dataset(
+        "NeuroGrid synthetic AI structure dataset with problems",
+        participants,
+        recordings,
+        headers={"05/1": "Startdate X X X copy"},
+    )
+
+
 def _prefixed(folder: str, files: dict[str, Callable[[Path], None]]) -> dict[str, Callable[[Path], None]]:
     return {f"{folder}/{relative}": make for relative, make in files.items()}
 
@@ -737,6 +835,8 @@ FIXTURES: dict[str, Callable[[Path], None]] = {
     "orphan/lonely.fdt": lambda p: _binary(p, b"\x00" * 64),
     **_prefixed("bids_ok", _bids_ok()),
     **_prefixed("bids_issues", _bids_issues()),
+    **_prefixed("bids_ai_ok", _bids_ai_ok()),
+    **_prefixed("bids_ai_issues", _bids_ai_issues()),
     "edf_quality_ok/rec.edf": lambda p: _quality_edf(p, quality_ok_signals(41)),
     "edf_quality_issues/rec.edf": lambda p: _quality_edf(p, quality_issues_signals(51)),
     "edf_quality_artefacts/rec.edf": lambda p: _quality_edf(p, quality_artefact_signals(63), ARTEFACT_LABELS),

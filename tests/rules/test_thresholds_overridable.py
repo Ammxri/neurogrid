@@ -41,9 +41,14 @@ EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("quality.clipping", "max_fraction"): ("edf_quality_ok", 0.02),  # P8 saturated in 2 of 70 windows
     ("quality.autoreject", "max_fraction"): ("edf_quality_ok", 0.02),  # 3 of 35 epochs rejected: 0.086
     ("quality.non_brain_components", "max_fraction"): ("edf_quality_ok", 0.1),  # 5 of 17 components: 0.29
+    # P4 ai: classes A/B/C at 0.4/0.3/0.3 in every scope of bids_ai_ok (all, train, val, test)
+    ("ai.class_balance", "min_share"): ("bids_ai_ok", 0.35),
 }
 # check -> toml lines both runs need so that the check can be evaluated at all
-BASE_CONFIG = {"impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n'}
+BASE_CONFIG = {
+    "impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n',
+    "ai.class_balance": '[ai]\nlabels = "events:trial_type"\n',
+}
 
 
 def _toml_value(value: ParamValue) -> str:

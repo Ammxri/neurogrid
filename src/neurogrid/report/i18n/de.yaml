@@ -44,6 +44,17 @@ cli:
     library: "Hinweis: Eine Bibliothek hat eine Warnung gemeldet ({type}); die Ergebnisse sind davon nicht betroffen."
 
 errors:
+  splits:
+    columns: "splits.tsv braucht in der Kopfzeile genau eine Spalte 'recording' und eine Spalte 'split'."
+    invalid_row: "splits.tsv, Zeile {line}: Wert für 'recording' oder 'split' fehlt."
+    invalid_split: "splits.tsv, Zeile {line}: Der Split muss train, val oder test sein."
+    unsafe_path: "splits.tsv, Zeile {line}: Die Aufnahme muss ein relativer Pfad im Datensatz sein (kein '..', kein Laufwerks-, Netz- oder Gerätepfad) oder eine pseudonyme ID rec-xxxxxxxx."
+    too_large: "splits.tsv ist zu groß (Grenze {limit} Bytes)."
+    too_many_rows: "splits.tsv hat zu viele Zeilen (Grenze {limit})."
+    encoding: "splits.tsv ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird angenommen)."
+    not_a_file: "Die Split-Datei ist keine reguläre Datei."
+    unreadable: "Die Split-Datei kann nicht gelesen werden."
+    link: "Die Split-Datei ist ein Link oder liegt hinter einem; Links werden nicht verfolgt."
   yaml:
     alias: "YAML-Aliase sind nicht erlaubt (Zeile {line})."
     duplicate_key: "Doppelter Schlüssel '{name}' (Zeile {line})."
@@ -77,6 +88,7 @@ errors:
     placeholder_needs_flag: "Regelpaket {rulepack} ist ein Platzhalter (nicht aus dem Normtext). Nur mit --allow-draft-rulepacks laden."
     encoding: "Das Regelpaket ist kein UTF-8-Text."
   config:
+    splits_not_found: "Konfiguration: Die Datei in Feld '{field}' existiert nicht."
     invalid: "Ungültige Konfiguration: Feld '{field}' ({problem})."
     syntax: "Syntaxfehler in der Konfiguration: {problem}."
     too_large: "Konfigurationsdatei ist zu groß."
@@ -117,6 +129,11 @@ errors:
     label_case: "Die Labels {first} und {second} unterscheiden sich nur in der Groß-/Kleinschreibung; unter Windows und macOS lägen sie im selben Ordner. Bitte eindeutig benennen."
 
 notice:
+  splits_both_sources: "Die Splits stammen aus splits.tsv; die Spalte 'split' in participants.tsv wird nicht verwendet."
+  splits_unknown_rows: "{count} Zeile(n) von splits.tsv nennen keine Aufnahme des Datensatzes und wurden nicht verwendet."
+  splits_unassigned: "{count} Aufnahme(n) gehören zu keinem Split."
+  splits_outside_dataset: "Die in [ai] splits gesetzte Split-Datei liegt außerhalb des Datensatzes; ein Manifest des Datensatzes erfasst sie nicht."
+  participants_split_invalid: "{count} Wert(e) in der Spalte 'split' von participants.tsv sind nicht train, val oder test; diese Zeilen ordnen keinen Split zu."
   override_unused: "Die Konfiguration setzt Parameter für Regel {rule}, die nicht geladen ist."
   exception_expired: "Ausnahme für Regel {rule} ist am {valid_until} abgelaufen und wurde nicht angewendet."
   exception_unused: "Ausnahme für Regel {rule} hat keinen Befund getroffen."
@@ -152,6 +169,22 @@ light:
   legend: "Rot: mindestens eine Fehler-Regel nicht bestanden. Gelb: mindestens eine Warn-Regel nicht bestanden. Grün: keine nicht bestandene Fehler- oder Warn-Regel in den geladenen Regelpaketen. Grau: keine Regeln für diese Phase."
 
 reason:
+  ai:
+    labels_not_configured: "Keine Labelquelle konfiguriert ([ai] labels in neurogrid.toml)."
+    labels_need_bids: "Die Labelquelle events:<Spalte> braucht BIDS-Dateien events.tsv; dies ist kein BIDS-Datensatz."
+    label_column_missing: "Die konfigurierte Labelspalte wurde nicht gefunden (events.tsv oder participants.tsv)."
+    no_label_values: "Kein Ereignis oder Proband mit Label in diesem Bereich."
+    subjects_unknown: "Probanden unbekannt: Nicht jede Aufnahme ist einem Probanden zugeordnet (BIDS-Dateinamen oder Zuordnung in neurogrid.toml)."
+    subject_unknown: "Die Aufnahme ist einem Split zugeordnet, ihr Proband ist aber unbekannt."
+    no_participants_table: "Keine participants.tsv in der Datensatzwurzel."
+    participants_unusable: "participants.tsv ist nicht verwendbar (keine Spalte participant_id, kein UTF-8, zu groß oder ein Link)."
+    not_in_participants: "Der Proband hat keine Zeile in participants.tsv."
+    column_missing: "participants.tsv hat keine Spalte für diesen Wert (age; sex oder gender)."
+    value_missing: "Der Wert ist in participants.tsv leer oder n/a."
+    age_unparseable: "Das Alter in participants.tsv ist keine Zahl (Wert nicht angezeigt)."
+    no_splits: "Keine Splits festgelegt (.neurogrid/splits.tsv oder Spalte 'split' in participants.tsv)."
+    hash_unavailable: "Kein Signal-Hash: Die Aufnahme hat keinen EEG-Kanal für den Hash."
+    small_cell: "Wert nicht angezeigt: Er würde eine Zahl unter 5 Probanden offenlegen (Unterdrückung kleiner Zellen)."
   read:
     failed: "Die Daten konnten nicht gelesen werden."
     unlistable: "Der Ordner konnte nicht gelesen werden; sein Inhalt wurde nicht geprüft."
@@ -248,6 +281,11 @@ issue:
     date: "Aufnahmedatum"
 
 check:
+  ai:
+    class_balance: "Klassenanteil"
+    demographics_complete: "Alter und Geschlecht dokumentiert"
+    split_integrity: "Proband in nur einem Split"
+    duplicate_recordings: "Keine doppelten Aufnahmen (Signal-Hash)"
   structure:
     readable: "Daten lesbar (MNE)"
     header_consistent: "Kopfzeile konsistent"
@@ -287,6 +325,14 @@ check:
     document: "Nachweisdokument"
 
 report:
+  ai:
+    share: "{count} von {total} ({unit})"
+    unit_events: "Ereignisse"
+    unit_subjects: "Probanden"
+    free_text: "Freitext ({count} Zeichen)"
+    duplicate_of: "Gleiches Signal wie: {names}"
+    duplicate_splits: "Splits der Gruppe: {names}"
+    split_recordings: "{split}: {names}"
   title: "NeuroGrid-Vorprüfungsbericht"
   placeholder_banner: "Dieser Bericht enthält Regelpakete, die als Platzhalter markiert sind. Ihre Regeln beruhen nicht auf dem Normtext, erscheinen ohne Klauselbezug und zählen nicht."
   section:

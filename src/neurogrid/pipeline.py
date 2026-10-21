@@ -18,6 +18,7 @@ from typing import Any
 
 import neurogrid
 from neurogrid import config as config_module
+from neurogrid.checks import ai_dataset
 from neurogrid.checks.context import CheckContext
 from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
@@ -299,11 +300,14 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             manifest_path=options.manifest_path,
             evidence_path=options.evidence_path,
         )
-        stream = bool(check_ids & STREAM_CHECKS)
+        if check_ids & ai_dataset.CHECKS:  # control files first: an invalid splits.tsv ends with exit 2 (C2)
+            ai_dataset.structure(ctx)
+        stream = bool(check_ids & (STREAM_CHECKS | ai_dataset.STREAM_CHECKS))  # M12 needs the signal hash
         sample = bool(check_ids & SAMPLE_CHECKS)
         if stream or sample:
             ctx.compute_quality(stream=stream, sample=sample, jobs=options.jobs)
         measurements = measure(ctx, check_ids)
+        ai_outputs = ai_dataset.outputs(ctx, check_ids)
     result = engine.run(
         engine.EngineInput(
             packs=packs,
@@ -316,6 +320,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
     )
     plain_names = found.is_bids or options.show_paths
     notices = list(result.notices)
+    notices.extend(ai_outputs.notices)
     if not found.is_bids and any(check_id.startswith("bids.") for check_id in check_ids):
         notices.append(Notice(level=Severity.INFO, message_key="notice.bids_not_checked"))  # A-03
     if found.links_skipped:
@@ -386,7 +391,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             effective_settings=_effective_settings(cfg, plain_names),
         ),
         recordings=_recording_summaries(ctx),
-        findings=result.findings,
+        findings=ai_dataset.suppress_small_cells(result.findings),  # A-51 small cells (A-81)
         passed=result.passed,
         exceptions=exceptions,
         notices=notices,
@@ -397,6 +402,8 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             warnings=sum(p.warnings for p in result.phases.values()),
             exit_code=result.exit_code,
         ),
+        duplicates=ai_outputs.duplicates,
+        ai=ai_outputs.summary,
     )
 
 

@@ -77,6 +77,8 @@ class CheckContext:
     manifest_path: Path | None = None  # --manifest; None: the default location (A-22)
     evidence_path: Path | None = None  # --evidence; None: the default location (A-15)
     _validator: ValidatorResult | None = field(default=None, repr=False)
+    # M11/M12 dataset structure (participants, splits, labels), built once by checks.ai_dataset (A-81)
+    ai_structure: object = field(default=None, repr=False)
 
     def validator_result(self) -> ValidatorResult:
         """The BIDS validator result for the dataset; computed once per run."""
