@@ -1,4 +1,5 @@
-"""Heuristics for identifying header content (A-05, A-51, A-64), shared by all adapters.
+"""Heuristics for identifying header content (A-05, A-51, A-64), shared by all adapters, and the display
+rule for free text from data files (A-17, A-51, C5).
 
 Values are only inspected, never kept or returned; adapters report field names only.
 """
@@ -8,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Collection
+from typing import NamedTuple
 
 PLACEHOLDER_TOKENS = frozenset({"x", "-", "_", "0", "anonymous", "anon", "unknown", "n/a", "na", "none"})
 DATE_IN_TEXT = re.compile(
@@ -46,19 +48,40 @@ def looks_identifying(text: str) -> bool:
     )
 
 
-# A-17: free text (annotation codes, class labels, annotator IDs) is shown only in this form (C5).
-DISPLAYABLE_TEXT = re.compile(r"[A-Za-z0-9_.\-/ ]{1,32}")
+# A-17: a code or label from a data file is shown only if it is short and made of these characters.
+DISPLAYABLE = re.compile(r"[A-Za-z0-9_.\-/ ]{1,32}")
+FREE_TEXT_PREFIX = "text-"  # subkey of a value that is not shown (A-17, like pattern-<sha8> in A-69)
+ANNOTATOR_PREFIX = "ann-"  # pseudonym of an annotator ID (A-51, A-68)
 
 
-def display_text(value: str, vocabulary: Collection[str] = ()) -> tuple[str | None, str]:
-    """How a free-text value from the dataset may appear in outputs (A-17, A-51; decision C5).
+def short_hash(value: str) -> str:
+    """The first 8 hex digits of SHA-256 over the UTF-8 bytes (surrogates kept, so any text has one)."""
+    return hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()[:8]
 
-    Returns ``(shown, subkey)``. A value of the documented vocabulary, or one that matches the A-17 pattern
-    and does not look identifying, is shown as it is and is its own subkey. Any other value is not shown
-    (``shown`` is None; outputs give "free text (n characters)" instead) and its subkey is the stable
-    pseudonym ``text-<sha256[:8]>``. The subkey never depends on --show-paths (A-68).
+
+class DisplayedText(NamedTuple):
+    """How a value from a data file appears in outputs.
+
+    ``shown`` is the value itself, or None for free text, which outputs show as "free text (n characters)"
+    (report.value.free_text, with n = len(value)); ``subkey`` is the value itself or the stable
+    ``text-<sha256[:8]>``. Neither depends on --show-paths, so finding keys and exceptions do not either
+    (A-68).
     """
-    if value in vocabulary or (DISPLAYABLE_TEXT.fullmatch(value) and not looks_identifying(value)):
-        return value, value
-    digest = hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()[:8]
-    return None, f"text-{digest}"
+
+    shown: str | None
+    subkey: str
+
+
+def display_text(value: str, vocabulary: Collection[str] = ()) -> DisplayedText:
+    """A-17 with the refinement of C5: a value is shown if it is in the vocabulary, or if it fully matches
+    the A-17 pattern (``DISPLAYABLE``) and does not look identifying (a name, a long number, an absolute
+    path). Annotation codes, class labels and annotator IDs from files all use this one rule (A-51)."""
+    if value in vocabulary or (DISPLAYABLE.fullmatch(value) and not looks_identifying(value)):
+        return DisplayedText(value, value)
+    return DisplayedText(None, FREE_TEXT_PREFIX + short_hash(value))
+
+
+def annotator_pseudonym(annotator: str) -> str:
+    """``ann-<sha256[:8]>`` of the raw annotator ID: the subkey of per-annotator findings, the same with and
+    without --show-paths (A-68, C5)."""
+    return ANNOTATOR_PREFIX + short_hash(annotator)

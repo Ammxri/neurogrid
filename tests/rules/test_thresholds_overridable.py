@@ -45,11 +45,14 @@ EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("structure.storage_format", "formats"): ("edf_ok", "BDF"),
     # P4 ai: classes A/B/C at 0.4/0.3/0.3 in every scope of bids_ai_ok (all, train, val, test)
     ("ai.class_balance", "min_share"): ("bids_ai_ok", 0.35),
+    # P4 annotation: one object with three scorers, pairwise kappa 1.0 / 0.5 / 0.5 (mean 0.667)
+    ("annotation.kappa", "min_kappa"): ("annotation_continuous_ok", 0.95),
 }
 # check -> toml lines both runs need so that the check can be evaluated at all
 BASE_CONFIG = {
     "impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n',
     "ai.class_balance": '[ai]\nlabels = "events:trial_type"\n',
+    "annotation.kappa": '[annotation]\nmode = "continuous"\nepoch_s = 30\n',
 }
 
 

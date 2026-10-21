@@ -200,6 +200,10 @@ notice:
   evidence_date_after_as_of: "Evidence for rule {rule} is dated {date}, after the reference date {as_of}."
   evidence_looks_identifying: "{count} evidence entr(y/ies) have a reviewer or document name that may identify persons (a name, non-ASCII letters or six or more digits). Please use roles or initials and neutral file names."
   output_inside_dataset: "The results file or the run's work folder lies inside the dataset. A manifest made later includes such files, and a later check or verify reports them as new; write --out outside the dataset."
+  annotations_unassigned: "{count} annotation-only file(s) (e.g. hypnograms) match no signal recording; each is checked as a recording of its own. Assign them with [[annotation.files]] in neurogrid.toml."
+  annotations_ambiguous: "{count} annotation-only file(s) match several signal recordings equally well; each is checked as a recording of its own. Assign them with [[annotation.files]] in neurogrid.toml."
+  annotation_files_unmatched: "{count} row(s) of [[annotation.files]] in neurogrid.toml name no annotation-only file or no signal recording of the dataset."
+  events_rows_invalid: "{count} row(s) of events.tsv files have no valid onset or duration and were left out of the annotation checks."
 
 severity:
   error: "Error"
@@ -328,6 +332,18 @@ reason:
     steps_invalid: ".neurogrid/processing_steps.json cannot be used."
     step_incomplete: "A processing step lacks its step name, tool or version."
     software_missing: "No software versions documented (provenance.yaml, processing steps, or GeneratedBy with Name and Version)."
+  annotation:
+    none: "No annotations."
+    single_annotator: "Only one annotator; Cohen's kappa needs at least two."
+    event_mode: "Gaps and coverage are checked in continuous mode only ([annotation] mode)."
+    no_vocabulary: "No vocabulary to compare the codes with ([annotation] vocabulary or events.json Levels)."
+    too_short: "The recording is shorter than one epoch of the annotation grid."
+    kappa_undefined: "Cohen's kappa is not defined: for every pair of annotators the expected agreement is 1."
+    unreadable: "The annotations could not be read."
+    too_many: "More annotations than the input limit (1,000,000)."
+    epoched: "Epoched EEGLAB data set; continuous annotation cannot be judged."
+    duration_unknown: "The length of the recording is unknown."
+    too_many_epochs: "The epoch grid has more epochs than the limit (5,000,000); choose a longer [annotation] epoch_s."
 
 issue:
   header:
@@ -417,6 +433,11 @@ check:
     files_match: "Files match the manifest"
     documented: "Processing steps and software versions documented"
     manifest_matches: "Manifest present and every file matches it"
+  annotation:
+    kappa: "Agreement between annotators (Cohen's kappa)"
+    codes: "Annotation codes uniform and in the vocabulary"
+    gaps: "No gaps in continuous annotation"
+    overlaps: "No overlapping annotations"
 
 report:
   ai:
@@ -507,6 +528,7 @@ report:
     evidence_provided: "evidence filed (user's statement, not assessed by NeuroGrid)"
     not_streamable: "not readable in blocks"
     clause_unknown: "unknown (norm text not accessible)"
+    free_text: "free text ({n} characters)"
   text:
     no_findings: "No findings with these severities."
     no_recordings: "No recordings."
@@ -542,6 +564,11 @@ report:
     rate_hz: "rate (Hz)"
     rates_hz: "rates (Hz)"
     uniform: "uniform"
+    gaps: "gaps"
+    gap_s: "gaps (s)"
+    coverage: "coverage"
+    overlaps: "overlaps"
+    overlap_s: "overlaps (s)"
   document_check:
     ok: "document present (recorded hash, if any, matches)"
     no_document: "no document named"

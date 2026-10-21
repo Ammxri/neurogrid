@@ -200,6 +200,10 @@ notice:
   evidence_date_after_as_of: "Nachweis für Regel {rule} ist auf {date} datiert, nach dem Stichtag {as_of}."
   evidence_looks_identifying: "{count} Nachweiseintrag/-einträge haben einen Prüfer oder Dokumentnamen, der Personen kennzeichnen könnte (Name, Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern). Bitte Rollen oder Kürzel und neutrale Dateinamen verwenden."
   output_inside_dataset: "Ergebnisdatei oder Arbeitsordner des Laufs liegen im Datensatz. Ein später erstelltes Manifest erfasst solche Dateien, und spätere check- oder verify-Läufe melden sie als neu; --out außerhalb des Datensatzes schreiben."
+  annotations_unassigned: "{count} reine Annotationsdatei(en) (z. B. Hypnogramme) passen zu keiner Signalaufnahme; jede wird als eigene Aufnahme geprüft. Bitte mit [[annotation.files]] in neurogrid.toml zuordnen."
+  annotations_ambiguous: "{count} reine Annotationsdatei(en) passen gleich gut zu mehreren Signalaufnahmen; jede wird als eigene Aufnahme geprüft. Bitte mit [[annotation.files]] in neurogrid.toml zuordnen."
+  annotation_files_unmatched: "{count} Zeile(n) von [[annotation.files]] in neurogrid.toml nennen keine reine Annotationsdatei oder keine Signalaufnahme des Datensatzes."
+  events_rows_invalid: "{count} Zeile(n) von events.tsv-Dateien haben keinen gültigen Beginn oder keine gültige Dauer und wurden bei den Annotationsprüfungen ausgelassen."
 
 severity:
   error: "Fehler"
@@ -328,6 +332,18 @@ reason:
     steps_invalid: ".neurogrid/processing_steps.json ist nicht verwendbar."
     step_incomplete: "Einem Verarbeitungsschritt fehlen Schrittname, Werkzeug oder Version."
     software_missing: "Keine Softwareversionen dokumentiert (provenance.yaml, Verarbeitungsschritte oder GeneratedBy mit Name und Version)."
+  annotation:
+    none: "Keine Annotationen."
+    single_annotator: "Nur ein Annotator; Cohens Kappa braucht mindestens zwei."
+    event_mode: "Lücken und Abdeckung werden nur im kontinuierlichen Modus geprüft ([annotation] mode)."
+    no_vocabulary: "Kein Vokabular, mit dem die Codes verglichen werden können ([annotation] vocabulary oder events.json Levels)."
+    too_short: "Die Aufnahme ist kürzer als eine Epoche des Annotationsrasters."
+    kappa_undefined: "Cohens Kappa ist nicht definiert: Für jedes Annotatorenpaar ist die erwartete Übereinstimmung 1."
+    unreadable: "Die Annotationen konnten nicht gelesen werden."
+    too_many: "Mehr Annotationen als die Eingabegrenze (1.000.000)."
+    epoched: "Epochierter EEGLAB-Datensatz; kontinuierliche Annotation kann nicht beurteilt werden."
+    duration_unknown: "Die Länge der Aufnahme ist unbekannt."
+    too_many_epochs: "Das Epochenraster hat mehr Epochen als die Grenze (5.000.000); bitte ein längeres [annotation] epoch_s wählen."
 
 issue:
   header:
@@ -417,6 +433,11 @@ check:
     files_match: "Dateien entsprechen dem Manifest"
     documented: "Verarbeitungsschritte und Softwareversionen dokumentiert"
     manifest_matches: "Manifest vorhanden und jede Datei entspricht ihm"
+  annotation:
+    kappa: "Übereinstimmung zwischen Annotatoren (Cohens Kappa)"
+    codes: "Annotationscodes einheitlich und im Vokabular"
+    gaps: "Keine Lücken in kontinuierlicher Annotation"
+    overlaps: "Keine überlappenden Annotationen"
 
 report:
   ai:
@@ -507,6 +528,7 @@ report:
     evidence_provided: "Nachweis hinterlegt (Angabe des Nutzers, nicht von NeuroGrid bewertet)"
     not_streamable: "nicht blockweise lesbar"
     clause_unknown: "unbekannt (Normtext nicht zugänglich)"
+    free_text: "Freitext ({n} Zeichen)"
   text:
     no_findings: "Keine Befunde dieser Schweregrade."
     no_recordings: "Keine Aufnahmen."
@@ -542,6 +564,11 @@ report:
     rate_hz: "Rate (Hz)"
     rates_hz: "Raten (Hz)"
     uniform: "einheitlich"
+    gaps: "Lücken"
+    gap_s: "Lücken (s)"
+    coverage: "Abdeckung"
+    overlaps: "Überlappungen"
+    overlap_s: "Überlappungen (s)"
   document_check:
     ok: "Dokument vorhanden (ein erfasster Hashwert stimmt)"
     no_document: "kein Dokument angegeben"
