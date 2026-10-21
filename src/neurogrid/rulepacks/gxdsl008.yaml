@@ -1,0 +1,54 @@
+# NeuroGrid rule pack gxdsl008 (GX-00, D-02, A-40, A-83): the start values that the PRD (§11) quotes from the
+# Guangxi group standard T/GXDSL 008-2025 until the YY/T norm text is available. The norm text itself was not
+# accessible: source_status is secondary, every clause is "unknown" (the report translates it, D-03) and the
+# coverage measure is n/a (A-16). All rules are warnings, so this pack never sets exit code 1 on its own.
+# Where a start value equals a core threshold (500 Hz, 5 kOhm) each pack gives its own finding on purpose
+# (A-40); the report links the two. Overrides and exceptions are per rule ID, so overriding CORE-M05-02 does
+# not change GXDSL008-ACQ-001 (A-13).
+# GX-03 reads "EDF or HDF5" as the storage format of the recordings: EDF, EDF+C and EDF+D, and EEGLAB data sets
+# in a MAT v7.3 (HDF5) container pass; BDF, BrainVision, EEGLAB MAT v5 and FIF give the warning, also for
+# BrainVision written by NeuroGrid's own convert (A-83).
+rulepack: gxdsl008
+version: "0.1.0"
+source: "T/GXDSL 008-2025 (start values as quoted in the PRD; norm text not accessible)"
+source_status: secondary
+norm: true
+rules:
+  - id: GXDSL008-ACQ-001
+    clause: unknown
+    title_zh: 阻抗低于阈值（湿电极）
+    title_en: Impedance below the limit (wet electrodes)
+    phase: acquisition
+    check: impedance.max
+    params: {max_kohm: 5}
+    severity: warning
+    verification: automatic
+
+  - id: GXDSL008-ACQ-002
+    clause: unknown
+    title_zh: 采样率不低于最低值
+    title_en: Sampling rate at or above the minimum
+    phase: acquisition
+    check: signal.sampling_rate_min
+    params: {min_hz: 500}
+    severity: warning
+    verification: automatic
+
+  - id: GXDSL008-STO-001
+    clause: unknown
+    title_zh: 记录以允许的存储格式保存（EDF/HDF5）
+    title_en: Recording stored in an allowed storage format (EDF/HDF5)
+    phase: storage
+    check: structure.storage_format
+    params: {formats: "EDF,HDF5"}
+    severity: warning
+    verification: automatic
+
+  - id: GXDSL008-ACC-001
+    clause: unknown
+    title_zh: AES-256 加密和基于角色的访问控制（证明材料）
+    title_en: AES-256 encryption and role-based access control (evidence)
+    phase: access
+    check: evidence.document
+    severity: warning
+    verification: manual

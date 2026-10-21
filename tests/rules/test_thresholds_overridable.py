@@ -41,6 +41,8 @@ EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("quality.clipping", "max_fraction"): ("edf_quality_ok", 0.02),  # P8 saturated in 2 of 70 windows
     ("quality.autoreject", "max_fraction"): ("edf_quality_ok", 0.02),  # 3 of 35 epochs rejected: 0.086
     ("quality.non_brain_components", "max_fraction"): ("edf_quality_ok", 0.1),  # 5 of 17 components: 0.29
+    # P4 evidence area: gxdsl008 GX-03; edf_ok is stored as EDF, so allowing only BDF fails it
+    ("structure.storage_format", "formats"): ("edf_ok", "BDF"),
 }
 # check -> toml lines both runs need so that the check can be evaluated at all
 BASE_CONFIG = {"impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n'}

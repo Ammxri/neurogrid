@@ -18,6 +18,7 @@ from typing import Any
 
 import neurogrid
 from neurogrid import config as config_module
+from neurogrid.checks import evidence as evidence_module
 from neurogrid.checks.context import CheckContext
 from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
@@ -283,6 +284,8 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         allow_draft=options.allow_draft_rulepacks,
         project_root=loaded_config.project_root,
     )
+    # evidence.yaml is a control file (C2): an invalid one ends the run before the data are read
+    evidence = evidence_module.load(options.evidence_path, target.root)
 
     found = scan(target.root, show_paths=options.show_paths, only=target.only)
     check_ids = {rule.check for loaded in packs for rule in loaded.pack.rules}
@@ -312,10 +315,21 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             as_of=as_of,
             overrides=cfg.overrides(),
             exceptions=cfg.exceptions,
+            evidence=evidence.entries,
+            document_check=evidence.checker(),
         )
     )
     plain_names = found.is_bids or options.show_paths
     notices = list(result.notices)
+    identifying_evidence = evidence_module.identifying_entries(evidence.entries)
+    if identifying_evidence:
+        notices.append(
+            Notice(
+                level=Severity.INFO,
+                message_key="notice.evidence_looks_identifying",
+                params={"count": identifying_evidence},
+            )
+        )
     if not found.is_bids and any(check_id.startswith("bids.") for check_id in check_ids):
         notices.append(Notice(level=Severity.INFO, message_key="notice.bids_not_checked"))  # A-03
     if found.links_skipped:
@@ -384,10 +398,12 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             sampling=canonical.normalize(cfg.sampling.model_dump(mode="json")),
             effective_params=result.effective_params,
             effective_settings=_effective_settings(cfg, plain_names),
+            evidence_sha256=evidence.sha256,
         ),
         recordings=_recording_summaries(ctx),
         findings=result.findings,
         passed=result.passed,
+        evidence=result.evidence,
         exceptions=exceptions,
         notices=notices,
         summary=Summary(
@@ -396,6 +412,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             errors=sum(p.errors for p in result.phases.values()),
             warnings=sum(p.warnings for p in result.phases.values()),
             exit_code=result.exit_code,
+            open_evidence=sum(p.open_evidence for p in result.phases.values()),
         ),
     )
 

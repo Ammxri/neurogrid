@@ -25,6 +25,7 @@ cli:
     counts: "{errors} Fehler, {warnings} Warnung(en)"
     written: "Ergebnis geschrieben nach {path}"
     placeholder: "Platzhalter-Regelpakete sind geladen. Ihre Befunde beruhen nicht auf einem Normtext und zählen nicht."
+    open_evidence: "{count} offene(r) Nachweis(e), in den Fehlern und Warnungen oben enthalten."
   report:
     written: "Bericht geschrieben nach {path}"
   convert:
@@ -87,6 +88,13 @@ errors:
     unsafe_path: "Konfiguration: Feld '{field}' muss ein relativer Pfad im Projekt sein (kein '..', kein Laufwerks-, Netz- oder Gerätepfad)."
     unsafe_pattern: "Konfiguration: Der reguläre Ausdruck in Feld '{field}' kann bei manchen Dateinamen sehr lange laufen (ein wiederholter Teil enthält eine weitere Wiederholung oder Alternativen, oder er nutzt einen Rückverweis). Bitte vereinfachen."
     too_deep: "Die Konfigurationsdatei ist zu tief verschachtelt."
+  evidence:
+    invalid: "Ungültige Nachweisdatei: Feld '{field}' ({problem})."
+    not_mapping: "Eine Nachweisdatei muss eine YAML-Zuordnung mit format_version und evidence sein."
+    encoding: "Die Nachweisdatei ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
+    too_large: "Die Nachweisdatei ist zu groß (Grenze {limit} Bytes)."
+    not_found: "Nachweisdatei nicht gefunden oder nicht lesbar."
+    unsafe_path: "Nachweis für Regel {rule}: Das Dokument muss ein einfacher relativer Pfad sein (kein '..', kein Laufwerks-, Netzwerk- oder Gerätepfad, keine URL)."
   input:
     not_found: "Eingabepfad nicht gefunden."
     unknown_format: "Unbekanntes oder nicht unterstütztes Format: {file}. Unterstützt: {known}."
@@ -123,6 +131,16 @@ notice:
   names_look_identifying: "{count} Datendatei-Pfad(e) enthalten Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern in Folge und könnten Personen kennzeichnen. Bitte die Dateinamen prüfen."
   links_skipped: "{count} Link(s) oder Junction(s) im Datensatz wurden nicht verfolgt; ihr Inhalt wurde nicht geprüft."
   bids_not_checked: "Der Datensatz ist kein BIDS-Datensatz; die BIDS-Struktur wurde nicht geprüft."
+  exception_unknown_rule: "Ausnahme für Regel {rule}: Kein geladenes Regelpaket enthält diese Regel, die Ausnahme wirkt daher nicht."
+  evidence_unused: "evidence.yaml enthält einen Eintrag für Regel {rule}, die nicht geladen ist."
+  evidence_ignored: "evidence.yaml enthält einen Eintrag für Regel {rule}, die NeuroGrid selbst misst; der Eintrag wird ignoriert."
+  evidence_document:
+    no_document: "Nachweis für Regel {rule} ist als hinterlegt markiert, nennt aber kein Dokument."
+    document_missing: "Nachweis für Regel {rule} ist als hinterlegt markiert, das Dokument wurde aber nicht gefunden; der Status ist die Angabe des Nutzers."
+    document_link: "Nachweis für Regel {rule} ist als hinterlegt markiert, das Dokument liegt aber hinter einem Link, dem nicht gefolgt wird; der Status ist die Angabe des Nutzers."
+    hash_mismatch: "Nachweis für Regel {rule} ist als hinterlegt markiert, das Dokument wurde aber seit Erfassung des Hashwerts verändert; der Status ist die Angabe des Nutzers."
+  evidence_date_after_as_of: "Nachweis für Regel {rule} ist auf {date} datiert, nach dem Stichtag {as_of}."
+  evidence_looks_identifying: "{count} Nachweiseintrag/-einträge haben einen Prüfer oder Dokumentnamen, der Personen kennzeichnen könnte (Name, Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern). Bitte Rollen oder Kürzel und neutrale Dateinamen verwenden."
 
 severity:
   error: "Fehler"
@@ -149,7 +167,18 @@ light:
   yellow: "gelb"
   green: "grün"
   grey: "grau"
-  legend: "Rot: mindestens eine Fehler-Regel nicht bestanden. Gelb: mindestens eine Warn-Regel nicht bestanden. Grün: keine nicht bestandene Fehler- oder Warn-Regel in den geladenen Regelpaketen. Grau: keine Regeln für diese Phase."
+  legend: "Rot: mindestens eine Fehler-Regel nicht bestanden oder ein Nachweis zu einer Fehler-Regel offen. Gelb: dasselbe bei Warn-Regeln. Grün: keine nicht bestandene Fehler- oder Warn-Regel und kein offener Nachweis in den geladenen Regelpaketen. Grau: keine Regel dieser Phase ergab bestanden oder nicht bestanden (keine Regeln, nur Platzhalter-Regeln oder nur nicht anwendbare oder nicht prüfbare Ergebnisse)."
+
+source_status:
+  placeholder: "Platzhalter"
+  secondary: "zweite Hand (Werte übernommen)"
+  inventory: "Klausel-Inventar"
+  final: "final"
+
+verification:
+  automatic: "automatisch"
+  semi_automatic: "halbautomatisch"
+  manual: "manuell"
 
 reason:
   read:
@@ -197,6 +226,7 @@ reason:
     electrode_type_unknown: "Elektrodentyp (nass/trocken) nicht dokumentiert; in neurogrid.toml angeben."
   impedance:
     dry_electrodes: "Trockenelektroden: Die 5-kOhm-Grenze gilt nur für nasse Elektroden."
+    not_documented: "Für die EEG-Kanäle ist keine Impedanz dokumentiert."
   evidence:
     missing: "Kein Nachweiseintrag."
     open: "Nachweis als offen markiert."
@@ -205,6 +235,7 @@ reason:
     no_document: "Kein Dokument angegeben."
     document_missing: "Angegebenes Dokument nicht gefunden."
     hash_mismatch: "Dokument wurde seit Erfassung des Hashwerts verändert."
+    document_link: "Das angegebene Dokument liegt hinter einem Link oder einer Junction, denen nicht gefolgt wird."
   value:
     non_finite: "Der Messwert ist keine endliche Zahl."
 
@@ -254,6 +285,7 @@ check:
     companions_present: "Begleitdateien und Verweise vorhanden"
     supported_format: "Format unterstützt"
     identifying_header: "Keine identifizierenden Kopfzeileninhalte"
+    storage_format: "Speicherformat"
   metadata:
     required_fields: "Pflichtfeld der Metadaten dokumentiert"
     consistent: "Metadaten konsistent"
@@ -346,6 +378,13 @@ report:
     analysed_channels: "Ausgewertete Kanäle"
     positions: "Elektrodenpositionen"
     notch: "Notch (Hz)"
+    verification: "Art"
+    document: "Dokument"
+    document_check: "Dokumentprüfung"
+    reviewer: "Prüfer"
+    evidence_date: "Datum"
+    comment: "Kommentar / Begründung"
+    expired: "Abgelaufen"
   value:
     none: "–"
     whole_recording: "gesamte Aufnahme"
@@ -358,10 +397,11 @@ report:
     placeholder_status: "nicht bewertet (Platzhalter-Regel)"
     evidence_provided: "Nachweis hinterlegt (Angabe des Nutzers, nicht von NeuroGrid bewertet)"
     not_streamable: "nicht blockweise lesbar"
+    clause_unknown: "unbekannt (Normtext nicht zugänglich)"
   text:
     no_findings: "Keine Befunde dieser Schweregrade."
     no_recordings: "Keine Aufnahmen."
-    no_manual_rules: "Die geladenen Regelpakete enthalten keine manuellen Regeln."
+    no_manual_rules: "Die geladenen Regelpakete enthalten keine Regeln, die aus Nachweisen bewertet werden."
     no_exceptions: "Keine Ausnahmen konfiguriert."
     no_notices: "Keine Hinweise."
     overall_passes: "Der Datensatz besteht die Prüfungen der geladenen Regelpakete."
@@ -372,6 +412,9 @@ report:
     sample_method: "Jeder Abschnitt wird auf {resample_hz} Hz umgetastet, bei der Netzfrequenz und ihrer Harmonischen notch-gefiltert, mit {low}–{high} Hz bandpassgefiltert und auf den Mittelwert referenziert; autoreject nutzt Epochen von {epoch_s} s. M07 und M08 laufen über die ganze Aufnahme."
     positions_excluded: "ohne Position, ausgelassen: {names}"
     positions_unused: "{source} nicht genutzt: {reason}"
+    see_also: "auch gemeldet als {rules}"
+    secondary_note: "Regelpaket {pack} übernimmt seine Werte aus zweiter Hand (in der PRD genannte Startwerte); der Normtext war nicht zugänglich. Seine Klauseln sind unbekannt, ein Abdeckungsmaß wird nicht berechnet."
+    evidence_intro: "Die Nachweise stammen aus evidence.yaml. „Nachweis hinterlegt“ ist die Angabe des Nutzers; NeuroGrid prüft nur, ob das Dokument vorhanden ist, kein Link ist und zum erfassten Hashwert passt."
   measure:
     documented: "dokumentiert"
     channel_sets: "Kanalsätze"
@@ -390,6 +433,12 @@ report:
     rate_hz: "Rate (Hz)"
     rates_hz: "Raten (Hz)"
     uniform: "einheitlich"
+  document_check:
+    ok: "Dokument vorhanden (ein erfasster Hashwert stimmt)"
+    no_document: "kein Dokument angegeben"
+    document_missing: "Dokument nicht gefunden"
+    document_link: "Dokument hinter einem Link (nicht verfolgt)"
+    hash_mismatch: "Dokument seit Erfassung des Hashwerts verändert"
   sample_mode:
     sample: "Stichprobe"
     full: "ganze Aufnahme"

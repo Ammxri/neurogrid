@@ -1,18 +1,32 @@
 """M01 Lesbarkeit und Kopfzeile (PRD §12): readability with MNE, header with own parsers + edfio, companion
 files and references (A-46), supported formats (A-12) and identifying header content (A-05, values are never
-output)."""
+output). Also the storage format of the recordings for gxdsl008 (GX-03, A-40, A-83)."""
 
 from __future__ import annotations
 
-from neurogrid.checks.context import CheckContext
+from collections.abc import Mapping
+from pathlib import Path
+
+from neurogrid.checks.context import CheckContext, RecordingState
 from neurogrid.io import ORPHAN_SUFFIXES
-from neurogrid.kernel.rules import CheckSpec, Measurement, is_true
+from neurogrid.kernel.rules import CheckSpec, Evaluation, Measurement, ParamSpec, ParamValue, is_true
 
 READABLE = "structure.readable"
 HEADER = "structure.header_consistent"
 COMPANIONS = "structure.companions_present"
 SUPPORTED = "structure.supported_format"
 IDENTIFYING = "structure.identifying_header"
+STORAGE_FORMAT = "structure.storage_format"
+HDF5 = "HDF5"
+
+
+def _allowed_format(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
+    """The storage format is one of the comma-separated ``formats`` (case-insensitive); the threshold is the
+    list of allowed names."""
+    allowed = [name.strip() for name in str(params["formats"]).split(",") if name.strip()]
+    passed = str(measurement.value).casefold() in {name.casefold() for name in allowed}
+    return Evaluation(passed=passed, threshold=allowed)
+
 
 SPECS = (
     CheckSpec(id=READABLE, evaluate=is_true),
@@ -20,6 +34,9 @@ SPECS = (
     CheckSpec(id=COMPANIONS, evaluate=is_true),
     CheckSpec(id=SUPPORTED, evaluate=is_true),
     CheckSpec(id=IDENTIFYING, evaluate=is_true),
+    CheckSpec(
+        id=STORAGE_FORMAT, evaluate=_allowed_format, params={"formats": ParamSpec("string", "EDF,HDF5")}
+    ),
 )
 
 
@@ -176,10 +193,61 @@ def measure_identifying(ctx: CheckContext) -> list[Measurement]:
     return out
 
 
+def _is_hdf5(path: Path) -> bool:
+    import h5py  # heavy import, only when an EEGLAB data set is checked
+
+    try:
+        return bool(h5py.is_hdf5(str(path)))
+    except OSError:
+        return False
+
+
+def storage_format(rec: RecordingState) -> str:
+    """The storage format of a recording file (GX-03, A-83): EDF for EDF, EDF+C and EDF+D (BDF stays BDF, also
+    in a file named .edf); an EEGLAB data set in a MAT v7.3 container is HDF5, one in MAT v5 is EEGLAB;
+    BrainVision and FIF keep their names. Taken from the header where it was read, else from the extension, so
+    it is known even for a damaged header (CORE-M01 reports that)."""
+    if rec.adapter.format == "EEGLAB":
+        return HDF5 if _is_hdf5(rec.path) else rec.adapter.format
+    return rec.recording.format if rec.recording is not None else rec.adapter.format
+
+
+def measure_storage_format(ctx: CheckContext) -> list[Measurement]:
+    """GX-03 per recording; annotation-only files (hypnograms) are no recordings (A-74). Files NeuroGrid
+    cannot read are not measured: CORE-M01-04 reports them."""
+    out: list[Measurement] = []
+    for rec in ctx.recordings:
+        if rec.annotations_only:
+            out.append(
+                Measurement(
+                    check_id=STORAGE_FORMAT,
+                    object=rec.object_id,
+                    file=rec.file,
+                    state="not_applicable",
+                    reason="recording.annotations_only",
+                    identity=rec.identity,
+                )
+            )
+            continue
+        name = storage_format(rec)
+        out.append(
+            Measurement(
+                check_id=STORAGE_FORMAT,
+                object=rec.object_id,
+                file=rec.file,
+                value=name,
+                details={} if name == rec.adapter.format else {"format": rec.adapter.format},
+                identity=rec.identity,
+            )
+        )
+    return out
+
+
 MEASURERS = {
     READABLE: measure_readable,
     HEADER: measure_header,
     COMPANIONS: measure_companions,
     SUPPORTED: measure_supported,
     IDENTIFYING: measure_identifying,
+    STORAGE_FORMAT: measure_storage_format,
 }

@@ -1,7 +1,19 @@
-"""Rule engine: measurements × rules → findings (ARC-02, A-09, A-12–A-16, A-41).
+"""Rule engine: measurements × rules → findings (ARC-02, A-09, A-12–A-16, A-41, A-83).
 
 Checks only measure; this module alone decides passed/failed, applies thresholds, exceptions and
 evidence, and derives the per-phase traffic light, the coverage measure and the exit code.
+
+Evidence (A-15): a rule with the check ``evidence.document`` is evaluated from its evidence.yaml entry. No
+entry, ``open`` and ``partial`` give evidence_open, counted with the rule's severity; ``not_applicable``
+(justified) gives not_applicable; ``provided`` passes. A semi-automatic rule passes only if its document
+exists, is no link and its recorded hash matches; otherwise it fails with the reason
+``evidence.<document check>``. A manual rule that is ``provided`` stays passed whatever the document check
+finds (the user's statement, not assessed by NeuroGrid) and gets a warning notice instead. Every referenced
+document is checked and its SHA-256 reported.
+
+Traffic light (A-16, C6): red/yellow for a counted error/warning (failed or evidence_open), else green; grey
+when no rule of a non-placeholder pack produced an evaluated outcome in the phase (passed, failed, excepted,
+evidence_open, or any outcome of an evidence rule).
 """
 
 from __future__ import annotations
@@ -20,7 +32,9 @@ from neurogrid.kernel.errors import ConfigError
 from neurogrid.kernel.evidence import (
     DocumentCheck,
     DocumentChecker,
+    DocumentResult,
     EvidenceItem,
+    EvidenceRecord,
     EvidenceState,
     no_document_checker,
 )
@@ -42,6 +56,7 @@ from neurogrid.kernel.findings import (
 )
 from neurogrid.kernel.rules import (
     EVIDENCE_CHECK,
+    RULE_ID_PATTERN,
     CheckSpec,
     LoadedRulepack,
     Measurement,
@@ -51,17 +66,21 @@ from neurogrid.kernel.rules import (
 )
 
 COUNTED = (Status.FAILED, Status.EVIDENCE_OPEN)
+# Outcomes that show a phase was evaluated (C6); not_applicable and not_checkable alone leave it grey.
+EVALUATED = (Status.PASSED, Status.FAILED, Status.EXCEPTED, Status.EVIDENCE_OPEN)
 
 
 class ExceptionEntry(BaseModel):
     """A justified exception from neurogrid.toml (NG-F18, A-14).
 
-    ``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well.
+    ``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well. ``subkey``
+    must equal the finding's subkey (e.g. a validator code, a field or a channel). Exceptions are per rule ID:
+    the same defect reported by two packs (A-40) needs one entry per rule.
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    rule: str = Field(min_length=1, max_length=64)
+    rule: str = Field(min_length=1, max_length=64, pattern=RULE_ID_PATTERN)
     object: str | None = Field(default=None, max_length=512)
     subkey: str | None = Field(default=None, max_length=128)
     reason: str = Field(max_length=1000)
@@ -106,6 +125,7 @@ class EngineResult:
     effective_params: dict[str, dict[str, EffectiveParam]]
     exceptions: list[ExceptionUse]
     notices: list[Notice]
+    evidence: list[EvidenceRecord] = field(default_factory=list)  # one per rule with check evidence.document
 
 
 @dataclass(frozen=True)
@@ -159,22 +179,109 @@ def _measurement_outcome(
     return _Outcome(measurement, status, threshold=evaluation.threshold, reason=measurement.reason)
 
 
-def _evidence_outcome(rule: Rule, item: EvidenceItem | None, check: DocumentChecker) -> _Outcome:
+def _evidence_outcome(
+    rule: Rule, item: EvidenceItem | None, check: DocumentChecker
+) -> tuple[_Outcome, DocumentResult | None]:
+    """The outcome of an evidence rule and the check of its document (None without a document)."""
     measurement = Measurement(check_id=EVIDENCE_CHECK, object="dataset")
     if item is None:
-        return _Outcome(measurement, Status.EVIDENCE_OPEN, reason="evidence.missing")
-    details = {"evidence": item.status.value}
+        return _Outcome(measurement, Status.EVIDENCE_OPEN, reason="evidence.missing"), None
+    document = check(item) if item.document is not None else None
+    details: dict[str, Any] = {"evidence": item.status.value}
+    if document is not None:
+        details["document_check"] = document.check.value
     if item.status is EvidenceState.NOT_APPLICABLE:
-        return _Outcome(measurement, Status.NOT_APPLICABLE, reason="evidence.not_applicable", details=details)
+        outcome = _Outcome(
+            measurement, Status.NOT_APPLICABLE, reason="evidence.not_applicable", details=details
+        )
+        return outcome, document
     if item.status in (EvidenceState.OPEN, EvidenceState.PARTIAL):
-        return _Outcome(
+        outcome = _Outcome(
             measurement, Status.EVIDENCE_OPEN, reason=f"evidence.{item.status.value}", details=details
         )
+        return outcome, document
     if rule.verification is Verification.SEMI_AUTOMATIC:
-        result = check(item)
+        result = document.check if document is not None else DocumentCheck.NO_DOCUMENT
         if result is not DocumentCheck.OK:
-            return _Outcome(measurement, Status.FAILED, reason=f"evidence.{result.value}", details=details)
-    return _Outcome(measurement, Status.PASSED, details=details)
+            outcome = _Outcome(measurement, Status.FAILED, reason=f"evidence.{result.value}", details=details)
+            return outcome, document
+    return _Outcome(measurement, Status.PASSED, details=details), document
+
+
+def _evidence_notices(
+    rule: Rule, item: EvidenceItem | None, document: DocumentResult | None, as_of: date
+) -> list[Notice]:
+    """A manual rule 'provided' whose document is missing, a link or changed stays passed and gets a warning;
+    a review date after the reference date gets a note (A-83)."""
+    notices: list[Notice] = []
+    if item is None:
+        return notices
+    if (
+        item.status is EvidenceState.PROVIDED
+        and rule.verification is not Verification.SEMI_AUTOMATIC
+        and document is not None
+        and document.check is not DocumentCheck.OK
+    ):
+        notices.append(
+            Notice(
+                level=Severity.WARNING,
+                message_key=f"notice.evidence_document.{document.check.value}",
+                params={"rule": rule.id},
+            )
+        )
+    if item.date is not None and item.date > as_of:
+        notices.append(
+            Notice(
+                level=Severity.INFO,
+                message_key="notice.evidence_date_after_as_of",
+                params={"rule": rule.id, "date": item.date.isoformat(), "as_of": as_of.isoformat()},
+            )
+        )
+    return notices
+
+
+def _evidence_record(
+    pack_name: str,
+    rule: Rule,
+    item: EvidenceItem | None,
+    document: DocumentResult | None,
+    outcome: Status,
+) -> EvidenceRecord:
+    return EvidenceRecord(
+        rule_id=rule.id,
+        rulepack=pack_name,
+        phase=rule.phase,
+        severity=rule.severity,
+        verification=rule.verification,
+        status=item.status if item is not None else None,
+        outcome=outcome,
+        document=item.document if item is not None else None,
+        document_check=document.check if document is not None else None,
+        sha256=document.sha256 if document is not None else None,
+        sha256_recorded=item.sha256 if item is not None else None,
+        reviewer=item.reviewer if item is not None else None,
+        date=item.date if item is not None else None,
+        comment=item.comment if item is not None else None,
+        justification=item.justification if item is not None else None,
+    )
+
+
+def _unmatched_evidence(inp: EngineInput) -> list[Notice]:
+    """Entries for rules that are not loaded (info) or that NeuroGrid measures itself (warning, ignored)."""
+    checks = {rule.id: rule.check for loaded in inp.packs for rule in loaded.pack.rules}
+    notices: list[Notice] = []
+    for rule_id in sorted(inp.evidence):
+        if rule_id not in checks:
+            notices.append(
+                Notice(level=Severity.INFO, message_key="notice.evidence_unused", params={"rule": rule_id})
+            )
+        elif checks[rule_id] != EVIDENCE_CHECK:
+            notices.append(
+                Notice(
+                    level=Severity.WARNING, message_key="notice.evidence_ignored", params={"rule": rule_id}
+                )
+            )
+    return notices
 
 
 def _active_exceptions(
@@ -196,20 +303,23 @@ def _active_exceptions(
     return active, notices
 
 
-def _matching_exception(
-    entries: Sequence[ExceptionEntry], rule_id: str, measurement: Measurement
-) -> int | None:
+def _matching_exceptions(
+    entries: Sequence[ExceptionEntry], candidates: Sequence[int], measurement: Measurement
+) -> list[int]:
+    """Indices of every entry (among the rule's ``candidates``) that matches: the object pattern against the
+    displayed ID and every stable name (A-68), the subkey exactly. All of them count as used; the first one's
+    reason is recorded."""
     names = (measurement.object, *measurement.identity)
-    for index, entry in enumerate(entries):
-        if entry.rule != rule_id:
-            continue
+    hits = []
+    for index in candidates:
+        entry = entries[index]
         pattern = entry.object
         if pattern is not None and not any(glob.match(pattern, name) for name in names):
             continue
         if entry.subkey is not None and entry.subkey != measurement.subkey:
             continue
-        return index
-    return None
+        hits.append(index)
+    return hits
 
 
 def run(inp: EngineInput) -> EngineResult:
@@ -228,6 +338,12 @@ def run(inp: EngineInput) -> EngineResult:
     active, expired_notices = _active_exceptions(inp.exceptions, inp.as_of)
     notices.extend(expired_notices)
     used = [False] * len(active)
+    by_rule: dict[str, list[int]] = {}
+    for index, entry in enumerate(active):
+        by_rule.setdefault(entry.rule, []).append(index)
+    evaluated: set[Phase] = set()
+    records: list[EvidenceRecord] = []
+    evidence_notices: list[Notice] = []
 
     findings: list[Finding] = []
     stable_object: dict[
@@ -239,8 +355,13 @@ def run(inp: EngineInput) -> EngineResult:
         for rule in pack.rules:
             spec = inp.registry[rule.check]
             params = {name: p.value for name, p in effective[rule.id].items()}
-            if rule.check == EVIDENCE_CHECK:
-                outcomes = [_evidence_outcome(rule, inp.evidence.get(rule.id), inp.document_check)]
+            is_evidence = rule.check == EVIDENCE_CHECK
+            item = inp.evidence.get(rule.id) if is_evidence else None
+            document: DocumentResult | None = None
+            if is_evidence:
+                evidence_outcome, document = _evidence_outcome(rule, item, inp.document_check)
+                outcomes = [evidence_outcome]
+                evidence_notices.extend(_evidence_notices(rule, item, document, inp.as_of))
             else:
                 outcomes = [
                     _measurement_outcome(spec, m, params) for m in inp.measurements.get(rule.check, ())
@@ -250,11 +371,18 @@ def run(inp: EngineInput) -> EngineResult:
                 status = outcome.status
                 details = {**m.details, **outcome.details}
                 if status in COUNTED:
-                    hit = _matching_exception(active, rule.id, m)
-                    if hit is not None:
-                        used[hit] = True
+                    hits = _matching_exceptions(active, by_rule.get(rule.id, ()), m)
+                    if hits:
+                        for hit in hits:
+                            used[hit] = True
                         status = Status.EXCEPTED
-                        details["exception_reason"] = active[hit].reason
+                        details["exception_reason"] = active[hits[0]].reason
+                if pack.source_status is not SourceStatus.PLACEHOLDER and (
+                    status in EVALUATED or is_evidence
+                ):
+                    evaluated.add(rule.phase)
+                if is_evidence:
+                    records.append(_evidence_record(pack.rulepack, rule, item, document, status))
                 if status is Status.PASSED:
                     passed[(rule.id, m.object)] += 1
                     continue
@@ -287,8 +415,20 @@ def run(inp: EngineInput) -> EngineResult:
                 )
                 stable_object[id(findings[-1])] = stable
 
+    notices.extend(evidence_notices)
+    notices.extend(_unmatched_evidence(inp))
     for index, entry in enumerate(active):
-        if not used[index]:
+        if used[index]:
+            continue
+        if entry.rule not in effective:  # not a rule of any loaded pack: probably a typo (A-14)
+            notices.append(
+                Notice(
+                    level=Severity.WARNING,
+                    message_key="notice.exception_unknown_rule",
+                    params={"rule": entry.rule},
+                )
+            )
+        else:
             notices.append(
                 Notice(
                     level=Severity.INFO, message_key="notice.exception_unused", params={"rule": entry.rule}
@@ -302,7 +442,7 @@ def run(inp: EngineInput) -> EngineResult:
 
     findings.sort(key=lambda f: (SEVERITY_ORDER[f.severity], f.rule_id, stable_object[id(f)], f.subkey or ""))
     passed_list = [PassedCount(rule_id=r, object=o, count=c) for (r, o), c in sorted(passed.items())]
-    phases = _phase_summary(inp.packs, findings)
+    phases = _phase_summary(findings, evaluated)
     exit_code = 1 if any(summary.errors for summary in phases.values()) else 0
     return EngineResult(
         findings=findings,
@@ -313,6 +453,7 @@ def run(inp: EngineInput) -> EngineResult:
         effective_params=effective,
         exceptions=uses,
         notices=notices,
+        evidence=records,
     )
 
 
@@ -320,20 +461,17 @@ def _counts(finding: Finding) -> bool:
     return finding.source_status is not SourceStatus.PLACEHOLDER and finding.status in COUNTED
 
 
-def _phase_summary(packs: Sequence[LoadedRulepack], findings: Sequence[Finding]) -> dict[Phase, PhaseSummary]:
-    phases_with_rules = {
-        rule.phase
-        for loaded in packs
-        if loaded.pack.source_status is not SourceStatus.PLACEHOLDER
-        for rule in loaded.pack.rules
-    }
+def _phase_summary(findings: Sequence[Finding], evaluated: set[Phase]) -> dict[Phase, PhaseSummary]:
+    """Per phase: counted errors and warnings (open evidence included, A-16), the open evidence as a
+    breakdown, and the light. ``evaluated`` holds the phases in which a non-placeholder rule had an evaluated
+    outcome."""
     result: dict[Phase, PhaseSummary] = {}
     for phase in Phase:
         relevant = [f for f in findings if f.phase is phase and _counts(f)]
         errors = sum(1 for f in relevant if f.severity is Severity.ERROR)
         warnings = sum(1 for f in relevant if f.severity is Severity.WARNING)
         open_evidence = sum(1 for f in relevant if f.status is Status.EVIDENCE_OPEN)
-        if phase not in phases_with_rules:
+        if phase not in evaluated:
             light = Light.GREY
         elif errors:
             light = Light.RED

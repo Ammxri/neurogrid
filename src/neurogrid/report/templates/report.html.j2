@@ -42,9 +42,10 @@
   <table>
     <tr><th>{{ t('report.label.rulepacks') }}</th><th>{{ t('report.label.version') }}</th><th>{{ t('report.label.source_status') }}</th><th>SHA-256</th></tr>
     {% for pack in results.rulepacks %}
-    <tr><td>{{ pack.name }} ({{ pack.source }})</td><td>{{ pack.version }}</td><td>{{ pack.source_status.value }}</td><td class="mono">{{ pack.sha256 }}</td></tr>
+    <tr><td>{{ pack.name }} ({{ pack.source }})</td><td>{{ pack.version }}</td><td>{{ fmt.label('source_status', pack.source_status.value) }}</td><td class="mono">{{ pack.sha256 }}</td></tr>
     {% endfor %}
   </table>
+  {% for pack in secondary_packs %}<p>{{ t('report.text.secondary_note', pack=pack.name) }}</p>{% endfor %}
 </section>
 
 <section id="summary">
@@ -81,7 +82,7 @@
     <tr>
       <td class="mono">{{ f.rule_id }}</td>
       <td>{{ fmt.clause(f) }}</td>
-      <td>{{ titles[f.rule_id] }}{% if f.subkey %} – {{ f.subkey }}{% endif %}</td>
+      <td>{{ titles[f.rule_id] }}{% if f.subkey %} – {{ f.subkey }}{% endif %}{% if see_also.get(f.key) %} · {{ t('report.text.see_also', rules=see_also[f.key] | join(', ')) }}{% endif %}</td>
       <td>{{ fmt.status(f) }}</td>
       <td class="mono">{{ f.file or t('report.value.dataset_level') }}</td>
       <td>{{ fmt.measured(f) }}</td>
@@ -142,12 +143,12 @@
 
 <section id="evidence">
   <h2>{{ t('report.section.evidence') }}</h2>
-  {% if manual_rules %}
+  {% if evidence_rows %}
+  <p>{{ t('report.text.evidence_intro') }}</p>
   <table>
-    <tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.title') }}</th><th>{{ t('report.label.status') }}</th><th>{{ t('report.label.reason') }}</th></tr>
-    {% for rule in manual_rules %}
-    {% set f = manual_findings.get(rule.id) %}
-    <tr><td class="mono">{{ rule.id }}</td><td>{{ titles[rule.id] }}</td><td>{{ fmt.status(f) if f else t('report.value.evidence_provided') }}</td><td>{{ fmt.details(f) if f else t('report.value.none') }}</td></tr>
+    <tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.title') }}</th><th>{{ t('report.label.verification') }}</th><th>{{ t('report.label.status') }}</th><th>{{ t('report.label.reason') }}</th><th>{{ t('report.label.document') }}</th><th>{{ t('report.label.document_check') }}</th><th>SHA-256</th><th>{{ t('report.label.reviewer') }}</th><th>{{ t('report.label.evidence_date') }}</th><th>{{ t('report.label.comment') }}</th></tr>
+    {% for row in evidence_rows %}
+    <tr><td class="mono">{{ row.rule }} ({{ row.rulepack }})</td><td>{{ row.title }}</td><td>{{ row.kind }}</td><td>{{ row.status }}</td><td>{{ row.note }}</td><td class="mono">{{ row.document }}</td><td>{{ row.document_check }}</td><td class="mono">{{ row.sha256 }}</td><td>{{ row.reviewer }}</td><td>{{ row.date }}</td><td>{{ row.comment }}</td></tr>
     {% endfor %}
   </table>
   {% else %}
@@ -167,9 +168,9 @@
   <h3>{{ t('report.label.exceptions') }}</h3>
   {% if results.exceptions %}
   <table>
-    <tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.file') }}</th><th>{{ t('report.label.exception_reason') }}</th><th>{{ t('report.label.approved_by') }}</th><th>{{ t('report.label.valid_until') }}</th><th>{{ t('report.label.used') }}</th></tr>
+    <tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.file') }}</th><th>{{ t('report.label.exception_reason') }}</th><th>{{ t('report.label.approved_by') }}</th><th>{{ t('report.label.valid_until') }}</th><th>{{ t('report.label.used') }}</th><th>{{ t('report.label.expired') }}</th></tr>
     {% for use in results.exceptions %}
-    <tr><td class="mono">{{ use.entry.rule }}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td><td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td><td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td>{{ fmt.value(use.used) }}</td></tr>
+    <tr><td class="mono">{{ use.entry.rule }}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td><td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td><td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td>{{ fmt.value(use.used) }}</td><td>{{ fmt.value(use.expired) }}</td></tr>
     {% endfor %}
   </table>
   {% else %}

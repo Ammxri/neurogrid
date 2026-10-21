@@ -46,6 +46,48 @@ RAW_DOCUMENTED = (
 BIDS = ("bids",)
 # documents 60 Hz for data with 50 Hz line noise (A-47)
 LINE_60_HZ = "[metadata.defaults]\nline_frequency_hz = 60\n"
+GX = ("gxdsl008",)
+
+
+def _evidence_setup(entry: str) -> Callable[[Path, Path], tuple[Path, dict[str, object]]]:
+    """An evidence.yaml for GXDSL008-ACC-001 next to its document, outside the fixture (--evidence): documents
+    are relative to the evidence file's folder (A-66, A-83)."""
+
+    def setup(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+        tmp.mkdir(parents=True, exist_ok=True)
+        (tmp / "it-security-sop.txt").write_bytes(
+            b"AES-256 at rest; role concept v2 (synthetic test document)\n"
+        )
+        evidence = tmp / "evidence.yaml"
+        evidence.write_text(f"format_version: 1\nevidence:\n  GXDSL008-ACC-001:\n{entry}", encoding="utf-8")
+        return fixture, {"evidence_path": evidence}
+
+    return setup
+
+
+def _eeglab_v73(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+    """An EEGLAB data set in a MAT v7.3 (HDF5) container, written at run time (not committed, see
+    tools/gen_fixtures.py)."""
+    from gen_fixtures import write_eeglab_v73  # type: ignore[import-not-found]
+
+    write_eeglab_v73(tmp / "rec.set", seed=17)
+    return tmp, {}
+
+
+SETUPS.update(
+    {
+        "evidence_provided": _evidence_setup(
+            "    status: provided\n    document: it-security-sop.txt\n"
+            "    reviewer: QA\n    date: 2026-10-01\n"
+        ),
+        "evidence_open": _evidence_setup("    status: open\n"),
+        "evidence_partial": _evidence_setup("    status: partial\n    document: it-security-sop.txt\n"),
+        "evidence_not_applicable": _evidence_setup(
+            "    status: not_applicable\n    justification: no data at rest on this system\n"
+        ),
+        "eeglab_v73": _eeglab_v73,
+    }
+)
 
 
 CASES = [
@@ -136,6 +178,28 @@ CASES = [
     Case("CORE-M09-02", "edf_quality_ok", Status.PASSED),  # 5 of 17 components not brain (0.29)
     Case("CORE-M09-02", "edf_quality_artefacts", Status.FAILED),  # 17 of 19 components not brain (0.89)
     Case("CORE-M09-02", "edf_quality_issues", Status.NOT_CHECKABLE),  # 10 good channels, ICA needs 16
+    # P4 evidence area: gxdsl008 (GX-00..GX-04, A-40, A-83), loaded next to core; GX-05 follows with M13
+    Case("CORE-M05-02", "edf_ok", Status.NOT_CHECKABLE),  # Q16: no impedance documented, never silent
+    Case("GXDSL008-ACQ-001", "bids_ok", Status.PASSED, WET, GX),  # 3.5 kOhm per electrode
+    Case("GXDSL008-ACQ-001", "brainvision_ok", Status.PASSED, WET, GX),
+    Case("GXDSL008-ACQ-001", "bids_issues", Status.FAILED, WET, GX),
+    Case("GXDSL008-ACQ-001", "brainvision_impedance", Status.FAILED, WET, GX),  # C3 25 kOhm
+    Case("GXDSL008-ACQ-001", "bids_ok", Status.NOT_CHECKABLE, rulepacks=GX),  # electrode type unknown
+    Case("GXDSL008-ACQ-001", "edf_ok", Status.NOT_CHECKABLE, rulepacks=GX),  # impedance.not_documented
+    Case("GXDSL008-ACQ-001", "bids_issues", Status.NOT_APPLICABLE, DRY, GX),
+    Case("GXDSL008-ACQ-002", "edf_ok", Status.PASSED, rulepacks=GX),  # 512 Hz
+    Case("GXDSL008-ACQ-002", "edf_lowrate", Status.FAILED, rulepacks=GX),  # 256 Hz
+    Case("GXDSL008-STO-001", "edf_ok", Status.PASSED, rulepacks=GX),
+    Case("GXDSL008-STO-001", "edf_plus_d", Status.PASSED, rulepacks=GX),  # EDF+D counts as EDF
+    Case("GXDSL008-STO-001", "eeglab_ok", Status.PASSED, rulepacks=GX, setup="eeglab_v73"),  # HDF5
+    Case("GXDSL008-STO-001", "bdf_ok", Status.FAILED, rulepacks=GX),
+    Case("GXDSL008-STO-001", "brainvision_ok", Status.FAILED, rulepacks=GX),
+    Case("GXDSL008-STO-001", "eeglab_ok", Status.FAILED, rulepacks=GX),  # MATLAB v5
+    Case("GXDSL008-ACC-001", "edf_ok", Status.EVIDENCE_OPEN, rulepacks=GX),  # no evidence.yaml
+    Case("GXDSL008-ACC-001", "edf_ok", Status.PASSED, rulepacks=GX, setup="evidence_provided"),
+    Case("GXDSL008-ACC-001", "edf_ok", Status.EVIDENCE_OPEN, rulepacks=GX, setup="evidence_open"),
+    Case("GXDSL008-ACC-001", "edf_ok", Status.EVIDENCE_OPEN, rulepacks=GX, setup="evidence_partial"),
+    Case("GXDSL008-ACC-001", "edf_ok", Status.NOT_APPLICABLE, rulepacks=GX, setup="evidence_not_applicable"),
 ]
 
 

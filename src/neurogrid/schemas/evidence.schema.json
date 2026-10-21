@@ -1,0 +1,133 @@
+{
+  "$defs": {
+    "EvidenceItem": {
+      "additionalProperties": false,
+      "description": "One entry of evidence.yaml. Strict like neurogrid.toml (A-53); ``status`` is read from its text.",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "document": {
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document"
+        },
+        "justification": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Justification"
+        },
+        "reviewer": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewer"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "status": {
+          "$ref": "#/$defs/EvidenceState"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "EvidenceItem",
+      "type": "object"
+    },
+    "EvidenceState": {
+      "enum": [
+        "open",
+        "provided",
+        "partial",
+        "not_applicable"
+      ],
+      "title": "EvidenceState",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The whole evidence.yaml (schemas/evidence.schema.json is generated from this model).",
+  "properties": {
+    "evidence": {
+      "maxProperties": 10000,
+      "patternProperties": {
+        "^[A-Z0-9]+(-[A-Z0-9]+)+$": {
+          "$ref": "#/$defs/EvidenceItem"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 64
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "format_version": {
+      "const": 1,
+      "title": "Format Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "format_version"
+  ],
+  "title": "EvidenceFile",
+  "type": "object"
+}

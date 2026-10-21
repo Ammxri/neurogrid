@@ -9,15 +9,18 @@ import json
 from pathlib import Path
 from typing import Any
 
+from neurogrid.kernel.evidence import EvidenceRecord, EvidenceState
 from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
 from neurogrid.kernel.report import render_html
-from neurogrid.model.results import Results
+from neurogrid.kernel.rules import EVIDENCE_CHECK
+from neurogrid.model.results import Results, RuleInfo
 from neurogrid.report.texts import translator, validator_text
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 MAX_TIME_RANGES_SHOWN = 20
 MAX_SUB_CODES_SHOWN = 100  # sub-codes are schema fields or table columns; a bound for odd tables
 _SEGMENT_KEYS = ("start_s", "duration_s")
+UNKNOWN_CLAUSE = "unknown"  # clause of a pack whose norm text is not accessible (gxdsl008, A-40, A-83)
 
 
 class _Formatter:
@@ -57,8 +60,12 @@ class _Formatter:
         return self.value(finding.measured_value)
 
     def clause(self, finding: Finding) -> str:
+        """Placeholder packs have no clause (A-41); 'unknown' is a pack without accessible norm text, e.g.
+        gxdsl008 (A-40, A-83), written in English in the YAML (D-03) and translated here."""
         if finding.source_status is SourceStatus.PLACEHOLDER:
             return self.tr("report.value.placeholder_clause")
+        if finding.clause == UNKNOWN_CLAUSE:
+            return self.tr("report.value.clause_unknown")
         return finding.clause
 
     def time_range(self, finding: Finding) -> str:
@@ -174,15 +181,107 @@ class _Formatter:
         extra = len(names) - MAX_SUB_CODES_SHOWN
         return ", ".join(names[:MAX_SUB_CODES_SHOWN]) + (f" (+{extra})" if extra > 0 else "")
 
+    def evidence_row(
+        self, record: EvidenceRecord, rule: RuleInfo | None, finding: Finding | None, title: str
+    ) -> dict[str, str]:
+        """One row of section 5 (REP-05, A-15, A-83). 'provided' reads as the user's statement, never as
+        passed; the document reference, the SHA-256 NeuroGrid computed, reviewer, date and comment follow."""
+        none = self.tr("report.value.none")
+        placeholder = rule is not None and rule.source_status is SourceStatus.PLACEHOLDER
+        if placeholder:
+            status = self.tr("report.value.placeholder_status")  # not evaluated (A-41)
+        elif record.status is EvidenceState.PROVIDED and record.outcome is Status.PASSED:
+            status = self.tr("report.value.evidence_provided")
+        else:
+            status = self.tr(f"status.{record.outcome.value}")
+        check = record.document_check
+        texts = [text for text in (record.comment, record.justification) if text]
+        return {
+            "rule": record.rule_id,
+            "rulepack": record.rulepack,
+            "title": title,
+            "kind": f"{self.label('severity', record.severity.value)} · "
+            f"{self.label('verification', record.verification.value)}",
+            "status": status,
+            "note": self.details(finding) if finding is not None else none,
+            "document": record.document or none,
+            "document_check": self.label("report.document_check", check.value) if check else none,
+            "sha256": record.sha256 or none,
+            "reviewer": record.reviewer or none,
+            "date": record.date.isoformat() if record.date else none,
+            "comment": " / ".join(texts) if texts else none,
+        }
+
+    def legacy_evidence_row(self, rule: RuleInfo, finding: Finding | None, title: str) -> dict[str, str]:
+        """Section 5 for a results.json without the evidence block (P1-P3): manual rules from the findings."""
+        none = self.tr("report.value.none")
+        return {
+            "rule": rule.id,
+            "rulepack": rule.rulepack,
+            "title": title,
+            "kind": f"{self.label('severity', rule.severity.value)} · "
+            f"{self.label('verification', rule.verification.value)}",
+            "status": self.status(finding) if finding else self.tr("report.value.evidence_provided"),
+            "note": self.details(finding) if finding else none,
+            "document": none,
+            "document_check": none,
+            "sha256": none,
+            "reviewer": none,
+            "date": none,
+            "comment": none,
+        }
+
+
+def _see_also(results: Results) -> dict[str, list[str]]:
+    """A-40: packs that share a check and threshold give separate findings on purpose; each finding names the
+    findings of the other rules on the same object, subkey and channel (finding key -> other rule IDs).
+    Evidence rules are distinct requirements and are never linked."""
+    checks = {rule.id: rule.check for rule in results.rules}
+    groups: dict[tuple[str | None, str, str | None, str | None], set[str]] = {}
+    shown = [
+        f
+        for f in results.findings
+        if f.source_status is not SourceStatus.PLACEHOLDER and checks.get(f.rule_id) != EVIDENCE_CHECK
+    ]
+    for finding in shown:
+        group = (checks.get(finding.rule_id), finding.object, finding.subkey, finding.channel)
+        groups.setdefault(group, set()).add(finding.rule_id)
+    links: dict[str, list[str]] = {}
+    for finding in shown:
+        group = (checks.get(finding.rule_id), finding.object, finding.subkey, finding.channel)
+        others = sorted(groups[group] - {finding.rule_id})
+        if others:
+            links[finding.key] = others
+    return links
+
+
+def _evidence_rows(results: Results, fmt: _Formatter, titles: dict[str, str]) -> list[dict[str, str]]:
+    rules = {rule.id: rule for rule in results.rules}
+    findings = {f.rule_id: f for f in results.findings if f.object == "dataset" and f.subkey is None}
+    if results.evidence:
+        return [
+            fmt.evidence_row(
+                record,
+                rules.get(record.rule_id),
+                findings.get(record.rule_id),
+                titles.get(record.rule_id, ""),
+            )
+            for record in results.evidence
+        ]
+    manual = [rule for rule in results.rules if rule.verification.value == "manual"]
+    return [fmt.legacy_evidence_row(rule, findings.get(rule.id), titles.get(rule.id, "")) for rule in manual]
+
 
 def build_context(results: Results, lang: str) -> dict[str, Any]:
     fmt = _Formatter(lang)
     title_field = "title_zh" if lang == "zh" else "title_en"
     titles = {rule.id: getattr(rule, title_field) for rule in results.rules}
-    manual_rules = [rule for rule in results.rules if rule.verification.value == "manual"]
     evaluated = [f for f in results.findings if f.source_status is not SourceStatus.PLACEHOLDER]
     by_severity = [(severity, [f for f in evaluated if f.severity is severity]) for severity in Severity]
     return {
+        "evidence_rows": _evidence_rows(results, fmt, titles),
+        "see_also": _see_also(results),
+        "secondary_packs": [p for p in results.rulepacks if p.source_status is SourceStatus.SECONDARY],
         "t": fmt.tr,
         "fmt": fmt,
         "lang": lang,
@@ -193,11 +292,7 @@ def build_context(results: Results, lang: str) -> dict[str, Any]:
         "phases": [
             (phase, results.summary.phases[phase]) for phase in Phase if phase in results.summary.phases
         ],
-        "manual_rules": manual_rules,
         "sampled": [rec for rec in results.recordings if rec.sample],
-        "manual_findings": {
-            f.rule_id: f for f in results.findings if f.rule_id in {r.id for r in manual_rules}
-        },
         "placeholder": any(p.source_status is SourceStatus.PLACEHOLDER for p in results.rulepacks),
         # checks of placeholder packs are not evaluated, so they are not counted as passed either (A-41)
         "passed_total": sum(
