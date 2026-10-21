@@ -1,0 +1,9 @@
+{
+  "trial_type": {
+    "Levels": {
+      "A": "Class A (synthetic)",
+      "B": "Class B (synthetic)",
+      "C": "Class C (synthetic)"
+    }
+  }
+}

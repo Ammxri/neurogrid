@@ -1,5 +1,225 @@
 {
   "$defs": {
+    "AIDemographics": {
+      "additionalProperties": false,
+      "description": "M11 demography of the subjects with recordings, aggregated only, small cells suppressed (A-51).",
+      "properties": {
+        "age_documented": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Age Documented"
+        },
+        "age_groups": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Age Groups",
+          "type": "object"
+        },
+        "sex": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Sex",
+          "type": "object"
+        },
+        "sex_documented": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sex Documented"
+        },
+        "subjects": {
+          "title": "Subjects",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "subjects"
+      ],
+      "title": "AIDemographics",
+      "type": "object"
+    },
+    "AILabelScope": {
+      "additionalProperties": false,
+      "description": "Class counts of one scope (all, train, val, test). None: a suppressed small cell (A-51).",
+      "properties": {
+        "classes": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Classes",
+          "type": "object"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total"
+        }
+      },
+      "title": "AILabelScope",
+      "type": "object"
+    },
+    "AILabels": {
+      "additionalProperties": false,
+      "description": "M11 class shares per split and overall (A-21, A-81). Class keys are the displayed labels or\n``text-<sha8>`` for free text (A-17, C5).",
+      "properties": {
+        "column": {
+          "title": "Column",
+          "type": "string"
+        },
+        "scopes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/AILabelScope"
+          },
+          "title": "Scopes",
+          "type": "object"
+        },
+        "source": {
+          "enum": [
+            "events",
+            "participants"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "events",
+            "subjects"
+          ],
+          "title": "Unit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "column",
+        "unit"
+      ],
+      "title": "AILabels",
+      "type": "object"
+    },
+    "AISplits": {
+      "additionalProperties": false,
+      "description": "M12 split assignment: recordings and subjects per split (DM-06) and unassigned recordings.",
+      "properties": {
+        "recordings": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Recordings",
+          "type": "object"
+        },
+        "source": {
+          "enum": [
+            "splits.tsv",
+            "participants.tsv"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "subjects": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Subjects",
+          "type": "object"
+        },
+        "unassigned": {
+          "default": 0,
+          "title": "Unassigned",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "AISplits",
+      "type": "object"
+    },
+    "AISummary": {
+      "additionalProperties": false,
+      "description": "Aggregates of the AI dataset structure (M11, M12; decision C1: optional block).",
+      "properties": {
+        "demographics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AIDemographics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "labels": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AILabels"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "splits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AISplits"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "AISummary",
+      "type": "object"
+    },
     "ConfigInfo": {
       "additionalProperties": false,
       "description": "KONZEPT 2.3: hash, reference date, seed, sampling, effective parameters and settings (cleaned).",
@@ -1138,6 +1358,17 @@
   },
   "additionalProperties": false,
   "properties": {
+    "ai": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AISummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "config": {
       "$ref": "#/$defs/ConfigInfo"
     },
@@ -1146,6 +1377,24 @@
     },
     "disclaimer": {
       "$ref": "#/$defs/Disclaimer"
+    },
+    "duplicates": {
+      "anyOf": [
+        {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duplicates"
     },
     "environment": {
       "$ref": "#/$defs/EnvironmentInfo"

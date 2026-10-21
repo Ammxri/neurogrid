@@ -347,9 +347,25 @@ class AnnotationSection(_Section):
     vocabulary: list[str] | None = None
 
 
+# [ai] labels names where the M11 class labels come from (A-81): a column of the BIDS events.tsv files (unit:
+# events) or of participants.tsv (unit: subjects). The label source "annotations" (M10 reader) extends this
+# grammar and AI_LABEL_SOURCES together with its reader in checks/ai_dataset.py; until then it is refused.
+AI_LABEL_SOURCES = ("events", "participants")
+AI_LABELS = re.compile(r"^(?P<source>events|participants):(?P<column>[A-Za-z0-9_.\-]{1,64})$")
+
+
 class AISection(_Section):
+    """M11/M12 (A-21, A-81): the label source and the split control file (relative to the project root)."""
+
     labels: str | None = Field(default=None, max_length=120)
     splits: str | None = Field(default=None, max_length=512)
+
+    @field_validator("labels")
+    @classmethod
+    def _labels_valid(cls, value: str | None) -> str | None:
+        if value is not None and not AI_LABELS.fullmatch(value):
+            raise ValueError("expected 'events:<column>' or 'participants:<column>'")
+        return value
 
 
 class ConsentSection(_Section):

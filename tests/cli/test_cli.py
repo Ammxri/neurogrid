@@ -303,7 +303,8 @@ def test_mixed_rate_edf_prints_no_library_warning(
     # the samples are all zero: the only error is the flat line of the EEG channel (M08, since P3)
     results = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
     errors = {(f["rule_id"], f["subkey"]) for f in results["findings"] if f["severity"] == "error"}
-    assert code == 1 and errors == {("CORE-M08-01", "EEG Fz")}
+    # P4: CORE-M12-01 adds its dataset-level not_applicable finding (no splits; A-81, decision C11)
+    assert code == 1 and errors == {("CORE-M08-01", "EEG Fz"), ("CORE-M12-01", None)}
 
 
 def test_library_warnings_are_reduced_to_their_category(capsys: pytest.CaptureFixture[str]) -> None:

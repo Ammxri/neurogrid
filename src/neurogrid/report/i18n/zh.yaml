@@ -46,6 +46,17 @@ cli:
     library: "提示：某个库发出了警告（{type}）；结果不受影响。"
 
 errors:
+  splits:
+    columns: "splits.tsv 的表头须恰好有一列 'recording' 和一列 'split'。"
+    invalid_row: "splits.tsv 第 {line} 行：缺少 'recording' 或 'split' 的值。"
+    invalid_split: "splits.tsv 第 {line} 行：数据划分必须为 train、val 或 test。"
+    unsafe_path: "splits.tsv 第 {line} 行：记录必须是数据集内的相对路径（不得含 '..'、盘符、网络或设备路径）或假名 ID rec-xxxxxxxx。"
+    too_large: "splits.tsv 过大（上限 {limit} 字节）。"
+    too_many_rows: "splits.tsv 行数过多（上限 {limit}）。"
+    encoding: "splits.tsv 不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
+    not_a_file: "数据划分文件不是普通文件。"
+    unreadable: "无法读取数据划分文件。"
+    link: "数据划分文件是链接或位于链接之后；不跟随链接。"
   yaml:
     alias: "不允许使用 YAML 别名（第 {line} 行）。"
     duplicate_key: "键 '{name}' 重复（第 {line} 行）。"
@@ -79,6 +90,7 @@ errors:
     placeholder_needs_flag: "规则包 {rulepack} 为占位版本（并非依据标准原文）。仅可在使用 --allow-draft-rulepacks 时加载。"
     encoding: "规则包不是 UTF-8 文本。"
   config:
+    splits_not_found: "配置：字段 '{field}' 中的文件不存在。"
     invalid: "配置无效：字段 '{field}'（{problem}）。"
     syntax: "配置语法错误：{problem}。"
     too_large: "配置文件过大。"
@@ -126,6 +138,11 @@ errors:
     label_case: "标签 {first} 与 {second} 仅大小写不同；在 Windows 和 macOS 上二者会位于同一文件夹。请使用可区分的标签。"
 
 notice:
+  splits_both_sources: "数据划分取自 splits.tsv；未使用 participants.tsv 中的 'split' 列。"
+  splits_unknown_rows: "splits.tsv 中有 {count} 行未对应数据集中的任何记录，未予使用。"
+  splits_unassigned: "{count} 条记录不属于任何数据划分。"
+  splits_outside_dataset: "[ai] splits 中设置的数据划分文件位于数据集之外；数据集的清单不包含该文件。"
+  participants_split_invalid: "participants.tsv 的 'split' 列中有 {count} 个值不是 train、val 或 test；这些行未分配数据划分。"
   override_unused: "配置为未加载的规则 {rule} 设置了参数。"
   exception_expired: "规则 {rule} 的例外已于 {valid_until} 过期，未予应用。"
   exception_unused: "规则 {rule} 的例外未匹配任何结果。"
@@ -182,6 +199,22 @@ verification:
   manual: "人工"
 
 reason:
+  ai:
+    labels_not_configured: "未配置标签来源（neurogrid.toml 中的 [ai] labels）。"
+    labels_need_bids: "标签来源 events:<列名> 需要 BIDS events.tsv 文件；该数据集不是 BIDS 数据集。"
+    label_column_missing: "未找到配置的标签列（events.tsv 或 participants.tsv）。"
+    no_label_values: "此范围内没有带标签的事件或受试者。"
+    subjects_unknown: "受试者未知：并非每条记录都已映射到受试者（BIDS 文件名或 neurogrid.toml 中的映射）。"
+    subject_unknown: "该记录已分配到数据划分，但其受试者未知。"
+    no_participants_table: "数据集根目录下没有 participants.tsv。"
+    participants_unusable: "无法使用 participants.tsv（缺少 participant_id 列、不是 UTF-8、文件过大或为链接）。"
+    not_in_participants: "该受试者在 participants.tsv 中没有对应行。"
+    column_missing: "participants.tsv 中没有此项的列（age；sex 或 gender）。"
+    value_missing: "participants.tsv 中该值为空或为 n/a。"
+    age_unparseable: "participants.tsv 中的年龄不是数字（不显示该值）。"
+    no_splits: "未定义数据划分（.neurogrid/splits.tsv 或 participants.tsv 中的 'split' 列）。"
+    hash_unavailable: "无信号哈希：该记录没有可计算哈希的 EEG 通道。"
+    small_cell: "不显示该值：它会暴露少于 5 名受试者的计数（小单元格抑制）。"
   read:
     failed: "无法读取数据。"
     unlistable: "无法读取该文件夹；其内容未被检查。"
@@ -280,6 +313,11 @@ issue:
     date: "记录日期"
 
 check:
+  ai:
+    class_balance: "类别占比"
+    demographics_complete: "年龄和性别已记录"
+    split_integrity: "受试者只属于一个数据划分"
+    duplicate_recordings: "无重复记录（信号哈希）"
   structure:
     readable: "数据可读取（MNE）"
     header_consistent: "文件头一致"
@@ -320,6 +358,14 @@ check:
     document: "证明文件"
 
 report:
+  ai:
+    share: "{count} / {total}（{unit}）"
+    unit_events: "事件"
+    unit_subjects: "受试者"
+    free_text: "自由文本（{count} 个字符）"
+    duplicate_of: "与以下记录信号相同：{names}"
+    duplicate_splits: "该组涉及的数据划分：{names}"
+    split_recordings: "{split}：{names}"
   title: "NeuroGrid 预检报告"
   placeholder_banner: "本报告包含标记为占位的规则包。其规则并非依据标准原文，显示时不附条款号，且不计入统计。"
   section:

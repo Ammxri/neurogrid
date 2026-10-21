@@ -7,7 +7,7 @@ signal hashes, raw ages or diagnosis codes (A-11, A-51).
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -126,6 +126,60 @@ class Summary(BaseModel):
     open_evidence: int = 0  # breakdown: open evidence is counted in errors/warnings already (A-16)
 
 
+class AILabelScope(BaseModel):
+    """Class counts of one scope (all, train, val, test). None: a suppressed small cell (A-51)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int | None = None
+    classes: dict[str, int | None] = Field(default_factory=dict)
+
+
+class AILabels(BaseModel):
+    """M11 class shares per split and overall (A-21, A-81). Class keys are the displayed labels or
+    ``text-<sha8>`` for free text (A-17, C5)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["events", "participants"]
+    column: str
+    unit: Literal["events", "subjects"]
+    scopes: dict[str, AILabelScope] = Field(default_factory=dict)
+
+
+class AIDemographics(BaseModel):
+    """M11 demography of the subjects with recordings, aggregated only, small cells suppressed (A-51)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    subjects: int
+    age_documented: int | None = None
+    sex_documented: int | None = None
+    age_groups: dict[str, int | None] = Field(default_factory=dict)
+    sex: dict[str, int | None] = Field(default_factory=dict)
+
+
+class AISplits(BaseModel):
+    """M12 split assignment: recordings and subjects per split (DM-06) and unassigned recordings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["splits.tsv", "participants.tsv"]
+    recordings: dict[str, int] = Field(default_factory=dict)
+    subjects: dict[str, int] = Field(default_factory=dict)
+    unassigned: int = 0
+
+
+class AISummary(BaseModel):
+    """Aggregates of the AI dataset structure (M11, M12; decision C1: optional block)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    labels: AILabels | None = None
+    demographics: AIDemographics | None = None
+    splits: AISplits | None = None
+
+
 class Results(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -145,6 +199,10 @@ class Results(BaseModel):
     exceptions: list[ExceptionUse]
     notices: list[Notice]
     summary: Summary
+    # M12 duplicate groups (KONZEPT 2.3): displayed recording IDs per group, never signal hashes (A-21).
+    # None when no duplicate check ran; optional like every P4 field (decision C1).
+    duplicates: list[list[str]] | None = None
+    ai: AISummary | None = None  # M11/M12 aggregates (A-81)
 
 
 class ScanFile(BaseModel):

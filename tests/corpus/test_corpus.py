@@ -249,3 +249,49 @@ def test_gxdsl008_runs_on_every_dataset_and_only_warns(name: str, tmp_path: Path
         f for f in results.findings if f.rule_id == "GXDSL008-ACQ-001" and f.status is Status.NOT_CHECKABLE
     ]
     assert len(gx01) == len(signal)  # no corpus data set documents impedances
+
+
+# --- P4: AI dataset structure (M11, M12; A-21, A-81) -------------------------------------------------------
+
+
+def _reasons(results: Results, rule: str) -> dict[tuple[str, str | None, str], str | None]:
+    return {(f.object, f.subkey, f.status.value): f.reason for f in results.findings if f.rule_id == rule}
+
+
+@pytest.mark.parametrize("name", sorted(DATASETS))
+def test_ai_structure_without_labels_splits_or_duplicates(name: str) -> None:
+    """No corpus dataset configures labels or splits, and none holds two recordings with the same signal."""
+    results = _check(name)
+    assert _reasons(results, "CORE-M11-01") == {
+        ("dataset", None, "not_applicable"): "ai.labels_not_configured"
+    }
+    assert _reasons(results, "CORE-M12-01") == {("dataset", None, "not_applicable"): "ai.no_splits"}
+    assert results.duplicates == []
+    assert not [f for f in results.findings if f.rule_id == "CORE-M12-02" and f.status is Status.FAILED]
+
+
+def test_demography_on_the_corpus() -> None:
+    """CORE-M11-02: participants.tsv documents age and sex (ds002778 as 'gender', ds004504 as 'Gender'/'Age',
+    ds004148 with spaces in other headers); ds000248 gives n/a for sub-01; PSG-IPA is a raw folder without a
+    mapping, so its subjects are unknown. Demography leaves the process only aggregated (A-51)."""
+    for name in ("ds002778-1.0.5", "ds003775-1.2.1", "ds004148-1.0.1", "ds004504-1.0.9"):
+        assert _reasons(_check(name), "CORE-M11-02") == {}, name
+    ds000248 = _check("ds000248-1.2.4")
+    assert _reasons(ds000248, "CORE-M11-02") == {
+        ("sub-01", "age", "failed"): "ai.value_missing",
+        ("sub-01", "sex", "failed"): "ai.value_missing",
+    }
+    psg = _check("psg-ipa-1.0.0")
+    assert _reasons(psg, "CORE-M11-02") == {("dataset", None, "not_checkable"): "ai.subjects_unknown"}
+    ds002778 = _check("ds002778-1.0.5").ai
+    assert ds002778 is not None and ds002778.demographics is not None
+    assert ds002778.demographics.sex == {"female": 5}  # 5 subjects: no small cell
+    assert set(ds002778.demographics.age_groups.values()) == {None}  # 1-4 per age group: suppressed
+
+
+def test_psg_hypnograms_are_no_recordings_for_duplicates() -> None:
+    """C10: the 75 annotation-only files are not hashed; the three polysomnographies are."""
+    results = _check("psg-ipa-1.0.0")
+    reasons = [f.reason for f in results.findings if f.rule_id == "CORE-M12-02"]
+    assert reasons == ["recording.annotations_only"] * 75
+    assert sum(p.count for p in results.passed if p.rule_id == "CORE-M12-02") == 3

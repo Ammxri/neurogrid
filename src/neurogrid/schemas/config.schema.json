@@ -2,6 +2,7 @@
   "$defs": {
     "AISection": {
       "additionalProperties": false,
+      "description": "M11/M12 (A-21, A-81): the label source and the split control file (relative to the project root).",
       "properties": {
         "labels": {
           "anyOf": [

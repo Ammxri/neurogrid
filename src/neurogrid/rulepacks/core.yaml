@@ -231,3 +231,41 @@ rules:
     params: {max_fraction: 0.6}  # 95th percentile, public corpus (A-20, MET-01): rulepacks/calibration/core.json, n = 22 recordings
     severity: warning
     verification: automatic
+
+  # --- P4 ai ---
+  - id: CORE-M11-01
+    clause: M11
+    title_zh: 每个类别不低于最小占比
+    title_en: Every class at least the minimum share
+    phase: processing
+    check: ai.class_balance
+    params: {min_share: 0.05}  # PRD start value, not calibrated (A-20); per split and overall (A-21)
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M11-02
+    clause: M11
+    title_zh: 年龄和性别已记录
+    title_en: Age and sex documented
+    phase: processing
+    check: ai.demographics_complete
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M12-01
+    clause: M12
+    title_zh: 每名受试者只属于一个数据划分
+    title_en: Each subject in exactly one split
+    phase: processing
+    check: ai.split_integrity
+    severity: error
+    verification: automatic
+
+  - id: CORE-M12-02
+    clause: M12
+    title_zh: 无重复记录（信号哈希）
+    title_en: No duplicate recordings (signal hash)
+    phase: processing
+    check: ai.duplicate_recordings
+    severity: error
+    verification: automatic

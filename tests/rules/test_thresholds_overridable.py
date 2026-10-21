@@ -43,9 +43,14 @@ EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("quality.non_brain_components", "max_fraction"): ("edf_quality_ok", 0.1),  # 5 of 17 components: 0.29
     # P4 evidence area: gxdsl008 GX-03; edf_ok is stored as EDF, so allowing only BDF fails it
     ("structure.storage_format", "formats"): ("edf_ok", "BDF"),
+    # P4 ai: classes A/B/C at 0.4/0.3/0.3 in every scope of bids_ai_ok (all, train, val, test)
+    ("ai.class_balance", "min_share"): ("bids_ai_ok", 0.35),
 }
 # check -> toml lines both runs need so that the check can be evaluated at all
-BASE_CONFIG = {"impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n'}
+BASE_CONFIG = {
+    "impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n',
+    "ai.class_balance": '[ai]\nlabels = "events:trial_type"\n',
+}
 
 
 def _toml_value(value: ParamValue) -> str:

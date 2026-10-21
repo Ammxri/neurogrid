@@ -1,0 +1,16 @@
+{
+  "participant_id": {
+    "Description": "Participant identifier"
+  },
+  "age": {
+    "Description": "Age (synthetic)",
+    "Units": "year"
+  },
+  "sex": {
+    "Description": "Sex (synthetic)",
+    "Levels": {
+      "F": "female",
+      "M": "male"
+    }
+  }
+}
