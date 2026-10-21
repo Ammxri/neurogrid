@@ -12,6 +12,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from neurogrid.kernel.engine import ExceptionUse
+from neurogrid.kernel.evidence import EvidenceRecord
 from neurogrid.kernel.findings import (
     EffectiveParam,
     Finding,
@@ -89,6 +90,8 @@ class ConfigInfo(BaseModel):
     sampling: dict[str, Any]
     effective_params: dict[str, dict[str, EffectiveParam]]
     effective_settings: dict[str, Any]
+    # canonical SHA-256 of the parsed evidence.yaml (A-83); None without one. Never its path (A-11, A-51).
+    evidence_sha256: str | None = None
 
 
 class RecordingSummary(BaseModel):
@@ -120,6 +123,7 @@ class Summary(BaseModel):
     errors: int
     warnings: int
     exit_code: int
+    open_evidence: int = 0  # breakdown: open evidence is counted in errors/warnings already (A-16)
 
 
 class Results(BaseModel):
@@ -136,6 +140,8 @@ class Results(BaseModel):
     recordings: list[RecordingSummary]
     findings: list[Finding]
     passed: list[PassedCount]
+    # rules evaluated from evidence.yaml, in pack and rule order (KONZEPT 2.3, A-83); empty in P1-P3 results
+    evidence: list[EvidenceRecord] = Field(default_factory=list)
     exceptions: list[ExceptionUse]
     notices: list[Notice]
     summary: Summary

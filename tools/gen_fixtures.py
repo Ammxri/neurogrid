@@ -278,6 +278,66 @@ def write_eeglab(
     _binary(path, bytes(content))
 
 
+def write_eeglab_v73(
+    path: Path, *, sfreq: int = 512, seconds: int = 4, labels: tuple[str, ...] = EEG_LABELS, seed: int = 1
+) -> None:
+    """EEGLAB data set in a MATLAB v7.3 (HDF5) container with a float32 .fdt data file, written with h5py
+    in MATLAB's layout: a 512-byte user block with the MAT header (version 0x0200), the EEG structure as a
+    group, texts as uint16 'char' datasets, empty values marked MATLAB_empty and the chanlocs fields as
+    references into '#refs#'. Used by tests at run time (GX-03: an HDF5 container), not committed: HDF5 files
+    carry library details that need not be byte-identical across h5py builds."""
+    import h5py
+
+    def text(group: Any, name: str, value: str) -> None:
+        if value:
+            dataset = group.create_dataset(name, data=np.array([[ord(ch)] for ch in value], dtype="<u2"))
+        else:
+            dataset = group.create_dataset(name, data=np.zeros(2, dtype="<u8"))
+            dataset.attrs["MATLAB_empty"] = np.uint8(1)
+        dataset.attrs["MATLAB_class"] = np.bytes_(b"char")
+
+    def number(group: Any, name: str, value: float | None) -> None:
+        if value is None:
+            dataset = group.create_dataset(name, data=np.zeros(2, dtype="<u8"))
+            dataset.attrs["MATLAB_empty"] = np.uint8(1)
+        else:
+            dataset = group.create_dataset(name, data=np.array([[value]], dtype="<f8"))
+        dataset.attrs["MATLAB_class"] = np.bytes_(b"double")
+
+    samples = np.stack(_microvolts(sfreq, seconds, len(labels), seed)).astype("<f4")  # channel x time
+    points = samples.shape[1]
+    fdt = path.with_suffix(".fdt")
+    _binary(fdt, samples.T.tobytes())
+    with h5py.File(path, "w", userblock_size=512) as handle:
+        refs = handle.create_group("#refs#")
+        eeg = handle.create_group("EEG")
+        eeg.attrs["MATLAB_class"] = np.bytes_(b"struct")
+        texts = {"setname": "synthetic", "filename": path.name, "data": fdt.name, "ref": "common"}
+        texts.update({key: "" for key in ("filepath", "comments", "history", "subject")})
+        for key, value in texts.items():
+            text(eeg, key, value)
+        counts = {"nbchan": len(labels), "trials": 1, "pnts": points, "srate": sfreq, "xmin": 0.0}
+        for key, count in counts.items():
+            number(eeg, key, float(count))
+        for key in ("times", "event", "epoch", "urevent", "icawinv", "icasphere", "icaweights", "icaact"):
+            number(eeg, key, None)
+        chanlocs = eeg.create_group("chanlocs")
+        chanlocs.attrs["MATLAB_class"] = np.bytes_(b"struct")
+        for field in ("labels", "type", "X", "Y", "Z"):
+            targets = []
+            for index, label in enumerate(labels):
+                name = f"{field}{index}"
+                if field in ("labels", "type"):
+                    text(refs, name, label if field == "labels" else "EEG")
+                else:
+                    number(refs, name, None)
+                targets.append(refs[name].ref)
+            chanlocs.create_dataset(field, data=np.array([[ref] for ref in targets], dtype=h5py.ref_dtype))
+    with path.open("r+b") as handle:  # the MAT header that tells readers to use HDF5
+        handle.write(b"MATLAB 7.3 MAT-file, written by NeuroGrid tools/gen_fixtures.py".ljust(116))
+        handle.write(b"\x00" * 8 + b"\x00\x02IM")
+
+
 def _binary(path: Path, content: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)

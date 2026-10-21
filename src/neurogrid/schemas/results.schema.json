@@ -28,6 +28,18 @@
           "title": "Effective Settings",
           "type": "object"
         },
+        "evidence_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Sha256"
+        },
         "sampling": {
           "additionalProperties": true,
           "title": "Sampling",
@@ -159,6 +171,18 @@
       "title": "Disclaimer",
       "type": "object"
     },
+    "DocumentCheck": {
+      "description": "What NeuroGrid found for a referenced document (A-15, A-52).",
+      "enum": [
+        "ok",
+        "no_document",
+        "document_missing",
+        "document_link",
+        "hash_mismatch"
+      ],
+      "title": "DocumentCheck",
+      "type": "string"
+    },
     "EffectiveParam": {
       "additionalProperties": false,
       "description": "A threshold as applied, with its origin (A-13: toml > rule pack > check default).",
@@ -236,9 +260,162 @@
       "title": "EnvironmentInfo",
       "type": "object"
     },
+    "EvidenceRecord": {
+      "additionalProperties": false,
+      "description": "One rule evaluated from evidence.yaml, as written to results.json (KONZEPT 2.3 ``evidence``, A-83).\n\n``status`` is the entry's state (None: no entry, counted as open, A-15), ``outcome`` the rule's result\nafter exceptions. ``sha256`` is computed by NeuroGrid from the document found; ``sha256_recorded`` is the\nvalue in evidence.yaml. ``document`` is the relative path as given (normalised to POSIX separators).",
+      "properties": {
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "document": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Document"
+        },
+        "document_check": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "justification": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Justification"
+        },
+        "outcome": {
+          "$ref": "#/$defs/Status"
+        },
+        "phase": {
+          "$ref": "#/$defs/Phase"
+        },
+        "reviewer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reviewer"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "rulepack": {
+          "title": "Rulepack",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "sha256_recorded": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256 Recorded"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verification": {
+          "$ref": "#/$defs/Verification"
+        }
+      },
+      "required": [
+        "rule_id",
+        "rulepack",
+        "phase",
+        "severity",
+        "verification",
+        "outcome"
+      ],
+      "title": "EvidenceRecord",
+      "type": "object"
+    },
+    "EvidenceState": {
+      "enum": [
+        "open",
+        "provided",
+        "partial",
+        "not_applicable"
+      ],
+      "title": "EvidenceState",
+      "type": "string"
+    },
     "ExceptionEntry": {
       "additionalProperties": false,
-      "description": "A justified exception from neurogrid.toml (NG-F18, A-14).\n\n``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well.",
+      "description": "A justified exception from neurogrid.toml (NG-F18, A-14).\n\n``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well. ``subkey``\nmust equal the finding's subkey (e.g. a validator code, a field or a channel). Exceptions are per rule ID:\nthe same defect reported by two packs (A-40) needs one entry per rule.",
       "properties": {
         "approved_by": {
           "anyOf": [
@@ -274,6 +451,7 @@
         "rule": {
           "maxLength": 64,
           "minLength": 1,
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)+$",
           "title": "Rule",
           "type": "string"
         },
@@ -880,6 +1058,11 @@
           "title": "Exit Code",
           "type": "integer"
         },
+        "open_evidence": {
+          "default": 0,
+          "title": "Open Evidence",
+          "type": "integer"
+        },
         "phases": {
           "additionalProperties": {
             "$ref": "#/$defs/PhaseSummary"
@@ -966,6 +1149,13 @@
     },
     "environment": {
       "$ref": "#/$defs/EnvironmentInfo"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/EvidenceRecord"
+      },
+      "title": "Evidence",
+      "type": "array"
     },
     "exceptions": {
       "items": {

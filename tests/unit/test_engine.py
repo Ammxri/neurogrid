@@ -8,7 +8,7 @@ import pytest
 
 from neurogrid.kernel import engine
 from neurogrid.kernel.errors import ConfigError, RulepackError
-from neurogrid.kernel.evidence import DocumentCheck, EvidenceItem, EvidenceState
+from neurogrid.kernel.evidence import DocumentCheck, DocumentResult, EvidenceItem, EvidenceState
 from neurogrid.kernel.findings import Light, Phase, Status
 from neurogrid.kernel.rules import (
     CheckSpec,
@@ -192,7 +192,12 @@ def test_semi_automatic_document_check() -> None:
         failed.findings[0].status is Status.FAILED
         and failed.findings[0].reason == "evidence.document_missing"
     )
-    ok = run([pack(body)], {}, evidence={"DEMO-ACC-001": item}, document_check=lambda _: DocumentCheck.OK)
+    ok = run(
+        [pack(body)],
+        {},
+        evidence={"DEMO-ACC-001": item},
+        document_check=lambda _: DocumentResult(DocumentCheck.OK, "0" * 64),
+    )
     assert ok.findings == []
 
 

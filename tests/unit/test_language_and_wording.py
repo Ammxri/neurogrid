@@ -58,6 +58,59 @@ def test_keys_used_in_code_exist() -> None:
     assert not missing, missing
 
 
+def test_notice_keys_used_in_code_exist() -> None:
+    """C7 (critic G3): Notice(message_key=...) keys, literal or built from a prefix, exist in every
+    language."""
+    loaded = tables()
+    keys: set[str] = set()
+    prefixes: set[str] = set()
+    for path in SRC.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        keys.update(re.findall(r"""message_key\s*=\s*['"]([a-z_]+(?:\.[a-z_0-9]+)+)['"]""", text))
+        prefixes.update(re.findall(r"""message_key\s*=\s*f['"]([a-z_]+(?:\.[a-z_0-9]+)*\.)\{""", text))
+    assert {"notice.exception_unknown_rule", "notice.evidence_unused"} <= keys  # the pattern still finds them
+    assert "notice.evidence_document." in prefixes
+    for lang in LANGUAGES:
+        assert not sorted(k for k in keys if k not in loaded[lang]), lang
+        assert not sorted(p for p in prefixes if not any(k.startswith(p) for k in loaded[lang])), lang
+
+
+def test_every_registered_check_has_a_title_in_every_language() -> None:
+    """C7: findings carry message_key check.<check id> (kernel/engine.py); every registry check needs it."""
+    from neurogrid.checks.registry import REGISTRY
+
+    for lang in LANGUAGES:
+        missing = sorted(check_id for check_id in REGISTRY if f"check.{check_id}" not in tables()[lang])
+        assert not missing, f"{lang}: {missing}"
+
+
+def _families() -> list[tuple[str, list[str]]]:
+    """Key families built at runtime from enum values (C7): prefix -> values that must all have a text."""
+    from neurogrid.kernel.evidence import DocumentCheck, EvidenceState
+    from neurogrid.kernel.findings import Light, Phase, Severity, SourceStatus, Status, Verification
+
+    not_ok = [check.value for check in DocumentCheck if check is not DocumentCheck.OK]
+    open_states = [state.value for state in EvidenceState if state is not EvidenceState.PROVIDED]
+    return [
+        ("status", [s.value for s in Status]),
+        ("phase", [p.value for p in Phase]),
+        ("light", [light.value for light in Light]),
+        ("severity", [s.value for s in Severity]),
+        ("source_status", [s.value for s in SourceStatus]),  # report cover
+        ("verification", [v.value for v in Verification]),  # report section 5
+        ("report.document_check", [c.value for c in DocumentCheck]),  # report section 5
+        ("reason.evidence", [*not_ok, *open_states, "missing"]),  # engine: f"evidence.{...}"
+        ("notice.evidence_document", not_ok),  # engine: manual 'provided' with a document problem
+    ]
+
+
+@pytest.mark.parametrize(("prefix", "values"), _families(), ids=[prefix for prefix, _ in _families()])
+def test_key_families_built_at_runtime_are_complete(prefix: str, values: list[str]) -> None:
+    for lang in LANGUAGES:
+        missing = sorted(value for value in values if f"{prefix}.{value}" not in tables()[lang])
+        assert not missing, f"{lang} {prefix}: {missing}"
+
+
 def test_translator_behaviour() -> None:
     tr = Translator({"en": {"a": "A {x}"}, "zh": {}}, "zh")
     assert tr.t("a", x=1) == "A 1" and tr.t("missing") == "missing" and not tr.has("a")

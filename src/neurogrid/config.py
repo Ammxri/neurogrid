@@ -444,6 +444,18 @@ def _default_location(dataset_root: Path) -> Path | None:
     return path if path.is_file() else None
 
 
+def project_root_for(path: Path, dataset_root: Path) -> Path:
+    """A-66 for a NeuroGrid file (neurogrid.toml, evidence.yaml, A-83): the folder above ``.neurogrid`` for a
+    file in such a folder, else the dataset root for a file inside the dataset, else the file's folder."""
+    resolved = path.resolve()
+    root = dataset_root.resolve()
+    if os.path.normcase(resolved.parent.name) == os.path.normcase(CONFIG_DIR):
+        return resolved.parent.parent
+    if resolved.is_relative_to(root):
+        return root
+    return resolved.parent
+
+
 def load(config_path: Path | None, dataset_root: Path) -> LoadedConfig:
     """Explicit --config, else the default location inside the dataset, else defaults."""
     root = dataset_root.resolve()
@@ -456,11 +468,4 @@ def load(config_path: Path | None, dataset_root: Path) -> LoadedConfig:
         data = read_limited(path, MAX_CONFIG_BYTES)
     except InputError:
         raise ConfigError("config.too_large") from None
-    resolved = path.resolve()
-    if os.path.normcase(resolved.parent.name) == os.path.normcase(CONFIG_DIR):
-        project_root = resolved.parent.parent
-    elif resolved.is_relative_to(root):
-        project_root = root
-    else:
-        project_root = resolved.parent
-    return LoadedConfig(parse_bytes(data), path, project_root)
+    return LoadedConfig(parse_bytes(data), path, project_root_for(path, root))

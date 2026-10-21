@@ -214,3 +214,38 @@ def test_calibration_protocol_is_reproducible_from_the_corpus() -> None:
         data = values[entry["metric"]]
         assert len(data) == entry["n"], rule
         assert float(f"{np.percentile(data, 95.0):.6g}") == entry["value"], rule
+
+
+# --- P4 evidence area: gxdsl008 on the corpus (GX-00..GX-04, A-40, A-83) ------------------------------------
+
+# GX-03 per data set: EDF passes; BDF, FIF, BrainVision and EEGLAB MAT v5 (ds004504) warn. The 75 PSG-IPA
+# hypnograms are annotation-only files, not recordings (not_applicable).
+GX03 = {
+    "ds000248-1.2.4": {Status.FAILED},
+    "ds002778-1.0.5": {Status.FAILED},
+    "ds003775-1.2.1": {Status.PASSED},
+    "ds004148-1.0.1": {Status.FAILED},
+    "ds004504-1.0.9": {Status.FAILED},
+    "psg-ipa-1.0.0": {Status.PASSED},
+}
+
+
+@pytest.mark.parametrize("name", sorted(DATASETS))
+def test_gxdsl008_runs_on_every_dataset_and_only_warns(name: str, tmp_path: Path) -> None:
+    """gxdsl008 alone (no core, so no signal sample): never exit 2, only warnings with the clause 'unknown',
+    coverage n/a, GX-04 open without evidence.yaml, and GX-01 never silent (Q16)."""
+    config = tmp_path / "neurogrid.toml"
+    config.write_text('[check]\nrulepacks = ["gxdsl008"]\n', encoding="utf-8")
+    results = pipeline.run_check(CORPUS / name, pipeline.CheckOptions(config_path=config, as_of=AS_OF))
+    assert results.summary.exit_code == 0 and results.summary.coverage == {"gxdsl008": "n/a"}
+    assert {f.severity.value for f in results.findings} == {"warning"}
+    assert {f.clause for f in results.findings} == {"unknown"}
+    gx03 = {f.status for f in results.findings if f.rule_id == "GXDSL008-STO-001"}
+    gx03 |= {Status.PASSED} if any(p.rule_id == "GXDSL008-STO-001" for p in results.passed) else set()
+    assert gx03 - {Status.NOT_APPLICABLE} == GX03[name]
+    assert [f.status for f in results.findings if f.rule_id == "GXDSL008-ACC-001"] == [Status.EVIDENCE_OPEN]
+    signal = [r for r in results.recordings if r.n_eeg_channels]
+    gx01 = [
+        f for f in results.findings if f.rule_id == "GXDSL008-ACQ-001" and f.status is Status.NOT_CHECKABLE
+    ]
+    assert len(gx01) == len(signal)  # no corpus data set documents impedances

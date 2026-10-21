@@ -300,7 +300,12 @@ def measure_impedance_documented(ctx: CheckContext) -> list[Measurement]:
 
 
 def measure_impedance_max(ctx: CheckContext) -> list[Measurement]:
-    """M05-02: each documented impedance below the limit, for wet electrodes only (PRD: 5 kOhm nass)."""
+    """M05-02 and GX-01: each documented impedance below the limit, for wet electrodes only (PRD: 5 kOhm
+    nass).
+
+    A recording without any documented impedance is not_checkable (impedance.not_documented, Q16/A-83), so
+    that a rule on this check is never silent, e.g. gxdsl008 loaded without core (M05-01 is in core).
+    """
     out: list[Measurement] = []
     for rec in ctx.recordings:
         if rec.annotations_only:
@@ -309,13 +314,16 @@ def measure_impedance_max(ctx: CheckContext) -> list[Measurement]:
         if rec.recording is None:
             out.append(_unreadable(rec, IMPEDANCE_MAX))
             continue
-        values = [(name, getattr(ch, "impedance_kohm", None)) for name, ch in _eeg_channels(rec)]
+        eeg = _eeg_channels(rec)
+        values = [(name, getattr(ch, "impedance_kohm", None)) for name, ch in eeg]
         values = [(name, value) for name, value in values if value is not None]
-        if not values:
-            continue  # nothing documented: reported by M05-01
         electrode = rec.recording.electrode_type
         if electrode == "dry":
             out.append(_base(rec, IMPEDANCE_MAX, state="not_applicable", reason="impedance.dry_electrodes"))
+        elif not eeg:
+            out.append(_base(rec, IMPEDANCE_MAX, state="not_checkable", reason="signal.no_eeg_channels"))
+        elif not values:
+            out.append(_base(rec, IMPEDANCE_MAX, state="not_checkable", reason="impedance.not_documented"))
         elif electrode is None:
             out.append(
                 _base(rec, IMPEDANCE_MAX, state="not_checkable", reason="metadata.electrode_type_unknown")

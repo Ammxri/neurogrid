@@ -25,6 +25,7 @@ cli:
     counts: "{errors} error(s), {warnings} warning(s)"
     written: "Results written to {path}"
     placeholder: "Placeholder rule packs are loaded. Their findings are not based on a norm text and do not count."
+    open_evidence: "{count} open evidence item(s), counted in the errors and warnings above."
   report:
     written: "Report written to {path}"
   convert:
@@ -87,6 +88,13 @@ errors:
     unsafe_path: "Configuration: field '{field}' must be a relative path inside the project (no '..', drive, network or device paths)."
     unsafe_pattern: "Configuration: the regular expression in field '{field}' can take extremely long on some file names (a repeated part contains another repetition or alternatives, or it uses a back-reference). Please simplify it."
     too_deep: "Configuration file is nested too deeply."
+  evidence:
+    invalid: "Invalid evidence file: field '{field}' ({problem})."
+    not_mapping: "An evidence file must be a YAML mapping with format_version and evidence."
+    encoding: "Evidence file is not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    too_large: "Evidence file is too large (limit {limit} bytes)."
+    not_found: "Evidence file not found or not readable."
+    unsafe_path: "Evidence for rule {rule}: the document must be a plain relative path (no '..', drive, network or device path, no URL)."
   input:
     not_found: "Input path not found."
     unknown_format: "Unknown or unsupported format: {file}. Supported: {known}."
@@ -123,6 +131,16 @@ notice:
   names_look_identifying: "{count} data file path(s) contain non-ASCII letters or six or more digits in a row and may identify persons. Please check the file names."
   links_skipped: "{count} link(s) or junction(s) in the dataset were not followed; their contents were not checked."
   bids_not_checked: "The dataset is not a BIDS dataset; the BIDS structure was not checked."
+  exception_unknown_rule: "Exception for rule {rule}: no loaded rule pack has this rule, so the exception has no effect."
+  evidence_unused: "evidence.yaml has an entry for rule {rule}, which is not loaded."
+  evidence_ignored: "evidence.yaml has an entry for rule {rule}, which NeuroGrid measures itself; the entry is ignored."
+  evidence_document:
+    no_document: "Evidence for rule {rule} is marked as provided but names no document."
+    document_missing: "Evidence for rule {rule} is marked as provided, but its document was not found; the status is the user's statement."
+    document_link: "Evidence for rule {rule} is marked as provided, but its document lies behind a link, which is not followed; the status is the user's statement."
+    hash_mismatch: "Evidence for rule {rule} is marked as provided, but its document changed since its hash was recorded; the status is the user's statement."
+  evidence_date_after_as_of: "Evidence for rule {rule} is dated {date}, after the reference date {as_of}."
+  evidence_looks_identifying: "{count} evidence entr(y/ies) have a reviewer or document name that may identify persons (a name, non-ASCII letters or six or more digits). Please use roles or initials and neutral file names."
 
 severity:
   error: "Error"
@@ -149,7 +167,18 @@ light:
   yellow: "yellow"
   green: "green"
   grey: "grey"
-  legend: "Red: at least one failed error rule. Yellow: at least one failed warning rule. Green: no failed error or warning rule in the loaded rule packs. Grey: no rules for this phase."
+  legend: "Red: at least one failed error rule or open evidence for an error rule. Yellow: the same for warning rules. Green: no failed error or warning rule and no open evidence in the loaded rule packs. Grey: no rule of this phase gave a passed or failed result (no rules, only placeholder rules, or only results that are not applicable or not checkable)."
+
+source_status:
+  placeholder: "placeholder"
+  secondary: "secondary (values second-hand)"
+  inventory: "inventory"
+  final: "final"
+
+verification:
+  automatic: "automatic"
+  semi_automatic: "semi-automatic"
+  manual: "manual"
 
 reason:
   read:
@@ -197,6 +226,7 @@ reason:
     electrode_type_unknown: "Electrode type (wet/dry) not documented; set it in neurogrid.toml."
   impedance:
     dry_electrodes: "Dry electrodes: the 5 kOhm limit applies to wet electrodes only."
+    not_documented: "No impedance documented for the EEG channels."
   evidence:
     missing: "No evidence entry."
     open: "Evidence marked as open."
@@ -205,6 +235,7 @@ reason:
     no_document: "No document referenced."
     document_missing: "Referenced document not found."
     hash_mismatch: "Document changed since its hash was recorded."
+    document_link: "The referenced document lies behind a link or junction, which is not followed."
   value:
     non_finite: "The measured value is not a finite number."
 
@@ -254,6 +285,7 @@ check:
     companions_present: "Companion files and references present"
     supported_format: "Format supported"
     identifying_header: "No identifying header content"
+    storage_format: "Storage format"
   metadata:
     required_fields: "Required metadata field documented"
     consistent: "Metadata consistent"
@@ -346,6 +378,13 @@ report:
     analysed_channels: "Channels analysed"
     positions: "Electrode positions"
     notch: "Notch (Hz)"
+    verification: "Kind"
+    document: "Document"
+    document_check: "Document check"
+    reviewer: "Reviewer"
+    evidence_date: "Date"
+    comment: "Comment / justification"
+    expired: "Expired"
   value:
     none: "–"
     whole_recording: "whole recording"
@@ -358,10 +397,11 @@ report:
     placeholder_status: "not evaluated (placeholder rule)"
     evidence_provided: "evidence filed (user's statement, not assessed by NeuroGrid)"
     not_streamable: "not readable in blocks"
+    clause_unknown: "unknown (norm text not accessible)"
   text:
     no_findings: "No findings with these severities."
     no_recordings: "No recordings."
-    no_manual_rules: "The loaded rule packs contain no manual rules."
+    no_manual_rules: "The loaded rule packs contain no rules evaluated from evidence."
     no_exceptions: "No exceptions configured."
     no_notices: "No notices."
     overall_passes: "The dataset passes the checks of the loaded rule packs."
@@ -372,6 +412,9 @@ report:
     sample_method: "Each segment is resampled to {resample_hz} Hz, notch-filtered at the line frequency and its harmonic, band-pass filtered {low}–{high} Hz and re-referenced to the average; autoreject uses {epoch_s}-s epochs. M07 and M08 use the full recording."
     positions_excluded: "without position, left out: {names}"
     positions_unused: "{source} not used: {reason}"
+    see_also: "also reported as {rules}"
+    secondary_note: "Rule pack {pack} takes its values second-hand (start values quoted in the PRD); the norm text was not accessible. Its clauses are unknown, and no coverage is computed."
+    evidence_intro: "The evidence comes from evidence.yaml. 'Evidence filed' is the user's statement; NeuroGrid only checks that the document exists, is not a link and matches its recorded hash."
   measure:
     documented: "documented"
     channel_sets: "channel sets"
@@ -390,6 +433,12 @@ report:
     rate_hz: "rate (Hz)"
     rates_hz: "rates (Hz)"
     uniform: "uniform"
+  document_check:
+    ok: "document present (recorded hash, if any, matches)"
+    no_document: "no document named"
+    document_missing: "document not found"
+    document_link: "document behind a link (not followed)"
+    hash_mismatch: "document changed since its hash was recorded"
   sample_mode:
     sample: "Sample"
     full: "Full recording"

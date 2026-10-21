@@ -26,6 +26,7 @@ cli:
     counts: "{errors} 个错误，{warnings} 个警告"
     written: "结果已写入 {path}"
     placeholder: "已加载占位规则包。其结果并非依据标准原文，不计入统计。"
+    open_evidence: "{count} 项证明材料待补，已计入上述错误和警告。"
   report:
     written: "报告已写入 {path}"
   convert:
@@ -88,6 +89,13 @@ errors:
     unsafe_path: "配置：字段 '{field}' 必须是项目内的相对路径（不得含 '..'、盘符、网络或设备路径）。"
     unsafe_pattern: "配置：字段 '{field}' 中的正则表达式在某些文件名上可能运行极长时间（重复部分内含另一重复或分支，或使用了反向引用）。请简化该表达式。"
     too_deep: "配置文件嵌套层级过深。"
+  evidence:
+    invalid: "证明材料文件无效：字段 '{field}'（{problem}）。"
+    not_mapping: "证明材料文件必须是包含 format_version 和 evidence 的 YAML 映射。"
+    encoding: "证明材料文件不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
+    too_large: "证明材料文件过大（上限 {limit} 字节）。"
+    not_found: "未找到证明材料文件，或无法读取。"
+    unsafe_path: "规则 {rule} 的证明材料：文件必须是普通相对路径（不得含 '..'、盘符、网络或设备路径，也不得为网址）。"
   input:
     not_found: "未找到输入路径。"
     unknown_format: "未知或不支持的格式：{file}。支持的格式：{known}。"
@@ -124,6 +132,16 @@ notice:
   names_look_identifying: "{count} 个数据文件路径含有非 ASCII 字母或连续六位以上数字，可能可识别个人身份。请检查文件名。"
   links_skipped: "数据集中有 {count} 个链接或目录联接未被跟随；其内容未被检查。"
   bids_not_checked: "该数据集不是 BIDS 数据集；未检查 BIDS 结构。"
+  exception_unknown_rule: "规则 {rule} 的例外：已加载的规则包中没有该规则，因此该例外不起作用。"
+  evidence_unused: "evidence.yaml 中有未加载的规则 {rule} 的条目。"
+  evidence_ignored: "evidence.yaml 中有规则 {rule} 的条目，但该规则由 NeuroGrid 自行测量；该条目被忽略。"
+  evidence_document:
+    no_document: "规则 {rule} 的证明材料标记为已提交，但未指定文件。"
+    document_missing: "规则 {rule} 的证明材料标记为已提交，但未找到其文件；该状态为用户声明。"
+    document_link: "规则 {rule} 的证明材料标记为已提交，但其文件位于不予跟随的链接之后；该状态为用户声明。"
+    hash_mismatch: "规则 {rule} 的证明材料标记为已提交，但其文件自记录哈希值后已被修改；该状态为用户声明。"
+  evidence_date_after_as_of: "规则 {rule} 的证明材料日期为 {date}，晚于基准日期 {as_of}。"
+  evidence_looks_identifying: "{count} 个证明材料条目的审核人或文件名可能可识别个人身份（姓名、非 ASCII 字母或连续六位以上数字）。请使用角色或姓名缩写以及中性的文件名。"
 
 severity:
   error: "错误"
@@ -150,7 +168,18 @@ light:
   yellow: "黄"
   green: "绿"
   grey: "灰"
-  legend: "红：至少一条错误级规则未通过。黄：至少一条警告级规则未通过。绿：已加载规则包中没有未通过的错误级或警告级规则。灰：该阶段没有规则。"
+  legend: "红：至少一条错误级规则未通过，或错误级规则的证明材料待补。黄：警告级规则出现同样情况。绿：已加载规则包中没有未通过的错误级或警告级规则，也没有待补的证明材料。灰：该阶段没有规则得出通过或未通过的结果（没有规则、只有占位规则，或只有不适用或无法检查的结果）。"
+
+source_status:
+  placeholder: "占位"
+  secondary: "二手来源（数值转引）"
+  inventory: "条款清单"
+  final: "正式"
+
+verification:
+  automatic: "自动"
+  semi_automatic: "半自动"
+  manual: "人工"
 
 reason:
   read:
@@ -198,6 +227,7 @@ reason:
     electrode_type_unknown: "未记录电极类型（湿/干）；请在 neurogrid.toml 中设置。"
   impedance:
     dry_electrodes: "干电极：5 kΩ 阈值仅适用于湿电极。"
+    not_documented: "EEG 通道未记录阻抗。"
   evidence:
     missing: "没有证明材料条目。"
     open: "证明材料标记为待补。"
@@ -206,6 +236,7 @@ reason:
     no_document: "未引用文件。"
     document_missing: "未找到所引用的文件。"
     hash_mismatch: "文件自记录哈希值后已被修改。"
+    document_link: "所引用的文件位于链接或目录联接之后，不予跟随。"
   value:
     non_finite: "测量值不是有限数值。"
 
@@ -255,6 +286,7 @@ check:
     companions_present: "伴随文件和引用存在"
     supported_format: "格式受支持"
     identifying_header: "文件头不含身份信息"
+    storage_format: "存储格式"
   metadata:
     required_fields: "必填元数据字段已记录"
     consistent: "元数据一致"
@@ -347,6 +379,13 @@ report:
     analysed_channels: "分析的通道"
     positions: "电极位置"
     notch: "陷波（Hz）"
+    verification: "类型"
+    document: "文件"
+    document_check: "文件检查"
+    reviewer: "审核人"
+    evidence_date: "日期"
+    comment: "说明 / 理由"
+    expired: "已过期"
   value:
     none: "–"
     whole_recording: "整段记录"
@@ -359,10 +398,11 @@ report:
     placeholder_status: "未评价（占位规则）"
     evidence_provided: "已提交证明材料（用户声明，NeuroGrid 未作评价）"
     not_streamable: "无法分块读取"
+    clause_unknown: "未知（无法获取标准原文）"
   text:
     no_findings: "没有此类严重程度的结果。"
     no_recordings: "没有记录。"
-    no_manual_rules: "已加载的规则包不含人工规则。"
+    no_manual_rules: "已加载的规则包不含依据证明材料评价的规则。"
     no_exceptions: "未配置例外。"
     no_notices: "没有说明。"
     overall_passes: "该数据集通过了已加载规则包的各项检查。"
@@ -373,6 +413,9 @@ report:
     sample_method: "每个片段重采样至 {resample_hz} Hz，在工频及其谐波处陷波滤波，经 {low}–{high} Hz 带通滤波，并转换为平均参考；autoreject 使用 {epoch_s} 秒的分段。M07 和 M08 基于整段记录计算。"
     positions_excluded: "无位置，未纳入：{names}"
     positions_unused: "未使用 {source}：{reason}"
+    see_also: "另见 {rules}"
+    secondary_note: "规则包 {pack} 的数值为转引（PRD 中引用的起始值）；无法获取标准原文。其条款未知，不计算覆盖率。"
+    evidence_intro: "证明材料来自 evidence.yaml。“已提交证明材料”为用户声明；NeuroGrid 仅检查文件是否存在、是否为链接，以及是否与记录的哈希值一致。"
   measure:
     documented: "已说明"
     channel_sets: "通道组数"
@@ -391,6 +434,12 @@ report:
     rate_hz: "采样率（Hz）"
     rates_hz: "采样率（Hz）"
     uniform: "一致"
+  document_check:
+    ok: "文件存在（如记录了哈希值，则与之一致）"
+    no_document: "未指定文件"
+    document_missing: "未找到文件"
+    document_link: "文件位于链接之后（未跟随）"
+    hash_mismatch: "文件自记录哈希值后已被修改"
   sample_mode:
     sample: "抽样"
     full: "整段记录"

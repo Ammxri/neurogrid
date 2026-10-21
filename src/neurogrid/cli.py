@@ -21,6 +21,7 @@ from typer.exceptions import TyperException
 from neurogrid import pipeline
 from neurogrid.kernel import canonical, netguard
 from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError
+from neurogrid.kernel.findings import Severity
 from neurogrid.kernel.i18n import detect_language, normalize_language
 from neurogrid.kernel.safety import check_operator_path, read_limited, redact_paths
 from neurogrid.metadata import NA_IS_MISSING
@@ -206,6 +207,13 @@ def check(
             "--jobs", min=1, max=64, help="Processes for the signal metrics (results do not change)."
         ),
     ] = 1,
+    evidence: Annotated[
+        str | None,
+        typer.Option(
+            "--evidence",
+            help="evidence.yaml with the evidence for manual rules (default: .neurogrid/evidence.yaml).",
+        ),
+    ] = None,
 ) -> None:
     """Check a dataset against rule packs and write results.json."""
     reference = None
@@ -225,17 +233,25 @@ def check(
         show_paths=show_paths,
         jobs=jobs,
         work_base=target.absolute().parent,  # work folder next to the results file (A-54)
+        evidence_path=Path(evidence) if evidence else None,
     )
     results = pipeline.run_check(path, options)
     _write_atomic(target, canonical.dumps(results))
     packs = ", ".join(p.name for p in results.rulepacks)
     _say("cli.check.fails" if results.summary.exit_code else "cli.check.passes", packs=packs)
     _say("cli.check.counts", errors=results.summary.errors, warnings=results.summary.warnings)
+    if results.summary.open_evidence:
+        _say("cli.check.open_evidence", count=results.summary.open_evidence)
     if any(p.source_status.value == "placeholder" for p in results.rulepacks):
         _say("cli.check.placeholder")
     for notice in results.notices:
-        if notice.message_key == "notice.links_skipped":
-            _say(notice.message_key, **notice.params)
+        # warnings reach the console (links not followed, expired or unknown exceptions, evidence documents
+        # that changed); their parameters are cleaned and shortened like those of error messages (A-51, A-53)
+        if notice.level is Severity.WARNING:
+            params = {
+                name: _redact(_clean(str(value)))[:MAX_PARAM_CHARS] for name, value in notice.params.items()
+            }
+            _say(notice.message_key, **params)
     _say("cli.check.written", path=_display_path(target))
     _say("disclaimer")
     raise typer.Exit(code=results.summary.exit_code)
