@@ -1,6 +1,8 @@
-"""Command line (PRD §13): scan, convert, check, report. Further commands follow in later phases.
+"""Command line (PRD §13): scan, convert, check, report, manifest, verify. Further commands follow in later
+phases.
 
-Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error.
+Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error. manifest: 0 written, 1 files
+could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82).
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from neurogrid.report.texts import REPORT_LANGUAGES, translator
 
 MAX_RESULTS_BYTES = 256_000_000
 MAX_PARAM_CHARS = 200
+MAX_LISTED = 200  # names listed per kind by manifest and verify; the rest as a count
 
 app = typer.Typer(
     add_completion=False,
@@ -206,6 +209,10 @@ def check(
             "--jobs", min=1, max=64, help="Processes for the signal metrics (results do not change)."
         ),
     ] = 1,
+    manifest_file: Annotated[
+        str | None,
+        typer.Option("--manifest", help="Manifest to compare with (default: manifest.json in the dataset)."),
+    ] = None,
 ) -> None:
     """Check a dataset against rule packs and write results.json."""
     reference = None
@@ -225,6 +232,7 @@ def check(
         show_paths=show_paths,
         jobs=jobs,
         work_base=target.absolute().parent,  # work folder next to the results file (A-54)
+        manifest_path=Path(manifest_file) if manifest_file else None,
     )
     results = pipeline.run_check(path, options)
     _write_atomic(target, canonical.dumps(results))
@@ -234,7 +242,7 @@ def check(
     if any(p.source_status.value == "placeholder" for p in results.rulepacks):
         _say("cli.check.placeholder")
     for notice in results.notices:
-        if notice.message_key == "notice.links_skipped":
+        if notice.message_key in ("notice.links_skipped", "notice.output_inside_dataset"):
             _say(notice.message_key, **notice.params)
     _say("cli.check.written", path=_display_path(target))
     _say("disclaimer")
@@ -321,6 +329,72 @@ def report(
         target = folder / f"report.{language}.html"
         _write_atomic(target, html.encode("utf-8"))
         _say("cli.report.written", path=_display_path(target))
+
+
+def _print_list(items: list[str]) -> None:
+    """Names from the dataset, without control characters (A-53), at most MAX_LISTED, then a count."""
+    for item in items[:MAX_LISTED]:
+        typer.echo(f"    - {_clean(item)}")
+    if len(items) > MAX_LISTED:
+        _say("cli.manifest.more", count=len(items) - MAX_LISTED)
+
+
+@app.command()
+def manifest(
+    path: Annotated[str, typer.Argument(help="Dataset folder.")],
+    out: Annotated[
+        str | None,
+        typer.Option("--out", help="Manifest file (default: manifest.json in the dataset folder)."),
+    ] = None,
+    show_paths: Annotated[
+        bool, typer.Option("--show-paths", help="Show real paths instead of pseudonymous IDs.")
+    ] = False,
+) -> None:
+    """Write the provenance manifest: SHA-256 and size of every file, processing steps, software versions."""
+    _state["dataset_root"] = pipeline.resolve_target(path).root
+    target = _output_file(out) if out else None
+    run = pipeline.run_manifest(path, target, show_paths=show_paths)
+    if run.manifest is None or run.data is None:
+        _say("cli.manifest.unreadable", count=len(run.unreadable))
+        _print_list(run.unreadable)
+        _say("cli.manifest.not_written")
+    else:
+        _write_atomic(run.target, run.data)
+        _say("cli.manifest.summary", files=run.files, size=f"{run.total_bytes / 1_000_000:.1f}")
+        if run.skipped:
+            _say(
+                "cli.manifest.skipped",
+                links=run.skipped.get("link", 0),
+                special=run.skipped.get("special", 0),
+                unsafe=run.skipped.get("unsafe_name", 0),
+            )
+        _say("cli.manifest.hash", hash=run.manifest.manifest_hash)
+        _say("cli.manifest.written", path=_display_path(run.target))
+        if run.visible_to_validator:
+            _say("cli.manifest.bids_hint")
+    _say("disclaimer")
+    raise typer.Exit(code=run.exit_code)
+
+
+@app.command()
+def verify(
+    path: Annotated[str, typer.Argument(help="Dataset folder.")],
+    manifest_file: Annotated[str, typer.Option("--manifest", help="manifest.json written by 'manifest'.")],
+    show_paths: Annotated[
+        bool, typer.Option("--show-paths", help="Show real paths instead of pseudonymous IDs.")
+    ] = False,
+) -> None:
+    """Compare a dataset with its manifest: changed, new and missing files (exit 0 equal, 1 deviation)."""
+    _state["dataset_root"] = pipeline.resolve_target(path).root
+    run = pipeline.run_verify(path, manifest_file, show_paths=show_paths)
+    _say("cli.verify.hash_ok" if run.hash_ok else "cli.verify.hash_mismatch", hash=run.manifest_hash)
+    _say("cli.verify.checked", files=run.files)
+    for kind, names in run.deviations.items():
+        _say(f"cli.verify.{kind}", count=len(names))
+        _print_list(names)
+    _say("cli.verify.differs" if run.exit_code else "cli.verify.matches")
+    _say("disclaimer")
+    raise typer.Exit(code=run.exit_code)
 
 
 def _error_text(exc: NeuroGridError) -> str:

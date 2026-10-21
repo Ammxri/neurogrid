@@ -231,3 +231,34 @@ rules:
     params: {max_fraction: 0.6}  # 95th percentile, public corpus (A-20, MET-01): rulepacks/calibration/core.json, n = 22 recordings
     severity: warning
     verification: automatic
+
+  # --- P4 provenance ---
+  # M13 (A-22, A-82). CORE-M13-01 is a warning and an error in strict mode (--strict or [check] strict, PRD M13,
+  # CLI-04); CORE-M13-02 is an error also without --strict (NG-F10, KONZEPT 2.2).
+  - id: CORE-M13-01
+    clause: M13
+    title_zh: 来源清单存在
+    title_en: Provenance manifest present
+    phase: storage
+    check: provenance.manifest_present
+    severity: warning
+    strict_severity: error
+    verification: automatic
+
+  - id: CORE-M13-02
+    clause: M13
+    title_zh: 文件与清单一致
+    title_en: Files match the manifest
+    phase: storage
+    check: provenance.files_match
+    severity: error
+    verification: automatic
+
+  - id: CORE-M13-03
+    clause: M13
+    title_zh: 已记录处理步骤和软件版本
+    title_en: Processing steps and software versions documented
+    phase: storage
+    check: provenance.documented
+    severity: warning
+    verification: automatic

@@ -497,6 +497,83 @@
       "title": "Light",
       "type": "string"
     },
+    "ManifestInfo": {
+      "additionalProperties": false,
+      "description": "The manifest of the dataset (M13, A-82, KONZEPT 2.3): its stored manifest_hash (null if missing or\ninvalid), the status and the number of files it lists and of deviating paths. No location, no paths, no\nper-file hashes (A-11, A-51).",
+      "properties": {
+        "changed": {
+          "default": 0,
+          "title": "Changed",
+          "type": "integer"
+        },
+        "files": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Files"
+        },
+        "missing": {
+          "default": 0,
+          "title": "Missing",
+          "type": "integer"
+        },
+        "new": {
+          "default": 0,
+          "title": "New",
+          "type": "integer"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        },
+        "skipped_changed": {
+          "default": 0,
+          "title": "Skipped Changed",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/ManifestStatus"
+        },
+        "unreadable": {
+          "default": 0,
+          "title": "Unreadable",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "title": "ManifestInfo",
+      "type": "object"
+    },
+    "ManifestStatus": {
+      "description": "results.json ``manifest.status`` (A-82): not_verified = read, but no loaded rule compared the files.",
+      "enum": [
+        "missing",
+        "invalid",
+        "hash_mismatch",
+        "differs",
+        "matches",
+        "not_verified",
+        "not_applicable"
+      ],
+      "title": "ManifestStatus",
+      "type": "string"
+    },
     "Notice": {
       "additionalProperties": false,
       "properties": {
@@ -758,6 +835,17 @@
         "source_status": {
           "$ref": "#/$defs/SourceStatus"
         },
+        "strict_severity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Severity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "title_en": {
           "title": "Title En",
           "type": "string"
@@ -980,6 +1068,17 @@
       },
       "title": "Findings",
       "type": "array"
+    },
+    "manifest": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ManifestInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "notices": {
       "items": {

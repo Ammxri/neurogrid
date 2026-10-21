@@ -8,13 +8,16 @@ Annotation{dauer_s→duration_s, quelle→source}; ProcessingStep{schritt→step
 parameter→parameters, eingabe_hash→input_hash, ausgabe_hash→output_hash}.
 
 Fields marked ``exclude=True`` never leave the process (A-51): raw paths, raw age, diagnosis codes.
+ProcessingStep lives in the kernel because the manifest repeats the steps (M13, A-82); it is re-exported here.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from neurogrid.kernel.provenance import ProcessingStep
 
 
 class Dataset(BaseModel):
@@ -111,12 +114,4 @@ class Split(BaseModel):
     recording_ids: list[str] = Field(default_factory=list)
 
 
-class ProcessingStep(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    step: str
-    tool: str
-    version: str
-    parameters: dict[str, Any] = Field(default_factory=dict)
-    input_hash: str | None = None
-    output_hash: str | None = None
+__all__ = ["Annotation", "Channel", "Dataset", "ProcessingStep", "Recording", "Split", "Subject"]

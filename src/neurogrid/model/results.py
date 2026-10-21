@@ -23,6 +23,7 @@ from neurogrid.kernel.findings import (
     SourceStatus,
     Verification,
 )
+from neurogrid.kernel.provenance import ManifestStatus
 from neurogrid.model.dataset import Dataset
 
 SCHEMA_VERSION = "1.0"
@@ -72,9 +73,10 @@ class RuleInfo(BaseModel):
     title_en: str
     phase: Phase
     check: str
-    severity: Severity
+    severity: Severity  # the effective severity of this run (strict_severity with --strict, A-82)
     verification: Verification
     source_status: SourceStatus
+    strict_severity: Severity | None = None
 
 
 class ConfigInfo(BaseModel):
@@ -112,6 +114,23 @@ class RecordingSummary(BaseModel):
     sample: dict[str, Any] | None = None  # the sample of M06/M09: segments, seed, parameters (KONZEPT 1.5)
 
 
+class ManifestInfo(BaseModel):
+    """The manifest of the dataset (M13, A-82, KONZEPT 2.3): its stored manifest_hash (null if missing or
+    invalid), the status and the number of files it lists and of deviating paths. No location, no paths, no
+    per-file hashes (A-11, A-51)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sha256: str | None = None
+    status: ManifestStatus
+    files: int | None = None
+    changed: int = 0
+    new: int = 0
+    missing: int = 0
+    skipped_changed: int = 0
+    unreadable: int = 0
+
+
 class Summary(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -139,6 +158,7 @@ class Results(BaseModel):
     exceptions: list[ExceptionUse]
     notices: list[Notice]
     summary: Summary
+    manifest: ManifestInfo | None = None  # optional: results.json of P1-P3 have none (C1)
 
 
 class ScanFile(BaseModel):

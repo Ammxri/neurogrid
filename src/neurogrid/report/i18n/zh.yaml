@@ -37,6 +37,26 @@ cli:
     validator: "对输出运行 BIDS 验证器：{errors} 个错误，{warnings} 个警告"
     written: "BIDS 数据集已写入 {path}"
     nothing: "没有转换任何记录；未写入 BIDS 数据集。"
+  manifest:
+    summary: "清单：{files} 个文件，{size} MB"
+    skipped: "未计算哈希值：{links} 个链接或目录联接（未跟随），{special} 个特殊文件，{unsafe} 个未通过路径检查的名称"
+    hash: "清单哈希值：{hash}"
+    written: "清单已写入 {path}"
+    unreadable: "{count} 个文件或文件夹无法读取："
+    not_written: "未写入清单：不完整的清单无法显示这些文件此后的变化。"
+    bids_hint: "提示：BIDS 验证器会列出 BIDS 未定义的文件，此处即清单文件。请使用 --out 将清单写到数据集之外，或将其列入 .bidsignore。"
+    more: "……另有 {count} 项"
+  verify:
+    hash_ok: "清单哈希值 {hash} 与清单内容一致。"
+    hash_mismatch: "清单哈希值 {hash} 与清单内容不一致（清单在写入后被修改过）。"
+    checked: "清单中的文件：{files}"
+    changed: "已更改：{count}"
+    new: "新增：{count}"
+    missing: "缺失：{count}"
+    skipped_changed: "链接或特殊文件有变化：{count}"
+    unreadable: "当前无法读取：{count}"
+    matches: "数据集与清单一致。"
+    differs: "数据集与清单不一致。"
   error:
     prefix: "错误"
     internal: "内部错误（{type}）。请加 --debug 重新运行以查看详情。"
@@ -116,6 +136,27 @@ errors:
     mapping_missing_unwritable: "{count} 个数据文件缺少受试者/任务映射；无法写入模板 .neurogrid/{template}（文件夹不可写，或为不跟随的链接）。"
     duplicate_target: "两个文件映射到同一个 BIDS 记录（受试者 {subject}，任务 {task}）。"
     label_case: "标签 {first} 与 {second} 仅大小写不同；在 Windows 和 macOS 上二者会位于同一文件夹。请使用可区分的标签。"
+  manifest:
+    not_found: "未找到清单文件。"
+    unreadable: "无法读取清单文件。"
+    too_large: "清单文件过大（上限 {limit} 字节）。"
+    encoding: "清单文件不是 UTF-8 文本。"
+    invalid: "清单无效：字段 '{field}'（{problem}）。"
+    unsupported_version: "不支持的清单格式版本（支持：1）。"
+    unsafe_path: "清单无效：字段 '{field}' 不是普通的相对路径。"
+    duplicate_path: "清单无效：字段 '{field}' 中的路径出现多次。"
+    excluded_invalid: "清单无效：字段 '{field}' 只能指明 vault 访问日志。"
+    needs_folder: "manifest 和 verify 需要数据集文件夹，而不是单个文件。"
+    steps_invalid: ".neurogrid/processing_steps.json 无法使用（{problem}）；未写入清单。"
+  provenance:
+    invalid: ".neurogrid/provenance.yaml 无效：字段 '{field}'（{problem}）。"
+    unreadable: "无法读取 .neurogrid/provenance.yaml。"
+    encoding: ".neurogrid/provenance.yaml 不是 UTF-8 文本。"
+    yaml_alias: ".neurogrid/provenance.yaml：不允许使用 YAML 别名（第 {line} 行）。"
+    yaml_duplicate_key: ".neurogrid/provenance.yaml：键 '{name}' 重复（第 {line} 行）。"
+    yaml_syntax: ".neurogrid/provenance.yaml：YAML 语法错误（第 {line} 行）。"
+    yaml_too_large: ".neurogrid/provenance.yaml 过大（上限 {limit} 字节）。"
+    yaml_too_deep: ".neurogrid/provenance.yaml 嵌套层级过深（上限 {limit}）。"
 
 notice:
   override_unused: "配置为未加载的规则 {rule} 设置了参数。"
@@ -124,6 +165,7 @@ notice:
   names_look_identifying: "{count} 个数据文件路径含有非 ASCII 字母或连续六位以上数字，可能可识别个人身份。请检查文件名。"
   links_skipped: "数据集中有 {count} 个链接或目录联接未被跟随；其内容未被检查。"
   bids_not_checked: "该数据集不是 BIDS 数据集；未检查 BIDS 结构。"
+  output_inside_dataset: "结果文件或本次运行的工作文件夹位于数据集内。此后生成的清单会包含此类文件，此后的 check 或 verify 会将其报告为新增；请将 --out 写到数据集之外。"
 
 severity:
   error: "错误"
@@ -208,6 +250,21 @@ reason:
     hash_mismatch: "文件自记录哈希值后已被修改。"
   value:
     non_finite: "测量值不是有限数值。"
+  provenance:
+    manifest_missing: "没有清单（默认为数据集中的 manifest.json，或使用 --manifest）。"
+    manifest_invalid: "清单无法使用（未找到、不是有效的 JSON、格式不受支持或路径无效）。"
+    manifest_hash_mismatch: "清单哈希值与清单内容不一致（清单在写入后被修改过）。"
+    file_changed: "文件内容或大小与清单不同。"
+    file_new: "该文件不在清单中。"
+    file_missing: "清单中的该文件已不存在。"
+    file_skipped_changed: "文件变成了链接或特殊文件，或反之。"
+    file_unreadable: "当前无法读取清单中的该文件。"
+    files_differ: "清单存在，但有文件与清单不同（'neurogrid verify' 会列出这些文件）。"
+    single_file: "单个文件不是数据集；清单针对数据集文件夹。"
+    steps_missing: "未记录处理步骤（.neurogrid/provenance.yaml，或 convert 生成的 processing_steps.json；'processing_steps: []' 表示未经处理）。"
+    steps_invalid: ".neurogrid/processing_steps.json 无法使用。"
+    step_incomplete: "某个处理步骤缺少步骤名称、工具或版本。"
+    software_missing: "未记录软件版本（provenance.yaml、处理步骤，或带 Name 和 Version 的 GeneratedBy）。"
 
 issue:
   header:
@@ -284,6 +341,11 @@ check:
     clipping: "削波比例"
     autoreject: "autoreject 拒绝率"
     non_brain_components: "非脑源 ICA 成分比例（ICLabel）"
+  provenance:
+    manifest_present: "来源清单存在"
+    files_match: "文件与清单一致"
+    documented: "已记录处理步骤和软件版本"
+    manifest_matches: "清单存在且每个文件均与其一致"
   evidence:
     document: "证明文件"
 
@@ -307,6 +369,7 @@ report:
     date: "日期"
     tool_version: "工具版本"
     manifest_hash: "清单哈希值"
+    manifest_status: "清单状态"
     phase: "阶段"
     light: "信号灯"
     errors: "错误"
@@ -391,6 +454,14 @@ report:
     rate_hz: "采样率（Hz）"
     rates_hz: "采样率（Hz）"
     uniform: "一致"
+  manifest_status:
+    missing: "无清单"
+    invalid: "清单无法使用"
+    hash_mismatch: "清单哈希值与其内容不一致"
+    differs: "有文件与清单不同"
+    matches: "文件与清单一致"
+    not_verified: "清单存在，未比对文件"
+    not_applicable: "不适用（单个文件）"
   sample_mode:
     sample: "抽样"
     full: "整段记录"

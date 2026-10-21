@@ -15,6 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from neurogrid.config import Config
+from neurogrid.kernel.provenance import Manifest
 from neurogrid.kernel.rules import Rulepack
 from neurogrid.model.results import Results, ScanResult
 
@@ -25,6 +26,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "scan": ScanResult,
     "config": Config,
     "rulepack": Rulepack,
+    "manifest": Manifest,
 }
 
 

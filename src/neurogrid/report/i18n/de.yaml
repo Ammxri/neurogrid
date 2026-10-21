@@ -36,6 +36,26 @@ cli:
     validator: "BIDS-Validator auf der Ausgabe: {errors} Fehler, {warnings} Warnung(en)"
     written: "BIDS-Datensatz geschrieben nach {path}"
     nothing: "Keine Aufnahme umgewandelt; es wurde kein BIDS-Datensatz geschrieben."
+  manifest:
+    summary: "Manifest: {files} Datei(en), {size} MB"
+    skipped: "Nicht gehasht: {links} Link(s) oder Junction(s) (nicht verfolgt), {special} Sonderdatei(en), {unsafe} Name(n), die die Pfadprüfung ablehnt"
+    hash: "Manifest-Hash: {hash}"
+    written: "Manifest geschrieben nach {path}"
+    unreadable: "{count} Datei(en) oder Ordner nicht lesbar:"
+    not_written: "Kein Manifest geschrieben: Ein unvollständiges Manifest würde spätere Änderungen an diesen Dateien nicht zeigen."
+    bids_hint: "Hinweis: Der BIDS-Validator meldet Dateien, die BIDS nicht vorsieht, hier die Manifest-Datei. Das Manifest mit --out außerhalb des Datensatzes schreiben oder in .bidsignore aufnehmen."
+    more: "… und {count} weitere"
+  verify:
+    hash_ok: "Manifest-Hash {hash} passt zum Inhalt des Manifests."
+    hash_mismatch: "Manifest-Hash {hash} passt nicht zum Inhalt des Manifests (das Manifest wurde nach dem Schreiben geändert)."
+    checked: "Dateien im Manifest: {files}"
+    changed: "Geändert: {count}"
+    new: "Neu: {count}"
+    missing: "Fehlend: {count}"
+    skipped_changed: "Links oder Sonderdateien geändert: {count}"
+    unreadable: "Derzeit nicht lesbar: {count}"
+    matches: "Der Datensatz entspricht dem Manifest."
+    differs: "Der Datensatz weicht vom Manifest ab."
   error:
     prefix: "Fehler"
     internal: "Interner Fehler ({type}). Für Details erneut mit --debug ausführen."
@@ -115,6 +135,27 @@ errors:
     mapping_missing_unwritable: "{count} Datendatei(en) ohne Zuordnung zu Proband/Aufgabe; die Vorlage .neurogrid/{template} konnte nicht geschrieben werden (Ordner nicht beschreibbar oder ein Link, dem nicht gefolgt wird)."
     duplicate_target: "Zwei Dateien ergeben dieselbe BIDS-Aufnahme (Proband {subject}, Aufgabe {task})."
     label_case: "Die Labels {first} und {second} unterscheiden sich nur in der Groß-/Kleinschreibung; unter Windows und macOS lägen sie im selben Ordner. Bitte eindeutig benennen."
+  manifest:
+    not_found: "Manifest-Datei nicht gefunden."
+    unreadable: "Die Manifest-Datei kann nicht gelesen werden."
+    too_large: "Die Manifest-Datei ist zu groß (Grenze {limit} Bytes)."
+    encoding: "Die Manifest-Datei ist kein UTF-8-Text."
+    invalid: "Ungültiges Manifest: Feld '{field}' ({problem})."
+    unsupported_version: "Nicht unterstützte Formatversion des Manifests (unterstützt: 1)."
+    unsafe_path: "Ungültiges Manifest: Feld '{field}' ist kein einfacher relativer Pfad."
+    duplicate_path: "Ungültiges Manifest: Der Pfad in Feld '{field}' kommt mehrfach vor."
+    excluded_invalid: "Ungültiges Manifest: Feld '{field}' darf nur das Zugriffsprotokoll des Vaults nennen."
+    needs_folder: "manifest und verify brauchen einen Datensatzordner, keine einzelne Datei."
+    steps_invalid: ".neurogrid/processing_steps.json ist nicht verwendbar ({problem}); kein Manifest geschrieben."
+  provenance:
+    invalid: "Ungültige .neurogrid/provenance.yaml: Feld '{field}' ({problem})."
+    unreadable: ".neurogrid/provenance.yaml kann nicht gelesen werden."
+    encoding: ".neurogrid/provenance.yaml ist kein UTF-8-Text."
+    yaml_alias: ".neurogrid/provenance.yaml: YAML-Aliase sind nicht erlaubt (Zeile {line})."
+    yaml_duplicate_key: ".neurogrid/provenance.yaml: doppelter Schlüssel '{name}' (Zeile {line})."
+    yaml_syntax: ".neurogrid/provenance.yaml: YAML-Syntaxfehler (Zeile {line})."
+    yaml_too_large: ".neurogrid/provenance.yaml ist zu groß (Grenze {limit} Bytes)."
+    yaml_too_deep: ".neurogrid/provenance.yaml ist zu tief verschachtelt (Grenze {limit})."
 
 notice:
   override_unused: "Die Konfiguration setzt Parameter für Regel {rule}, die nicht geladen ist."
@@ -123,6 +164,7 @@ notice:
   names_look_identifying: "{count} Datendatei-Pfad(e) enthalten Nicht-ASCII-Buchstaben oder sechs und mehr Ziffern in Folge und könnten Personen kennzeichnen. Bitte die Dateinamen prüfen."
   links_skipped: "{count} Link(s) oder Junction(s) im Datensatz wurden nicht verfolgt; ihr Inhalt wurde nicht geprüft."
   bids_not_checked: "Der Datensatz ist kein BIDS-Datensatz; die BIDS-Struktur wurde nicht geprüft."
+  output_inside_dataset: "Ergebnisdatei oder Arbeitsordner des Laufs liegen im Datensatz. Ein später erstelltes Manifest erfasst solche Dateien, und spätere check- oder verify-Läufe melden sie als neu; --out außerhalb des Datensatzes schreiben."
 
 severity:
   error: "Fehler"
@@ -207,6 +249,21 @@ reason:
     hash_mismatch: "Dokument wurde seit Erfassung des Hashwerts verändert."
   value:
     non_finite: "Der Messwert ist keine endliche Zahl."
+  provenance:
+    manifest_missing: "Kein Manifest (Standard: manifest.json im Datensatz, oder --manifest)."
+    manifest_invalid: "Das Manifest ist nicht verwendbar (nicht gefunden, kein gültiges JSON, Format nicht unterstützt oder ungültige Pfade)."
+    manifest_hash_mismatch: "Der Manifest-Hash passt nicht zum Inhalt des Manifests (das Manifest wurde nach dem Schreiben geändert)."
+    file_changed: "Inhalt oder Größe der Datei weicht vom Manifest ab."
+    file_new: "Die Datei steht nicht im Manifest."
+    file_missing: "Die Datei aus dem Manifest existiert nicht mehr."
+    file_skipped_changed: "Eine Datei wurde zu einem Link oder einer Sonderdatei oder umgekehrt."
+    file_unreadable: "Die Datei aus dem Manifest kann derzeit nicht gelesen werden."
+    files_differ: "Das Manifest existiert, aber Dateien weichen davon ab ('neurogrid verify' listet sie)."
+    single_file: "Eine einzelne Datei ist kein Datensatz; das Manifest erfasst Datensatzordner."
+    steps_missing: "Keine Verarbeitungsschritte dokumentiert (.neurogrid/provenance.yaml oder processing_steps.json von convert; 'processing_steps: []' dokumentiert keine Verarbeitung)."
+    steps_invalid: ".neurogrid/processing_steps.json ist nicht verwendbar."
+    step_incomplete: "Einem Verarbeitungsschritt fehlen Schrittname, Werkzeug oder Version."
+    software_missing: "Keine Softwareversionen dokumentiert (provenance.yaml, Verarbeitungsschritte oder GeneratedBy mit Name und Version)."
 
 issue:
   header:
@@ -283,6 +340,11 @@ check:
     clipping: "Anteil Übersteuerung"
     autoreject: "Verwerfungsrate von autoreject"
     non_brain_components: "Anteil nicht hirnbedingter ICA-Komponenten (ICLabel)"
+  provenance:
+    manifest_present: "Provenienz-Manifest vorhanden"
+    files_match: "Dateien entsprechen dem Manifest"
+    documented: "Verarbeitungsschritte und Softwareversionen dokumentiert"
+    manifest_matches: "Manifest vorhanden und jede Datei entspricht ihm"
   evidence:
     document: "Nachweisdokument"
 
@@ -306,6 +368,7 @@ report:
     date: "Datum"
     tool_version: "Werkzeugversion"
     manifest_hash: "Manifest-Hash"
+    manifest_status: "Manifest-Status"
     phase: "Phase"
     light: "Ampel"
     errors: "Fehler"
@@ -390,6 +453,14 @@ report:
     rate_hz: "Rate (Hz)"
     rates_hz: "Raten (Hz)"
     uniform: "einheitlich"
+  manifest_status:
+    missing: "kein Manifest"
+    invalid: "Manifest nicht verwendbar"
+    hash_mismatch: "Manifest-Hash passt nicht zum Inhalt"
+    differs: "Dateien weichen vom Manifest ab"
+    matches: "Dateien entsprechen dem Manifest"
+    not_verified: "Manifest vorhanden, Dateien nicht verglichen"
+    not_applicable: "nicht anwendbar (einzelne Datei)"
   sample_mode:
     sample: "Stichprobe"
     full: "ganze Aufnahme"

@@ -1,0 +1,218 @@
+{
+  "$defs": {
+    "ManifestFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ],
+      "title": "ManifestFile",
+      "type": "object"
+    },
+    "ProcessingStep": {
+      "additionalProperties": false,
+      "description": "DM-07 ProcessingStep: schritt→step, werkzeug→tool, version, parameter→parameters,\neingabe_hash→input_hash, ausgabe_hash→output_hash. ``convert`` writes one per recording (A-77); the\nmanifest repeats the steps it found (A-22). Re-exported by neurogrid.model.dataset.",
+      "properties": {
+        "input_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Input Hash"
+        },
+        "output_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Hash"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "step": {
+          "maxLength": 200,
+          "title": "Step",
+          "type": "string"
+        },
+        "tool": {
+          "maxLength": 200,
+          "title": "Tool",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 80,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step",
+        "tool",
+        "version"
+      ],
+      "title": "ProcessingStep",
+      "type": "object"
+    },
+    "SkippedEntry": {
+      "additionalProperties": false,
+      "description": "An entry that was not hashed: a link or junction (not followed), a special file (FIFO, socket, device;\nreading could block, A-78) or a name the central path check refuses (A-52, critic X8). The path of an\n``unsafe_name`` is stored percent-encoded (bytes outside ``[A-Za-z0-9._- /]`` as ``%XX``).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "link",
+            "special",
+            "unsafe_name"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 3072,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "kind"
+      ],
+      "title": "SkippedEntry",
+      "type": "object"
+    },
+    "SoftwareEntry": {
+      "additionalProperties": false,
+      "description": "A software version: ``manifest`` (the NeuroGrid that wrote the manifest), ``processing_steps`` (tool of\na processing step), ``provenance`` (.neurogrid/provenance.yaml) or ``bids`` (dataset_description.json\nGeneratedBy).",
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "manifest",
+            "processing_steps",
+            "provenance",
+            "bids"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "source"
+      ],
+      "title": "SoftwareEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "manifest.json, format version 1 (A-22, A-82, KONZEPT 2.5 plus ``skipped`` and ``excluded``).",
+  "properties": {
+    "excluded": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Excluded",
+      "type": "array"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/ManifestFile"
+      },
+      "maxItems": 2000000,
+      "title": "Files",
+      "type": "array"
+    },
+    "format_version": {
+      "const": "1",
+      "title": "Format Version",
+      "type": "string"
+    },
+    "manifest_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Manifest Hash",
+      "type": "string"
+    },
+    "processing_steps": {
+      "items": {
+        "$ref": "#/$defs/ProcessingStep"
+      },
+      "maxItems": 2000000,
+      "title": "Processing Steps",
+      "type": "array"
+    },
+    "skipped": {
+      "items": {
+        "$ref": "#/$defs/SkippedEntry"
+      },
+      "maxItems": 2000000,
+      "title": "Skipped",
+      "type": "array"
+    },
+    "software": {
+      "items": {
+        "$ref": "#/$defs/SoftwareEntry"
+      },
+      "maxItems": 10000,
+      "title": "Software",
+      "type": "array"
+    }
+  },
+  "required": [
+    "format_version",
+    "files",
+    "skipped",
+    "excluded",
+    "processing_steps",
+    "software",
+    "manifest_hash"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}
