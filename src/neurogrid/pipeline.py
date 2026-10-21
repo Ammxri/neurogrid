@@ -265,6 +265,8 @@ class CheckOptions:
     show_paths: bool = False
     work_base: Path | None = None  # where the run's private work folder is created (A-54); default: temp
     jobs: int = 1  # processes for the signal quality jobs (E3 --jobs); results do not depend on it
+    manifest_path: Path | None = None  # --manifest (CLI-04/CLI-06, A-22); None: the default location
+    evidence_path: Path | None = None  # --evidence (A-15); None: the default location
 
 
 def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Results:
@@ -286,7 +288,17 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
     check_ids = {rule.check for loaded in packs for rule in loaded.pack.rules}
     base = options.work_base if options.work_base is not None else Path(tempfile.gettempdir()) / "neurogrid"
     with work_directory(base) as work:
-        ctx = CheckContext.build(found, cfg, work=work)
+        ctx = CheckContext.build(
+            found,
+            cfg,
+            work=work,
+            project_root=loaded_config.project_root,
+            show_paths=options.show_paths,
+            strict=strict,
+            as_of=as_of,
+            manifest_path=options.manifest_path,
+            evidence_path=options.evidence_path,
+        )
         stream = bool(check_ids & STREAM_CHECKS)
         sample = bool(check_ids & SAMPLE_CHECKS)
         if stream or sample:

@@ -4,6 +4,7 @@ sources, header integrity facts and lazily computed readability (ARC-01: adapter
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 from neurogrid.config import Config
@@ -69,6 +70,12 @@ class CheckContext:
     config: Config
     recordings: list[RecordingState]
     work: Path | None = None  # private folder of this run (A-54), e.g. for the validator output
+    project_root: Path | None = None  # where neurogrid.toml's relative paths start (A-66)
+    show_paths: bool = False  # --show-paths: clear paths and IDs in raw folders (D-10 f, A-51)
+    strict: bool = False  # --strict (CLI-04)
+    as_of: date | None = None  # the run's reference date (A-14 expiry, A-15 review dates)
+    manifest_path: Path | None = None  # --manifest; None: the default location (A-22)
+    evidence_path: Path | None = None  # --evidence; None: the default location (A-15)
     _validator: ValidatorResult | None = field(default=None, repr=False)
 
     def validator_result(self) -> ValidatorResult:
@@ -116,7 +123,19 @@ class CheckContext:
             rec.quality = result
 
     @classmethod
-    def build(cls, scan: DatasetScan, config: Config, work: Path | None = None) -> CheckContext:
+    def build(
+        cls,
+        scan: DatasetScan,
+        config: Config,
+        work: Path | None = None,
+        *,
+        project_root: Path | None = None,
+        show_paths: bool = False,
+        strict: bool = False,
+        as_of: date | None = None,
+        manifest_path: Path | None = None,
+        evidence_path: Path | None = None,
+    ) -> CheckContext:
         states = []
         for found in scan.recordings:
             path = scan.root.joinpath(*found.relative.parts)
@@ -138,4 +157,16 @@ class CheckContext:
                 state.header_error = "header.number_field"
             state.recording, state.metadata = collect(scan.root, found, recording, config, scan.is_bids)
             states.append(state)
-        return cls(root=scan.root, scan=scan, config=config, recordings=states, work=work)
+        return cls(
+            root=scan.root,
+            scan=scan,
+            config=config,
+            recordings=states,
+            work=work,
+            project_root=project_root,
+            show_paths=show_paths,
+            strict=strict,
+            as_of=as_of,
+            manifest_path=manifest_path,
+            evidence_path=evidence_path,
+        )
