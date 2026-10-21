@@ -41,9 +41,14 @@ EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("quality.clipping", "max_fraction"): ("edf_quality_ok", 0.02),  # P8 saturated in 2 of 70 windows
     ("quality.autoreject", "max_fraction"): ("edf_quality_ok", 0.02),  # 3 of 35 epochs rejected: 0.086
     ("quality.non_brain_components", "max_fraction"): ("edf_quality_ok", 0.1),  # 5 of 17 components: 0.29
+    # P4 annotation: one object with three scorers, pairwise kappa 1.0 / 0.5 / 0.5 (mean 0.667)
+    ("annotation.kappa", "min_kappa"): ("annotation_continuous_ok", 0.95),
 }
 # check -> toml lines both runs need so that the check can be evaluated at all
-BASE_CONFIG = {"impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n'}
+BASE_CONFIG = {
+    "impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n',
+    "annotation.kappa": '[annotation]\nmode = "continuous"\nepoch_s = 30\n',
+}
 
 
 def _toml_value(value: ParamValue) -> str:

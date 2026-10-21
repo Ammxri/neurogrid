@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable
 
-from neurogrid.checks import bids, metadata, quality, signal, structure
+from neurogrid.checks import annotation, bids, metadata, quality, signal, structure
 from neurogrid.checks.context import CheckContext
 from neurogrid.kernel.rules import CheckSpec, Measurement, evidence_spec
 
 Measurer = Callable[[CheckContext], list[Measurement]]
 
-_MODULES = (structure, metadata, signal, quality, bids)
+_MODULES = (structure, metadata, signal, quality, bids, annotation)
 
 REGISTRY: dict[str, CheckSpec] = {spec.id: spec for module in _MODULES for spec in module.SPECS}
 REGISTRY[evidence_spec().id] = evidence_spec()

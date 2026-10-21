@@ -9,6 +9,7 @@ from pathlib import Path
 
 from neurogrid.config import Config
 from neurogrid.io import ADAPTERS
+from neurogrid.io.annotations import AnnotationIndex, build_index
 from neurogrid.io.base import FormatAdapter, HeaderInspection, HeaderUnreadable
 from neurogrid.io.discover import DatasetScan, FoundFile
 from neurogrid.metadata import ENTITY_FIELDS, RecordingMetadata, collect
@@ -77,6 +78,27 @@ class CheckContext:
     manifest_path: Path | None = None  # --manifest; None: the default location (A-22)
     evidence_path: Path | None = None  # --evidence; None: the default location (A-15)
     _validator: ValidatorResult | None = field(default=None, repr=False)
+    _annotations: AnnotationIndex | None = field(default=None, repr=False)
+
+    def annotations(self) -> AnnotationIndex:
+        """The annotations of every signal recording, with the annotation-only files attached to them (M10,
+        A-80); read once per run, only when a check asks for them. ``by_recording()`` of the result is also
+        the source for ``[ai] labels = "annotations"`` (A-81)."""
+        if self._annotations is None:
+            section = self.config.annotation
+            self._annotations = build_index(
+                self.root,
+                self.recordings,
+                is_bids=self.scan.is_bids,
+                files=section.files,
+                annotators=section.annotators,
+            )
+        return self._annotations
+
+    @property
+    def annotations_read(self) -> bool:
+        """True once a check has asked for the annotations (results then carry the M10 summary)."""
+        return self._annotations is not None
 
     def validator_result(self) -> ValidatorResult:
         """The BIDS validator result for the dataset; computed once per run."""

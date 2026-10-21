@@ -33,13 +33,69 @@
       "title": "AISection",
       "type": "object"
     },
+    "AnnotationFile": {
+      "additionalProperties": false,
+      "description": "One row of [[annotation.files]] (A-80): an annotation-only file (e.g. a hypnogram), the signal\nrecording it belongs to and its annotator. Both paths are dataset-relative like [[convert.files]]\n(critic X12); without ``annotator`` the rest of the file stem after '<recording stem>_' is used, else the\nstem.",
+      "properties": {
+        "annotator": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annotator"
+        },
+        "path": {
+          "maxLength": 1024,
+          "title": "Path",
+          "type": "string"
+        },
+        "recording": {
+          "maxLength": 1024,
+          "title": "Recording",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "recording"
+      ],
+      "title": "AnnotationFile",
+      "type": "object"
+    },
     "AnnotationSection": {
       "additionalProperties": false,
+      "description": "M10 (A-17, A-80). ``epoch_s`` unset: 30 s in continuous, 1 s in events mode. ``vocabulary`` is\nmatched exactly (outer whitespace ignored); unset, the events.json Levels of the code column apply.\n``annotators`` is a list of patterns (``*``, ``?``, case-sensitive) over annotator IDs; only matching\nannotators take part.",
       "properties": {
+        "annotators": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 1000,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annotators"
+        },
         "epoch_s": {
           "anyOf": [
             {
               "exclusiveMinimum": 0,
+              "maximum": 86400,
               "type": "number"
             },
             {
@@ -48,6 +104,14 @@
           ],
           "default": null,
           "title": "Epoch S"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/AnnotationFile"
+          },
+          "maxItems": 100000,
+          "title": "Files",
+          "type": "array"
         },
         "mode": {
           "default": "events",
@@ -62,8 +126,12 @@
           "anyOf": [
             {
               "items": {
+                "maxLength": 256,
+                "minLength": 1,
                 "type": "string"
               },
+              "maxItems": 10000,
+              "minItems": 1,
               "type": "array"
             },
             {

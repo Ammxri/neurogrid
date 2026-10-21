@@ -494,7 +494,10 @@ def test_recordings_without_signals_are_not_measured(
 ) -> None:
     """A-74/A-77: an annotations-only EDF+ is no recording; an unreadable header has nothing to measure."""
     rec = recordings(edge_run.data)[rec_id]
-    assert rec["metrics"] == {} and rec["sample"] is None
+    # No signal metric. hypno.edf matches no signal recording, so it is an M10 object of its own and carries
+    # the M10 summary (P4, A-80: recordings[].metrics["annotation"], critic X10).
+    assert set(rec["metrics"]) == ({"annotation"} if rec_id == "hypno.edf" else set())
+    assert rec["sample"] is None
     rules = outcomes(edge_run.data, rec_id)
     for rule in QUALITY_RULES:
         (finding,) = rules[rule]

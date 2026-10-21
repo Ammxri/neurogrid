@@ -72,13 +72,18 @@ def write_edf(
     plus: str = "",
     record_onsets: tuple[int, ...] | None = None,
     microvolts: np.ndarray | None = None,
+    annotations: tuple[tuple[float, float, str], ...] = (),
+    annotation_samples: int = 0,
 ) -> None:
     """EDF (16 bit) or, with ``bdf=True``, BioSemi BDF (24 bit) with one-second data records.
 
     ``plus="C"`` or ``"D"`` writes EDF+ with an annotation signal; ``record_onsets`` gives the start of each
     data record in seconds (EDF+D: with gaps). ``microvolts`` (channels x samples) replaces the default
     sine-plus-noise signals; values outside the physical range are clipped to the digital limits.
+    ``annotations`` (onset_s, duration_s, text) go into the TAL of the last record that starts at or before
+    their onset; ``annotation_samples`` sizes the annotation signal (default ANNOTATION_SAMPLES).
     """
+    spr_annotation = annotation_samples or ANNOTATION_SAMPLES
     if bdf and digital == (-32768, 32767):
         digital = (-8388608, 8388607)
     sample_type = "<i4" if bdf else "<i2"
@@ -118,7 +123,7 @@ def write_edf(
     ]
     if plus:
         annotation = "BDF Annotations" if bdf else "EDF Annotations"
-        fields.append((annotation, "", "", -1.0, 1.0, digital[0], digital[1], "", ANNOTATION_SAMPLES))
+        fields.append((annotation, "", "", -1.0, 1.0, digital[0], digital[1], "", spr_annotation))
     header = bytearray()
     header += b"\xffBIOSEMI" if bdf else _field("0", 8)
     header += _field(patient, 80)
@@ -148,13 +153,65 @@ def write_edf(
                 body += chunk.view(np.uint8).reshape(-1, 4)[:, :3].tobytes()
             else:
                 body += chunk.tobytes()
-        if plus:  # time-stamped annotation list: the onset of this record, no annotation text
+        if plus:  # time-stamped annotation list: the onset of this record, then its annotations
             tal = f"+{onset}\x14\x14\x00".encode("ascii")
-            body += tal.ljust(ANNOTATION_SAMPLES * bytes_per_sample, b"\x00")
+            tal += b"".join(_tal(*entry) for entry in annotations if _record_of(entry[0], onsets) == record)
+            if len(tal) > spr_annotation * bytes_per_sample:
+                raise ValueError(
+                    "annotations do not fit into the annotation signal; raise annotation_samples"
+                )
+            body += tal.ljust(spr_annotation * bytes_per_sample, b"\x00")
     data = bytes(header) + bytes(body)
     if truncate_bytes:
         data = data[:-truncate_bytes]
     _binary(path, data)
+
+
+def _tal_number(value: float) -> str:
+    """A TAL number: plain decimal with a sign (EDF+ specification)."""
+    text = f"{abs(value):.6f}".rstrip("0").rstrip(".")
+    return ("-" if value < 0 else "+") + text
+
+
+def _tal(onset: float, duration: float, text: str) -> bytes:
+    """One time-stamped annotation list: onset, optional duration, one text."""
+    head = _tal_number(onset) + (f"\x15{_tal_number(duration)[1:]}" if duration else "")
+    return f"{head}\x14{text}\x14\x00".encode()
+
+
+def _record_of(onset: float, onsets: tuple[int, ...]) -> int:
+    """The last data record that starts at or before ``onset`` (the first one for earlier onsets)."""
+    return max([index for index, start in enumerate(onsets) if start <= onset] or [0])
+
+
+def write_annotation_edf(
+    path: Path, annotations: tuple[tuple[float, float, str], ...], *, bdf: bool = False
+) -> None:
+    """Annotation-only EDF+C (BDF+C with ``bdf=True``), e.g. a hypnogram: one data record of duration 0 with a
+    single annotation signal that holds the time-keeping entry and every annotation (onset, duration, text),
+    as the scorer files of PSG-IPA have it (A-74, A-80)."""
+    tal = b"+0\x14\x14\x00" + b"".join(_tal(*entry) for entry in annotations)
+    bytes_per_sample = 3 if bdf else 2
+    samples = -(-len(tal) // bytes_per_sample)
+    digital = (-8388608, 8388607) if bdf else (-32768, 32767)
+    label = "BDF Annotations" if bdf else "EDF Annotations"
+    entry: tuple[str | float | int, ...] = (label, "", "", -1.0, 1.0, digital[0], digital[1], "", samples)
+    header = bytearray()
+    header += b"\xffBIOSEMI" if bdf else _field("0", 8)
+    header += _field("X X X X", 80)
+    header += _field("Startdate X X X X", 80)
+    header += _field("01.01.85", 8)
+    header += _field("00.00.00", 8)
+    header += _num(512, 8)
+    header += _field("BDF+C" if bdf else "EDF+C", 44)
+    header += _num(1, 8)
+    header += _num(0, 8)
+    header += _num(1, 4)
+    for index, width in enumerate((16, 80, 8, 8, 8, 8, 8, 80, 8)):
+        value = entry[index]
+        header += _field(value, width) if isinstance(value, str) else _num(value, width)
+    header += _field("", 32)
+    _binary(path, bytes(header) + tal.ljust(samples * bytes_per_sample, b"\x00"))
 
 
 def write_brainvision(
@@ -211,8 +268,14 @@ def write_eeglab(
     labels: tuple[str, ...] = EEG_LABELS,
     seed: int = 1,
     embedded: bool = False,
+    events: tuple[tuple[str | float, float, float | None], ...] = (),
+    trials: int = 1,
 ) -> None:
-    """EEGLAB data set: MATLAB v5 .set with a float32 .fdt data file, or with the data embedded."""
+    """EEGLAB data set: MATLAB v5 .set with a float32 .fdt data file, or with the data embedded.
+
+    ``events`` (type, latency in samples from 1, duration in samples or None for no field) fill EEG.event;
+    ``trials`` only sets the header field (the reader of EEG.event looks at nothing else).
+    """
     import scipy.io
 
     samples = np.stack(_microvolts(sfreq, seconds, len(labels), seed)).astype("<f4")  # channel x time
@@ -234,7 +297,7 @@ def write_eeglab(
         "session": empty,
         "comments": "",
         "nbchan": float(len(labels)),
-        "trials": 1.0,
+        "trials": float(trials),
         "pnts": float(points),
         "srate": float(sfreq),
         "xmin": 0.0,
@@ -250,7 +313,7 @@ def write_eeglab(
         "urchanlocs": empty,
         "chaninfo": {"plotrad": empty, "shrink": empty, "nosedir": "+X"},
         "ref": "common",
-        "event": empty,
+        "event": _eeglab_events(events) if events else empty,
         "urevent": empty,
         "eventdescription": empty,
         "epoch": empty,
@@ -276,6 +339,18 @@ def write_eeglab(
         content = bytearray(scratch.read_bytes())
     content[:116] = MAT_HEADER.ljust(116, b" ")  # scipy puts the creation time here
     _binary(path, bytes(content))
+
+
+def _eeglab_events(events: tuple[tuple[str | float, float, float | None], ...]) -> np.ndarray:
+    """EEG.event as a MATLAB struct array (type, latency and, if any event has one, duration)."""
+    names = ["type", "latency"] + (["duration"] if any(e[2] is not None for e in events) else [])
+    table = np.zeros((1, len(events)), dtype=[(name, "O") for name in names])
+    for index, (kind, latency, duration) in enumerate(events):
+        values: list[object] = [kind, float(latency)]
+        if "duration" in names:
+            values.append(np.array([]) if duration is None else float(duration))
+        table[0, index] = tuple(values)
+    return table
 
 
 def _binary(path: Path, content: bytes) -> None:
@@ -700,6 +775,107 @@ def _quality_edf(path: Path, signals: np.ndarray, labels: tuple[str, ...] = QUAL
     write_edf(path, sfreq=QUALITY_SFREQ, seconds=QUALITY_SECONDS, labels=labels, microvolts=signals)
 
 
+# --- annotation fixtures (M10, A-80) ------------------------------------------------------------------------
+#
+# A short night (300 s, two channels at 16 Hz, so the files stay small) with three scorers who stage ten 30-s
+# epochs each in annotation-only EDF+C files (night_<scorer>.edf, attached to night.edf by their stem).
+# annotation_continuous_ok: pairwise kappa 1.0 / 0.5 / 0.5 (mean 0.667 >= 0.6, minimum 0.5), every code in the
+# vocabulary, no gaps or overlaps; scorer1 also marks "Lights off" (zero duration: vocabulary only).
+# annotation_continuous_issues: scorer1 writes "Stage 2" (not in the vocabulary), scorer2 leaves 180-210 s
+# unscored and overlaps 80-90 s, scorer3 disagrees with both (mean kappa below 0.6).
+# bids_events_issues: an oddball task in BIDS with two annotators in the events.tsv column "annotator" and the
+# vocabulary in task-oddball_events.json Levels; annotator A2 writes "stimx" (not in the vocabulary) and two
+# overlapping "standard" events, annotator A1 a "response" during a "standard" (another code: allowed).
+
+ANNOTATION_VOCABULARY = ("W", "N1", "N2", "N3", "R", "Lights off")
+
+
+def _staged(stages: tuple[str, ...]) -> tuple[tuple[float, float, str], ...]:
+    return tuple((30.0 * index, 30.0, stage) for index, stage in enumerate(stages))
+
+
+HYPNOGRAMS_OK = {
+    "scorer1": ((0.0, 0.0, "Lights off"), *_staged(("W", "W", "N1", "N2", "N2", "N3", "N3", "N2", "R", "W"))),
+    "scorer2": _staged(("W", "W", "N1", "N2", "N2", "N3", "N3", "N2", "R", "W")),
+    "scorer3": _staged(("W", "N1", "N1", "N2", "N3", "N3", "N2", "N2", "R", "R")),
+}
+HYPNOGRAMS_ISSUES = {
+    "scorer1": _staged(("W", "W", "N1", "N2", "Stage 2", "N3", "N3", "N2", "R", "W")),
+    "scorer2": (
+        (0.0, 30.0, "W"),
+        (30.0, 30.0, "N1"),
+        (60.0, 30.0, "N2"),
+        (80.0, 40.0, "N2"),  # overlaps the previous epoch from 80 to 90 s
+        (120.0, 30.0, "N2"),
+        (150.0, 30.0, "N3"),
+        (210.0, 30.0, "N2"),  # 180-210 s unscored: a gap
+        (240.0, 30.0, "R"),
+        (270.0, 30.0, "W"),
+    ),
+    "scorer3": _staged(("N3", "R", "W", "N1", "W", "N2", "R", "N3", "N2", "N1")),
+}
+
+
+def _night(path: Path, seed: int) -> None:
+    write_edf(path, sfreq=16, seconds=300, labels=("C3", "C4"), seed=seed)
+
+
+def _annotated(hypnograms: dict[str, tuple[tuple[float, float, str], ...]], seed: int) -> dict[str, Any]:
+    files: dict[str, Callable[[Path], None]] = {"night.edf": partial(_night, seed=seed)}
+    for scorer, entries in hypnograms.items():
+        files[f"night_{scorer}.edf"] = partial(write_annotation_edf, annotations=entries)
+    return files
+
+
+ODDBALL_EVENTS = (  # (onset, duration, trial_type, annotator)
+    (1.2, 0.6, "standard", "A1"),
+    (3.2, 0.6, "deviant", "A1"),
+    (5.2, 0.6, "standard", "A1"),
+    (5.4, 0.4, "response", "A1"),
+    (8.2, 0.6, "standard", "A1"),
+    (11.2, 0.6, "deviant", "A1"),
+    (14.2, 0.6, "standard", "A1"),
+    (1.2, 0.6, "standard", "A2"),
+    (3.2, 0.6, "deviant", "A2"),
+    (5.2, 0.6, "standard", "A2"),
+    (5.6, 0.6, "standard", "A2"),
+    (8.2, 0.6, "stimx", "A2"),
+    (11.2, 0.6, "deviant", "A2"),
+    (14.2, 0.6, "standard", "A2"),
+)
+ODDBALL_LEVELS = {"standard": "Standard tone", "deviant": "Deviant tone", "response": "Button press"}
+
+
+def _oddball_events() -> str:
+    rows = sorted(ODDBALL_EVENTS, key=lambda row: (row[0], row[3]))
+    return "onset\tduration\ttrial_type\tannotator\n" + "".join(
+        f"{onset}\t{duration}\t{kind}\t{who}\n" for onset, duration, kind, who in rows
+    )
+
+
+def _bids_events_issues() -> dict[str, Callable[[Path], None]]:
+    eeg = "sub-01/eeg/sub-01_task-oddball"
+    sidecar = _eeg_sidecar(complete=False, TaskName="oddball", SamplingFrequency=256, EEGChannelCount=2)
+    return {
+        "dataset_description.json": lambda p: _json(p, _description(complete=True)),
+        "README": lambda p: _text(p, README),
+        "participants.tsv": lambda p: _text(p, "participant_id\nsub-01\n"),
+        "task-oddball_events.json": lambda p: _json(
+            p,
+            {
+                "trial_type": {"Description": "Kind of event", "Levels": ODDBALL_LEVELS},
+                "annotator": {"Description": "Role code of the person who marked the event"},
+            },
+        ),
+        f"{eeg}_eeg.edf": lambda p: write_edf(
+            p, sfreq=256, seconds=20, labels=("Fz", "Cz"), label_prefix="", seed=72
+        ),
+        f"{eeg}_eeg.json": lambda p: _json(p, sidecar),
+        f"{eeg}_channels.tsv": lambda p: _text(p, _channels_tsv(("Fz", "Cz"))),
+        f"{eeg}_events.tsv": lambda p: _text(p, _oddball_events()),
+    }
+
+
 IMPEDANCES_OK = {label: "3" for label in EEG_LABELS}
 
 FIXTURES: dict[str, Callable[[Path], None]] = {
@@ -740,6 +916,9 @@ FIXTURES: dict[str, Callable[[Path], None]] = {
     "edf_quality_ok/rec.edf": lambda p: _quality_edf(p, quality_ok_signals(41)),
     "edf_quality_issues/rec.edf": lambda p: _quality_edf(p, quality_issues_signals(51)),
     "edf_quality_artefacts/rec.edf": lambda p: _quality_edf(p, quality_artefact_signals(63), ARTEFACT_LABELS),
+    **_prefixed("annotation_continuous_ok", _annotated(HYPNOGRAMS_OK, seed=70)),
+    **_prefixed("annotation_continuous_issues", _annotated(HYPNOGRAMS_ISSUES, seed=71)),
+    **_prefixed("bids_events_issues", _bids_events_issues()),
 }
 
 

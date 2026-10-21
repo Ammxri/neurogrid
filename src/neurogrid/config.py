@@ -16,7 +16,7 @@ import tomllib
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal, NamedTuple
+from typing import Annotated, Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -341,10 +341,32 @@ class ConvertSection(_Section):
         return value
 
 
+class AnnotationFile(_Section):
+    """One row of [[annotation.files]] (A-80): an annotation-only file (e.g. a hypnogram), the signal
+    recording it belongs to and its annotator. Both paths are dataset-relative like [[convert.files]]
+    (critic X12); without ``annotator`` the rest of the file stem after '<recording stem>_' is used, else the
+    stem."""
+
+    path: str = Field(max_length=1024)
+    recording: str = Field(max_length=1024)
+    annotator: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_.-]{1,64}$")
+
+
 class AnnotationSection(_Section):
+    """M10 (A-17, A-80). ``epoch_s`` unset: 30 s in continuous, 1 s in events mode. ``vocabulary`` is
+    matched exactly (outer whitespace ignored); unset, the events.json Levels of the code column apply.
+    ``annotators`` is a list of patterns (``*``, ``?``, case-sensitive) over annotator IDs; only matching
+    annotators take part."""
+
     mode: Literal["continuous", "events"] = "events"
-    epoch_s: float | None = Field(default=None, gt=0)
-    vocabulary: list[str] | None = None
+    epoch_s: float | None = Field(default=None, gt=0, le=86_400)
+    vocabulary: list[Annotated[str, Field(min_length=1, max_length=256)]] | None = Field(
+        default=None, min_length=1, max_length=10_000
+    )
+    annotators: list[Annotated[str, Field(min_length=1, max_length=128)]] | None = Field(
+        default=None, min_length=1, max_length=1000
+    )
+    files: list[AnnotationFile] = Field(default_factory=list, max_length=100_000)
 
 
 class AISection(_Section):
@@ -396,6 +418,9 @@ def _check_paths(cfg: Config) -> None:
     """Every path in the file must be a plain relative path (A-52); resolution happens where it is used."""
     fields: list[tuple[str, str | None]] = [("ai.splits", cfg.ai.splits), ("vault.path", cfg.vault.path)]
     fields += [(f"convert.files.{index}.path", row.path) for index, row in enumerate(cfg.convert.files)]
+    for index, entry in enumerate(cfg.annotation.files):  # dataset-relative (A-80, critic X12)
+        fields += [(f"annotation.files.{index}.path", entry.path)]
+        fields += [(f"annotation.files.{index}.recording", entry.recording)]
     fields += [
         (f"check.rulepacks.{index}", ref)
         for index, ref in enumerate(cfg.check.rulepacks or [])

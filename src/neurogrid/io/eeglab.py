@@ -62,6 +62,7 @@ _HEADER_FIELDS = (
     "history",
     "setname",
 )
+_EVENT_FIELDS = (*_HEADER_FIELDS, "event")  # EEG.event for the annotation reader (M10, A-80)
 _TYPES = {
     "EEG": "EEG",
     "EOG": "EOG",
@@ -91,13 +92,13 @@ class _Samples:
     shape: tuple[int, ...]
 
 
-def _load(path: Path) -> dict[str, Any]:
+def _load(path: Path, fields: tuple[str, ...] = _HEADER_FIELDS) -> dict[str, Any]:
     """The header fields of the EEGLAB structure, with ``data`` as text (.fdt name), as ``_Samples`` (numeric
-    data) or left out (no data, or data that are neither)."""
+    data) or left out (no data, or data that are neither). ``fields`` names the fields kept."""
     if path.stat().st_size > MAX_SET_BYTES:
         raise _Refused("header.too_large")
     try:
-        eeg = _read_container(path)
+        eeg = _read_container(path, fields)
     except HeaderUnreadable:
         raise
     except Exception:  # broken containers raise many exception types; only the outcome counts
@@ -145,7 +146,7 @@ def _check_sparse_data(rows: int, columns: int) -> None:
         raise _Refused("header.too_large")
 
 
-def _read_container(path: Path) -> Any:
+def _read_container(path: Path, fields: tuple[str, ...] = _HEADER_FIELDS) -> Any:
     """The EEG structure (or the file's variables) like ``pymatreader.read_mat`` gives it, header fields only.
 
     pymatreader asks scipy first and falls back to HDF5 when scipy refuses (MAT v7.3); this follows the same
@@ -162,12 +163,12 @@ def _read_container(path: Path) -> Any:
             with _checked_hdf5(path):
                 pass
         try:
-            return _read_mat5(path, major)
+            return _read_mat5(path, major, fields)
         except NotImplementedError:
             if not hdf5:
                 raise
     with _checked_hdf5(path) as container:
-        return _read_hdf5(container)
+        return _read_hdf5(container, fields)
 
 
 @contextmanager
@@ -205,7 +206,7 @@ def _select(variables: Mapping[str, Any]) -> Any:
     return eeg
 
 
-def _read_mat5(path: Path, major: int) -> Any:
+def _read_mat5(path: Path, major: int, fields: tuple[str, ...] = _HEADER_FIELDS) -> Any:
     import scipy.io
     import scipy.sparse
     from pymatreader.utils import _parse_scipy_mat_dict
@@ -218,7 +219,7 @@ def _read_mat5(path: Path, major: int) -> Any:
     eeg = _select(_parse_scipy_mat_dict(variables))
     if not isinstance(eeg, dict):
         return eeg
-    header = {key: eeg[key] for key in _HEADER_FIELDS if key in eeg}
+    header = {key: eeg[key] for key in fields if key in eeg}
     if "data" in eeg:
         data = eeg["data"]
         if isinstance(data, str):
@@ -361,7 +362,7 @@ def _object_addresses(node: Any) -> Any:
     return addresses.ravel()
 
 
-def _read_hdf5(container: Any) -> Any:
+def _read_hdf5(container: Any, fields: tuple[str, ...] = _HEADER_FIELDS) -> Any:
     """Header fields of a checked v7.3 file; embedded data only by their shape (never loaded)."""
     import h5py
     from pymatreader.utils import _handle_hdf5_dataset, _handle_hdf5_group
@@ -369,7 +370,7 @@ def _read_hdf5(container: Any) -> Any:
     group = _select(container)
     if not isinstance(group, h5py.Group):  # e.g. EEG in a cell, which pymatreader unwraps
         raise _Refused("header.unreadable_container")
-    header = _handle_hdf5_group(group, variable_names=_HEADER_FIELDS, ignore_fields=["#refs#"])
+    header = _handle_hdf5_group(group, variable_names=list(fields), ignore_fields=["#refs#"])
     node = group.get("data")
     if isinstance(node, h5py.Dataset) and h5py.check_dtype(ref=node.dtype) is not None:
         # EEG.data in a cell: pymatreader unwraps a one-element cell, so it could hold a .fdt name that the
@@ -621,6 +622,14 @@ def epoched(path: Path) -> bool:
     except HeaderUnreadable:
         return False
     return trials is not None and trials > 1
+
+
+def load_events(path: Path) -> dict[str, Any]:
+    """The header fields plus ``event`` (EEG.event as pymatreader gives it), through the same guarded loaders
+    and size limits as the header (A-53, A-77); raises HeaderUnreadable like the adapter."""
+    eeg = _load(path, _EVENT_FIELDS)
+    _channel_entries(eeg)  # the same refusal as the adapter for unnamed channels beyond the limit
+    return eeg
 
 
 def referenced_fdt(path: Path) -> str | None:

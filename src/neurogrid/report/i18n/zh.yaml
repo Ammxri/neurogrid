@@ -124,6 +124,10 @@ notice:
   names_look_identifying: "{count} 个数据文件路径含有非 ASCII 字母或连续六位以上数字，可能可识别个人身份。请检查文件名。"
   links_skipped: "数据集中有 {count} 个链接或目录联接未被跟随；其内容未被检查。"
   bids_not_checked: "该数据集不是 BIDS 数据集；未检查 BIDS 结构。"
+  annotations_unassigned: "{count} 个仅含标注的文件（如睡眠分期图）没有对应的信号记录；每个文件作为单独的记录检查。请在 neurogrid.toml 中用 [[annotation.files]] 指定对应关系。"
+  annotations_ambiguous: "{count} 个仅含标注的文件同样可对应多个信号记录；每个文件作为单独的记录检查。请在 neurogrid.toml 中用 [[annotation.files]] 指定对应关系。"
+  annotation_files_unmatched: "neurogrid.toml 中 [[annotation.files]] 的 {count} 行未指向数据集中的仅含标注的文件或信号记录。"
+  events_rows_invalid: "events.tsv 文件中有 {count} 行没有有效的起始时间或持续时间，未纳入标注检查。"
 
 severity:
   error: "错误"
@@ -208,6 +212,18 @@ reason:
     hash_mismatch: "文件自记录哈希值后已被修改。"
   value:
     non_finite: "测量值不是有限数值。"
+  annotation:
+    none: "没有标注。"
+    single_annotator: "只有一名标注者；Cohen κ 至少需要两名。"
+    event_mode: "间隙和覆盖率仅在连续模式下检查（[annotation] mode）。"
+    no_vocabulary: "没有可用于比对代码的词表（[annotation] vocabulary 或 events.json Levels）。"
+    too_short: "记录短于标注网格的一个时间段。"
+    kappa_undefined: "Cohen κ 无定义：每对标注者的期望一致率均为 1。"
+    unreadable: "无法读取标注。"
+    too_many: "标注数量超过输入上限（1,000,000）。"
+    epoched: "分段的 EEGLAB 数据集；无法评价连续标注。"
+    duration_unknown: "记录时长未知。"
+    too_many_epochs: "时间段网格的时间段数超过上限（5,000,000）；请选择更长的 [annotation] epoch_s。"
 
 issue:
   header:
@@ -286,6 +302,11 @@ check:
     non_brain_components: "非脑源 ICA 成分比例（ICLabel）"
   evidence:
     document: "证明文件"
+  annotation:
+    kappa: "标注者间一致性（Cohen κ）"
+    codes: "标注代码统一且在词表内"
+    gaps: "连续标注无间隙"
+    overlaps: "标注无重叠"
 
 report:
   title: "NeuroGrid 预检报告"
@@ -359,6 +380,7 @@ report:
     placeholder_status: "未评价（占位规则）"
     evidence_provided: "已提交证明材料（用户声明，NeuroGrid 未作评价）"
     not_streamable: "无法分块读取"
+    free_text: "自由文本（{n} 个字符）"
   text:
     no_findings: "没有此类严重程度的结果。"
     no_recordings: "没有记录。"
@@ -391,6 +413,11 @@ report:
     rate_hz: "采样率（Hz）"
     rates_hz: "采样率（Hz）"
     uniform: "一致"
+    gaps: "间隙"
+    gap_s: "间隙（秒）"
+    coverage: "覆盖率"
+    overlaps: "重叠"
+    overlap_s: "重叠（秒）"
   sample_mode:
     sample: "抽样"
     full: "整段记录"

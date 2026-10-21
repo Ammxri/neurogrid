@@ -92,6 +92,9 @@ class _Formatter:
             names = self.sub_codes(finding.details.get("sub_codes"))
             if names:
                 parts.append(self.tr("report.validator.sub_codes", names=names))
+        chars = finding.details.get("chars")
+        if isinstance(chars, int) and not isinstance(chars, bool):  # a code or label not shown (A-17, M10)
+            parts.append(self.tr("report.value.free_text", n=chars))
         if "error_type" in finding.details:  # foreign exception: only its type name (A-07)
             parts.append(str(finding.details["error_type"]))
         if "exception_reason" in finding.details:

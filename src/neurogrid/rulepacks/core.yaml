@@ -231,3 +231,41 @@ rules:
     params: {max_fraction: 0.6}  # 95th percentile, public corpus (A-20, MET-01): rulepacks/calibration/core.json, n = 22 recordings
     severity: warning
     verification: automatic
+
+  # --- P4 annotation ---
+  - id: CORE-M10-01
+    clause: M10
+    title_zh: 标注者间一致性（Cohen κ）不低于 0.6
+    title_en: Agreement between annotators (Cohen's kappa) at least 0.6
+    phase: annotation
+    check: annotation.kappa
+    params: {min_kappa: 0.6}  # PRD §12 M10: warning below 0.6 (common convention); mean of the pairwise kappas (A-80)
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M10-02
+    clause: M10
+    title_zh: 标注代码统一且在词表内
+    title_en: Annotation codes uniform and in the vocabulary
+    phase: annotation
+    check: annotation.codes
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M10-03
+    clause: M10
+    title_zh: 连续标注无间隙
+    title_en: No gaps in continuous annotation
+    phase: annotation
+    check: annotation.gaps
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M10-04
+    clause: M10
+    title_zh: 同一标注者的标注无重叠
+    title_en: No overlapping annotations per annotator
+    phase: annotation
+    check: annotation.overlaps
+    severity: warning
+    verification: automatic

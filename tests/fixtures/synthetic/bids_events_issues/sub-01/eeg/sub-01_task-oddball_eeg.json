@@ -1,0 +1,8 @@
+{
+  "TaskName": "oddball",
+  "SamplingFrequency": 256,
+  "EEGReference": "Cz",
+  "PowerLineFrequency": 50,
+  "SoftwareFilters": "n/a",
+  "EEGChannelCount": 2
+}

@@ -214,3 +214,113 @@ def test_calibration_protocol_is_reproducible_from_the_corpus() -> None:
         data = values[entry["metric"]]
         assert len(data) == entry["n"], rule
         assert float(f"{np.percentile(data, 95.0):.6g}") == entry["value"], rule
+
+
+# --- P4: annotation (NG-F08, M10, A-80) ---------------------------------------------------------------------
+
+PSG_CODES = (
+    "Sleep stage W",
+    "Sleep stage N1",
+    "Sleep stage N2",
+    "Sleep stage N3",
+    "Sleep stage R",
+    "Sleep stage ?",
+    "Lights off",
+    "Lights on",
+)
+# A-80: the reproduced 4-decimal values are the reference (KONZEPT 8.5 gives their rounding), +-0.001
+PSG_MANUAL = {"SN1": (0.7253, 0.4735), "SN2": (0.6598, 0.3692), "SN4": (0.7656, 0.6460)}  # mean, minimum
+PSG_SCORERS_1_2 = {"SN1": 0.7902, "SN2": 0.6905, "SN4": 0.8104}
+
+
+def _m10_only(folder: Path, annotators: list[str]) -> Path:
+    """neurogrid.toml with the DoD settings and a pack of the M10 rules of core alone (no signal metrics, so
+    the run takes seconds); written outside the corpus, which stays unchanged."""
+    import json
+
+    from neurogrid.kernel.rules import load_rulepack
+
+    core = (ROOT / "src" / "neurogrid" / "rulepacks" / "core.yaml").read_bytes()
+    pack = load_rulepack(core, origin="path").pack
+    rules = [rule for rule in pack.rules if rule.id.startswith("CORE-M10")]
+    m10 = pack.model_copy(update={"rulepack": "core_m10", "rules": rules})
+    (folder / "core_m10.yaml").write_text(json.dumps(m10.model_dump(mode="json")), encoding="utf-8")
+    config = folder / "neurogrid.toml"
+    config.write_text(
+        '[check]\nrulepacks = ["core_m10.yaml"]\n[annotation]\nmode = "continuous"\nepoch_s = 30\n'
+        f"vocabulary = {json.dumps(list(PSG_CODES))}\nannotators = {json.dumps(annotators)}\n",
+        encoding="utf-8",
+    )
+    return config
+
+
+def _psg_kappa(tmp_path: Path, annotators: list[str]) -> tuple[Results, dict[str, dict[str, object]]]:
+    config = _m10_only(tmp_path, annotators)
+    results = pipeline.run_check(
+        CORPUS / "psg-ipa-1.0.0", pipeline.CheckOptions(config_path=config, as_of=AS_OF, show_paths=True)
+    )
+    summaries = {
+        Path(rec.id).name.split("_")[0]: rec.metrics["annotation"]
+        for rec in results.recordings
+        if "annotation" in rec.metrics
+    }
+    return results, summaries
+
+
+def test_psg_kappa_of_the_12_manual_scorers(tmp_path: Path) -> None:
+    """P4 DoD: kappa on PSG-IPA as measured (+-0.001): 66 pairs of the 12 manual scorers per recording; every
+    hypnogram attached by its stem (25 per recording), codes, gaps and overlaps passed."""
+    results, summaries = _psg_kappa(tmp_path, ["manual_*"])
+    assert sorted(summaries) == ["SN1", "SN2", "SN4"]
+    for name, (mean, minimum) in PSG_MANUAL.items():
+        kappa = summaries[name]["kappa"]
+        assert isinstance(kappa, dict)
+        assert abs(kappa["mean"] - mean) <= 0.001 and abs(kappa["min"] - minimum) <= 0.001, name
+        assert (kappa["pairs"], kappa["annotators"], kappa["undefined_pairs"]) == (66, 12, 0), name
+        files = summaries[name]["files"]
+        assert isinstance(files, list) and len(files) == 25 and summaries[name]["excluded_annotators"] == 13
+    assert [f for f in results.findings if f.rule_id.startswith("CORE-M10")] == []
+    passed = {p.rule_id for p in results.passed}
+    assert passed == {"CORE-M10-01", "CORE-M10-02", "CORE-M10-03", "CORE-M10-04"}
+    assert not [n for n in results.notices if n.message_key.startswith("notice.annotation")]
+
+
+def test_psg_kappa_scorer_1_against_2(tmp_path: Path) -> None:
+    _results, summaries = _psg_kappa(tmp_path, ["manual_scorer1", "manual_scorer2"])
+    for name, value in PSG_SCORERS_1_2.items():
+        kappa = summaries[name]["kappa"]
+        assert isinstance(kappa, dict) and kappa["pairs"] == 1
+        assert abs(kappa["mean"] - value) <= 0.001, name
+
+
+def test_vmrk_reader_agrees_with_events_tsv() -> None:
+    """ds004148: MNE-BIDS wrote the markers of the .vmrk to events.tsv (onset = (position - 1) / rate,
+    duration = size / rate, value = the description)."""
+    from pathlib import PurePosixPath
+
+    from neurogrid.io.annotations import events_annotations, read_events, read_vmrk
+
+    root = CORPUS / "ds004148-1.0.1"
+    headers = sorted(root.rglob("*_eeg.vhdr"))
+    assert len(headers) == 3
+    for vhdr in headers:
+        relative = PurePosixPath(vhdr.relative_to(root).as_posix())
+        markers = read_vmrk(vhdr).annotations
+        table = read_events(root, relative)
+        assert table is not None
+        events = events_annotations(root, relative, table).annotations
+        assert len(markers) == len(events) > 0
+        for marker, event in zip(markers, events, strict=True):
+            assert (
+                abs(marker.onset_s - event.onset_s) < 1e-6
+                and abs(marker.duration_s - event.duration_s) < 1e-6
+            )
+            assert marker.code.endswith("/" + event.code)
+
+
+@pytest.mark.parametrize("name", OPENNEURO)
+def test_openneuro_annotation_findings_are_not_applicable_or_passed(name: str) -> None:
+    """Events mode (the default) on the OpenNeuro sets: nothing fails and nothing is unreadable."""
+    results = _check(name)
+    statuses = {f.status for f in results.findings if f.rule_id.startswith("CORE-M10")}
+    assert statuses == {Status.NOT_APPLICABLE}, name

@@ -8,6 +8,7 @@ evidence file, and further CheckOptions fields such as ``strict``.
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import resources
@@ -46,6 +47,29 @@ RAW_DOCUMENTED = (
 BIDS = ("bids",)
 # documents 60 Hz for data with 50 Hz line noise (A-47)
 LINE_60_HZ = "[metadata.defaults]\nline_frequency_hz = 60\n"
+# P4 annotation (M10, A-80): continuous sleep staging with the vocabulary of tools/gen_fixtures.py
+CONTINUOUS = (
+    '[annotation]\nmode = "continuous"\nepoch_s = 30\n'
+    'vocabulary = ["W", "N1", "N2", "N3", "R", "Lights off"]\n'
+)
+# the hypnograms of annotation_continuous_ok under names the stem heuristic cannot attach (see SETUPS)
+FILES_TABLE = CONTINUOUS + "".join(
+    f'[[annotation.files]]\npath = "scoring/hyp_{n}.edf"\nrecording = "night.edf"\nannotator = "s{n}"\n'
+    for n in (1, 2, 3)
+)
+
+
+def _renamed_hypnograms(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+    """A copy of the fixture whose hypnograms only [[annotation.files]] can attach (A-80)."""
+    target = tmp / "renamed"
+    (target / "scoring").mkdir(parents=True)
+    shutil.copy2(fixture / "night.edf", target / "night.edf")
+    for n in (1, 2, 3):
+        shutil.copy2(fixture / f"night_scorer{n}.edf", target / "scoring" / f"hyp_{n}.edf")
+    return target, {}
+
+
+SETUPS["annotation_files_table"] = _renamed_hypnograms
 
 
 CASES = [
@@ -136,6 +160,26 @@ CASES = [
     Case("CORE-M09-02", "edf_quality_ok", Status.PASSED),  # 5 of 17 components not brain (0.29)
     Case("CORE-M09-02", "edf_quality_artefacts", Status.FAILED),  # 17 of 19 components not brain (0.89)
     Case("CORE-M09-02", "edf_quality_issues", Status.NOT_CHECKABLE),  # 10 good channels, ICA needs 16
+    # --- P4 annotation (M10, A-80): fixtures of tools/gen_fixtures.py ---
+    Case("CORE-M10-01", "annotation_continuous_ok", Status.PASSED, CONTINUOUS),  # mean kappa 0.667
+    Case("CORE-M10-01", "annotation_continuous_issues", Status.FAILED, CONTINUOUS),  # mean kappa 0.024
+    Case("CORE-M10-01", "edf_ok", Status.NOT_APPLICABLE),  # no annotations: one dataset-level finding
+    Case(
+        "CORE-M10-01",
+        "annotation_continuous_ok",
+        Status.PASSED,
+        FILES_TABLE,
+        setup="annotation_files_table",
+    ),
+    Case("CORE-M10-02", "annotation_continuous_ok", Status.PASSED, CONTINUOUS),
+    Case("CORE-M10-02", "annotation_continuous_issues", Status.FAILED, CONTINUOUS),  # "Stage 2"
+    Case("CORE-M10-02", "bids_events_issues", Status.FAILED),  # "stimx" not in events.json Levels
+    Case("CORE-M10-03", "annotation_continuous_ok", Status.PASSED, CONTINUOUS),
+    Case("CORE-M10-03", "annotation_continuous_issues", Status.FAILED, CONTINUOUS),  # 180-210 s unscored
+    Case("CORE-M10-03", "annotation_continuous_ok", Status.NOT_APPLICABLE),  # events mode
+    Case("CORE-M10-04", "annotation_continuous_ok", Status.PASSED, CONTINUOUS),
+    Case("CORE-M10-04", "annotation_continuous_issues", Status.FAILED, CONTINUOUS),  # 80-90 s
+    Case("CORE-M10-04", "bids_events_issues", Status.FAILED),  # two "standard" events overlap
 ]
 
 

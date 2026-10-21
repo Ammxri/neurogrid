@@ -1,0 +1,13 @@
+{
+  "trial_type": {
+    "Description": "Kind of event",
+    "Levels": {
+      "standard": "Standard tone",
+      "deviant": "Deviant tone",
+      "response": "Button press"
+    }
+  },
+  "annotator": {
+    "Description": "Role code of the person who marked the event"
+  }
+}

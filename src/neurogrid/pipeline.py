@@ -18,12 +18,14 @@ from typing import Any
 
 import neurogrid
 from neurogrid import config as config_module
+from neurogrid.checks import annotation as annotation_checks
 from neurogrid.checks.context import CheckContext
 from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
-from neurogrid.io.discover import DatasetScan, FoundFile, scan
+from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan
+from neurogrid.io.identifying import annotator_pseudonym
 from neurogrid.kernel import canonical, engine
 from neurogrid.kernel.errors import InputError, RulepackError, UnsafePathError
 from neurogrid.kernel.findings import Notice, Severity, SourceStatus
@@ -334,6 +336,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
                 params={"count": found.suspicious_names},
             )
         )
+    notices.extend(annotation_checks.notices(ctx))  # M10: files and rows that could not be used (A-80)
     exceptions = [
         use.model_copy(
             update={
@@ -409,12 +412,50 @@ def _shown_pattern(pattern: str | None, plain_names: bool) -> str | None:
     return "pattern-" + hashlib.sha256(pattern.encode("utf-8")).hexdigest()[:8]
 
 
+# Configuration values that can carry file names, folder names or names derived from them (A-51, C4). In raw
+# folders without --show-paths they appear as in findings: a file path as its pseudonymous file name
+# (rec-<sha8>.<ext>, A-70), a pattern as pattern-<sha8> (A-69), an annotator as ann-<sha8> (C5). Each entry is
+# (section, key, row key or None, kind); a row key names the key inside each row of a list of tables.
+# Extension point for further path keys (e.g. ai.splits outside .neurogrid, A-81): add an entry here.
+_HIDDEN_SETTINGS: tuple[tuple[str, str, str | None, str], ...] = (
+    ("convert", "pattern", None, "pattern"),
+    ("convert", "files", "path", "file"),
+    ("annotation", "files", "path", "file"),
+    ("annotation", "files", "recording", "file"),
+    ("annotation", "files", "annotator", "annotator"),
+    ("annotation", "annotators", None, "pattern"),
+)
+
+
+def _shown_setting(value: Any, kind: str) -> Any:
+    """A path-bearing configuration value as raw folders show it without --show-paths (A-51, C4)."""
+    if isinstance(value, list):
+        return [_shown_setting(item, kind) for item in value]
+    if not isinstance(value, str):
+        return value
+    if kind == "file":
+        relative = PurePosixPath(value.replace("\\", "/"))
+        return pseudonym(relative) + relative.suffix.lower()
+    if kind == "annotator":
+        return annotator_pseudonym(value)
+    return _shown_pattern(value, plain_names=False)
+
+
 def _effective_settings(cfg: Config, plain_names: bool) -> dict[str, Any]:
     """The effective configuration, cleaned for output (A-51, A-61). Paths in it are relative by
-    construction (A-52); exception patterns are shown as in the exceptions block."""
+    construction (A-52); exception patterns are shown as in the exceptions block, and in raw folders without
+    --show-paths the path-bearing values of _HIDDEN_SETTINGS are replaced (C4)."""
     settings = cfg.model_dump(mode="json")
     for entry in settings.get("exceptions", []):
         entry["object"] = _shown_pattern(entry.get("object"), plain_names)
+    if not plain_names:
+        for section, key, row_key, kind in _HIDDEN_SETTINGS:
+            holder = settings.get(section, {})
+            if row_key is None:
+                holder[key] = _shown_setting(holder.get(key), kind)
+                continue
+            for row in holder.get(key) or []:
+                row[row_key] = _shown_setting(row.get(row_key), kind)
     normalized: dict[str, Any] = canonical.normalize(settings)
     return normalized
 
@@ -440,8 +481,11 @@ def _finite_or_none(value: float | None) -> float | None:
 
 def _recording_summaries(ctx: CheckContext) -> list[RecordingSummary]:
     summaries = []
+    annotations = annotation_checks.summaries(ctx)  # M10 per object, under metrics["annotation"] (X10)
     for rec in ctx.recordings:
         recording = rec.recording
+        annotation = annotations.get(rec.found.relative)
+        extra = {"annotation": canonical.normalize(annotation)} if annotation is not None else {}
         if recording is None:
             # Entities from file names or the mapping do not depend on the header (A-72).
             entities = rec.metadata.entities
@@ -450,6 +494,7 @@ def _recording_summaries(ctx: CheckContext) -> list[RecordingSummary]:
                     id=rec.object_id,
                     format=rec.adapter.format,
                     metadata_sources={name: documented.source for name, documented in entities.items()},
+                    metrics=extra,
                     **{name: str(documented.value) for name, documented in entities.items()},
                 )
             )
@@ -468,9 +513,14 @@ def _recording_summaries(ctx: CheckContext) -> list[RecordingSummary]:
                 n_eeg_channels=len(recording.eeg_channels),
                 streamable=recording.streamable,
                 metadata_sources=dict(recording.metadata_sources),
-                metrics=canonical.normalize(finite_values(describe_quality(rec.quality)))
-                if rec.quality
-                else {},
+                metrics={
+                    **(
+                        canonical.normalize(finite_values(describe_quality(rec.quality)))
+                        if rec.quality
+                        else {}
+                    ),
+                    **extra,
+                },
                 sample=(
                     canonical.normalize(finite_values(rec.quality.sample.describe()))
                     if rec.quality and rec.quality.sample
