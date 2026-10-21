@@ -6,14 +6,29 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P3 umgesetzt; STOPP R4 (NG-N02).** Die 1-GB-Messung verfehlt die Grenze aus A-50 für 128 und 256
-Kanäle; die Entscheidung des Projektverantwortlichen steht aus (Optionen im Eintrag unten). Konzept freigegeben
-(D-08 bis D-13), Freigabemodus A bis zum STOPP nach P5. Git: `main` (Doku-Commit), Arbeitszweig `dev` (lokal;
-Push erst mit Repo-URL, D-09).
+**Phase P3 abgeschlossen, P4 als Nächstes.** STOPP R4 ist entschieden (D-14: Parallelisierung einer Aufnahme
+mit `--jobs`, 300 s für 256 Kanäle) und umgesetzt. Konzept freigegeben (D-08 bis D-14), Freigabemodus A bis zum
+STOPP nach P5. Git: `main` (Doku-Commit), Arbeitszweig `dev` (lokal; Push erst mit Repo-URL, D-09).
 Offen beim Nutzer: GitHub-Repo-URL (TECH-05/TECH-11, Linux-Lauf), GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
 ISO-TS vor P10, muttersprachliche zh-Prüfung vor v0.1, Docker Desktop bei Gelegenheit.
 
 ## Verlauf
+
+### 2026-10-21 – D-14 (STOPP R4) umgesetzt
+- **Entscheidung D-14:** Optionen 1 und 2 der P3-Meldung (Parallelisierung einer Aufnahme mit `--jobs`; A-50: 150 s bis 128 Kanäle, 300 s darüber).
+- **Gebaut:**
+  - Eine Aufnahme zerfällt in vier Teile: Stream, Vorbereitung der Stichprobe mit M06, autoreject und ICA/ICLabel.
+  - Mit `--jobs N` laufen die Teile als Aufgaben eines Prozesspools, höchstens N Aufnahmen gleichzeitig.
+  - autoreject nutzt bei einer einzelnen Aufnahme ab 64 Kanälen `--jobs − 1` loky-Prozesse. Sie haben Netzwerkschutz, einen BLAS-Thread, keine Warnungen auf der Konsole und keine Zwischendateien. Stirbt einer, rechnet autoreject im eigenen Prozess neu.
+  - Feste Regeln setzen die Teile zusammen; das Ergebnis ist byte-gleich zu `--jobs 1`.
+  - autoreject und ICA geben keine Ausnahme weiter. Kommt das Ergebnis eines Teils nicht an, läuft die Aufnahme einzeln.
+  - `tools/benchmark.py` misst mit `--jobs 4` und den Grenzen aus D-14.
+- **Review:** drei Prüfrichtungen (Planer, Determinismus, Robustheit), jeder Befund gegengeprüft. Alle 12 Befunde bestätigt und behoben, darunter Exit 2 bei einem `MemoryError` beim Übertragen der Stichprobe und eine fehlende Wiederholung nach einem sterbenden loky-Prozess. Bekannte Grenze: Der Hilfsprozess „resource tracker“ von loky hat keinen Netzwerkschutz (A-79).
+- **Ergebnisse:**
+  - pytest Python 3.12: 1729 bestanden, 7 übersprungen; Abdeckung Kern 97,3 %, Prüfer 97,3 %.
+  - NG-N02 mit `--jobs 4`: 64 Kanäle 75,6 s / 1,8 GB, 128 Kanäle 126,2 s / 2,5 GB, 256 Kanäle 248,2 s / 3,7 GB, alle unter der Grenze.
+  - `--jobs 1` und `--jobs 4` byte-gleich auf der 64-Kanal-1-GB-Datei.
+- **Nicht verifiziert:** NG-N02 auf dem Runner (CI, D-09).
 
 ### 2026-10-21 – P3 Signalqualität
 - **Abgeschlossen:** M06, M07, M08, M09, MET-01, LIB-01, LIB-04, LIB-06, LIB-07.

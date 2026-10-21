@@ -1,11 +1,14 @@
 """Every rule of every built-in rule pack has a positive and a negative case (NG-N08).
 
 A case names a fixture folder (and optionally a config and further rule packs) and the expected status of
-the rule there: "passed" (positive case) or a non-passing status (negative case).
+the rule there: "passed" (positive case) or a non-passing status (negative case). A case may name a setup
+(SETUPS) that prepares the run in a temporary folder, e.g. a copy of the fixture with a manifest or an
+evidence file, and further CheckOptions fields such as ``strict``.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -26,6 +29,12 @@ class Case:
     expected: Status
     config: str | None = None
     rulepacks: tuple[str, ...] = ()
+    setup: str | None = None  # name in SETUPS
+    options: tuple[tuple[str, object], ...] = ()  # further CheckOptions fields, e.g. (("strict", True),)
+
+
+# name -> function(fixture folder, temporary folder) -> (folder to check, further CheckOptions fields)
+SETUPS: dict[str, Callable[[Path, Path], tuple[Path, dict[str, object]]]] = {}
 
 
 WET = '[metadata.defaults]\nelectrode_type = "wet"\n'
@@ -141,18 +150,23 @@ def builtin_rule_ids() -> set[str]:
 
 # Statuses per rule of one run, keyed by fixture, configuration and rule packs. A run is deterministic, so
 # the cases of the same run share it: the signal quality sample (M06/M09) costs seconds per recording.
-_RUNS: dict[tuple[str, str | None, tuple[str, ...]], dict[str, set[Status]]] = {}
+_RUNS: dict[tuple[object, ...], dict[str, set[Status]]] = {}
 
 
 def statuses(case: Case, tmp_path: Path) -> set[Status]:
-    key = (case.folder, case.config, case.rulepacks)
+    key = (case.folder, case.config, case.rulepacks, case.setup, case.options)
     if key not in _RUNS:
         config_path = None
         if case.config:
             config_path = tmp_path / "neurogrid.toml"
             config_path.write_text(case.config, encoding="utf-8")
+        target, extra = FIX / case.folder, {}
+        if case.setup:
+            target, extra = SETUPS[case.setup](FIX / case.folder, tmp_path / "setup")
+        options = {**dict(case.options), **extra}
         results = pipeline.run_check(
-            FIX / case.folder, pipeline.CheckOptions(config_path=config_path, rulepacks=case.rulepacks)
+            target,
+            pipeline.CheckOptions(config_path=config_path, rulepacks=case.rulepacks, **options),  # type: ignore[arg-type]
         )
         by_rule: dict[str, set[Status]] = {}
         for finding in results.findings:

@@ -104,12 +104,24 @@ j (`--list-checks`) nein.
 **D-11 (E4) Testkorpus ohne EEGDash.** Freigegebene Abweichung von §9 (LIB-09); geladen wird über OpenNeuro-API und PhysioNet.
 
 **D-12 (E5) NG-N02.** Gemessen wird an einer 1-GB-EDF-Datei:
-- hier mit 4 Kernen: < 150 s
+- hier mit 4 Kernen: < 150 s (für 256 Kanäle angepasst durch D-14)
 - auf einem Runner mit 4 vCPU/16 GB: < 300 s
 - jeweils mit 64, 128 und 256 Kanälen
 
 **D-13 Konzeptfreigabe.** KONZEPT.md ist freigegeben, einschließlich der Regel für fehlende Normtexte (normunabhängige
 Phasen vorziehen; Stopp, wenn nur normabhängige Phasen übrig sind) und der STOPPs nach v0.1 und v0.2.
+
+## Entscheidung zu STOPP R4 (21.10.2026)
+
+**D-14 (STOPP R4) NG-N02 und Parallelisierung einer Aufnahme.** Freigegeben sind die Optionen 1 und 2 aus der
+Phasenmeldung zu P3:
+- **Parallelisierung (Option 1):** `--jobs N` verteilt auch die Arbeitsschritte einer Aufnahme auf N Prozesse.
+  - Der Stream läuft neben der Stichprobe, autoreject neben der ICA.
+  - Bei einer einzelnen Aufnahme nutzt autoreject für seine Schwellensuche zusätzlich die freien Prozesse.
+  - Die Methodik bleibt unverändert, das Ergebnis ist byte-gleich zu `--jobs 1`.
+- **Grenzen (Option 2, ändert D-12 und A-50):**
+  - Hier mit 4 Kernen (`--jobs 4`): < 150 s für 64 und 128 Kanäle; für 256 Kanäle gilt die PRD-Grenze von < 300 s.
+  - Auf dem Runner mit 4 vCPU/16 GB bleibt es bei < 300 s.
 
 ## Annahmen (Nicht-Blocker)
 
@@ -436,7 +448,7 @@ ergibt Q1 (< 0,5) bis Q5 (≥ 1,5). Gilt nur für `research/`.
 **A-50 Lesart und Messung von NG-N02.**
 - **Lesart:** „1 GB EDF“ = eine EDF-Datei von 1 GB (E5).
 - **Messung:** Wandzeit des echten Prozesses `neurogrid check` (Start, Importe, discover, alle core-Regeln, Schreiben von results.json) und Spitzen-RSS inkl. Kindprozessen.
-- **Grenzen:** hier mit 4 Kernen < 150 s; auf einem Runner mit 4 vCPU/16 GB < 300 s, sobald CI verfügbar.
+- **Grenzen:** hier mit 4 Kernen (`--jobs 4`) < 150 s für 64 und 128 Kanäle, < 300 s für 256 Kanäle (D-14); auf einem Runner mit 4 vCPU/16 GB < 300 s, sobald CI verfügbar.
 - **Kanalzahl:** gemessen werden 64, 128 und 256 Kanäle.
 - **Zusatzmessung:** 1 GB verteilt auf viele kurze Aufnahmen. Sie wird berichtet, ist aber kein Abnahmekriterium von NG-N02.
 
@@ -817,9 +829,18 @@ Rohordnern steht „unbekannt“, bis die Zuordnung aus der toml (A-05, P2) vorl
 - **ICLabel** läuft über onnxruntime. Vorher wird `onnxruntime.disable_telemetry_events()` aufgerufen (KONZEPT 3, NG-N01, CON-04).
 - **Determinismus** (A-11, NG-N03):
   - Gerechnet wird stets mit einem BLAS-Thread (threadpoolctl); `environment.blas_threads` ist 1.
-  - `--jobs N` verteilt die Aufnahmen auf N Prozesse, jeder mit Netzwerkschutz. Das Ergebnis ist byte-gleich zu `--jobs 1`.
+  - `--jobs N` verteilt die Aufnahmen und ihre Arbeitsschritte auf N Prozesse (D-14), jeder mit Netzwerkschutz:
+    - Je Aufnahme laufen Stream und Vorbereitung der Stichprobe mit M06 nebeneinander, danach autoreject und ICA.
+    - Höchstens N Aufnahmen sind gleichzeitig in Arbeit, also höchstens N vorbereitete Stichproben im Speicher (bei 256 Kanälen je etwa 0,3 GB).
+    - autoreject verteilt seine Schwellensuche bei einer einzelnen Aufnahme ab 64 Kanälen auf `--jobs − 1` loky-Prozesse; darunter kostet ihr Start mehr, als er spart.
+      - Diese Prozesse starten wie die übrigen: Netzwerkschutz, ein BLAS-Thread, keine Bibliothekswarnungen, Daten ohne Zwischendateien.
+      - Stirbt einer, rechnet autoreject im eigenen Prozess neu; das Ergebnis ist dasselbe.
+      - Bekannte Grenze: Der Hilfsprozess „resource tracker“ von loky führt keinen NeuroGrid-Code aus und hat keinen Netzwerkschutz. Stirbt ein Pool-Prozess, kann er Warnungen ausgeben und bis etwa 35 s weiterlaufen.
+    - Die Teile werden nach festen Regeln zusammengesetzt; das Ergebnis ist byte-gleich zu `--jobs 1`.
+    - autoreject und ICA geben keine Ausnahme weiter. Ein Fehler außerhalb ihrer eigenen Schritte ergibt `quality.method_failed`; die Stream-Werte und M06 bleiben erhalten.
+    - Kommt das Ergebnis eines Teils nicht an (z. B. `MemoryError` beim Übertragen der Stichprobe), wird die Aufnahme einzeln wiederholt.
   - Unter Windows nutzt der Pool höchstens 61 Prozesse (Grenze von ProcessPoolExecutor), auch wenn `--jobs` bis 64 erlaubt.
-  - Stirbt ein Prozess, wird die betroffene Aufnahme einzeln wiederholt. Stirbt er erneut, ergibt das not_checkable `quality.worker_failed`.
+  - Stirbt ein Prozess, nimmt der Pool keine Arbeit mehr an. Aufnahmen ohne Ergebnis laufen dann einzeln in einem eigenen Prozess. Stirbt auch der, ergibt das not_checkable `quality.worker_failed`.
 - **Kalibrierung** (A-20, MET-01):
   - Grundlage ist das 95. Perzentil der gemessenen Werte über die fünf OpenNeuro-Datensätze des Korpus (22 Aufnahmen, 1050 Kanäle, 5 Formate).
   - PSG-IPA ist nicht dabei: Der Datensatz stammt von PhysioNet, A-20 legt OpenNeuro-Snapshots fest.

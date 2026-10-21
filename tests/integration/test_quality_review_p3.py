@@ -317,3 +317,155 @@ def test_finite_values_replaces_every_non_finite_float() -> None:
         "d": [2, "x"],
         "e": None,
     }
+
+
+# --- D-14: the parts of one recording in parallel -----------------------------------------------------------
+
+
+def test_one_recording_with_jobs_4_equals_jobs_1(cap19: Path, cap19_result: quality.QualityResult) -> None:
+    """D-14, NG-N03: stream next to the sample, autoreject (over loky processes) next to the ICA: the same
+    result as one process, and the pool ends without waiting for idle loky workers (300 s by default)."""
+    import time
+
+    started = time.perf_counter()
+    (result,) = quality.compute_all([_job(cap19)], workers=4)
+    assert result == cap19_result
+    assert result.sample is not None and result.sample.m09a.state == "measured"
+    assert time.perf_counter() - started < 120
+
+
+def _loky_state() -> tuple[bool, str]:
+    """Runs in a loky worker: is the network guard installed, are library warnings ignored?"""
+    import warnings
+
+    from neurogrid.kernel import netguard
+
+    return bool(netguard._state["installed"]), str(warnings.filters[0][0])
+
+
+def test_loky_workers_start_with_the_network_guard() -> None:
+    """A-49, NG-N01: autoreject's loky workers install the network guard, compute with one BLAS thread and
+    keep library warnings off the console, like the workers of --jobs."""
+    import joblib
+
+    from neurogrid.quality.workers import loky_processes
+
+    with loky_processes():
+        states = joblib.Parallel(n_jobs=2)(joblib.delayed(_loky_state)() for _ in range(4))
+    assert set(states) == {(True, "ignore")}
+
+
+@pytest.fixture(scope="module")
+def cap19_stage(cap19: Path) -> sample_module.Stage:
+    part = quality.sample_part(_job(cap19))
+    assert part.reason is None and part.value.good is not None
+    return part.value
+
+
+def _epochs(stage: sample_module.Stage) -> Any:
+    import mne
+
+    return mne.make_fixed_length_epochs(stage.good, duration=2.0, preload=True, verbose="error")
+
+
+def test_autoreject_over_loky_equals_one_process(cap19_stage: sample_module.Stage) -> None:
+    """D-14: the threshold search over loky processes gives the same model as in one process."""
+    epochs = _epochs(cap19_stage)
+    serial = sample_module._fitted_autoreject(epochs, [1, 4], 10, 7, n_jobs=1)
+    loky = sample_module._fitted_autoreject(epochs, [1, 4], 10, 7, n_jobs=2)
+    assert serial.threshes_ == loky.threshes_
+    assert np.array_equal(
+        serial.get_reject_log(epochs).labels, loky.get_reject_log(epochs).labels, equal_nan=True
+    )
+
+
+def test_a_dying_loky_worker_makes_autoreject_fit_again_in_process(
+    cap19_stage: sample_module.Stage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-14: a loky worker that dies (out of memory) does not change the value: the fit runs again here."""
+    import autoreject
+    from joblib.externals.loky.process_executor import TerminatedWorkerError
+
+    epochs = _epochs(cap19_stage)
+    expected = sample_module._fitted_autoreject(epochs, [1, 4], 10, 7, n_jobs=1)
+    original = autoreject.AutoReject.fit
+    calls: list[int] = []
+
+    def fit(self: Any, data: Any) -> Any:
+        calls.append(self.n_jobs)
+        if self.n_jobs > 1:
+            raise TerminatedWorkerError(
+                "A worker process managed by the executor was unexpectedly terminated."
+            )
+        return original(self, data)
+
+    monkeypatch.setattr(autoreject.AutoReject, "fit", fit)
+    again = sample_module._fitted_autoreject(epochs, [1, 4], 10, 7, n_jobs=3)
+    assert calls == [3, 1] and again.threshes_ == expected.threshes_
+
+
+def test_autoreject_and_ica_never_raise(
+    cap19: Path, cap19_result: quality.QualityResult, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A-60: an error outside the methods' own steps (e.g. MemoryError) gives quality.method_failed for that
+    metric; the stream values and M06 remain, the run never exits 2."""
+
+    def out_of_memory(*args: object) -> None:
+        raise MemoryError
+
+    monkeypatch.setattr(sample_module, "_autoreject", out_of_memory)
+    monkeypatch.setattr(sample_module, "_iclabel", out_of_memory)
+    result = quality.compute(_job(cap19))
+    assert result.reason is None and result.stream == cap19_result.stream
+    assert result.sample is not None and cap19_result.sample is not None
+    failed = sample_module.MethodResult(
+        "not_checkable", reason="quality.method_failed", details={"error_type": "MemoryError"}
+    )
+    assert (result.sample.m06, result.sample.m09a, result.sample.m09b) == (
+        cap19_result.sample.m06,
+        failed,
+        failed,
+    )
+
+
+def test_a_task_whose_result_cannot_be_delivered_runs_its_job_alone(
+    cap19: Path, cap19_result: quality.QualityResult, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-14: a part whose result does not arrive (e.g. the prepared sample could not be pickled: MemoryError)
+    is no tool error: the job runs again on its own and gives the result of one process."""
+    from concurrent.futures import Future
+
+    class Pool:
+        def __init__(self, max_workers: int | None = None, initializer: Any = None) -> None:
+            pass
+
+        def __enter__(self) -> Pool:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        def submit(self, fn: Any, *args: Any) -> Future[Any]:
+            future: Future[Any] = Future()
+            if fn is sample_module.run_autoreject:
+                future.set_exception(MemoryError("pickling the prepared sample"))
+            else:
+                future.set_result(fn(*args))
+            return future
+
+    monkeypatch.setattr(quality, "ProcessPoolExecutor", Pool)
+    (result,) = quality.compute_all([_job(cap19)], workers=4)
+    assert result == cap19_result
+
+
+def test_small_samples_do_not_start_loky(
+    cap19_stage: sample_module.Stage, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-14: below 64 channels the loky start costs more than it saves; autoreject runs in its process."""
+    from neurogrid.quality import workers
+
+    def refused() -> None:
+        raise AssertionError("loky must not start for 19 channels")
+
+    monkeypatch.setattr(workers, "loky_processes", refused)
+    assert sample_module.run_autoreject(cap19_stage, n_jobs=4).state == "measured"

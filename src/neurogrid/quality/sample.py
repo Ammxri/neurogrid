@@ -28,7 +28,7 @@ from __future__ import annotations
 import os
 import warnings
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fractions import Fraction
 from typing import Any
 
@@ -44,6 +44,8 @@ MIN_RATE_HZ = 2 * BAND_HZ[1]  # the 1–100 Hz band of A-19 needs a Nyquist freq
 RANSAC_SAMPLE_PROP = 0.25  # pyprep's default share of channels that predicts each channel
 AUTOREJECT_INTERPOLATE = (1, 4, 32)
 AUTOREJECT_CV = 10
+# below this many channels starting loky workers costs more than the parallel threshold search saves (D-14)
+AUTOREJECT_PARALLEL_MIN_CHANNELS = 64
 ICA_COMPONENTS = 20
 ICA_DECIM = 4
 
@@ -123,6 +125,22 @@ def _quiet() -> None:
     warnings.simplefilter("ignore")
 
 
+@dataclass(frozen=True)
+class Stage:
+    """The sample after its preparation and M06. Either it ended early (``good`` is None: ``head`` is the
+    whole result), or ``good`` holds the good channels with the average reference, ready for autoreject and
+    ICA. Picklable, so that the two methods can run in other processes (``--jobs``)."""
+
+    head: SampleResult  # m09a/m09b are placeholders while ``good`` is set
+    good: Any = None
+    positions: bool = False
+    rng_seed: int = 0
+    min_channels: int = 16
+
+
+_PENDING = MethodResult(state="pending")
+
+
 def measure_sample(
     source: SignalSource,
     line_hz: float,
@@ -137,6 +155,71 @@ def measure_sample(
     sidecar: Mapping[str, Position] | None = None,
     sidecar_reason: str | None = None,
 ) -> SampleResult:
+    """The whole sample in this process (``--jobs 1``); the same steps as prepare_sample, run_autoreject,
+    run_iclabel and finish_sample, which ``--jobs N`` spreads over processes."""
+    stage = prepare_sample(
+        source,
+        line_hz,
+        mode=mode,
+        segments=segments,
+        segment_s=segment_s,
+        seed=seed,
+        min_seconds=min_seconds,
+        min_channels=min_channels,
+        channel_map=channel_map,
+        sidecar=sidecar,
+        sidecar_reason=sidecar_reason,
+    )
+    if stage.good is None:
+        return stage.head
+    return finish_sample(stage, run_autoreject(stage), run_iclabel(stage))
+
+
+def finish_sample(stage: Stage, m09a: MethodResult, m09b: MethodResult) -> SampleResult:
+    return replace(stage.head, m09a=m09a, m09b=m09b)
+
+
+def run_autoreject(stage: Stage, n_jobs: int = 1) -> MethodResult:
+    """M09a on a prepared sample; never raises (A-60). ``n_jobs`` > 1 spreads autoreject's threshold search
+    over processes when the sample has enough channels for that to pay off; the result does not depend on
+    it."""
+    from threadpoolctl import threadpool_limits
+
+    try:
+        _quiet()
+        jobs = n_jobs if len(stage.good.ch_names) >= AUTOREJECT_PARALLEL_MIN_CHANNELS else 1
+        with threadpool_limits(limits=1):
+            return _autoreject(stage.good, stage.positions, stage.rng_seed, jobs)
+    except Exception as exc:  # e.g. MemoryError outside autoreject's own steps: the stream values remain
+        return _failed(exc)
+
+
+def run_iclabel(stage: Stage) -> MethodResult:
+    """M09b on a prepared sample; never raises (A-60)."""
+    from threadpoolctl import threadpool_limits
+
+    try:
+        _quiet()
+        with threadpool_limits(limits=1):
+            return _iclabel(stage.good, stage.positions, stage.rng_seed, stage.min_channels)
+    except Exception as exc:
+        return _failed(exc)
+
+
+def prepare_sample(
+    source: SignalSource,
+    line_hz: float,
+    *,
+    mode: str,
+    segments: int,
+    segment_s: float,
+    seed: int,
+    min_seconds: float,
+    min_channels: int,
+    channel_map: Mapping[str, str],
+    sidecar: Mapping[str, Position] | None = None,
+    sidecar_reason: str | None = None,
+) -> Stage:
     from threadpoolctl import threadpool_limits
 
     channels = source.channels
@@ -162,19 +245,21 @@ def measure_sample(
         analysed: int | None = None,
         excluded: tuple[str, ...] = (),
         unused: Mapping[str, str] | None = None,
-    ) -> SampleResult:
-        return SampleResult(
-            mode=mode,
-            segments=shown,
-            seed=seed,
-            channels=len(channels) if analysed is None else analysed,
-            positions=positions,
-            notch_hz=notch,
-            m06=m06,
-            m09a=m09a,
-            m09b=m09b,
-            excluded=excluded,
-            positions_unused=dict(sidecar_unused if unused is None else unused),
+    ) -> Stage:
+        return Stage(
+            head=SampleResult(
+                mode=mode,
+                segments=shown,
+                seed=seed,
+                channels=len(channels) if analysed is None else analysed,
+                positions=positions,
+                notch_hz=notch,
+                m06=m06,
+                m09a=m09a,
+                m09b=m09b,
+                excluded=excluded,
+                positions_unused=dict(sidecar_unused if unused is None else unused),
+            )
         )
 
     if not channels:
@@ -228,9 +313,8 @@ def measure_sample(
         except Exception as exc:
             failed = _failed(exc)
             return result(m06, failed, failed, *report)
-        m09a = _autoreject(good, positions, rng_seed)
-        m09b = _iclabel(good, positions, rng_seed, min_channels)
-    return result(m06, m09a, m09b, *report)
+    head = result(m06, _PENDING, _PENDING, *report).head
+    return Stage(head=head, good=good, positions=positions, rng_seed=rng_seed, min_channels=min_channels)
 
 
 def _prepared(
@@ -306,11 +390,10 @@ def _bad_channels(raw: Any, positions: bool, seed: int) -> tuple[MethodResult, l
     return MethodResult(state="measured", value=len(bads) / len(raw.ch_names), details=details), bads
 
 
-def _autoreject(raw: Any, positions: bool, seed: int) -> MethodResult:
+def _autoreject(raw: Any, positions: bool, seed: int, n_jobs: int = 1) -> MethodResult:
     if not positions:
         return _not_checkable("quality.no_positions")
     import mne
-    from autoreject import AutoReject
 
     try:
         epochs = mne.make_fixed_length_epochs(raw, duration=EPOCH_S, preload=True, verbose="error")
@@ -318,8 +401,7 @@ def _autoreject(raw: Any, positions: bool, seed: int) -> MethodResult:
         folds = min(AUTOREJECT_CV, len(epochs))
         if folds < 2:
             return _not_checkable("quality.too_short", epochs=len(epochs))
-        model = AutoReject(n_interpolate=interpolate, cv=folds, random_state=seed, n_jobs=1, verbose=False)
-        model.fit(epochs)
+        model = _fitted_autoreject(epochs, interpolate, folds, seed, n_jobs)
         bad = np.asarray(model.get_reject_log(epochs).bad_epochs, dtype=bool)
     except Exception as exc:  # autoreject raises many types on degenerate data; the outcome counts
         return _failed(exc)
@@ -333,6 +415,27 @@ def _autoreject(raw: Any, positions: bool, seed: int) -> MethodResult:
             "cv": folds,
         },
     )
+
+
+def _fitted_autoreject(epochs: Any, interpolate: list[int], folds: int, seed: int, n_jobs: int) -> Any:
+    """autoreject fitted with ``n_jobs`` loky processes; if one of them dies (e.g. out of memory), the same
+    fit runs again in this process, which gives the same model (D-14: --jobs never changes a value)."""
+    from autoreject import AutoReject
+
+    def model(jobs: int) -> Any:
+        return AutoReject(n_interpolate=interpolate, cv=folds, random_state=seed, n_jobs=jobs, verbose=False)
+
+    if n_jobs > 1:
+        from concurrent.futures.process import BrokenProcessPool
+
+        from neurogrid.quality.workers import loky_processes
+
+        try:
+            with loky_processes():
+                return model(n_jobs).fit(epochs)
+        except BrokenProcessPool:  # loky's TerminatedWorkerError is one
+            pass
+    return model(1).fit(epochs)
 
 
 def _iclabel(raw: Any, positions: bool, seed: int, min_channels: int) -> MethodResult:

@@ -682,13 +682,16 @@ class PoolLog:
 
 
 def fake_pool(breaks: dict[str, int], log: PoolLog) -> type:
-    """A stand-in for ProcessPoolExecutor that runs every job in this process; a job named in ``breaks``
-    dies with its worker (BrokenProcessPool) as many times as given there."""
+    """A stand-in for ProcessPoolExecutor that runs every task in this process. A job named in ``breaks``
+    kills its worker in that many pools: there, every task of the job ends with BrokenProcessPool, as all
+    pending work does when a real worker dies. Tasks that take a job are logged by the job's file name."""
     left = dict(breaks)
 
     class FakePool:
         def __init__(self, max_workers: int | None = None, initializer: Callable[[], None] | None = None):
             log.workers.append(max_workers)
+            self.dying: set[str] = set()
+            self.seen: set[str] = set()
 
         def __enter__(self) -> FakePool:
             return self
@@ -696,15 +699,19 @@ def fake_pool(breaks: dict[str, int], log: PoolLog) -> type:
         def __exit__(self, *exc: object) -> None:
             return None
 
-        def submit(self, fn: Callable[[QualityJob], QualityResult], job: QualityJob) -> Future[QualityResult]:
-            name = Path(job.path).name
-            log.submitted.append(name)
-            future: Future[QualityResult] = Future()
-            if left.get(name, 0) > 0:
-                left[name] -= 1
+        def submit(self, fn: Callable[..., Any], *args: Any) -> Future[Any]:
+            future: Future[Any] = Future()
+            name = Path(args[0].path).name if isinstance(args[0], QualityJob) else ""
+            if name:
+                log.submitted.append(name)
+                if name not in self.seen and left.get(name, 0) > 0:
+                    left[name] -= 1
+                    self.dying.add(name)
+                self.seen.add(name)
+            if name in self.dying:
                 future.set_exception(BrokenProcessPool("A child process terminated abruptly"))
             else:
-                future.set_result(fn(job))
+                future.set_result(fn(*args))
             return future
 
     return FakePool
@@ -733,8 +740,10 @@ def test_broken_pool_retries_jobs_one_at_a_time(
     jobs = _jobs(cheap, ["rec_a.edf", "rec_b.edf", "rec_c.edf"])
     results = quality.compute_all(jobs, workers=4)
     assert isolated_calls == ["rec_a.edf", "rec_b.edf"]
-    assert log.workers == [3, 1, 1]
-    assert log.submitted == ["rec_a.edf", "rec_b.edf", "rec_c.edf", "rec_a.edf", "rec_b.edf"]
+    assert log.workers == [4, 1, 1]  # D-14: a pool of --jobs processes for the parts of all recordings
+    # stream and sample part of every recording in the pool, then the two broken jobs on their own
+    pool_tasks = ["rec_a.edf", "rec_a.edf", "rec_b.edf", "rec_b.edf", "rec_c.edf", "rec_c.edf"]
+    assert log.submitted == [*pool_tasks, "rec_a.edf", "rec_b.edf"]
     assert results[0] == quality.compute(jobs[0])  # retried with success
     assert results[1] == QualityResult(
         line_frequency_hz=50.0,
@@ -749,13 +758,14 @@ def test_broken_pool_retries_jobs_one_at_a_time(
 def test_a_worker_that_dies_twice_does_not_end_the_run(
     cheap: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, isolated_calls: list[str]
 ) -> None:
-    """--jobs 2 with one recording whose worker always dies: exit 0/1, never 2; the others are measured."""
+    """--jobs 2 with one recording whose worker always dies: exit 0/1, never 2; the others are measured. A
+    recording not yet started when the pool broke runs on its own (a broken pool takes no more work)."""
     log = PoolLog()
     monkeypatch.setattr(quality, "ProcessPoolExecutor", fake_pool({"rec_b.edf": 2}, log))
     out = tmp_path / "results.json"
     code = cli(check_args(cheap, out, documented_config(tmp_path), "--jobs", "2", "--show-paths"))
     assert code in (0, 1)
-    assert isolated_calls == ["rec_b.edf"] and log.workers == [2, 1]
+    assert isolated_calls == ["rec_b.edf", "rec_c.edf"] and log.workers == [2, 1, 1]
     data = load(out)
     found = recordings(data)
     assert found["rec_b.edf"]["metrics"] == {"state": "not_checkable", "reason": "quality.worker_failed"}

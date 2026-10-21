@@ -15,7 +15,7 @@ Umsetzungsplans stehen in KONZEPT.md und sind davon unabhängig.
 **Status:** `offen` · `in Arbeit` · `erfüllt` · `teilweise` · `nicht verifiziert` · `blockiert (extern)` ·
 `bewusst abgewichen` · `außerhalb Umfang`.
 
-*Stand: Phase P3 umgesetzt; NG-N02 nur teilweise erfüllt, Entscheidung offen (STOPP R4). NG-N01 offline-strace und TECH-11 warten auf die Repo-URL (D-09). Zeilen gesamt: 166 (davon 9 Nicht-Ziele, 6 Geschäftsaufgaben).
+*Stand: Phase P3 abgeschlossen (STOPP R4 entschieden: D-14); weiter mit P4. NG-N01 offline-strace und TECH-11 warten auf die Repo-URL (D-09). Zeilen gesamt: 166 (davon 9 Nicht-Ziele, 6 Geschäftsaufgaben).
 Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschnitt 6, geprüft mit
 `tools/check_matrix_coverage.py`).*
 
@@ -34,7 +34,8 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 | D-09 | CI und Linux vor v0.1 | entschieden |
 | D-10 | Zusätze über die PRD hinaus | entschieden |
 | D-11 | Testkorpus ohne EEGDash | entschieden |
-| D-12 | Lesart und Messung von NG-N02 | entschieden |
+| D-12 | Lesart und Messung von NG-N02 | entschieden (angepasst durch D-14) |
+| D-14 | STOPP R4: Parallelisierung einer Aufnahme mit `--jobs`; 300 s für 256 Kanäle | entschieden |
 
 
 ---
@@ -49,7 +50,7 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 | NG-F04 | Abbildungstabelle ISO/IEC TS 27571 ↔ BIDS ↔ GB/T 47127 | Jedes Pflichtfeld der TS ist einem Feld in BIDS oder GB/T zugeordnet oder als Lücke markiert | §7 S.6 | v1.0 | blockiert (extern): TS 27571 kostenpflichtig (CHF 100), GB/T 47127 | D-01, D-02, A-55 | |
 | NG-F05 | Strukturprüfung über BIDS-Validator v3 (Deno, als Unterprozess) | Validator-Meldungen erscheinen als normale Befunde mit Schweregrad | §7 S.6 | v0.1 | erfüllt | A-06 | P2: bids-validator-deno 3.0.2 als Unterprozess (`--deny-net`, nur Leserecht auf den Datensatz); Meldungen als Befunde BIDS-STO-001 (error), -002 (warning), -003 (HED-Schema), Unterschlüssel = Code (`tests/unit/test_validator.py`, Regelfälle) |
 | NG-F06 | Metadaten-Vollständigkeit (M02) | Fehlende Pflichtfelder werden je Datei gelistet | §7 S.6 | v0.1 | erfüllt | A-03, A-04 | P2: CORE-M02-01 je Aufnahme und fehlendem Feld (Unterschlüssel = Feldname); `convert` listet nicht dokumentierte Felder (`tests/rules`, `tests/unit/test_bids_metadata.py`) |
-| NG-F07 | Signalqualitätsmetriken M03–M09 | Für jede Aufnahme liegen alle Werte im JSON vor; Laufzeit nach NG-N02 | §7 S.6 | v0.1 | teilweise | D-04, A-18, A-19, A-79 | P2: M03–M05. P3: alle Werte M06–M09 je Aufnahme in results.json (`metrics`, `sample`; Schema-Test, Korpus-Test auf 22 OpenNeuro-Aufnahmen); Laufzeit nach NG-N02 nur für 64 Kanäle erfüllt (STOPP R4) |
+| NG-F07 | Signalqualitätsmetriken M03–M09 | Für jede Aufnahme liegen alle Werte im JSON vor; Laufzeit nach NG-N02 | §7 S.6 | v0.1 | erfüllt | D-04, A-18, A-19, A-79, D-14 | P2: M03–M05. P3: alle Werte M06–M09 je Aufnahme in results.json (`metrics`, `sample`; Schema-Test, Korpus-Test auf 22 OpenNeuro-Aufnahmen); Laufzeit nach NG-N02 lokal eingehalten (D-14) |
 | NG-F08 | Annotationsprüfung M10 | Uneinheitliche Ereigniscodes, Lücken, Überlappungen und Cohens κ zwischen Annotatoren werden berichtet | §7 S.6 | v0.1 | offen | A-17 | |
 | NG-F09 | KI-Datensatzstruktur M11–M12: Klassenbalance, Demografie, Split-Integrität, Duplikate | Ein Proband in Training und Test zugleich führt zu einem Fehler; doppelte Aufnahmen werden über Signal-Hash gefunden | §7 S.6 | v0.1 | offen | A-04, A-21 | |
 | NG-F10 | Provenienz-Manifest M13 | `neurogrid verify` erkennt jede geänderte Datei | §7 S.6 | v0.1 | offen | A-22 | |
@@ -96,7 +97,7 @@ Die Aufteilung „Grundfunktionen“ (v0.2) / „vollständig“ (v1.0) nennt di
 | ID | Anforderung | Prüfung | Fundstelle | Prio | Status | Klärung | Nachweis |
 |---|---|---|---|---|---|---|---|
 | NG-N01 | Läuft lokal und offline. Keine Telemetrie. Der BIDS-Validator wird mitgeliefert, nicht nachgeladen | Lauf ohne Netz; Socket-Sperre in Tests; Code-Scan | §8 S.7 | Q | in Arbeit | A-06, A-25, A-26, A-49, D-08 | P2: Validator mitgeliefert, `--deny-net`, bereinigte Umgebung; CI-Job `offline-strace` angelegt, nicht verifiziert (läuft erst nach Push, D-09); Abschluss P5; P3: `onnxruntime.disable_telemetry_events()` vor ICLabel (Test); Arbeitsprozesse mit Netzwerkschutz |
-| NG-N02 | 1 GB EDF wird auf einem Laptop mit 16 GB RAM in unter 5 Minuten geprüft; Daten werden blockweise gelesen | Laufzeit- und Spitzenspeicher-Messung mit synthetischer 1-GB-EDF | §8 S.7 | Q | teilweise | D-04, A-50, D-12, A-79 | P3: gemessen mit `tools/benchmark.py` (echter Prozess, EEG-ähnliche 1-GB-EDF+C, 512 Hz, `--jobs 1`, Rechner ohne Last, 8/16 Kerne): 64 Kanäle 94,2 s / 1,7 GB, 128 Kanäle 159,5 s / 2,3 GB, 256 Kanäle 294,6 s / 3,4 GB. A-50 (< 150 s hier) nur für 64 Kanäle erfüllt; PRD (< 5 min, 16 GB) auf diesem Rechner erfüllt, für 256 Kanäle knapp; gelesen wird blockweise (60-s-Blöcke; EDF über ein Speicherabbild). Perf-Test `tests/perf` (Marker `perf`). Entscheidung offen: STOPP R4 |
+| NG-N02 | 1 GB EDF wird auf einem Laptop mit 16 GB RAM in unter 5 Minuten geprüft; Daten werden blockweise gelesen | Laufzeit- und Spitzenspeicher-Messung mit synthetischer 1-GB-EDF | §8 S.7 | Q | teilweise | D-04, A-50, D-12, D-14, A-79 | P3: gemessen mit `tools/benchmark.py` (echter Prozess, EEG-ähnliche 1-GB-EDF+C, 512 Hz, Rechner ohne Last, 8/16 Kerne). `--jobs 1`: 64 Kanäle 94,2 s, 128 Kanäle 159,5 s, 256 Kanäle 294,6 s (STOPP R4). Nach D-14 (Parallelisierung einer Aufnahme, Grenzen 150 s bis 128 Kanäle, 300 s darüber) mit `--jobs 4`: 75,6 s / 1,8 GB, 126,2 s / 2,5 GB, 248,2 s / 3,7 GB, alle unter der Grenze; `--jobs 1` und `--jobs 4` byte-gleich (64 Kanäle). Gelesen wird blockweise. Perf-Test `tests/perf` (Marker `perf`). Nicht verifiziert: Runner mit 4 vCPU/16 GB (CI, D-09) |
 | NG-N03 | Reproduzierbar: gleiche Daten, Konfiguration und Regelpaketversion ergeben identisches JSON; Zufallsverfahren wie ICA mit festem Seed | zwei Läufe, Byte-Vergleich | §8 S.7 | Q | in Arbeit | A-11, A-61, A-79 | P1: zwei Läufe byte-gleich (Test); 3.11/3.12/3.13 gleich bis auf `environment`; P3: `--jobs 1`/`--jobs 4` und BLAS 1/4 Threads byte-gleich (Test, echter Prozess); Stream-Threads ohne Einfluss (Test); Seed an pyprep/autoreject/picard (mod 2³²) |
 | NG-N04 | Windows 10/11 (PowerShell) und Linux; Python 3.11–3.13 | CI-Matrix | §8 S.8 | Q | offen | D-05, A-26, A-42, A-48, A-58, D-09 | |
 | NG-N05 | Berichte enthalten standardmäßig keine Rohsignale und nur pseudonyme IDs | Test auf Berichtsinhalt | §8 S.8 | Q | in Arbeit | A-05, A-09, A-51 | P1/P2: pseudonyme IDs in Rohordnern, Kopffelder nur als Feldnamen, Pfadfilter, Ausnahme-Muster geschwärzt, Namenshinweis; `convert` gibt keine Klarnamen aus, `--strip-identifying-headers` (A-77) |
