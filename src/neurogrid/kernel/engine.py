@@ -113,6 +113,7 @@ class EngineInput:
     exceptions: Sequence[ExceptionEntry] = ()
     evidence: Mapping[str, EvidenceItem] = field(default_factory=dict)
     document_check: DocumentChecker = no_document_checker
+    strict: bool = False  # --strict / [check] strict: rules with strict_severity use it (CLI-04, A-82)
 
 
 @dataclass
@@ -396,7 +397,7 @@ def run(inp: EngineInput) -> EngineResult:
                         source_status=pack.source_status,
                         clause=rule.clause,
                         phase=rule.phase,
-                        severity=rule.severity,
+                        severity=rule.effective_severity(inp.strict),
                         status=status,
                         object=m.object,
                         subkey=m.subkey,

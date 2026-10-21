@@ -1,0 +1,9 @@
+# Synthetic provenance documentation for NeuroGrid tests (tools/gen_fixtures.py).
+processing_steps:
+  - step: export_edf
+    tool: ExampleAcq
+    version: "2.1.0"
+    parameters: {highpass_hz: 0.1, notch: false}
+software:
+  - name: ExampleAcq
+    version: "2.1.0"

@@ -58,6 +58,17 @@
         "severity": {
           "$ref": "#/$defs/Severity"
         },
+        "strict_severity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Severity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "title_en": {
           "maxLength": 200,
           "minLength": 1,

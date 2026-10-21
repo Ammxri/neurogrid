@@ -300,11 +300,14 @@ def test_mixed_rate_edf_prints_no_library_warning(
     config = str(documented_config(tmp_path))
     code, _, err = run(["check", str(folder), "--out", str(tmp_path / "r.json"), "--config", config], capsys)
     assert "RuntimeWarning" not in err and str(Path.home()) not in err
-    # the samples are all zero: the only error is the flat line of the EEG channel (M08, since P3)
+    # the samples are all zero: the only error is the flat line of the EEG channel (M08, since P3); since P4
+    # CORE-M13-02 (error rule) is listed as not checkable, because the folder has no manifest (A-82)
     results = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
     errors = {(f["rule_id"], f["subkey"]) for f in results["findings"] if f["severity"] == "error"}
-    # P4: CORE-M12-01 adds its dataset-level not_applicable finding (no splits; A-81, decision C11)
-    assert code == 1 and errors == {("CORE-M08-01", "EEG Fz"), ("CORE-M12-01", None)}
+    # P4: dataset-level findings of error rules without a data problem here: CORE-M12-01 not_applicable (no
+    # splits; A-81, C11) and CORE-M13-02 (no manifest to compare with; A-82)
+    assert code == 1 and errors == {("CORE-M08-01", "EEG Fz"), ("CORE-M12-01", None), ("CORE-M13-02", None)}
+    assert {f["status"] for f in results["findings"] if f["rule_id"] == "CORE-M13-02"} == {"not_checkable"}
 
 
 def test_library_warnings_are_reduced_to_their_category(capsys: pytest.CaptureFixture[str]) -> None:

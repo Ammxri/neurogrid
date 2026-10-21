@@ -1,0 +1,5 @@
+# Synthetic provenance documentation, tool version missing (tools/gen_fixtures.py).
+processing_steps:
+  - step: export_edf
+    tool: ExampleAcq
+    version: ""

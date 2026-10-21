@@ -43,6 +43,26 @@ cli:
     usage: "Invalid command line: {problem}"
   warning:
     library: "Note: a library reported a warning ({type}); results are not affected."
+  manifest:
+    summary: "Manifest: {files} file(s), {size} MB"
+    skipped: "Not hashed: {links} link(s) or junction(s) (not followed), {special} special file(s), {unsafe} name(s) the path check refuses"
+    hash: "Manifest hash: {hash}"
+    written: "Manifest written to {path}"
+    unreadable: "{count} file(s) or folder(s) cannot be read:"
+    not_written: "No manifest was written: an incomplete manifest would not show later changes to these files."
+    bids_hint: "Note: the BIDS validator lists files that BIDS does not define, here the manifest file. Write the manifest outside the dataset with --out, or list it in .bidsignore."
+    more: "… and {count} more"
+  verify:
+    hash_ok: "Manifest hash {hash} matches the manifest content."
+    hash_mismatch: "Manifest hash {hash} does not match the manifest content (the manifest was edited after it was written)."
+    checked: "Files in the manifest: {files}"
+    changed: "Changed: {count}"
+    new: "New: {count}"
+    missing: "Missing: {count}"
+    skipped_changed: "Links or special files changed: {count}"
+    unreadable: "Cannot be read now: {count}"
+    matches: "The dataset matches the manifest."
+    differs: "The dataset differs from the manifest."
 
 errors:
   splits:
@@ -135,6 +155,27 @@ errors:
     mapping_missing_unwritable: "{count} data file(s) have no subject/task mapping; the template .neurogrid/{template} could not be written (folder not writable, or a link that is not followed)."
     duplicate_target: "Two files map to the same BIDS recording (subject {subject}, task {task})."
     label_case: "The labels {first} and {second} differ only in case; they would share one folder on Windows and macOS. Please make them distinct."
+  manifest:
+    not_found: "Manifest file not found."
+    unreadable: "The manifest file cannot be read."
+    too_large: "The manifest file is too large (limit {limit} bytes)."
+    encoding: "The manifest file is not UTF-8 text."
+    invalid: "Invalid manifest: field '{field}' ({problem})."
+    unsupported_version: "Unsupported manifest format version (supported: 1)."
+    unsafe_path: "Invalid manifest: field '{field}' is not a plain relative path."
+    duplicate_path: "Invalid manifest: the path in field '{field}' occurs more than once."
+    excluded_invalid: "Invalid manifest: field '{field}' may only name the vault access log."
+    needs_folder: "manifest and verify need a dataset folder, not a single file."
+    steps_invalid: ".neurogrid/processing_steps.json cannot be used ({problem}); no manifest was written."
+  provenance:
+    invalid: "Invalid .neurogrid/provenance.yaml: field '{field}' ({problem})."
+    unreadable: ".neurogrid/provenance.yaml cannot be read."
+    encoding: ".neurogrid/provenance.yaml is not UTF-8 text."
+    yaml_alias: ".neurogrid/provenance.yaml: YAML aliases are not allowed (line {line})."
+    yaml_duplicate_key: ".neurogrid/provenance.yaml: duplicate key '{name}' (line {line})."
+    yaml_syntax: ".neurogrid/provenance.yaml: YAML syntax error (line {line})."
+    yaml_too_large: ".neurogrid/provenance.yaml is too large (limit {limit} bytes)."
+    yaml_too_deep: ".neurogrid/provenance.yaml is nested too deeply (limit {limit})."
 
 notice:
   splits_both_sources: "Splits come from splits.tsv; the 'split' column of participants.tsv is not used."
@@ -158,6 +199,7 @@ notice:
     hash_mismatch: "Evidence for rule {rule} is marked as provided, but its document changed since its hash was recorded; the status is the user's statement."
   evidence_date_after_as_of: "Evidence for rule {rule} is dated {date}, after the reference date {as_of}."
   evidence_looks_identifying: "{count} evidence entr(y/ies) have a reviewer or document name that may identify persons (a name, non-ASCII letters or six or more digits). Please use roles or initials and neutral file names."
+  output_inside_dataset: "The results file or the run's work folder lies inside the dataset. A manifest made later includes such files, and a later check or verify reports them as new; write --out outside the dataset."
 
 severity:
   error: "Error"
@@ -271,6 +313,21 @@ reason:
     document_link: "The referenced document lies behind a link or junction, which is not followed."
   value:
     non_finite: "The measured value is not a finite number."
+  provenance:
+    manifest_missing: "No manifest (default: manifest.json in the dataset, or --manifest)."
+    manifest_invalid: "The manifest cannot be used (not found, not valid JSON, unsupported format or invalid paths)."
+    manifest_hash_mismatch: "The manifest hash does not match the manifest content (the manifest was edited after it was written)."
+    file_changed: "The content or size of the file differs from the manifest."
+    file_new: "The file is not in the manifest."
+    file_missing: "The file in the manifest no longer exists."
+    file_skipped_changed: "A file became a link or special file, or the other way round."
+    file_unreadable: "The file in the manifest cannot be read now."
+    files_differ: "The manifest exists, but files differ from it ('neurogrid verify' lists them)."
+    single_file: "A single file is no dataset; the manifest covers dataset folders."
+    steps_missing: "No processing steps documented (.neurogrid/provenance.yaml, or processing_steps.json from convert; 'processing_steps: []' documents no processing)."
+    steps_invalid: ".neurogrid/processing_steps.json cannot be used."
+    step_incomplete: "A processing step lacks its step name, tool or version."
+    software_missing: "No software versions documented (provenance.yaml, processing steps, or GeneratedBy with Name and Version)."
 
 issue:
   header:
@@ -355,6 +412,11 @@ check:
     non_brain_components: "Share of non-brain ICA components (ICLabel)"
   evidence:
     document: "Evidence document"
+  provenance:
+    manifest_present: "Provenance manifest present"
+    files_match: "Files match the manifest"
+    documented: "Processing steps and software versions documented"
+    manifest_matches: "Manifest present and every file matches it"
 
 report:
   ai:
@@ -431,6 +493,7 @@ report:
     evidence_date: "Date"
     comment: "Comment / justification"
     expired: "Expired"
+    manifest_status: "Manifest status"
   value:
     none: "–"
     whole_recording: "whole recording"
@@ -503,3 +566,11 @@ report:
     generic: "BIDS validator issue {code}."
     count: "({count} occurrences)"
     sub_codes: "Affected: {names}"
+  manifest_status:
+    missing: "no manifest"
+    invalid: "manifest not usable"
+    hash_mismatch: "manifest hash does not match its content"
+    differs: "files differ from the manifest"
+    matches: "files match the manifest"
+    not_verified: "manifest present, files not compared"
+    not_applicable: "not applicable (single file)"

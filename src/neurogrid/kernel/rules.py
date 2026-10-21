@@ -36,7 +36,13 @@ class Rule(BaseModel):
     check: str = Field(pattern=r"^[a-z0-9_]+(\.[a-z0-9_]+)+$", max_length=80)
     params: dict[str, ParamValue] = Field(default_factory=dict)
     severity: Severity
+    # Optional severity in strict mode (--strict or [check] strict), applied by the engine, never by a check
+    # (ARC-02). RP-01 extension like ``norm`` (A-62, A-82): CORE-M13-01 is a warning, with --strict an error.
+    strict_severity: Severity | None = None
     verification: Verification
+
+    def effective_severity(self, strict: bool) -> Severity:
+        return self.strict_severity if strict and self.strict_severity is not None else self.severity
 
 
 class Rulepack(BaseModel):
@@ -93,7 +99,12 @@ def _enums_to_values(data: dict[str, Any]) -> dict[str, Any]:
         for rule in rules:
             if isinstance(rule, dict):
                 rule = dict(rule)
-                for key, enum in (("phase", Phase), ("severity", Severity), ("verification", Verification)):
+                for key, enum in (
+                    ("phase", Phase),
+                    ("severity", Severity),
+                    ("strict_severity", Severity),
+                    ("verification", Verification),
+                ):
                     if isinstance(rule.get(key), str):
                         rule[key] = _to_enum(enum, rule[key], key)
             new_rules.append(rule)

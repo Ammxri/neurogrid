@@ -860,6 +860,26 @@ def _quality_edf(path: Path, signals: np.ndarray, labels: tuple[str, ...] = QUAL
 
 IMPEDANCES_OK = {label: "3" for label in EEG_LABELS}
 
+# --- provenance fixtures (M13, CORE-M13-03) ----------------------------------------------------------------
+# .neurogrid/provenance.yaml documents processing steps and software versions (A-82); the processing step and
+# the software are synthetic examples. Manifests are never committed: tests build them in temporary folders.
+PROVENANCE_OK = """# Synthetic provenance documentation for NeuroGrid tests (tools/gen_fixtures.py).
+processing_steps:
+  - step: export_edf
+    tool: ExampleAcq
+    version: "2.1.0"
+    parameters: {highpass_hz: 0.1, notch: false}
+software:
+  - name: ExampleAcq
+    version: "2.1.0"
+"""
+PROVENANCE_INCOMPLETE = """# Synthetic provenance documentation, tool version missing (tools/gen_fixtures.py).
+processing_steps:
+  - step: export_edf
+    tool: ExampleAcq
+    version: ""
+"""
+
 FIXTURES: dict[str, Callable[[Path], None]] = {
     "edf_ok/rec_a.edf": lambda p: write_edf(p, seed=1),
     "edf_ok/rec_b.edf": lambda p: write_edf(p, seed=2),
@@ -900,6 +920,12 @@ FIXTURES: dict[str, Callable[[Path], None]] = {
     "edf_quality_ok/rec.edf": lambda p: _quality_edf(p, quality_ok_signals(41)),
     "edf_quality_issues/rec.edf": lambda p: _quality_edf(p, quality_issues_signals(51)),
     "edf_quality_artefacts/rec.edf": lambda p: _quality_edf(p, quality_artefact_signals(63), ARTEFACT_LABELS),
+    "provenance_ok/rec.edf": lambda p: write_edf(p, seed=71, seconds=2),
+    "provenance_ok/.neurogrid/provenance.yaml": lambda p: _text(p, PROVENANCE_OK),
+    "provenance_incomplete/rec.edf": lambda p: write_edf(p, seed=72, seconds=2),
+    "provenance_incomplete/.neurogrid/provenance.yaml": lambda p: _text(p, PROVENANCE_INCOMPLETE),
+    "provenance_steps_invalid/rec.edf": lambda p: write_edf(p, seed=73, seconds=2),
+    "provenance_steps_invalid/.neurogrid/processing_steps.json": lambda p: _text(p, '[{"step": 1}]\n'),
 }
 
 

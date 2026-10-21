@@ -38,6 +38,7 @@
     <tr><th>{{ t('report.label.date') }}</th><td>{{ results.config.as_of.isoformat() }}</td></tr>
     <tr><th>{{ t('report.label.tool_version') }}</th><td>NeuroGrid {{ results.tool.version }}</td></tr>
     <tr><th>{{ t('report.label.manifest_hash') }}</th><td class="mono">{{ fmt.value(results.dataset.manifest_hash) }}</td></tr>
+    <tr><th>{{ t('report.label.manifest_status') }}</th><td>{{ fmt.label('report.manifest_status', results.manifest.status.value) if results.manifest else t('report.value.none') }}</td></tr>
   </table>
   <table>
     <tr><th>{{ t('report.label.rulepacks') }}</th><th>{{ t('report.label.version') }}</th><th>{{ t('report.label.source_status') }}</th><th>SHA-256</th></tr>

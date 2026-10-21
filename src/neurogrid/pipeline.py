@@ -1,4 +1,4 @@
-"""Orchestration of ``scan`` and ``check`` (KONZEPT §1.4)."""
+"""Orchestration of ``scan``, ``check``, ``convert``, ``manifest`` and ``verify`` (KONZEPT §1.4)."""
 
 from __future__ import annotations
 
@@ -26,9 +26,28 @@ from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
 from neurogrid.io.discover import DatasetScan, FoundFile, scan
+from neurogrid.io.provenance import (
+    comparison_exclusions,
+    inside,
+    is_bids_folder,
+    load_sources,
+    show,
+    vault_exclusions,
+)
 from neurogrid.kernel import canonical, engine
 from neurogrid.kernel.errors import InputError, RulepackError, UnsafePathError
 from neurogrid.kernel.findings import Notice, Severity, SourceStatus
+from neurogrid.kernel.provenance import (
+    DEFAULT_MANIFEST,
+    DEVIATION_KINDS,
+    Exclusions,
+    Manifest,
+    ManifestError,
+    build_manifest,
+    compare,
+    manifest_bytes,
+    read_manifest,
+)
 from neurogrid.kernel.rules import LoadedRulepack, load_rulepack, validate_against_registry
 from neurogrid.kernel.safety import (
     MAX_YAML_BYTES,
@@ -279,6 +298,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
     cfg = loaded_config.config
     as_of = options.as_of or cfg.check.as_of or date.today()
     strict = options.strict or cfg.check.strict
+    manifest_path = _explicit_manifest(options.manifest_path)
     packs = resolve_rulepacks(
         cfg,
         list(options.rulepacks),
@@ -300,7 +320,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             show_paths=options.show_paths,
             strict=strict,
             as_of=as_of,
-            manifest_path=options.manifest_path,
+            manifest_path=manifest_path,
             evidence_path=options.evidence_path,
         )
         if check_ids & ai_dataset.CHECKS:  # control files first: an invalid splits.tsv ends with exit 2 (C2)
@@ -321,8 +341,10 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             exceptions=cfg.exceptions,
             evidence=evidence.entries,
             document_check=evidence.checker(),
+            strict=strict,
         )
     )
+    manifest = ctx.provenance().info()
     plain_names = found.is_bids or options.show_paths
     notices = list(result.notices)
     identifying_evidence = evidence_module.identifying_entries(evidence.entries)
@@ -353,6 +375,10 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
                 params={"count": found.suspicious_names},
             )
         )
+    if options.work_base is not None and options.work_base.resolve().is_relative_to(target.root):
+        # results.json and the run's work folder land in the dataset: a manifest made later covers them, and a
+        # later check or verify reports them as new files (A-82, critic X15)
+        notices.append(Notice(level=Severity.WARNING, message_key="notice.output_inside_dataset"))
     exceptions = [
         use.model_copy(
             update={
@@ -367,7 +393,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         disclaimer=disclaimer_block(),
         tool=tool_info(),
         environment=environment_info(),
-        dataset=_dataset_info(cfg, found, packs),
+        dataset=_dataset_info(cfg, found, packs, manifest_hash=manifest.sha256),
         rulepacks=[
             RulepackInfo(
                 name=p.pack.rulepack,
@@ -388,7 +414,8 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
                 title_en=rule.title_en,
                 phase=rule.phase,
                 check=rule.check,
-                severity=rule.severity,
+                severity=rule.effective_severity(strict),
+                strict_severity=rule.strict_severity,
                 verification=rule.verification,
                 source_status=p.pack.source_status,
             )
@@ -421,7 +448,19 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         ),
         duplicates=ai_outputs.duplicates,
         ai=ai_outputs.summary,
+        manifest=manifest,
     )
+
+
+def _explicit_manifest(raw: Path | None) -> Path | None:
+    """--manifest is an operator path (A-66). A file that does not exist is a tool error (exit 2, A-82),
+    unlike a missing manifest at the default location, which is a finding (CORE-M13-01)."""
+    if raw is None:
+        return None
+    path = check_operator_path(raw)
+    if not path.is_file():
+        raise ManifestError("manifest.not_found")
+    return path
 
 
 def _shown_pattern(pattern: str | None, plain_names: bool) -> str | None:
@@ -443,7 +482,9 @@ def _effective_settings(cfg: Config, plain_names: bool) -> dict[str, Any]:
     return normalized
 
 
-def _dataset_info(cfg: Config, found: DatasetScan, packs: list[LoadedRulepack]) -> Dataset:
+def _dataset_info(
+    cfg: Config, found: DatasetScan, packs: list[LoadedRulepack], *, manifest_hash: str | None = None
+) -> Dataset:
     section = cfg.dataset
     description = found.description
     return Dataset(
@@ -453,7 +494,7 @@ def _dataset_info(cfg: Config, found: DatasetScan, packs: list[LoadedRulepack]) 
         source=section.source,
         license=section.license or description.get("License") or None,
         rulepacks=[p.pack.rulepack for p in packs],
-        manifest_hash=None,
+        manifest_hash=manifest_hash,
         is_bids=found.is_bids,
     )
 
@@ -597,4 +638,128 @@ def run_convert(
         validator_errors=errors,
         validator_warnings=warnings,
         steps_file=output / ".neurogrid" / "processing_steps.json",
+    )
+
+
+# --- manifest and verify (M13, CLI-06) ---------------------------------------------------------------------
+
+
+def _folder(raw_target: str | Path) -> Path:
+    """manifest and verify cover a dataset folder, never a single file (A-82)."""
+    target = resolve_target(raw_target)
+    if target.only is not None:
+        raise InputError("manifest.needs_folder")
+    return target.root
+
+
+@dataclass(frozen=True)
+class ManifestRun:
+    """What ``manifest`` built (CLI-06, A-22, A-82). ``data`` is None when files or folders could not be read:
+    an incomplete manifest would hide changes, so nothing is written and the command ends with exit 1."""
+
+    root: Path
+    target: Path
+    manifest: Manifest | None
+    data: bytes | None
+    unreadable: list[str]  # displayed IDs (A-51)
+    skipped: dict[str, int]  # kind -> number of entries not hashed
+    files: int
+    total_bytes: int
+    visible_to_validator: bool  # written into a BIDS dataset outside .neurogrid: the BIDS validator lists it
+
+    @property
+    def exit_code(self) -> int:
+        return 1 if self.data is None else 0
+
+
+def run_manifest(
+    raw_target: str | Path, out: str | Path | None = None, *, show_paths: bool = False
+) -> ManifestRun:
+    """Build the manifest of a dataset folder; the caller writes ``data`` to ``target``.
+
+    The default target is <dataset>/manifest.json, never written through a link (A-52, A-66); ``out`` is an
+    operator path that may lie outside the dataset (D-10 d) and is left out of the file list when it lies
+    inside. neurogrid.toml is read from its default location only for [vault] path (the access log is excluded
+    and recorded as such). An invalid provenance.yaml or processing_steps.json ends with exit 2 (C2)."""
+    root = _folder(raw_target)
+    loaded = config_module.load(None, root)
+    is_bids = is_bids_folder(root)
+    sources = load_sources(root, is_bids)
+    if sources.converted_problem is not None:
+        raise ManifestError("manifest.steps_invalid", problem=sources.converted_problem)
+    if out is None:
+        target = resolve_within(root, DEFAULT_MANIFEST, must_exist=False)
+    else:
+        target = check_operator_path(out)
+        if target.is_dir():
+            raise InputError("output.is_directory")
+    recorded = vault_exclusions(root, loaded.project_root, loaded.config.vault.path)
+    own = inside(root, target)
+    exclusions = Exclusions.of([DEFAULT_MANIFEST.as_posix(), *recorded, *([own] if own else [])])
+    built = build_manifest(
+        root,
+        exclusions,
+        excluded=recorded,
+        processing_steps=sources.steps,
+        software=sources.software(neurogrid.__version__),
+    )
+    plain = is_bids or show_paths
+    skipped: dict[str, int] = {}
+    for entry in built.skipped:
+        skipped[entry.kind] = skipped.get(entry.kind, 0) + 1
+    visible = is_bids and own is not None and not any(part.startswith(".") for part in own.split("/"))
+    return ManifestRun(
+        root=root,
+        target=target,
+        manifest=built.manifest,
+        data=manifest_bytes(built.manifest) if built.manifest is not None else None,
+        unreadable=[show(path, plain=plain).file for path in built.unreadable],
+        skipped=dict(sorted(skipped.items())),
+        files=len(built.manifest.files) if built.manifest is not None else 0,
+        total_bytes=built.total_bytes,
+        visible_to_validator=visible,
+    )
+
+
+@dataclass(frozen=True)
+class VerifyRun:
+    """What ``verify`` found (CLI-06, NG-F10, UF-05): displayed names per kind of deviation (A-51, A-70)."""
+
+    root: Path
+    manifest_hash: str
+    hash_ok: bool
+    files: int
+    deviations: dict[str, list[str]]
+
+    @property
+    def exit_code(self) -> int:
+        """0 = the dataset matches the manifest and its hash; 1 = any deviation (A-12)."""
+        return 0 if self.hash_ok and not any(self.deviations.values()) else 1
+
+
+def run_verify(raw_target: str | Path, manifest_path: str | Path, *, show_paths: bool = False) -> VerifyRun:
+    """Compare a dataset folder with a manifest. An unusable manifest is a tool error (exit 2, C2). The
+    exclusions come from the manifest itself: verify does not read neurogrid.toml, so a damaged toml is
+    reported as changed, never as exit 2 (A-82)."""
+    root = _folder(raw_target)
+    path = check_operator_path(manifest_path)
+    if not path.is_file():
+        raise ManifestError("manifest.not_found")
+    parsed = read_manifest(path)
+    manifest = parsed.manifest
+    comparison = compare(root, manifest, comparison_exclusions(root, manifest, path))
+    plain = is_bids_folder(root) or show_paths
+    deviations: dict[str, list[str]] = {
+        kind: [
+            show(item.path, plain=plain, kind="unsafe_name" if item.unsafe else None).file
+            for item in comparison.of(kind)
+        ]
+        for kind in DEVIATION_KINDS
+    }
+    return VerifyRun(
+        root=root,
+        manifest_hash=manifest.manifest_hash,
+        hash_ok=parsed.hash_ok,
+        files=comparison.files,
+        deviations=deviations,
     )

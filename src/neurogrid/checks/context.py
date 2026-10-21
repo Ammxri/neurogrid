@@ -11,6 +11,7 @@ from neurogrid.config import Config
 from neurogrid.io import ADAPTERS
 from neurogrid.io.base import FormatAdapter, HeaderInspection, HeaderUnreadable
 from neurogrid.io.discover import DatasetScan, FoundFile
+from neurogrid.io.provenance import ProvenanceState
 from neurogrid.metadata import ENTITY_FIELDS, RecordingMetadata, collect
 from neurogrid.model.dataset import Recording
 from neurogrid.quality import QualityJob, QualityResult, QualitySettings, compute_all
@@ -79,6 +80,7 @@ class CheckContext:
     _validator: ValidatorResult | None = field(default=None, repr=False)
     # M11/M12 dataset structure (participants, splits, labels), built once by checks.ai_dataset (A-81)
     ai_structure: object = field(default=None, repr=False)
+    _provenance: ProvenanceState | None = field(default=None, repr=False)
 
     def validator_result(self) -> ValidatorResult:
         """The BIDS validator result for the dataset; computed once per run."""
@@ -87,6 +89,20 @@ class CheckContext:
                 raise RuntimeError("the BIDS validator needs a work folder")
             self._validator = run_validator(self.root, self.work / "validator")
         return self._validator
+
+    def provenance(self) -> ProvenanceState:
+        """The manifest, its comparison with the dataset and the documentation sources (M13); each read or
+        computed once per run, the comparison only when a rule asks for it."""
+        if self._provenance is None:
+            self._provenance = ProvenanceState(
+                self.root,
+                single_file=self.scan.single_file,
+                is_bids=self.scan.is_bids,
+                show_paths=self.show_paths,
+                manifest_path=self.manifest_path,
+                work=self.work,
+            )
+        return self._provenance
 
     def compute_quality(self, *, stream: bool, sample: bool, jobs: int = 1) -> None:
         """Run the signal quality job of every recording with signals (one process per job with --jobs)."""

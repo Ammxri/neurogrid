@@ -295,3 +295,55 @@ def test_psg_hypnograms_are_no_recordings_for_duplicates() -> None:
     reasons = [f.reason for f in results.findings if f.rule_id == "CORE-M12-02"]
     assert reasons == ["recording.annotations_only"] * 75
     assert sum(p.count for p in results.passed if p.rule_id == "CORE-M12-02") == 3
+
+
+# --- P4 provenance (M13) ----------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", sorted(DATASETS))
+def test_manifest_lists_the_locked_files_and_verify_finds_no_change(name: str, tmp_path: Path) -> None:
+    """NG-F10, A-22, A-82 on real data: the manifest of each corpus dataset (written outside it, the corpus
+    stays untouched) lists exactly the files of tools/corpus_lock.json with their SHA-256 and size, which for
+    PSG-IPA are the hashes PhysioNet publishes in SHA256SUMS.txt; verify finds no deviation."""
+    import json
+
+    lock = json.loads((ROOT / "tools" / "corpus_lock.json").read_text(encoding="utf-8"))
+    dataset = next(entry for entry in lock["datasets"] if entry["local_dir"] == name)
+    expected = {
+        item["path"]: (item["sha256"], item["size"])
+        for item in lock["files"]
+        if item["dataset"] == dataset["dataset"]
+    }
+    out = tmp_path / "manifest.json"
+    built = pipeline.run_manifest(CORPUS / name, out)
+    assert built.manifest is not None and built.data is not None and built.skipped == {}
+    out.write_bytes(built.data)
+    assert {item.path: (item.sha256, item.size) for item in built.manifest.files} == expected
+    if name.startswith("psg"):
+        published = {}
+        for line in (CORPUS / name / "SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
+            digest, path = line.split(" ", 1)
+            published[path.strip()] = digest
+        listed = {item.path: item.sha256 for item in built.manifest.files if item.path in published}
+        assert len(listed) == len(built.manifest.files) - 1  # every file but SHA256SUMS.txt itself
+        assert all(published[path] == digest for path, digest in listed.items())
+    assert pipeline.run_verify(CORPUS / name, out).exit_code == 0
+
+
+@pytest.mark.parametrize("name", sorted(DATASETS))
+def test_corpus_datasets_have_no_manifest_and_no_provenance_documentation(name: str) -> None:
+    """M13 without a manifest (A-82): CORE-M13-01 a warning, CORE-M13-02 not checkable; none of the six data
+    sets documents processing steps or software versions (no provenance.yaml, no GeneratedBy)."""
+    results = _check(name)
+    m13 = {
+        (f.rule_id, f.status, f.subkey, f.reason)
+        for f in results.findings
+        if f.rule_id.startswith("CORE-M13")
+    }
+    assert m13 == {
+        ("CORE-M13-01", Status.FAILED, None, "provenance.manifest_missing"),
+        ("CORE-M13-02", Status.NOT_CHECKABLE, None, "provenance.manifest_missing"),
+        ("CORE-M13-03", Status.FAILED, "processing_steps", "provenance.steps_missing"),
+        ("CORE-M13-03", Status.FAILED, "software", "provenance.software_missing"),
+    }
+    assert results.manifest is not None and results.manifest.status.value == "missing"

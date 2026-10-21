@@ -15,6 +15,7 @@ from importlib import resources
 from pathlib import Path
 
 import pytest
+from provenance_setups import PROVENANCE_SETUPS  # type: ignore[import-not-found]
 
 from neurogrid import pipeline
 from neurogrid.kernel.findings import Status
@@ -36,6 +37,7 @@ class Case:
 
 # name -> function(fixture folder, temporary folder) -> (folder to check, further CheckOptions fields)
 SETUPS: dict[str, Callable[[Path, Path], tuple[Path, dict[str, object]]]] = {}
+SETUPS.update(PROVENANCE_SETUPS)  # P4 M13: manifest, manifest_outside, manifest_changed, manifest_invalid
 
 
 def _ai_duplicate_copy(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
@@ -245,6 +247,22 @@ CASES = [
     Case("CORE-M12-02", "edf_ok", Status.PASSED),  # rec_a and rec_b have different signals
     Case("CORE-M12-02", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-05 run-1 = sub-01 run-1
     Case("CORE-M12-02", "edf_ok", Status.FAILED, setup="ai_duplicate_copy"),  # a copy under another name
+    # P4 provenance (M13, A-82): manifests are built per case (tests/rules/provenance_setups.py)
+    Case("CORE-M13-01", "edf_ok", Status.PASSED, setup="manifest"),
+    Case("CORE-M13-01", "bids_ok", Status.PASSED, setup="manifest_outside"),
+    Case("CORE-M13-01", "edf_ok", Status.FAILED),  # no manifest: warning
+    Case("CORE-M13-01", "edf_ok", Status.FAILED, options=(("strict", True),)),  # --strict: error
+    Case("CORE-M13-01", "edf_ok", Status.FAILED, setup="manifest_invalid"),
+    Case("CORE-M13-02", "edf_ok", Status.PASSED, setup="manifest"),
+    Case("CORE-M13-02", "bids_ok", Status.PASSED, setup="manifest_outside"),
+    Case("CORE-M13-02", "edf_ok", Status.FAILED, setup="manifest_changed"),
+    Case("CORE-M13-02", "edf_ok", Status.NOT_CHECKABLE),  # no manifest
+    Case("CORE-M13-02", "edf_ok", Status.NOT_CHECKABLE, setup="manifest_invalid"),
+    Case("CORE-M13-03", "provenance_ok", Status.PASSED),  # provenance.yaml with steps and software
+    Case("CORE-M13-03", "edf_ok", Status.FAILED),  # no source at all
+    Case("CORE-M13-03", "bids_ok", Status.FAILED),  # GeneratedBy without Version, no processing steps
+    Case("CORE-M13-03", "provenance_incomplete", Status.FAILED),  # a step without version
+    Case("CORE-M13-03", "provenance_steps_invalid", Status.FAILED),  # processing_steps.json not usable
 ]
 
 
