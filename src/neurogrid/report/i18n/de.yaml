@@ -175,6 +175,20 @@ reason:
   signal:
     no_eeg_channels: "Keine EEG-Kanäle gefunden."
     rate_unknown: "Der Kopf nennt keine gültige Abtastrate."
+  quality:
+    rate_below_line_band: "Die Abtastrate ist zu niedrig, um das Netzfrequenzband zu messen."
+    rate_below_other_band: "Die Abtastrate ist zu niedrig, um das Band der anderen Netzfrequenz (50/60 Hz) zu messen."
+    no_signal_power: "Der Kanal hat keine Leistung im Band 1–40 Hz."
+    too_short: "Zu wenig Daten für diese Metrik."
+    rate_too_low: "Die Abtastrate liegt unter 200 Hz und reicht nicht für das Band 1–100 Hz."
+    too_few_channels: "Zu wenige EEG-Kanäle für diese Metrik."
+    no_positions: "Zu wenige Kanäle mit Elektrodenpositionen (electrodes.tsv, Datendatei oder Standardnamen)."
+    method_failed: "Das Verfahren konnte diese Daten nicht verarbeiten."
+    not_computed: "Die Signalmetriken wurden nicht berechnet."
+    worker_failed: "Der Prozess für diese Aufnahme brach unerwartet ab (z. B. zu wenig Speicher)."
+    window_too_few_samples: "Weniger als zwei Werte je 1-s-Fenster: Flatline und Übersteuerung sind nicht beurteilbar."
+    bad_channels_unknown: "Die schlechten Kanäle ließen sich nicht bestimmen (M06); die Durchschnittsreferenz ohne sie ist daher nicht möglich."
+    unusable_samples: "Der Kanal enthält nur nicht endliche oder unplausibel große Werte (z. B. NaN); sie sind nicht beurteilbar."
   metadata:
     no_task_name: "Kein TaskName oder kein Task-Label zum Vergleich."
     not_bids: "Kein BIDS-Datensatz."
@@ -261,6 +275,14 @@ check:
     sampling_rate_uniform: "Abtastraten einheitlich"
     sampling_rate_consistency: "Abtastrate dokumentiert und einheitlich"
     sidecar_rate: "Sidecar-Abtastrate entspricht den Daten"
+  quality:
+    bad_channels: "Anteil schlechter Kanäle (pyprep)"
+    line_noise: "Netzbrumm-Verhältnis"
+    line_frequency: "Dokumentierte Netzfrequenz passt zu den Daten"
+    flatline: "Anteil Flatline"
+    clipping: "Anteil Übersteuerung"
+    autoreject: "Verwerfungsrate von autoreject"
+    non_brain_components: "Anteil nicht hirnbedingter ICA-Komponenten (ICLabel)"
   evidence:
     document: "Nachweisdokument"
 
@@ -317,6 +339,13 @@ report:
     parameter: "Parameter"
     disclaimer: "Hinweis"
     placeholder_findings: "Platzhalter-Regeln (nicht bewertet, nicht gezählt)"
+    sample: "Stichprobe für M06/M09"
+    sample_mode: "Modus"
+    segments: "Abschnitte (Aufnahmezeit)"
+    seed: "Seed"
+    analysed_channels: "Ausgewertete Kanäle"
+    positions: "Elektrodenpositionen"
+    notch: "Notch (Hz)"
   value:
     none: "–"
     whole_recording: "gesamte Aufnahme"
@@ -340,6 +369,9 @@ report:
     origin_check: "Standardwert der Prüfung"
     origin_rulepack: "Regelpaket"
     origin_config: "neurogrid.toml"
+    sample_method: "Jeder Abschnitt wird auf {resample_hz} Hz umgetastet, bei der Netzfrequenz und ihrer Harmonischen notch-gefiltert, mit {low}–{high} Hz bandpassgefiltert und auf den Mittelwert referenziert; autoreject nutzt Epochen von {epoch_s} s. M07 und M08 laufen über die ganze Aufnahme."
+    positions_excluded: "ohne Position, ausgelassen: {names}"
+    positions_unused: "{source} nicht genutzt: {reason}"
   measure:
     documented: "dokumentiert"
     channel_sets: "Kanalsätze"
@@ -351,9 +383,27 @@ report:
     file_total: "Kanäle in der Datei"
     sidecar_eeg: "EEGChannelCount"
     sidecar_hz: "Sidecar (Hz)"
+    documented_hz: "dokumentiert (Hz)"
+    documented_median: "Median-Verhältnis, dokumentierte Frequenz"
+    other_hz: "andere (Hz)"
+    other_median: "Median-Verhältnis, andere Frequenz"
     rate_hz: "Rate (Hz)"
     rates_hz: "Raten (Hz)"
     uniform: "einheitlich"
+  sample_mode:
+    sample: "Stichprobe"
+    full: "ganze Aufnahme"
+  positions:
+    sidecar: "electrodes.tsv"
+    header: "Datendatei"
+    standard_montage: "Standardmontage (Standardnamen)"
+    none: "keine"
+  positions_unused:
+    coordsystem_missing: "keine coordsystem.json"
+    units_unknown: "Einheit der Koordinaten fehlt"
+    frame_unsupported: "Koordinatensystem nicht unterstützt"
+    no_coordinates: "keine Koordinaten"
+    unreadable: "Datei nicht lesbar"
   validator:
     generic: "BIDS-Validator-Meldung {code}."
     count: "({count} Vorkommen)"

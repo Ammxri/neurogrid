@@ -175,6 +175,20 @@ reason:
   signal:
     no_eeg_channels: "No EEG channels found."
     rate_unknown: "The header gives no valid sampling rate."
+  quality:
+    rate_below_line_band: "The sampling rate is too low to measure the line frequency band."
+    rate_below_other_band: "The sampling rate is too low to measure the band of the other line frequency (50/60 Hz)."
+    no_signal_power: "The channel carries no power in the 1–40 Hz band."
+    too_short: "Too little data for this metric."
+    rate_too_low: "The sampling rate is below 200 Hz, too low for the 1–100 Hz band."
+    too_few_channels: "Too few EEG channels for this metric."
+    no_positions: "Too few channels with electrode positions (electrodes.tsv, data file or standard names)."
+    method_failed: "The method could not process these data."
+    not_computed: "The signal metrics were not computed."
+    worker_failed: "The process computing this recording stopped unexpectedly (for example out of memory)."
+    window_too_few_samples: "Fewer than two samples per 1-s window: flat lines and clipping cannot be judged."
+    bad_channels_unknown: "The bad channels could not be determined (M06), so the average reference without them is not possible."
+    unusable_samples: "The channel holds only non-finite or out-of-range values (e.g. NaN), which cannot be judged."
   metadata:
     no_task_name: "No TaskName or no task label to compare."
     not_bids: "Not a BIDS dataset."
@@ -261,6 +275,14 @@ check:
     sampling_rate_uniform: "Sampling rates uniform"
     sampling_rate_consistency: "Sampling rate documented and consistent"
     sidecar_rate: "Sidecar sampling rate matches the data"
+  quality:
+    bad_channels: "Share of bad channels (pyprep)"
+    line_noise: "Line-noise ratio"
+    line_frequency: "Documented line frequency fits the data"
+    flatline: "Flat line share"
+    clipping: "Clipping share"
+    autoreject: "autoreject rejection rate"
+    non_brain_components: "Share of non-brain ICA components (ICLabel)"
   evidence:
     document: "Evidence document"
 
@@ -317,6 +339,13 @@ report:
     parameter: "Parameter"
     disclaimer: "Note"
     placeholder_findings: "Placeholder rules (not evaluated, not counted)"
+    sample: "Sample for M06/M09"
+    sample_mode: "Mode"
+    segments: "Segments (recording time)"
+    seed: "Seed"
+    analysed_channels: "Channels analysed"
+    positions: "Electrode positions"
+    notch: "Notch (Hz)"
   value:
     none: "–"
     whole_recording: "whole recording"
@@ -340,6 +369,9 @@ report:
     origin_check: "check default"
     origin_rulepack: "rule pack"
     origin_config: "neurogrid.toml"
+    sample_method: "Each segment is resampled to {resample_hz} Hz, notch-filtered at the line frequency and its harmonic, band-pass filtered {low}–{high} Hz and re-referenced to the average; autoreject uses {epoch_s}-s epochs. M07 and M08 use the full recording."
+    positions_excluded: "without position, left out: {names}"
+    positions_unused: "{source} not used: {reason}"
   measure:
     documented: "documented"
     channel_sets: "channel sets"
@@ -351,9 +383,27 @@ report:
     file_total: "channels in the file"
     sidecar_eeg: "EEGChannelCount"
     sidecar_hz: "sidecar (Hz)"
+    documented_hz: "documented (Hz)"
+    documented_median: "median ratio, documented frequency"
+    other_hz: "other (Hz)"
+    other_median: "median ratio, other frequency"
     rate_hz: "rate (Hz)"
     rates_hz: "rates (Hz)"
     uniform: "uniform"
+  sample_mode:
+    sample: "Sample"
+    full: "Full recording"
+  positions:
+    sidecar: "electrodes.tsv"
+    header: "data file"
+    standard_montage: "standard montage (standard names)"
+    none: "none"
+  positions_unused:
+    coordsystem_missing: "no coordsystem.json"
+    units_unknown: "coordinate units not given"
+    frame_unsupported: "coordinate system not supported"
+    no_coordinates: "no coordinates"
+    unreadable: "file unreadable"
   validator:
     generic: "BIDS validator issue {code}."
     count: "({count} occurrences)"

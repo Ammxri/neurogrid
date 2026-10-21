@@ -200,6 +200,12 @@ def check(
     show_paths: Annotated[
         bool, typer.Option("--show-paths", help="Show real paths instead of pseudonymous IDs.")
     ] = False,
+    jobs: Annotated[
+        int,
+        typer.Option(
+            "--jobs", min=1, max=64, help="Processes for the signal metrics (results do not change)."
+        ),
+    ] = 1,
 ) -> None:
     """Check a dataset against rule packs and write results.json."""
     reference = None
@@ -217,6 +223,7 @@ def check(
         as_of=reference,
         allow_draft_rulepacks=allow_draft_rulepacks,
         show_paths=show_paths,
+        jobs=jobs,
         work_base=target.absolute().parent,  # work folder next to the results file (A-54)
     )
     results = pipeline.run_check(path, options)

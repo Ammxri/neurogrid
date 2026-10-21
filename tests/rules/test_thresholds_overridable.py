@@ -33,6 +33,14 @@ EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("signal.sampling_rate_min", "min_hz"): ("edf_ok", 1000),
     ("signal.sampling_rate_consistency", "min_hz"): ("edf_ok", 1000),
     ("impedance.max", "max_kohm"): ("bids_ok", 3),  # bids_ok documents 3.5 kOhm per electrode
+    # P3 signal quality: edf_quality_ok passes every M06–M09 rule at the defaults with these measured values
+    ("quality.bad_channels", "max_fraction"): ("edf_quality_ok", 0.02),  # P8 and Pz bad: 0.1
+    ("quality.line_noise", "max_ratio"): ("edf_quality_ok", 0.001),  # 2.5 µV at 50 Hz: 0.0096–0.028
+    ("quality.line_frequency", "min_factor"): ("edf_quality_ok", 0.05),  # 60/50 Hz medians 0.0023/0.0184
+    ("quality.flatline", "max_fraction"): ("edf_quality_ok", 0.02),  # P8 flat in 2 of 70 windows: 0.029
+    ("quality.clipping", "max_fraction"): ("edf_quality_ok", 0.02),  # P8 saturated in 2 of 70 windows
+    ("quality.autoreject", "max_fraction"): ("edf_quality_ok", 0.02),  # 3 of 35 epochs rejected: 0.086
+    ("quality.non_brain_components", "max_fraction"): ("edf_quality_ok", 0.1),  # 5 of 17 components: 0.29
 }
 # check -> toml lines both runs need so that the check can be evaluated at all
 BASE_CONFIG = {"impedance.max": '[metadata.defaults]\nelectrode_type = "wet"\n'}
@@ -99,7 +107,7 @@ def test_parameter_override_changes_the_outcome(tmp_path: Path, check_id: str, p
     base_config.write_text(base, encoding="utf-8")
     default = pipeline.run_check(
         FIX / fixture,
-        pipeline.CheckOptions(config_path=base_config, **options),  # type: ignore[arg-type]
+        pipeline.CheckOptions(config_path=base_config, **options),
     )
     assert not [f for f in default.findings if f.rule_id == "META-ACQ-001"]
     assert any(p.rule_id == "META-ACQ-001" for p in default.passed)
@@ -109,7 +117,7 @@ def test_parameter_override_changes_the_outcome(tmp_path: Path, check_id: str, p
     )
     overridden = pipeline.run_check(
         FIX / fixture,
-        pipeline.CheckOptions(config_path=config, **options),  # type: ignore[arg-type]
+        pipeline.CheckOptions(config_path=config, **options),
     )
     statuses = {f.status for f in overridden.findings if f.rule_id == "META-ACQ-001"}
     assert statuses == {Status.FAILED}

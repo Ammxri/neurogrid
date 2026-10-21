@@ -17,6 +17,7 @@ from neurogrid.report.texts import translator, validator_text
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 MAX_TIME_RANGES_SHOWN = 20
 MAX_SUB_CODES_SHOWN = 100  # sub-codes are schema fields or table columns; a bound for odd tables
+_SEGMENT_KEYS = ("start_s", "duration_s")
 
 
 class _Formatter:
@@ -97,6 +98,66 @@ class _Formatter:
             parts.append(str(finding.details["exception_reason"]))
         return " ".join(parts) if parts else self.tr("report.value.none")
 
+    def label(self, prefix: str, key: Any) -> str:
+        """The text for a value from results.json, or the value itself if it has none (another version)."""
+        dotted = f"{prefix}.{key}"
+        return self.tr(dotted) if self.has(dotted) else str(key)
+
+    def segments(self, segments: Any) -> str:
+        """Start and end of each sample segment in recording time (KONZEPT 1.5, Ausweis)."""
+        parts = [
+            f"{float(s['start_s']):.3f}–{float(s['start_s']) + float(s['duration_s']):.3f} s"
+            for s in (segments if isinstance(segments, list) else [])
+            if isinstance(s, dict)
+            and all(
+                isinstance(s.get(k), int | float) and not isinstance(s.get(k), bool) for k in _SEGMENT_KEYS
+            )
+        ]
+        return ", ".join(parts) if parts else self.tr("report.value.none")
+
+    def positions(self, sample: Any) -> str:
+        """Montage source of the sample, left-out channels and unused sources (A-60, A-79)."""
+        sample = sample if isinstance(sample, dict) else {}
+        parts = [self.label("report.positions", sample.get("positions", "none"))]
+        excluded = sample.get("excluded_channels")
+        if isinstance(excluded, list) and excluded:
+            parts.append(self.tr("report.text.positions_excluded", names=", ".join(str(n) for n in excluded)))
+        unused = sample.get("positions_unused")
+        for source, reason in sorted(unused.items()) if isinstance(unused, dict) else []:
+            parts.append(
+                self.tr(
+                    "report.text.positions_unused",
+                    source=self.label("report.positions", source),
+                    reason=self.label("report.positions_unused", reason),
+                )
+            )
+        return "; ".join(parts)
+
+    def sample_method(self, sample: Any) -> str:
+        sample = sample if isinstance(sample, dict) else {}
+        band = sample.get("band_hz")
+        low, high = band if isinstance(band, list) and len(band) == 2 else (None, None)
+        return self.tr(
+            "report.text.sample_method",
+            resample_hz=self.value(sample.get("resample_hz")),
+            low=self.value(low),
+            high=self.value(high),
+            epoch_s=self.value(sample.get("epoch_s")),
+        )
+
+    def sample_row(self, sample: Any) -> dict[str, str]:
+        """One row of the sample table; results.json of another version may lack fields or shape them
+        differently, so every cell falls back to the 'none' text."""
+        sample = sample if isinstance(sample, dict) else {}
+        return {
+            "mode": self.label("report.sample_mode", sample.get("mode", "none")),
+            "segments": self.segments(sample.get("segments")),
+            "seed": self.value(sample.get("seed")),
+            "channels": self.value(sample.get("channels")),
+            "positions": self.positions(sample),
+            "notch": self.value(sample.get("notch_hz")),
+        }
+
     @staticmethod
     def sub_codes(value: Any) -> str:
         """What one validator finding covers (A-06, A-77): the sub-codes of the validator code, e.g. the
@@ -133,6 +194,7 @@ def build_context(results: Results, lang: str) -> dict[str, Any]:
             (phase, results.summary.phases[phase]) for phase in Phase if phase in results.summary.phases
         ],
         "manual_rules": manual_rules,
+        "sampled": [rec for rec in results.recordings if rec.sample],
         "manual_findings": {
             f.rule_id: f for f in results.findings if f.rule_id in {r.id for r in manual_rules}
         },

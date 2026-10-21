@@ -487,6 +487,42 @@
       "title": "MetadataSection",
       "type": "object"
     },
+    "QualitySection": {
+      "additionalProperties": false,
+      "description": "Measurement settings of the signal quality metrics (A-18, A-60, A-79).",
+      "properties": {
+        "flat_tolerance_uv": {
+          "default": 0.1,
+          "exclusiveMinimum": 0,
+          "maximum": 1000,
+          "title": "Flat Tolerance Uv",
+          "type": "number"
+        },
+        "min_channels": {
+          "default": 16,
+          "maximum": 4096,
+          "minimum": 2,
+          "title": "Min Channels",
+          "type": "integer"
+        },
+        "min_seconds": {
+          "default": 60.0,
+          "exclusiveMinimum": 0,
+          "maximum": 86400,
+          "title": "Min Seconds",
+          "type": "number"
+        },
+        "plateau_samples": {
+          "default": 10,
+          "maximum": 100000,
+          "minimum": 2,
+          "title": "Plateau Samples",
+          "type": "integer"
+        }
+      },
+      "title": "QualitySection",
+      "type": "object"
+    },
     "RuleOverride": {
       "additionalProperties": false,
       "properties": {
@@ -625,6 +661,9 @@
     },
     "metadata": {
       "$ref": "#/$defs/MetadataSection"
+    },
+    "quality": {
+      "$ref": "#/$defs/QualitySection"
     },
     "rules": {
       "additionalProperties": {

@@ -1,6 +1,6 @@
 """Enforce the coverage limits of NG-N08 per module group (A-23).
 
-"Kern" (≥ 90 %): kernel, model, vault, config.  "Prüfer" (≥ 80 %): checks, io, convert, metadata,
+"Kern" (≥ 90 %): kernel, model, vault, config.  "Prüfer" (≥ 80 %): checks, quality, io, convert, metadata,
 validator, diff, dossier, report, cli, pipeline. Reads a ``coverage json`` report (lines and branches, like
 ``coverage report``).
 
@@ -29,6 +29,7 @@ GROUPS: dict[str, tuple[float, tuple[str, ...]]] = {
         80.0,
         (
             "neurogrid/checks/",
+            "neurogrid/quality/",
             "neurogrid/io/",
             "neurogrid/convert.py",
             "neurogrid/metadata.py",

@@ -72,6 +72,15 @@ class SamplingSection(_Section):
     segment_s: float = Field(default=60.0, gt=0, le=3600)
 
 
+class QualitySection(_Section):
+    """Measurement settings of the signal quality metrics (A-18, A-60, A-79)."""
+
+    flat_tolerance_uv: float = Field(default=0.1, gt=0, le=1000)  # floating-point formats (EEGLAB, FIF)
+    plateau_samples: int = Field(default=10, ge=2, le=100_000)  # clipping without a known range
+    min_seconds: float = Field(default=60.0, gt=0, le=86_400)  # data needed for M06/M09
+    min_channels: int = Field(default=16, ge=2, le=4096)  # EEG channels needed for M06/M09
+
+
 class RuleOverride(_Section):
     params: dict[str, ParamValue] = Field(default_factory=dict)
 
@@ -359,6 +368,7 @@ class Config(_Section):
     dataset: DatasetSection = Field(default_factory=DatasetSection)
     check: CheckSection = Field(default_factory=CheckSection)
     sampling: SamplingSection = Field(default_factory=SamplingSection)
+    quality: QualitySection = Field(default_factory=QualitySection)
     rules: dict[str, RuleOverride] = Field(default_factory=dict)
     exceptions: list[ExceptionEntry] = Field(default_factory=list)
     metadata: MetadataSection = Field(default_factory=MetadataSection)

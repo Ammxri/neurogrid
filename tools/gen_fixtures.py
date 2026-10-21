@@ -4,7 +4,8 @@ Usage:
     python tools/gen_fixtures.py           # (re)write tests/fixtures/synthetic
     python tools/gen_fixtures.py --check   # fail if the committed fixtures differ from a fresh generation
 
-All signals are sine waves with noise; no fixture contains data of a person. Metadata values in the BIDS
+All signals are sine waves with noise or, in the signal quality fixtures (edf_quality_*), simulated dipole
+sources and artefacts with noise; no fixture contains data of a person. Metadata values in the BIDS
 fixtures (authors, positions, head circumference) are synthetic test values and say so in their README.
 """
 
@@ -70,11 +71,13 @@ def write_edf(
     bdf: bool = False,
     plus: str = "",
     record_onsets: tuple[int, ...] | None = None,
+    microvolts: np.ndarray | None = None,
 ) -> None:
     """EDF (16 bit) or, with ``bdf=True``, BioSemi BDF (24 bit) with one-second data records.
 
     ``plus="C"`` or ``"D"`` writes EDF+ with an annotation signal; ``record_onsets`` gives the start of each
-    data record in seconds (EDF+D: with gaps).
+    data record in seconds (EDF+D: with gaps). ``microvolts`` (channels x samples) replaces the default
+    sine-plus-noise signals; values outside the physical range are clipped to the digital limits.
     """
     if bdf and digital == (-32768, 32767):
         digital = (-8388608, 8388607)
@@ -82,10 +85,15 @@ def write_edf(
     onsets = record_onsets if record_onsets is not None else tuple(range(seconds))
     if len(onsets) != seconds:
         raise ValueError("one onset per data record")
+    if microvolts is not None and microvolts.shape != (len(labels), sfreq * seconds):
+        raise ValueError("microvolts must have one row of sfreq * seconds samples per label")
     signals = []
-    for microvolts in _microvolts(sfreq, seconds, len(labels), seed):
+    rows = _microvolts(sfreq, seconds, len(labels), seed) if microvolts is None else list(microvolts)
+    for microvolts_row in rows:
         scale = (digital[1] - digital[0]) / (physical[1] - physical[0])
-        values = np.clip(np.round((microvolts - physical[0]) * scale + digital[0]), digital[0], digital[1])
+        values = np.clip(
+            np.round((microvolts_row - physical[0]) * scale + digital[0]), digital[0], digital[1]
+        )
         signals.append(values.astype(sample_type))
 
     ns = len(labels) + (1 if plus else 0)
@@ -458,6 +466,240 @@ def _prefixed(folder: str, files: dict[str, Callable[[Path], None]]) -> dict[str
     return {f"{folder}/{relative}": make for relative, make in files.items()}
 
 
+# --- signal quality fixtures (M06–M09) ------------------------------------------------------------------
+#
+# EEG-like signals for the rules CORE-M06-01 … CORE-M09-02: current dipoles under the scalp, each with a
+# non-Gaussian time course (bursts), mixed into standard 10-20 channels. Neighbouring channels are therefore
+# correlated (pyprep), the epochs are stationary (autoreject) and ICA can separate the sources (ICLabel).
+# Artefacts and channel problems are added where a fixture needs them.
+
+QUALITY_SFREQ = 250
+QUALITY_SECONDS = 70  # M06/M09 need at least 60 s (A-79); 35 epochs of 2 s for autoreject
+QUALITY_SAMPLES = QUALITY_SFREQ * QUALITY_SECONDS
+# Positions in m, rounded from the colin27 template that NeuroGrid uses for standard names (A-60). Here they
+# only shape the synthetic topographies.
+QUALITY_POSITIONS: dict[str, tuple[float, float, float]] = {
+    "Fp1": (-0.0294, 0.0839, -0.0070),
+    "Fp2": (0.0299, 0.0849, -0.0071),
+    "F7": (-0.0703, 0.0425, -0.0114),
+    "F3": (-0.0502, 0.0531, 0.0422),
+    "Fz": (0.0003, 0.0585, 0.0665),
+    "F4": (0.0518, 0.0543, 0.0408),
+    "F8": (0.0730, 0.0444, -0.0120),
+    "T7": (-0.0842, -0.0160, -0.0093),
+    "C3": (-0.0654, -0.0116, 0.0644),
+    "Cz": (0.0004, -0.0092, 0.1002),
+    "C4": (0.0671, -0.0109, 0.0636),
+    "T8": (0.0851, -0.0150, -0.0095),
+    "P7": (-0.0724, -0.0735, -0.0025),
+    "P3": (-0.0530, -0.0788, 0.0559),
+    "Pz": (0.0003, -0.0811, 0.0826),
+    "P4": (0.0557, -0.0786, 0.0566),
+    "P8": (0.0731, -0.0731, -0.0025),
+    "O1": (-0.0294, -0.1124, 0.0088),
+    "Oz": (0.0001, -0.1149, 0.0147),
+    "O2": (0.0298, -0.1122, 0.0088),
+    "FC1": (-0.0341, 0.0260, 0.0800),
+    "FC2": (0.0348, 0.0264, 0.0788),
+    "CP1": (-0.0355, -0.0473, 0.0913),
+    "CP2": (0.0384, -0.0471, 0.0907),
+}
+HEAD_CENTRE = np.array([0.0011, -0.0161, 0.0049])  # centre of a sphere fitted to the template positions
+QUALITY_LABELS = tuple(QUALITY_POSITIONS)[:20]  # 20 channels: M06/M09 need at least 16 EEG channels
+ARTEFACT_LABELS = tuple(QUALITY_POSITIONS)  # 24 channels: 16 good ones remain for ICA next to bad ones
+
+
+def _positions(labels: tuple[str, ...]) -> np.ndarray:
+    return np.array([QUALITY_POSITIONS[label] for label in labels])
+
+
+def _band_noise(rng: np.random.Generator, low: float, high: float) -> np.ndarray:
+    """Gaussian noise with power only between ``low`` and ``high`` Hz, unit standard deviation."""
+    size = QUALITY_SAMPLES // 2 + 1
+    spectrum = rng.normal(size=size) + 1j * rng.normal(size=size)
+    freqs = np.fft.rfftfreq(QUALITY_SAMPLES, 1.0 / QUALITY_SFREQ)
+    spectrum[(freqs < low) | (freqs > high)] = 0
+    noise = np.fft.irfft(spectrum, QUALITY_SAMPLES)
+    return np.asarray(noise / noise.std())
+
+
+def _pink_noise(rng: np.random.Generator) -> np.ndarray:
+    """1/f noise without a DC part, unit standard deviation."""
+    size = QUALITY_SAMPLES // 2 + 1
+    spectrum = rng.normal(size=size) + 1j * rng.normal(size=size)
+    freqs = np.fft.rfftfreq(QUALITY_SAMPLES, 1.0 / QUALITY_SFREQ)
+    spectrum /= np.sqrt(np.maximum(freqs, 0.5))
+    spectrum[0] = 0
+    noise = np.fft.irfft(spectrum, QUALITY_SAMPLES)
+    return np.asarray(noise / noise.std())
+
+
+def _bump(start_s: float, length_s: float) -> np.ndarray:
+    """A Hann window of ``length_s`` seconds from ``start_s``, zero elsewhere."""
+    out = np.zeros(QUALITY_SAMPLES)
+    first = round(start_s * QUALITY_SFREQ)
+    size = round(length_s * QUALITY_SFREQ)
+    out[first : first + size] = np.hanning(size)
+    return out
+
+
+def _dipole(labels: tuple[str, ...], location: np.ndarray, moment: np.ndarray) -> np.ndarray:
+    """Scalp topography of a current dipole in an infinite homogeneous medium, scaled to a maximum of 1."""
+    diff = _positions(labels) - location
+    topography = diff @ moment / np.linalg.norm(diff, axis=1) ** 3
+    return np.asarray(topography / np.abs(topography).max())
+
+
+def _brain(rng: np.random.Generator, labels: tuple[str, ...], sources: int, microvolts: float) -> np.ndarray:
+    """``sources`` cortical dipoles 4.5 cm from the head centre (upper half, mostly radial), each with 1/f
+    background activity and alpha bursts (8–12 Hz under a slow log-normal envelope); ``microvolts`` is the
+    RMS of their sum on an average channel."""
+    data = np.zeros((len(labels), QUALITY_SAMPLES))
+    for _ in range(sources):
+        direction = rng.normal(size=3)
+        direction[2] = abs(direction[2]) + 0.3
+        direction /= np.linalg.norm(direction)
+        topography = _dipole(labels, HEAD_CENTRE + 0.045 * direction, rng.normal(size=3) + 1.5 * direction)
+        envelope = np.exp(_band_noise(rng, 0.05, 0.5))
+        rhythm = _band_noise(rng, rng.uniform(8.0, 9.5), rng.uniform(10.5, 12.0)) * envelope
+        activity = _pink_noise(rng) + 1.5 * rhythm / rhythm.std()
+        data += np.outer(topography / np.sqrt(np.mean(topography**2)), activity / activity.std())
+    return data * microvolts / np.sqrt(sources)
+
+
+def _blinks(
+    rng: np.random.Generator,
+    labels: tuple[str, ...],
+    microvolts: tuple[float, float],
+    every_s: tuple[float, float],
+) -> np.ndarray:
+    """Eye blinks: 0.35-s bumps from a dipole near the eyes, one every ``every_s`` seconds."""
+    course = np.zeros(QUALITY_SAMPLES)
+    onset = 0.7
+    while onset < QUALITY_SECONDS - 1:
+        course += _bump(onset, 0.35) * rng.uniform(*microvolts)
+        onset += rng.uniform(*every_s)
+    return np.outer(_dipole(labels, np.array([0.0, 0.10, -0.04]), np.array([0.0, 0.3, 1.0])), course)
+
+
+def _eye_movements(rng: np.random.Generator, labels: tuple[str, ...]) -> np.ndarray:
+    """Horizontal eye movements: a lateral dipole near the eyes, a step of ±40 µV or none every second."""
+    steps = np.repeat(rng.choice([-1.0, 0.0, 1.0], size=QUALITY_SECONDS), QUALITY_SFREQ)
+    course = np.convolve(steps, np.ones(25) / 25, mode="same") * 40.0
+    return np.outer(_dipole(labels, np.array([0.0, 0.10, -0.04]), np.array([1.0, 0.0, 0.0])), course)
+
+
+def _muscle(rng: np.random.Generator, labels: tuple[str, ...], sources: int, microvolts: float) -> np.ndarray:
+    """Muscle activity: 20–110 Hz bursts from dipoles spread around the lower half of the head."""
+    data = np.zeros((len(labels), QUALITY_SAMPLES))
+    for index in range(sources):
+        angle = 2 * np.pi * (index + 0.5) / sources
+        direction = np.array([np.cos(angle), np.sin(angle), -0.2])
+        direction /= np.linalg.norm(direction)
+        course = _band_noise(rng, 20.0, 110.0) * np.exp(1.5 * _band_noise(rng, 0.05, 0.4))
+        topography = _dipole(labels, HEAD_CENTRE + 0.06 * direction, direction)
+        data += np.outer(topography, course / course.std() * microvolts)
+    return data
+
+
+def _heartbeat(rng: np.random.Generator, labels: tuple[str, ...]) -> np.ndarray:
+    """Heartbeat: 40-ms spikes of 25 µV about every 0.85 s from a dipole below the head."""
+    course = np.zeros(QUALITY_SAMPLES)
+    onset = 0.3
+    while onset < QUALITY_SECONDS - 0.2:
+        first = round(onset * QUALITY_SFREQ)
+        course[first : first + 10] += np.hanning(10) * 25.0
+        onset += 0.85 + rng.uniform(-0.03, 0.03)
+    return np.outer(_dipole(labels, np.array([0.02, -0.03, -0.12]), np.array([0.3, 0.2, 1.0])), course)
+
+
+def _movement(rng: np.random.Generator, labels: tuple[str, ...], share: float, kind: str) -> np.ndarray:
+    """Movement artefacts in ``share`` of the 2-s epochs (one each, inside the epoch), each with its own
+    gradient over the head: a slow deflection of 180–250 µV (``kind="slow"``) or a 15–100 Hz burst of
+    40–60 µV (``"burst"``)."""
+    data = np.zeros((len(labels), QUALITY_SAMPLES))
+    epochs = QUALITY_SECONDS // 2
+    for epoch in sorted(rng.choice(epochs, size=round(share * epochs), replace=False).tolist()):
+        gradient = rng.normal(size=3)
+        topography = (_positions(labels) - HEAD_CENTRE) @ (gradient / np.linalg.norm(gradient))
+        shape = _bump(2 * epoch + rng.uniform(0.2, 0.6), rng.uniform(0.8, 1.2))
+        if kind == "slow":
+            course = shape * rng.uniform(180.0, 250.0)
+        else:
+            course = shape * _band_noise(rng, 15.0, 100.0) * rng.uniform(40.0, 60.0)
+        data += np.outer(topography / np.abs(topography).max(), course)
+    return data
+
+
+def _amplifier(rng: np.random.Generator, data: np.ndarray, noise_uv: float) -> np.ndarray:
+    """Every channel at an RMS of 15 µV × 0.85–1.15, plus white noise of ``noise_uv`` × 0.8–1.2 and a weak
+    50 Hz line noise of 2.5 µV × 0.8–1.2 (so that the line frequency 50 Hz is plausible, A-47)."""
+    channels, samples = data.shape
+    t = np.arange(samples) / QUALITY_SFREQ
+    data = data * (rng.uniform(0.85, 1.15, size=channels) * 15.0 / data.std(axis=1))[:, None]
+    data += rng.uniform(0.8, 1.2, size=(channels, 1)) * noise_uv * rng.normal(size=(channels, samples))
+    return np.asarray(data + 2.5 * rng.uniform(0.8, 1.2, size=(channels, 1)) * np.sin(2 * np.pi * 50.0 * t))
+
+
+def _seconds(start: int, stop: int) -> slice:
+    return slice(start * QUALITY_SFREQ, stop * QUALITY_SFREQ)
+
+
+def quality_ok_signals(seed: int) -> np.ndarray:
+    """Clean EEG-like data that passes every M06–M09 rule: twelve cortical sources, a blink every 6–10 s
+    and 2 µV amplifier noise. One electrode problem within the M08 limits: P8 is flat from 31 to 33 s and
+    saturated from 50 to 52 s (2 of 70 windows each, 2.9 %), so a stricter max_fraction fails it (MET-02)."""
+    rng = np.random.default_rng(seed)
+    labels = QUALITY_LABELS
+    data = _brain(rng, labels, 12, 15.0) + _blinks(rng, labels, (60.0, 100.0), (6.0, 10.0))
+    data = _amplifier(rng, data, noise_uv=2.0)
+    p8 = labels.index("P8")
+    data[p8, _seconds(31, 33)] = 0.0
+    data[p8, _seconds(50, 52)] = 600.0  # beyond the physical maximum of 500 µV: the digital maximum
+    return data
+
+
+def quality_issues_signals(seed: int) -> np.ndarray:
+    """One problem per rule (negative cases of M06, M07-01, M08-01, M08-02 and M09-01):
+
+    - line noise: 40 µV at 50 Hz on T7, T8, P7 and P8;
+    - flat line: O2 from 20 to 30 s (14 % of the duration);
+    - clipping: F8 drifts beyond the physical range for about 6 s around 45 s (the digital maximum);
+    - bad channels: F3, C4 and P3 without contact (independent 1/f noise), Fz, Pz and Oz with 30 µV of
+      amplifier noise, besides O2 and F8 (8 of 20 channels);
+    - artefacts: slow movement artefacts in 40 % of the 2-s epochs, a blink every 2.5–5 s.
+    """
+    rng = np.random.default_rng(seed)
+    labels = QUALITY_LABELS
+    data = _brain(rng, labels, 6, 15.0) + _blinks(rng, labels, (100.0, 160.0), (2.5, 5.0))
+    data = _amplifier(rng, data + _movement(rng, labels, 0.4, "slow"), noise_uv=2.0)
+    t = np.arange(QUALITY_SAMPLES) / QUALITY_SFREQ
+    for name in ("T7", "T8", "P7", "P8"):
+        data[labels.index(name)] += 40.0 * np.sin(2 * np.pi * 50.0 * t + rng.uniform(0.0, 2 * np.pi))
+    for name in ("F3", "C4", "P3"):
+        data[labels.index(name)] = 15.0 * _pink_noise(rng)
+    for name in ("Fz", "Pz", "Oz"):
+        data[labels.index(name)] += 30.0 * rng.normal(size=QUALITY_SAMPLES)
+    data[labels.index("O2"), _seconds(20, 30)] = 0.0
+    data[labels.index("F8")] += 900.0 * _bump(40.0, 10.0)
+    return data
+
+
+def quality_artefact_signals(seed: int) -> np.ndarray:
+    """Artefacts dominate (negative case of M09-02, ICLabel): one cortical source next to eye blinks,
+    horizontal eye movements, six muscle sources, a heartbeat and muscle-like movement bursts in 30 % of the
+    2-s epochs; 24 channels, 3 µV amplifier noise."""
+    rng = np.random.default_rng(seed)
+    labels = ARTEFACT_LABELS
+    data = _brain(rng, labels, 1, 15.0) + _blinks(rng, labels, (50.0, 80.0), (2.5, 5.0))
+    data += _muscle(rng, labels, 6, 8.0) + _eye_movements(rng, labels) + _heartbeat(rng, labels)
+    return _amplifier(rng, data + _movement(rng, labels, 0.3, "burst"), noise_uv=3.0)
+
+
+def _quality_edf(path: Path, signals: np.ndarray, labels: tuple[str, ...] = QUALITY_LABELS) -> None:
+    write_edf(path, sfreq=QUALITY_SFREQ, seconds=QUALITY_SECONDS, labels=labels, microvolts=signals)
+
+
 IMPEDANCES_OK = {label: "3" for label in EEG_LABELS}
 
 FIXTURES: dict[str, Callable[[Path], None]] = {
@@ -495,6 +737,9 @@ FIXTURES: dict[str, Callable[[Path], None]] = {
     "orphan/lonely.fdt": lambda p: _binary(p, b"\x00" * 64),
     **_prefixed("bids_ok", _bids_ok()),
     **_prefixed("bids_issues", _bids_issues()),
+    "edf_quality_ok/rec.edf": lambda p: _quality_edf(p, quality_ok_signals(41)),
+    "edf_quality_issues/rec.edf": lambda p: _quality_edf(p, quality_issues_signals(51)),
+    "edf_quality_artefacts/rec.edf": lambda p: _quality_edf(p, quality_artefact_signals(63), ARTEFACT_LABELS),
 }
 
 

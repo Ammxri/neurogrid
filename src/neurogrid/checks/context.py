@@ -12,6 +12,8 @@ from neurogrid.io.base import FormatAdapter, HeaderInspection, HeaderUnreadable
 from neurogrid.io.discover import DatasetScan, FoundFile
 from neurogrid.metadata import ENTITY_FIELDS, RecordingMetadata, collect
 from neurogrid.model.dataset import Recording
+from neurogrid.quality import QualityJob, QualityResult, QualitySettings, compute_all
+from neurogrid.quality.positions import Position, sidecar_positions
 from neurogrid.validator import ValidatorResult
 from neurogrid.validator import run as run_validator
 
@@ -29,6 +31,7 @@ class RecordingState:
     inspection: HeaderInspection | None = None
     header_error: str | None = None
     metadata: RecordingMetadata = field(default_factory=RecordingMetadata)
+    quality: QualityResult | None = None  # signal quality job (M06–M09), set by CheckContext.compute_quality
     _read_error: object = field(default=_UNSET, repr=False)
 
     @property
@@ -75,6 +78,42 @@ class CheckContext:
                 raise RuntimeError("the BIDS validator needs a work folder")
             self._validator = run_validator(self.root, self.work / "validator")
         return self._validator
+
+    def compute_quality(self, *, stream: bool, sample: bool, jobs: int = 1) -> None:
+        """Run the signal quality job of every recording with signals (one process per job with --jobs)."""
+        cfg = self.config
+        settings = QualitySettings(
+            flat_tolerance_uv=cfg.quality.flat_tolerance_uv,
+            plateau_samples=cfg.quality.plateau_samples,
+            min_seconds=cfg.quality.min_seconds,
+            min_channels=cfg.quality.min_channels,
+            mode=cfg.sampling.mode,
+            segments=cfg.sampling.segments,
+            segment_s=cfg.sampling.segment_s,
+            seed=cfg.check.seed,
+        )
+        pending = [rec for rec in self.recordings if rec.recording is not None and not rec.annotations_only]
+        work = []
+        for rec in pending:
+            if rec.recording is None:
+                continue
+            sidecar: tuple[dict[str, Position], str | None] = ({}, None)
+            if sample and self.scan.is_bids:
+                sidecar = sidecar_positions(self.root, rec.found.relative)
+            work.append(
+                QualityJob(
+                    path=str(rec.path),
+                    recording=rec.recording,
+                    settings=settings,
+                    channel_map=dict(cfg.metadata.channel_map),
+                    stream=stream,
+                    sample=sample,
+                    sidecar_positions=sidecar[0],
+                    sidecar_reason=sidecar[1],
+                )
+            )
+        for rec, result in zip(pending, compute_all(work, jobs), strict=True):
+            rec.quality = result
 
     @classmethod
     def build(cls, scan: DatasetScan, config: Config, work: Path | None = None) -> CheckContext:

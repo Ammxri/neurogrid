@@ -167,6 +167,7 @@ class FifAdapter:
         if duration is not None:
             sources["duration_s"] = "header"
         line = info.get("line_freq")
+        line = float(line) if line and math.isfinite(float(line)) and float(line) > 0 else None  # A-75
         if line:
             sources["line_frequency_hz"] = "header"
         if any(ch.position for ch in channels):
@@ -177,7 +178,7 @@ class FifAdapter:
             path=relative_path,
             sampling_rate_hz=rate if any(ch.type == "EEG" for ch in channels) else None,
             duration_s=duration,
-            line_frequency_hz=float(line) if line else None,
+            line_frequency_hz=line,
             streamable=True,
             metadata_sources=sources,
             channels=channels,

@@ -8,7 +8,9 @@ public test corpus that is loaded on demand and never committed.
 - Generated deterministically by `tools/gen_fixtures.py`; `python tools/gen_fixtures.py --check` fails if
   the committed files differ from a fresh generation.
 - Licence: CC BY 4.0 (see `REUSE.toml`).
-- The signals are sine waves with Gaussian noise. No fixture contains data of a person. The metadata of
+- The signals are sine waves with Gaussian noise; the signal quality fixtures (`edf_quality_*`) mix
+  simulated dipole sources (1/f activity, alpha bursts) and artefacts (blinks, muscle, heartbeat, movement)
+  with Gaussian noise. No fixture contains data of a person. The metadata of
   the BIDS fixtures (`bids_ok`, `bids_issues`), such as authors, electrode positions and head
   circumference, are synthetic test values. `bids_ok` says so in its README. `bids_issues` has no README
   on purpose, because it tests the validator finding `README_FILE_MISSING`; it is synthetic in the same

@@ -125,6 +125,16 @@
     <tr><td class="mono">{{ rec.id }}</td><td>{{ rec.format }}{% if not rec.streamable %} – {{ t('report.value.not_streamable') }}{% endif %}</td><td>{{ fmt.value(rec.sampling_rate_hz) }}</td><td>{{ fmt.value(rec.duration_s) }}</td><td>{{ fmt.value(rec.n_channels) }} ({{ fmt.value(rec.n_eeg_channels) }})</td></tr>
     {% endfor %}
   </table>
+  {% if sampled %}
+  <h3>{{ t('report.label.sample') }}</h3>
+  <p>{{ fmt.sample_method(sampled[0].sample) }}</p>
+  <table>
+    <tr><th>{{ t('report.label.recording') }}</th><th>{{ t('report.label.sample_mode') }}</th><th>{{ t('report.label.segments') }}</th><th>{{ t('report.label.seed') }}</th><th>{{ t('report.label.analysed_channels') }}</th><th>{{ t('report.label.positions') }}</th><th>{{ t('report.label.notch') }}</th></tr>
+    {% for rec in sampled %}{% set row = fmt.sample_row(rec.sample) %}
+    <tr><td class="mono">{{ rec.id }}</td><td>{{ row.mode }}</td><td>{{ row.segments }}</td><td>{{ row.seed }}</td><td>{{ row.channels }}</td><td>{{ row.positions }}</td><td>{{ row.notch }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
   {% else %}
   <p>{{ t('report.text.no_recordings') }}</p>
   {% endif %}

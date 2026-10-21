@@ -19,6 +19,7 @@ from typing import Any
 import neurogrid
 from neurogrid import config as config_module
 from neurogrid.checks.context import CheckContext
+from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
@@ -50,6 +51,8 @@ from neurogrid.model.results import (
     Summary,
     ToolInfo,
 )
+from neurogrid.quality import describe as describe_quality
+from neurogrid.quality import finite_values
 from neurogrid.report.texts import disclaimer
 
 # Libraries whose versions can change a result (A-11): readers, the BIDS validator and its runtime (A-48).
@@ -112,15 +115,7 @@ def environment_info() -> EnvironmentInfo:
             libraries[name] = metadata.version(name)
         except metadata.PackageNotFoundError:
             libraries[name] = "missing"
-    blas_threads = None
-    try:
-        from threadpoolctl import threadpool_info
-
-        blas = [info for info in threadpool_info() if info.get("user_api") == "blas"]
-        if blas:
-            blas_threads = int(blas[0]["num_threads"])
-    except Exception:
-        blas_threads = None
+    blas_threads = 1  # the quality metrics always compute with one BLAS thread (A-11, neurogrid.quality)
     return EnvironmentInfo(
         python=".".join(platform.python_version_tuple()[:2]),
         platform=f"{sys.platform}-{platform.machine().lower()}",
@@ -269,6 +264,7 @@ class CheckOptions:
     allow_draft_rulepacks: bool = False
     show_paths: bool = False
     work_base: Path | None = None  # where the run's private work folder is created (A-54); default: temp
+    jobs: int = 1  # processes for the signal quality jobs (E3 --jobs); results do not depend on it
 
 
 def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Results:
@@ -291,6 +287,10 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
     base = options.work_base if options.work_base is not None else Path(tempfile.gettempdir()) / "neurogrid"
     with work_directory(base) as work:
         ctx = CheckContext.build(found, cfg, work=work)
+        stream = bool(check_ids & STREAM_CHECKS)
+        sample = bool(check_ids & SAMPLE_CHECKS)
+        if stream or sample:
+            ctx.compute_quality(stream=stream, sample=sample, jobs=options.jobs)
         measurements = measure(ctx, check_ids)
     result = engine.run(
         engine.EngineInput(
@@ -456,6 +456,14 @@ def _recording_summaries(ctx: CheckContext) -> list[RecordingSummary]:
                 n_eeg_channels=len(recording.eeg_channels),
                 streamable=recording.streamable,
                 metadata_sources=dict(recording.metadata_sources),
+                metrics=canonical.normalize(finite_values(describe_quality(rec.quality)))
+                if rec.quality
+                else {},
+                sample=(
+                    canonical.normalize(finite_values(rec.quality.sample.describe()))
+                    if rec.quality and rec.quality.sample
+                    else None
+                ),
             )
         )
     return summaries

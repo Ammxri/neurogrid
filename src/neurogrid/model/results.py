@@ -108,7 +108,8 @@ class RecordingSummary(BaseModel):
     n_eeg_channels: int | None = None
     streamable: bool = True
     metadata_sources: dict[str, str] = Field(default_factory=dict)
-    metrics: dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)  # M06–M09 values per recording (NG-F07)
+    sample: dict[str, Any] | None = None  # the sample of M06/M09: segments, seed, parameters (KONZEPT 1.5)
 
 
 class Summary(BaseModel):

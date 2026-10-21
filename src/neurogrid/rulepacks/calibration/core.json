@@ -1,0 +1,109 @@
+{
+ "datasets": [
+  {
+   "M06": 1,
+   "M07_channels": 60,
+   "M09a": 1,
+   "M09b": 1,
+   "dataset": "ds000248",
+   "doi": "10.18112/openneuro.ds000248.v1.2.4",
+   "format": "FIF",
+   "recordings": 1,
+   "snapshot_hexsha": "0a357f1276dbf7fcc3c3fc35f74cb24ffe4a68a8",
+   "version": "1.2.4"
+  },
+  {
+   "M06": 5,
+   "M07_channels": 200,
+   "M09a": 5,
+   "M09b": 5,
+   "dataset": "ds002778",
+   "doi": "10.18112/openneuro.ds002778.v1.0.5",
+   "format": "BDF",
+   "recordings": 5,
+   "snapshot_hexsha": "2890cbd8da62179735aae536a520008154630dd6",
+   "version": "1.0.5"
+  },
+  {
+   "M06": 8,
+   "M07_channels": 512,
+   "M09a": 8,
+   "M09b": 8,
+   "dataset": "ds003775",
+   "doi": "10.18112/openneuro.ds003775.v1.2.1",
+   "format": "EDF",
+   "recordings": 8,
+   "snapshot_hexsha": "cb354b249827d17fa0575b2b42521ba25982c16b",
+   "version": "1.2.1"
+  },
+  {
+   "M06": 3,
+   "M07_channels": 183,
+   "M09a": 3,
+   "M09b": 3,
+   "dataset": "ds004148",
+   "doi": "10.18112/openneuro.ds004148.v1.0.1",
+   "format": "BrainVision",
+   "recordings": 3,
+   "snapshot_hexsha": "f3ce98fa8e907b2498ebd359a1ea12f911a0964c",
+   "version": "1.0.1"
+  },
+  {
+   "M06": 5,
+   "M07_channels": 95,
+   "M09a": 5,
+   "M09b": 5,
+   "dataset": "ds004504",
+   "doi": "10.18112/openneuro.ds004504.v1.0.9",
+   "format": "EEGLAB",
+   "recordings": 5,
+   "snapshot_hexsha": "63b2ec152bc3cd4487d131124f10f767ebe543bc",
+   "version": "1.0.9"
+  }
+ ],
+ "method": "95th percentile (numpy, linear) over the public corpus, A-20/MET-01",
+ "neurogrid_version": "0.1.0.dev1",
+ "protocol_version": 1,
+ "settings": {
+  "line_frequency": "documented, else 50 Hz",
+  "min_channels": 16,
+  "positions": "electrodes.tsv > data file > standard montage > none (A-60, A-79)",
+  "sampling": "10 x 60 s (A-19)",
+  "seed": 20261011,
+  "values": "measured recordings or channels only; not_checkable ones are left out"
+ },
+ "thresholds": {
+  "CORE-M06-01": {
+   "metric": "M06",
+   "n": 22,
+   "over": "recordings",
+   "param": "max_fraction",
+   "percentile": 95.0,
+   "value": 0.30625
+  },
+  "CORE-M07-01": {
+   "metric": "M07",
+   "n": 1050,
+   "over": "channels",
+   "param": "max_ratio",
+   "percentile": 95.0,
+   "value": 0.407669
+  },
+  "CORE-M09-01": {
+   "metric": "M09a",
+   "n": 22,
+   "over": "recordings",
+   "param": "max_fraction",
+   "percentile": 95.0,
+   "value": 0.305083
+  },
+  "CORE-M09-02": {
+   "metric": "M09b",
+   "n": 22,
+   "over": "recordings",
+   "param": "max_fraction",
+   "percentile": 95.0,
+   "value": 0.6
+  }
+ }
+}

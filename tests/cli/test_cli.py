@@ -299,7 +299,11 @@ def test_mixed_rate_edf_prints_no_library_warning(
     _mixed_rate_edf(folder / "psg.edf")
     config = str(documented_config(tmp_path))
     code, _, err = run(["check", str(folder), "--out", str(tmp_path / "r.json"), "--config", config], capsys)
-    assert code == 0 and "RuntimeWarning" not in err and str(Path.home()) not in err
+    assert "RuntimeWarning" not in err and str(Path.home()) not in err
+    # the samples are all zero: the only error is the flat line of the EEG channel (M08, since P3)
+    results = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
+    errors = {(f["rule_id"], f["subkey"]) for f in results["findings"] if f["severity"] == "error"}
+    assert code == 1 and errors == {("CORE-M08-01", "EEG Fz")}
 
 
 def test_library_warnings_are_reduced_to_their_category(capsys: pytest.CaptureFixture[str]) -> None:

@@ -6,12 +6,93 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P2 abgeschlossen, P3 als Nächstes.** Konzept freigegeben (D-08 bis D-13), Freigabemodus A bis zum
-STOPP nach P5. Git: `main` (Doku-Commit), Arbeitszweig `dev` (lokal; Push erst mit Repo-URL, D-09).
+**Phase P3 umgesetzt; STOPP R4 (NG-N02).** Die 1-GB-Messung verfehlt die Grenze aus A-50 für 128 und 256
+Kanäle; die Entscheidung des Projektverantwortlichen steht aus (Optionen im Eintrag unten). Konzept freigegeben
+(D-08 bis D-13), Freigabemodus A bis zum STOPP nach P5. Git: `main` (Doku-Commit), Arbeitszweig `dev` (lokal;
+Push erst mit Repo-URL, D-09).
 Offen beim Nutzer: GitHub-Repo-URL (TECH-05/TECH-11, Linux-Lauf), GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
 ISO-TS vor P10, muttersprachliche zh-Prüfung vor v0.1, Docker Desktop bei Gelegenheit.
 
 ## Verlauf
+
+### 2026-10-21 – P3 Signalqualität
+- **Abgeschlossen:** M06, M07, M08, M09, MET-01, LIB-01, LIB-04, LIB-06, LIB-07.
+- **Teilweise:** NG-F07 (alle Werte im JSON; Laufzeit siehe NG-N02), NG-N02 (STOPP R4, siehe unten).
+- **Beigetragen zu:** NG-N01, NG-N03, NG-N07, NG-N08, MET-02, REP-04.
+- **Gebaut:**
+  - Paket `neurogrid.quality`:
+    - Signalquellen: eigener EDF/BDF-Leser über ein Speicherabbild, MNE für BrainVision/EEGLAB/FIF.
+    - Stream über die volle Länge: M07, M08, Signal-Hash; in 4 Threads, Ergebnis davon unabhängig.
+    - Deterministische Stichprobe für M06 (pyprep), M09a (autoreject) und M09b (picard + ICLabel über onnxruntime).
+    - Montage-Quellen `electrodes.tsv` > Datei > Standardmontage, auch für einen Teil der Kanäle.
+    - Prozesspool für `--jobs`; ein sterbender Prozess kostet nur seine Aufnahme.
+  - Sieben Regeln im Paket `core`:
+    - CORE-M06-01, CORE-M07-01, CORE-M07-02, CORE-M08-01, CORE-M08-02, CORE-M09-01, CORE-M09-02.
+    - Schwellen von M06, M07 und M09 kalibriert: 0,30625, 0,407669, 0,305083 und 0,6.
+    - Herkunft im Paket, Protokoll `rulepacks/calibration/core.json`.
+  - Konfiguration `[quality]`, Option `check --jobs`; results.json mit `metrics` und `sample` je Aufnahme.
+  - Der Bericht zeigt den Ausweis der Stichprobe; Texte zh/en/de.
+  - Werkzeuge:
+    - `tools/calibrate.py` (Kalibrierung und `--check`)
+    - `tools/gen_large_edf.py` (EEG-ähnliche 1-GB-EDF)
+    - `tools/benchmark.py` (NG-N02)
+  - Drei Fixtures `edf_quality_*` (Dipolquellen); `neurogrid/quality/` zählt zur Abdeckungsgruppe „Prüfer“.
+- **Tests und Review:**
+  - Fünf Agenten haben je einen Testbereich geschrieben, zwei weitere Tests und Produktivcode gegengeprüft.
+  - Erkennungstests gegen feste Sollwerte, alle erreicht:
+    - M07: 8 von 8 Brumm-Kanälen erkannt, kein Fehlalarm.
+    - M08: Zählung fenstergenau.
+    - M06: 4 von 4 schlechten Kanälen bei 32 Kanälen gefunden.
+    - M09a: 0 / 0,2 / 0,5 bei 0 / 20 / 50 % Artefakt-Epochen.
+    - M09b steigt mit Augen- und Muskelquellen.
+  - Gefunden und behoben, jeweils mit Test:
+    - Ein konstanter Kanal erhielt einen M07-Wert aus Rundungsrauschen.
+    - Eine Aufnahme ohne Signal bekam M09-Werte aus dem Filterrauschen.
+    - M06 brach unter 14 Kanälen ab (pyprep-RANSAC).
+    - Die Vorlagepositionen lagen im MRI- statt im Kopfkoordinatensystem; danach neu kalibriert.
+    - Folgende Fälle führten zu Exit 2: Überlauf zu NaN, unendliche Netzfrequenz im FIF-Kopf, `--jobs` > 61 unter Windows.
+    - Doppelte Kanalnamen verwarfen alle Stream-Werte.
+    - Ein Seed ≥ 2³² ließ M06 und M09 scheitern.
+    - Die Wahl unter mehreren `electrodes.tsv` war falsch.
+    - Der Bericht brach bei abweichender `sample`-Form ab.
+    - Ein Fenster mit einem einzigen Wert galt als flach.
+    - Die Stichprobe las Kanal für Kanal.
+    - Fehlende Telemetrie-Sperre für onnxruntime.
+  - Annahme A-79 neu: präzisiert A-18, A-19, A-21 und A-60.
+- **Ergebnisse (lokal, Windows 11):**
+  - pytest Python 3.12: 1722 bestanden, 7 übersprungen (Datei-Symlinks, POSIX).
+  - pytest Python 3.11: 1722 bestanden, 7 übersprungen; Ergebnis gleich 3.12 bis auf `environment`.
+  - pytest Python 3.13: 1722 bestanden, 7 übersprungen; Ergebnis gleich 3.12 bis auf `environment`.
+  - Korpus: 28 bestanden (6 Datensätze, 5 Formate). Dazu: alle Werte auf den 22 OpenNeuro-Aufnahmen gemessen, Montage-Quellen nach A-60/A-79, PSG mit 3 Kanälen not_checkable, die Kalibrierung aus dem Korpus nachgerechnet.
+  - Byte-Gleichheit bei `--jobs 1/4` und BLAS 1/4 Threads (Test, echter Prozess).
+  - ruff und mypy (src, tools) sauber.
+  - Abdeckung Kern 97,3 %, Prüfer 97,4 %; `neurogrid/quality/` 97–100 %.
+  - Lizenz-Gate grün; Schemas, Fixtures und Matrix reproduzierbar bzw. vollständig.
+  - `calibrate.py --check` grün.
+- **NG-N02 (A-50):** `tools/benchmark.py`, 1-GB-EDF+C mit 512 Hz, Rechner ohne Last (8/16 Kerne), `--jobs 1`:
+
+  | Kanäle | Laufzeit | Spitzenspeicher | A-50 (< 150 s) |
+  |---|---|---|---|
+  | 64 | 94,2 s | 1,7 GB | erfüllt |
+  | 128 | 159,5 s | 2,3 GB | verfehlt |
+  | 256 | 294,6 s | 3,4 GB | verfehlt |
+
+  - Aufschlüsselung bei 256 Kanälen: Stream 25 s, Vorbereitung 12 s, pyprep 101 s, autoreject 131 s, ICA+ICLabel 16 s.
+  - Die PRD-Grenze von 5 min hält dieser Rechner ein, bei 256 Kanälen nur knapp.
+  - autoreject mit 4 Prozessen ist byte-gleich, spart aber nur 18 %, weil die lokale Kreuzvalidierung seriell läuft.
+  - **STOPP R4:** Entscheidung beim Projektverantwortlichen. Optionen:
+    1. Parallelisierung innerhalb einer Aufnahme mit `--jobs`: Stream parallel zur Stichprobe, autoreject mit mehreren Prozessen und parallel zur ICA. Die Methodik bleibt unverändert. Schätzung aus den Schrittzeiten: 128 Kanäle etwa 120 s, 256 Kanäle etwa 220–230 s.
+    2. A-50 anpassen: 150 s für 64 und 128 Kanäle, für 256 Kanäle die PRD-Grenze von 5 min.
+    3. Die Methodik für viele Kanäle ändern, z. B. RANSAC und autoreject nur auf einer festen Kanalauswahl. Das weicht von A-19 ab und wird nicht empfohlen.
+    4. Die seriellen Schleifen von pyprep-RANSAC und autoreject selbst parallelisieren. Hoher Aufwand, bindet an Bibliotheksinterna.
+    - Empfehlung: 1 und 2 zusammen.
+- **Nicht verifiziert:**
+  - Linux- und CI-Lauf (TECH-05, TECH-11, D-09).
+  - NG-N02 auf einem Runner mit 4 vCPU/16 GB.
+- **Offen zur Entscheidung:**
+  - STOPP R4 (NG-N02).
+  - Zeitangaben ab 27,8 h sind nur auf 1 s genau (6 signifikante Stellen, A-61, A-79).
+  - Restpunkte aus A-78.
 
 ### 2026-10-20 – P2 Formate und BIDS
 - **Abgeschlossen:** NG-F01, NG-F02, NG-F05, NG-F06, M01 bis M05, CLI-01, CLI-02, RP-09, LIB-02, LIB-03, LIB-08, CON-03. LIB-09 bleibt bewusst abgewichen (D-11); der Ersatz ist umgesetzt.

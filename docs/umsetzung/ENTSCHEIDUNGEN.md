@@ -503,7 +503,7 @@ das PDF in `debian:12-slim` mit `--network none` und einer dokumentierten apt-Li
 - Der Bericht zeigt je Regel höchstens 50 Zeilen; die vollständige Liste steht in JSON bzw. einem CSV-Anhang.
 - Skalierungstest: 1000 Aufnahmen × 64 Kanäle.
 
-**A-60 Vorbedingungen der Metriken.** Jede Metrik hat Vorbedingungen; ist eine nicht erfüllt, ist das Ergebnis not_checkable mit Grund-Schlüssel, nie Exit 2.
+**A-60 Vorbedingungen der Metriken.** Jede Metrik hat Vorbedingungen; ist eine nicht erfüllt, ist das Ergebnis not_checkable mit Grund-Schlüssel, nie Exit 2. Präzisiert durch A-79 (P3).
 - **Montage-Quelle:** `electrodes.tsv` > Abbildung aus M04 auf die Standardmontage > keine.
 - **Ohne Positionen:** M06 läuft ohne RANSAC, M09a ohne Interpolation, M09b ist not_checkable.
 - **Mindestwerte:** ≥ 60 s nutzbare Daten für M06/M09; ≥ 16 EEG-Kanäle für M09b (konfigurierbar). Sie stehen in results.json.
@@ -768,3 +768,62 @@ Rohordnern steht „unbekannt“, bis die Zuordnung aus der toml (A-05, P2) vorl
   2. MAT-v5-Zellen und -Strukturen mit sehr großen deklarierten Dimensionen belegen beim Laden viel Speicher (gemessen: 2 kB Datei → rund 470 MB). Die Grenze von 4 GB zählt dort nur entpackte Bytes, keine Elemente. Schließen würde das ein eigener Elementlauf über MAT v5.
   3. Sonderdateien wie FIFOs (Linux, z. B. aus Archiven) werden von Discovery und beim Verfolgen von FIF-Teilen nicht ausgeschlossen; Lesen kann dann blockieren.
   4. Kanaltypen nach Label sind nicht vollständig (z. B. BioSemi EXG1–8 bleiben EEG). Eine Tabelle `[metadata.channel_types]` in `neurogrid.toml` für Rohordner wäre möglich, geht aber über die PRD hinaus und ist deshalb nicht umgesetzt.
+
+## Annahmen aus der Umsetzung von P3
+
+**A-79 Signalqualität M06–M09 (P3; präzisiert A-18, A-19, A-21, A-60).**
+- **Lesen:**
+  - EDF/BDF: eigener Leser über ein Speicherabbild der Datensätze. Er liefert Digitalwerte (für M08 an den Grenzen des Messbereichs) und jeden Kanal in seiner nativen Rate. Gelesen werden nur vollständige Datensätze.
+  - EDF+D/BDF+D: Die Zeiten kommen aus dem ersten TAL jedes Datensatzes. KONZEPT 1.5 nannte dafür edfio; edfio liest aber kein BDF.
+  - BrainVision, EEGLAB und FIF: über MNE mit `preload=False`, in 60-s-Blöcken.
+  - Mehrfach vergebene Kanalnamen werden wie bei MNE eindeutig gemacht (`Fp1-0`, `Fp1-1`). Die Werte stehen unter diesen Namen.
+- **Stream:** Die Kanäle eines Blocks werden in min(4, Kerne) Threads gerechnet (KONZEPT 1.5). Jeder Kanal bleibt in einem Thread, die Werte hängen nicht von der Thread-Zahl ab.
+- **M07** (A-18, A-47): Rechenweg wie in KONZEPT 1.5. Der Kanalwert ist der Median der Blockwerte.
+  - not_applicable bei fs < 2·(f₀+1).
+  - not_checkable, wenn die Aufnahme kürzer als ein 2-s-Segment ist (`quality.too_short`) oder der Kanal zwischen 1 und 40 Hz keine Leistung hat (`quality.no_signal_power`). Ein konstanter Abschnitt zählt als leistungslos, denn sein Mittelwert ist in Gleitkomma nicht immer exakt.
+  - Liegt das Band der anderen Netzfrequenz über Nyquist, wird es nicht gemessen.
+  - **CORE-M07-02** (info, Annahme) prüft die Plausibilität der dokumentierten Netzfrequenz. Der Hinweis erscheint, wenn der Median der Kanalverhältnisse bei der anderen Netzfrequenz mehr als `min_factor` = 2,0 mal so hoch ist.
+    - Ist das andere Band nicht messbar: not_checkable (`quality.rate_below_other_band`).
+    - Ist kein Kanal messbar: der gemeinsame Grund der Kanäle.
+- **M08** (A-18):
+  - Toleranzen stehen in `[quality]`: `flat_tolerance_uv` 0,1 µV, `plateau_samples` 10.
+  - Ein 1-s-Fenster braucht mindestens 2 Werte. Darunter ist M08 not_checkable (`quality.window_too_few_samples`): Ein einzelner Wert ergäbe immer „flach“.
+  - Zeitbereiche benachbarter Fenster werden zusammengefasst. Je Kanal stehen höchstens 100 Bereiche im Befund, dazu die Gesamtzahl.
+  - Bekannte Grenze: Das kanonische JSON rundet Zahlen auf 6 signifikante Stellen (A-61). Zeitangaben sind deshalb ab 10⁵ s (27,8 h) nur noch auf 1 s genau.
+- **Unbrauchbare Werte** (A-75): Fenster und Welch-Segmente mit nicht endlichen Werten oder Werten jenseits von ±10¹⁰⁰ µV (beschädigte Datei) werden nicht beurteilt, sondern als `unusable_windows` gezählt. Ein Kanal ohne beurteilbare Werte ergibt not_checkable `quality.unusable_samples`. Eine nicht endliche Netzfrequenz im Dateikopf gilt als nicht dokumentiert; es gilt dann 50 Hz.
+- **Signal-Hash `NG-SIGHASH-v1`** (A-21):
+  - Je Kanal SHA-256 über die int64-Werte von rint(µV·10), kombiniert mit der Rate.
+  - Werte jenseits von ±2⁶² werden begrenzt; nicht endliche Werte gehen als int64-Minimum ein.
+  - Der Hash dient M12 (P4) und wird nicht ausgegeben.
+- **Stichprobe** (A-19): Der Ausweis steht in results.json (`recordings[].sample`) und im Bericht (Abschnitt 4). Er nennt Modus, Abschnitte in Aufnahmezeit, Seed, ausgewertete Kanäle, Positionsquelle, ausgelassene Kanäle, Notch, Band, 250 Hz und die Epochenlänge. Die Bibliotheken (pyprep, autoreject, picard) erhalten `seed mod 2³²`, denn NumPy nimmt keine größeren Seeds; A-75 lässt Seeds bis 2⁶³−1 zu.
+- **Montage-Quelle** (präzisiert A-60): Je Aufnahme gilt die erste Quelle, die Positionen für alle EEG-Kanäle oder für mindestens `min_channels` liefert. Alle Quellen stehen im Kopfkoordinatensystem von MNE.
+  1. `electrodes.tsv`, nur zusammen mit der `coordsystem.json` desselben `space`:
+     - Die Einheit muss m, cm oder mm sein.
+     - Das System muss eine bekannte Ausrichtung haben. RAS-Systeme (CapTrak, ElektaNeuromag, ChietiItab) werden direkt übernommen. ALS-Systeme (CTF, 4DBti, KitYokogawa, EEGLAB, EEGLAB-HJ) werden nach RAS gedreht.
+     - Vorlage-Räume und „Other“ werden nicht verwendet.
+     - Von mehreren Dateien gilt die erste brauchbare der tiefsten Ebene. Ist keine brauchbar, steht der Grund im Ausweis (`positions_unused`).
+  2. Positionen aus der Datei, wie MNE sie im Kopfkoordinatensystem liest (FIF, EEGLAB, BrainVision).
+  3. Standardmontage colin27 (10-05) über die Standardnamen aus M04 und `channel_map`. Die Vorlage ist im MRI-System gespeichert und wird wie bei `raw.set_montage` ins Kopfkoordinatensystem überführt.
+  4. Keine Positionen.
+  - Haben nur einige Kanäle Positionen, aber mindestens `min_channels`, werden nur diese Kanäle ausgewertet. Die übrigen stehen im Ausweis (z. B. BioSemi EXG1–8).
+- **M06** (A-19):
+  - Die Kriterien laufen in der Reihenfolge von pyprep `find_all_bads`, RANSAC zuletzt.
+  - RANSAC läuft nur mit Positionen und nur, wenn die Vorbedingungen von pyprep erfüllt sind: mindestens 14 nutzbare Kanäle und genug gute Kanäle nach den übrigen Kriterien. Sonst wird RANSAC übersprungen (`ransac_skipped`). Vorher brach M06 in diesem Fall ganz ab.
+  - Bricht M06 ab, sind die schlechten Kanäle unbekannt. M09a und M09b brauchen die Durchschnittsreferenz ohne sie und sind dann not_checkable (`quality.bad_channels_unknown`).
+- **Vorbedingungen** (präzisiert A-60):
+  - Für M06, M09a und M09b gelten ≥ 60 s Daten, ≥ 200 Hz (für das Band 1–100 Hz) und ≥ `min_channels` EEG-Kanäle (16, `[quality]`). A-60 sah die Kanalzahl nur für M09b vor. Gemessen: Bei 3 bipolaren PSG-Kanälen markierte pyprep alle als schlecht (M06 = 1,0).
+  - autoreject braucht Positionen auch ohne Interpolation. Ohne Positionen ist M09a deshalb not_checkable (`quality.no_positions`); A-60 sah „ohne Interpolation“ vor.
+  - Bricht ein Verfahren oder die Vorbereitung der Stichprobe ab, ergibt das not_checkable `quality.method_failed` mit dem Typ der Ausnahme. Die Stream-Werte bleiben erhalten.
+- **ICLabel** läuft über onnxruntime. Vorher wird `onnxruntime.disable_telemetry_events()` aufgerufen (KONZEPT 3, NG-N01, CON-04).
+- **Determinismus** (A-11, NG-N03):
+  - Gerechnet wird stets mit einem BLAS-Thread (threadpoolctl); `environment.blas_threads` ist 1.
+  - `--jobs N` verteilt die Aufnahmen auf N Prozesse, jeder mit Netzwerkschutz. Das Ergebnis ist byte-gleich zu `--jobs 1`.
+  - Unter Windows nutzt der Pool höchstens 61 Prozesse (Grenze von ProcessPoolExecutor), auch wenn `--jobs` bis 64 erlaubt.
+  - Stirbt ein Prozess, wird die betroffene Aufnahme einzeln wiederholt. Stirbt er erneut, ergibt das not_checkable `quality.worker_failed`.
+- **Kalibrierung** (A-20, MET-01):
+  - Grundlage ist das 95. Perzentil der gemessenen Werte über die fünf OpenNeuro-Datensätze des Korpus (22 Aufnahmen, 1050 Kanäle, 5 Formate).
+  - PSG-IPA ist nicht dabei: Der Datensatz stammt von PhysioNet, A-20 legt OpenNeuro-Snapshots fest.
+  - Das Protokoll liegt in `src/neurogrid/rulepacks/calibration/core.json`. `tools/calibrate.py --check` und ein Test prüfen, dass Protokoll, Regelpaket und die Standardwerte der Prüfungen übereinstimmen. Ein Korpus-Test rechnet die Perzentile nach.
+- **Benchmark NG-N02** (A-50): `tools/gen_large_edf.py` erzeugt EEG-ähnliche Daten aus Dipolquellen, damit pyprep, autoreject und ICA realistisch viel Arbeit haben. Mit unstrukturierter Mischung galten 56–89 % der Kanäle als schlecht, und die Laufzeit wurde unterschätzt.
+- **Abdeckung** (A-23): `neurogrid/quality/` gehört zur Gruppe „Prüfer“.
+- **Lizenz-Gate** (A-56): pyprep 0.9.0 trägt im Metadatenfeld den vollen MIT-Text. Es steht deshalb als versionsgebundene, von Hand geprüfte Ausnahme in `licenses/exceptions.txt`.

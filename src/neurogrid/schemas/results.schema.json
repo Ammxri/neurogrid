@@ -656,6 +656,19 @@
           "default": null,
           "title": "Run"
         },
+        "sample": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample"
+        },
         "sampling_rate_hz": {
           "anyOf": [
             {

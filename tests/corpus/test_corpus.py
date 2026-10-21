@@ -146,3 +146,71 @@ def test_one_recording_per_format_converts_without_validator_errors(
         assert _failed(checked, rule) == [], rule
     if strip:
         assert _failed(checked, "CORE-M01-05") == []
+
+
+# --- P3: signal quality (NG-F07, MET-01, A-20, A-79) -------------------------------------------------------
+
+SAMPLE_METRICS = ("M06", "M09a", "M09b")
+OPENNEURO = sorted(name for name in DATASETS if name.startswith("ds"))
+
+
+@pytest.mark.parametrize("name", OPENNEURO)
+def test_every_quality_value_is_measured_on_the_openneuro_recordings(name: str) -> None:
+    """NG-F07: all values per recording in results.json; every OpenNeuro recording enters the calibration."""
+    results = _check(name)
+    for rec in results.recordings:
+        metrics = rec.metrics
+        assert metrics["M07"]["channels"] and metrics["M08"]["channels"], rec.id
+        for key in SAMPLE_METRICS:
+            assert metrics[key]["state"] == "measured", (rec.id, key, metrics[key])
+        assert rec.sample is not None and rec.sample["positions"] != "none", rec.id
+
+
+def test_montage_sources_follow_a60() -> None:
+    """A-60/A-79: FIF positions from the file; ds004148's electrodes.tsv has no coordsystem.json, so the
+    template montage is used and the reason is reported; BioSemi EXG1-8 are left out of the sample."""
+    (fif,) = _check("ds000248-1.2.4").recordings
+    assert fif.sample is not None and fif.sample["positions"] == "header" and fif.sample["channels"] == 60
+    for rec in _check("ds004148-1.0.1").recordings:
+        assert rec.sample is not None and rec.sample["positions"] == "standard_montage"
+        assert rec.sample["positions_unused"] == {"sidecar": "coordsystem_missing"}
+    for rec in _check("ds002778-1.0.5").recordings:
+        assert rec.sample is not None
+        assert rec.sample["excluded_channels"] == [f"EXG{i}" for i in range(1, 9)]
+
+
+def test_psg_sample_metrics_are_not_checkable_with_three_channels() -> None:
+    """A-79: fewer than 16 EEG channels: M06/M09 not_checkable, never exit 2."""
+    results = _check("psg-ipa-1.0.0")
+    assert results.summary.exit_code in (0, 1)
+    psg = [rec for rec in results.recordings if rec.metrics]
+    assert len(psg) == 3
+    for rec in psg:
+        for key in SAMPLE_METRICS:
+            assert rec.metrics[key]["state"] == "not_checkable", (rec.id, key)
+            assert rec.metrics[key]["reason"] == "quality.too_few_channels", (rec.id, key)
+
+
+def test_calibration_protocol_is_reproducible_from_the_corpus() -> None:
+    """MET-01, A-20: the 95th percentiles over the OpenNeuro corpus, computed again from this run, equal the
+    thresholds of the protocol and of the rule pack."""
+    import json
+
+    import numpy as np
+
+    protocol = json.loads(
+        (ROOT / "src" / "neurogrid" / "rulepacks" / "calibration" / "core.json").read_text(encoding="utf-8")
+    )
+    values: dict[str, list[float]] = {"M06": [], "M07": [], "M09a": [], "M09b": []}
+    for name in OPENNEURO:
+        for rec in _check(name).recordings:
+            for channel in rec.metrics["M07"]["channels"].values():
+                if channel.get("ratio") is not None:
+                    values["M07"].append(float(channel["ratio"]))
+            for key in SAMPLE_METRICS:
+                if rec.metrics[key]["state"] == "measured":
+                    values[key].append(float(rec.metrics[key]["value"]))
+    for rule, entry in protocol["thresholds"].items():
+        data = values[entry["metric"]]
+        assert len(data) == entry["n"], rule
+        assert float(f"{np.percentile(data, 95.0):.6g}") == entry["value"], rule

@@ -176,6 +176,20 @@ reason:
   signal:
     no_eeg_channels: "未找到脑电通道。"
     rate_unknown: "文件头未给出有效的采样率。"
+  quality:
+    rate_below_line_band: "采样率过低，无法测量工频频段。"
+    rate_below_other_band: "采样率过低，无法测量另一工频（50/60 Hz）的频带。"
+    no_signal_power: "该通道在 1–40 Hz 频段内没有功率。"
+    too_short: "数据过少，无法计算该指标。"
+    rate_too_low: "采样率低于 200 Hz，不足以覆盖 1–100 Hz 频段。"
+    too_few_channels: "EEG 通道过少，无法计算该指标。"
+    no_positions: "具有电极位置（electrodes.tsv、数据文件或标准名称）的通道过少。"
+    method_failed: "该方法无法处理这些数据。"
+    not_computed: "未计算信号指标。"
+    worker_failed: "处理该记录的进程意外终止（例如内存不足）。"
+    window_too_few_samples: "每个 1 秒窗口少于两个采样点，无法判断平直线和削波。"
+    bad_channels_unknown: "无法确定坏通道（M06），因此无法在排除坏通道后进行平均参考。"
+    unusable_samples: "该通道只含非有限值或超出范围的数值（例如 NaN），无法判断。"
   metadata:
     no_task_name: "没有可比较的 TaskName 或任务标签。"
     not_bids: "不是 BIDS 数据集。"
@@ -262,6 +276,14 @@ check:
     sampling_rate_uniform: "采样率统一"
     sampling_rate_consistency: "采样率已记录且一致"
     sidecar_rate: "附带文件采样率与数据一致"
+  quality:
+    bad_channels: "坏通道比例（pyprep）"
+    line_noise: "工频干扰比"
+    line_frequency: "记录的工频与数据相符"
+    flatline: "平直段比例"
+    clipping: "削波比例"
+    autoreject: "autoreject 拒绝率"
+    non_brain_components: "非脑源 ICA 成分比例（ICLabel）"
   evidence:
     document: "证明文件"
 
@@ -318,6 +340,13 @@ report:
     parameter: "参数"
     disclaimer: "声明"
     placeholder_findings: "占位规则（未评价，不计入统计）"
+    sample: "M06/M09 的抽样"
+    sample_mode: "方式"
+    segments: "片段（记录时间）"
+    seed: "随机种子"
+    analysed_channels: "分析的通道"
+    positions: "电极位置"
+    notch: "陷波（Hz）"
   value:
     none: "–"
     whole_recording: "整段记录"
@@ -341,6 +370,9 @@ report:
     origin_check: "检查项默认值"
     origin_rulepack: "规则包"
     origin_config: "neurogrid.toml"
+    sample_method: "每个片段重采样至 {resample_hz} Hz，在工频及其谐波处陷波滤波，经 {low}–{high} Hz 带通滤波，并转换为平均参考；autoreject 使用 {epoch_s} 秒的分段。M07 和 M08 基于整段记录计算。"
+    positions_excluded: "无位置，未纳入：{names}"
+    positions_unused: "未使用 {source}：{reason}"
   measure:
     documented: "已说明"
     channel_sets: "通道组数"
@@ -352,9 +384,27 @@ report:
     file_total: "文件中的通道"
     sidecar_eeg: "EEGChannelCount"
     sidecar_hz: "附带文件（Hz）"
+    documented_hz: "记录值（Hz）"
+    documented_median: "记录频率下的比值中位数"
+    other_hz: "另一频率（Hz）"
+    other_median: "另一频率下的比值中位数"
     rate_hz: "采样率（Hz）"
     rates_hz: "采样率（Hz）"
     uniform: "一致"
+  sample_mode:
+    sample: "抽样"
+    full: "整段记录"
+  positions:
+    sidecar: "electrodes.tsv"
+    header: "数据文件"
+    standard_montage: "标准导联（标准名称）"
+    none: "无"
+  positions_unused:
+    coordsystem_missing: "缺少 coordsystem.json"
+    units_unknown: "未说明坐标单位"
+    frame_unsupported: "不支持该坐标系"
+    no_coordinates: "没有坐标"
+    unreadable: "文件无法读取"
   validator:
     generic: "BIDS 验证器问题 {code}。"
     count: "（共 {count} 处）"

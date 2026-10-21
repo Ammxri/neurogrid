@@ -2,3 +2,4 @@
 # can match. Each entry is version-pinned and was reviewed by hand; every upgrade needs a fresh review.
 # Format: name:version   # result of the manual review
 pybv:0.8.1   # BSD 3-Clause (dist-info/licenses/LICENSE, metadata 'License: BSD 3-Clause License'); reviewed 2026-10-11
+pyprep:0.9.0   # MIT (dist-info/licenses/LICENSE is the MIT text; metadata License field holds the full MIT text); reviewed 2026-10-21

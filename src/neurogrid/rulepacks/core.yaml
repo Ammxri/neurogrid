@@ -161,3 +161,73 @@ rules:
     params: {max_kohm: 5}
     severity: warning
     verification: automatic
+
+  - id: CORE-M06-01
+    clause: M06
+    title_zh: 坏通道比例不超过阈值
+    title_en: Share of bad channels within the limit
+    phase: acquisition
+    check: quality.bad_channels
+    params: {max_fraction: 0.30625}  # 95th percentile, public corpus (A-20, MET-01): rulepacks/calibration/core.json, n = 22 recordings
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M07-01
+    clause: M07
+    title_zh: 工频干扰比不超过阈值
+    title_en: Line-noise ratio within the limit
+    phase: acquisition
+    check: quality.line_noise
+    params: {max_ratio: 0.407669}  # 95th percentile, public corpus (A-20, MET-01): rulepacks/calibration/core.json, n = 1050 channels
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M07-02
+    clause: M07
+    title_zh: 记录的工频与数据相符
+    title_en: Documented line frequency fits the data
+    phase: acquisition
+    check: quality.line_frequency
+    params: {min_factor: 2.0}
+    severity: info
+    verification: automatic
+
+  - id: CORE-M08-01
+    clause: M08
+    title_zh: 平直段不超过时长的 5%
+    title_en: Flat line within 5 % of the duration
+    phase: acquisition
+    check: quality.flatline
+    params: {max_fraction: 0.05}
+    severity: error
+    verification: automatic
+
+  - id: CORE-M08-02
+    clause: M08
+    title_zh: 削波不超过时长的 5%
+    title_en: Clipping within 5 % of the duration
+    phase: acquisition
+    check: quality.clipping
+    params: {max_fraction: 0.05}
+    severity: error
+    verification: automatic
+
+  - id: CORE-M09-01
+    clause: M09
+    title_zh: autoreject 拒绝率不超过阈值
+    title_en: autoreject rejection rate within the limit
+    phase: acquisition
+    check: quality.autoreject
+    params: {max_fraction: 0.305083}  # 95th percentile, public corpus (A-20, MET-01): rulepacks/calibration/core.json, n = 22 recordings
+    severity: warning
+    verification: automatic
+
+  - id: CORE-M09-02
+    clause: M09
+    title_zh: 非脑源 ICA 成分比例不超过阈值
+    title_en: Share of non-brain ICA components within the limit
+    phase: acquisition
+    check: quality.non_brain_components
+    params: {max_fraction: 0.6}  # 95th percentile, public corpus (A-20, MET-01): rulepacks/calibration/core.json, n = 22 recordings
+    severity: warning
+    verification: automatic

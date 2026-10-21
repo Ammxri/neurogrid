@@ -35,6 +35,8 @@ RAW_DOCUMENTED = (
     '[[convert.files]]\npath = "rec.vhdr"\nsubject = "01"\ntask = "rest"\n'
 )
 BIDS = ("bids",)
+# documents 60 Hz for data with 50 Hz line noise (A-47)
+LINE_60_HZ = "[metadata.defaults]\nline_frequency_hz = 60\n"
 
 
 CASES = [
@@ -106,11 +108,30 @@ CASES = [
     Case("BIDS-STO-002", "bids_issues", Status.FAILED, rulepacks=BIDS),
     Case("BIDS-STO-003", "bids_ok", Status.PASSED, rulepacks=BIDS),
     Case("BIDS-STO-003", "bids_issues", Status.FAILED, rulepacks=BIDS),
+    # P3: signal quality M06–M09 at the calibrated thresholds, all from the measured values of the synthetic
+    # recordings (tools/gen_fixtures.py): edf_quality_ok passes every rule, edf_quality_issues has one problem
+    # per rule, edf_quality_artefacts is dominated by artefacts (ICLabel).
+    Case("CORE-M06-01", "edf_quality_ok", Status.PASSED),  # 2 of 20 channels bad (0.1)
+    Case("CORE-M06-01", "edf_quality_issues", Status.FAILED),  # 10 of 20 channels bad (0.5)
+    Case("CORE-M06-01", "edf_ok", Status.NOT_CHECKABLE),  # 10 s of data: quality.too_short (A-79)
+    Case("CORE-M07-01", "edf_quality_ok", Status.PASSED),  # ratios 0.0096–0.028
+    Case("CORE-M07-01", "edf_quality_issues", Status.FAILED),  # 40 µV hum on T7, T8, P7, P8 (ratio ≥ 5)
+    Case("CORE-M07-02", "edf_quality_ok", Status.PASSED),  # documented 50 Hz fits the 50 Hz hum
+    Case("CORE-M07-02", "edf_quality_ok", Status.FAILED, LINE_60_HZ),  # 50 Hz median 8 × the 60 Hz one
+    Case("CORE-M08-01", "edf_quality_ok", Status.PASSED),  # P8 flat in 2 of 70 windows (2.9 %)
+    Case("CORE-M08-01", "edf_quality_issues", Status.FAILED),  # O2 flat for 10 s (14 %)
+    Case("CORE-M08-02", "edf_quality_ok", Status.PASSED),  # P8 at the digital maximum in 2 of 70 windows
+    Case("CORE-M08-02", "edf_quality_issues", Status.FAILED),  # F8 at the digital maximum for 6 s (8.6 %)
+    Case("CORE-M09-01", "edf_quality_ok", Status.PASSED),  # 3 of 35 epochs rejected (0.086)
+    Case("CORE-M09-01", "edf_quality_issues", Status.FAILED),  # 22 of 35 epochs rejected (0.63)
+    Case("CORE-M09-02", "edf_quality_ok", Status.PASSED),  # 5 of 17 components not brain (0.29)
+    Case("CORE-M09-02", "edf_quality_artefacts", Status.FAILED),  # 17 of 19 components not brain (0.89)
+    Case("CORE-M09-02", "edf_quality_issues", Status.NOT_CHECKABLE),  # 10 good channels, ICA needs 16
 ]
 
 
 def builtin_rule_ids() -> set[str]:
-    ids = set()
+    ids: set[str] = set()
     for entry in resources.files("neurogrid.rulepacks").iterdir():
         if entry.name.endswith(".yaml"):
             pack = load_rulepack(entry.read_text(encoding="utf-8"), origin="builtin").pack
@@ -118,18 +139,28 @@ def builtin_rule_ids() -> set[str]:
     return ids
 
 
+# Statuses per rule of one run, keyed by fixture, configuration and rule packs. A run is deterministic, so
+# the cases of the same run share it: the signal quality sample (M06/M09) costs seconds per recording.
+_RUNS: dict[tuple[str, str | None, tuple[str, ...]], dict[str, set[Status]]] = {}
+
+
 def statuses(case: Case, tmp_path: Path) -> set[Status]:
-    config_path = None
-    if case.config:
-        config_path = tmp_path / "neurogrid.toml"
-        config_path.write_text(case.config, encoding="utf-8")
-    results = pipeline.run_check(
-        FIX / case.folder, pipeline.CheckOptions(config_path=config_path, rulepacks=case.rulepacks)
-    )
-    found = {f.status for f in results.findings if f.rule_id == case.rule}
-    if any(p.rule_id == case.rule for p in results.passed):
-        found.add(Status.PASSED)
-    return found
+    key = (case.folder, case.config, case.rulepacks)
+    if key not in _RUNS:
+        config_path = None
+        if case.config:
+            config_path = tmp_path / "neurogrid.toml"
+            config_path.write_text(case.config, encoding="utf-8")
+        results = pipeline.run_check(
+            FIX / case.folder, pipeline.CheckOptions(config_path=config_path, rulepacks=case.rulepacks)
+        )
+        by_rule: dict[str, set[Status]] = {}
+        for finding in results.findings:
+            by_rule.setdefault(finding.rule_id, set()).add(finding.status)
+        for passed in results.passed:
+            by_rule.setdefault(passed.rule_id, set()).add(Status.PASSED)
+        _RUNS[key] = by_rule
+    return set(_RUNS[key].get(case.rule, set()))
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: f"{c.rule}-{c.folder}-{c.expected.value}")
