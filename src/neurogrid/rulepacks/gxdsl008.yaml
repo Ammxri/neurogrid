@@ -8,6 +8,8 @@
 # GX-03 reads "EDF or HDF5" as the storage format of the recordings: EDF, EDF+C and EDF+D, and EEGLAB data sets
 # in a MAT v7.3 (HDF5) container pass; BDF, BrainVision, EEGLAB MAT v5 and FIF give the warning, also for
 # BrainVision written by NeuroGrid's own convert (A-83).
+# GX-05 reads "checksums" as the provenance manifest of M13 (A-82): without a usable manifest, when its
+# manifest_hash does not match its content or when a file differs from it, the rule gives the warning.
 rulepack: gxdsl008
 version: "0.1.0"
 source: "T/GXDSL 008-2025 (start values as quoted in the PRD; norm text not accessible)"
@@ -52,3 +54,15 @@ rules:
     check: evidence.document
     severity: warning
     verification: manual
+
+  # GX-05 (A-15, A-82): semi-automatic "document present and hash matches" read as the provenance manifest
+  # (default <dataset>/.neurogrid/manifest.json or --manifest): passes only when the manifest exists, its
+  # manifest_hash matches its content and every file matches it (the M13 check of CORE-M13-01/-02).
+  - id: GXDSL008-STO-002
+    clause: unknown
+    title_zh: 文件具有校验和（清单）
+    title_en: Files have checksums (manifest)
+    phase: storage
+    check: provenance.manifest_matches
+    severity: warning
+    verification: semi_automatic

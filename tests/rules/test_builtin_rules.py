@@ -229,7 +229,7 @@ CASES = [
     Case("CORE-M09-02", "edf_quality_ok", Status.PASSED),  # 5 of 17 components not brain (0.29)
     Case("CORE-M09-02", "edf_quality_artefacts", Status.FAILED),  # 17 of 19 components not brain (0.89)
     Case("CORE-M09-02", "edf_quality_issues", Status.NOT_CHECKABLE),  # 10 good channels, ICA needs 16
-    # P4 evidence area: gxdsl008 (GX-00..GX-04, A-40, A-83), loaded next to core; GX-05 follows with M13
+    # P4 evidence area: gxdsl008 (GX-00..GX-05, A-40, A-83), loaded next to core; GX-05 with M13 (A-82)
     Case("CORE-M05-02", "edf_ok", Status.NOT_CHECKABLE),  # Q16: no impedance documented, never silent
     Case("GXDSL008-ACQ-001", "bids_ok", Status.PASSED, WET, GX),  # 3.5 kOhm per electrode
     Case("GXDSL008-ACQ-001", "brainvision_ok", Status.PASSED, WET, GX),
@@ -251,6 +251,12 @@ CASES = [
     Case("GXDSL008-ACC-001", "edf_ok", Status.EVIDENCE_OPEN, rulepacks=GX, setup="evidence_open"),
     Case("GXDSL008-ACC-001", "edf_ok", Status.EVIDENCE_OPEN, rulepacks=GX, setup="evidence_partial"),
     Case("GXDSL008-ACC-001", "edf_ok", Status.NOT_APPLICABLE, rulepacks=GX, setup="evidence_not_applicable"),
+    # GX-05 on the M13 check provenance.manifest_matches (A-15, A-82): manifest present and every file matches
+    Case("GXDSL008-STO-002", "edf_ok", Status.PASSED, rulepacks=GX, setup="manifest"),
+    Case("GXDSL008-STO-002", "bids_ok", Status.PASSED, rulepacks=GX, setup="manifest_outside"),
+    Case("GXDSL008-STO-002", "edf_ok", Status.FAILED, rulepacks=GX),  # no manifest: the warning
+    Case("GXDSL008-STO-002", "edf_ok", Status.FAILED, rulepacks=GX, setup="manifest_changed"),
+    Case("GXDSL008-STO-002", "edf_ok", Status.FAILED, rulepacks=GX, setup="manifest_invalid"),
     # P4 ai: M11/M12 (tools/gen_fixtures.py). bids_ai_ok passes every rule: classes A/B/C at 0.4/0.3/0.3 in
     # every scope, age and sex for all six subjects, subject-disjoint splits, seven different signals.
     # bids_ai_issues has one problem per rule.
@@ -279,7 +285,7 @@ CASES = [
     Case("CORE-M13-02", "edf_ok", Status.PASSED, setup="manifest"),
     Case("CORE-M13-02", "bids_ok", Status.PASSED, setup="manifest_outside"),
     Case("CORE-M13-02", "edf_ok", Status.FAILED, setup="manifest_changed"),
-    Case("CORE-M13-02", "edf_ok", Status.NOT_CHECKABLE),  # no manifest
+    Case("CORE-M13-02", "edf_ok", Status.NOT_APPLICABLE),  # no manifest: nothing to compare (M13-01 says it)
     Case("CORE-M13-02", "edf_ok", Status.NOT_CHECKABLE, setup="manifest_invalid"),
     Case("CORE-M13-03", "provenance_ok", Status.PASSED),  # provenance.yaml with steps and software
     Case("CORE-M13-03", "edf_ok", Status.FAILED),  # no source at all

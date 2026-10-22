@@ -1,10 +1,11 @@
 """Provenance (M13, NG-F10, A-22, A-82): streaming file hashes, the manifest model, the dataset inventory, the
 manifest builder and reader, and the comparison of a dataset with its manifest.
 
-manifest.json (format_version "1") holds the sorted file list (path, SHA-256, size), the entries that were
-not followed or not hashed (``skipped``: links and junctions, special files such as FIFOs or devices, and
-names the central path check refuses, A-52), the excluded paths (``excluded``: the hash-chained vault log, so
-that ``verify`` needs no neurogrid.toml), the processing steps (DM-07), the software versions and
+manifest.json (format_version "1"; by default <dataset>/.neurogrid/manifest.json, KONZEPT 2.5, A-22, A-82)
+holds the sorted file list (path, SHA-256, size), the entries that were not followed or not hashed
+(``skipped``: links and junctions, special files such as FIFOs or devices, and names the central path check
+refuses, A-52), the excluded paths (``excluded``: the hash-chained vault log, so that ``verify`` needs no
+neurogrid.toml), the processing steps (DM-07), the software versions and
 ``manifest_hash``: SHA-256 over the compact canonical JSON of everything else (kernel/canonical.py, A-61). It
 is not the ``sha256sum`` of the file. The manifest holds no time stamp, host or user name and no absolute
 path, so the same data give byte-identical manifests (A-11).
@@ -43,8 +44,10 @@ from neurogrid.kernel.safety import MAX_PATH_CHARS, check_relative, is_link, rea
 
 CHUNK_BYTES = 1024 * 1024
 MANIFEST_FORMAT_VERSION = "1"
-# A-82: the default location of the manifest, relative to the dataset root; always left out of the inventory.
-DEFAULT_MANIFEST = PurePosixPath("manifest.json")
+# The default location of the manifest, relative to the dataset root (KONZEPT 2.5, A-22, A-82): inside
+# .neurogrid/, which the BIDS validator does not enter (a manifest.json at a BIDS root is NOT_INCLUDED). It is
+# always left out of the inventory; everything else in .neurogrid/ is covered.
+DEFAULT_MANIFEST = PurePosixPath(".neurogrid", "manifest.json")
 MAX_MANIFEST_BYTES = 256_000_000  # as for results.json (A-53)
 MAX_MANIFEST_ENTRIES = 2_000_000
 HASH_THREADS = max(1, min(4, os.cpu_count() or 1))

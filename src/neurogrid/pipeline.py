@@ -715,7 +715,8 @@ class ManifestRun:
     skipped: dict[str, int]  # kind -> number of entries not hashed
     files: int
     total_bytes: int
-    visible_to_validator: bool  # written into a BIDS dataset outside .neurogrid: the BIDS validator lists it
+    # --out into a BIDS dataset outside every hidden folder (such as .neurogrid/): the BIDS validator lists it
+    visible_to_validator: bool
 
     @property
     def exit_code(self) -> int:
@@ -727,10 +728,14 @@ def run_manifest(
 ) -> ManifestRun:
     """Build the manifest of a dataset folder; the caller writes ``data`` to ``target``.
 
-    The default target is <dataset>/manifest.json, never written through a link (A-52, A-66); ``out`` is an
-    operator path that may lie outside the dataset (D-10 d) and is left out of the file list when it lies
-    inside. neurogrid.toml is read from its default location only for [vault] path (the access log is excluded
-    and recorded as such). An invalid provenance.yaml or processing_steps.json ends with exit 2 (C2)."""
+    The default target is <dataset>/.neurogrid/manifest.json (KONZEPT 2.5, A-82; the BIDS validator does not
+    enter .neurogrid/), never written through a link, neither a linked .neurogrid nor a linked manifest.json
+    (A-52, A-66); the caller creates .neurogrid/ when it is missing. ``out`` is an operator path that may lie
+    outside the dataset (D-10 d) and is left out of the file list when it lies inside; inside a BIDS dataset
+    and outside every hidden folder such as .neurogrid/ the BIDS validator lists it
+    (``visible_to_validator``). neurogrid.toml is read from its default location only for [vault] path (the
+    access log is excluded and recorded as such). An invalid provenance.yaml or processing_steps.json ends
+    with exit 2 (C2)."""
     root = _folder(raw_target)
     loaded = config_module.load(None, root)
     is_bids = is_bids_folder(root)
@@ -757,6 +762,8 @@ def run_manifest(
     skipped: dict[str, int] = {}
     for entry in built.skipped:
         skipped[entry.kind] = skipped.get(entry.kind, 0) + 1
+    # the BIDS validator does not enter hidden folders (measured with the bundled 3.0.2): the default location
+    # never needs the hint, an --out at the BIDS root or in sub-01/ does
     visible = is_bids and own is not None and not any(part.startswith(".") for part in own.split("/"))
     return ManifestRun(
         root=root,

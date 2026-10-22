@@ -51,7 +51,7 @@ cli:
     written: "清单已写入 {path}"
     unreadable: "{count} 个文件或文件夹无法读取："
     not_written: "未写入清单：不完整的清单无法显示这些文件此后的变化。"
-    bids_hint: "提示：BIDS 验证器会列出 BIDS 未定义的文件，此处即清单文件。请使用 --out 将清单写到数据集之外，或将其列入 .bidsignore。"
+    bids_hint: "提示：BIDS 验证器会列出 BIDS 未定义的文件，此处即清单文件。不使用 --out 时，清单写入 .neurogrid/manifest.json，验证器不会进入该文件夹；也可以将清单写到数据集之外，或将其列入 .bidsignore。"
     more: "……另有 {count} 项"
   verify:
     hash_ok: "清单哈希值 {hash} 与清单内容一致。"
@@ -319,7 +319,7 @@ reason:
   value:
     non_finite: "测量值不是有限数值。"
   provenance:
-    manifest_missing: "没有清单（默认为数据集中的 manifest.json，或使用 --manifest）。"
+    manifest_missing: "没有清单（默认为数据集中的 .neurogrid/manifest.json，或使用 --manifest）。"
     manifest_invalid: "清单无法使用（未找到、不是有效的 JSON、格式不受支持或路径无效）。"
     manifest_hash_mismatch: "清单哈希值与清单内容不一致（清单在写入后被修改过）。"
     file_changed: "文件内容或大小与清单不同。"

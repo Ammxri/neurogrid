@@ -50,7 +50,7 @@ cli:
     written: "Manifest written to {path}"
     unreadable: "{count} file(s) or folder(s) cannot be read:"
     not_written: "No manifest was written: an incomplete manifest would not show later changes to these files."
-    bids_hint: "Note: the BIDS validator lists files that BIDS does not define, here the manifest file. Write the manifest outside the dataset with --out, or list it in .bidsignore."
+    bids_hint: "Note: the BIDS validator lists files that BIDS does not define, here the manifest file. Without --out the manifest is written to .neurogrid/manifest.json; the validator does not enter .neurogrid/. Otherwise write it outside the dataset or list it in .bidsignore."
     more: "… and {count} more"
   verify:
     hash_ok: "Manifest hash {hash} matches the manifest content."
@@ -318,7 +318,7 @@ reason:
   value:
     non_finite: "The measured value is not a finite number."
   provenance:
-    manifest_missing: "No manifest (default: manifest.json in the dataset, or --manifest)."
+    manifest_missing: "No manifest (default: .neurogrid/manifest.json in the dataset, or --manifest)."
     manifest_invalid: "The manifest cannot be used (not found, not valid JSON, unsupported format or invalid paths)."
     manifest_hash_mismatch: "The manifest hash does not match the manifest content (the manifest was edited after it was written)."
     file_changed: "The content or size of the file differs from the manifest."

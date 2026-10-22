@@ -50,7 +50,7 @@ cli:
     written: "Manifest geschrieben nach {path}"
     unreadable: "{count} Datei(en) oder Ordner nicht lesbar:"
     not_written: "Kein Manifest geschrieben: Ein unvollständiges Manifest würde spätere Änderungen an diesen Dateien nicht zeigen."
-    bids_hint: "Hinweis: Der BIDS-Validator meldet Dateien, die BIDS nicht vorsieht, hier die Manifest-Datei. Das Manifest mit --out außerhalb des Datensatzes schreiben oder in .bidsignore aufnehmen."
+    bids_hint: "Hinweis: Der BIDS-Validator meldet Dateien, die BIDS nicht vorsieht, hier die Manifest-Datei. Ohne --out wird das Manifest nach .neurogrid/manifest.json geschrieben; den Ordner .neurogrid/ betritt der Validator nicht. Sonst das Manifest außerhalb des Datensatzes schreiben oder in .bidsignore aufnehmen."
     more: "… und {count} weitere"
   verify:
     hash_ok: "Manifest-Hash {hash} passt zum Inhalt des Manifests."
@@ -318,7 +318,7 @@ reason:
   value:
     non_finite: "Der Messwert ist keine endliche Zahl."
   provenance:
-    manifest_missing: "Kein Manifest (Standard: manifest.json im Datensatz, oder --manifest)."
+    manifest_missing: "Kein Manifest (Standard: .neurogrid/manifest.json im Datensatz, oder --manifest)."
     manifest_invalid: "Das Manifest ist nicht verwendbar (nicht gefunden, kein gültiges JSON, Format nicht unterstützt oder ungültige Pfade)."
     manifest_hash_mismatch: "Der Manifest-Hash passt nicht zum Inhalt des Manifests (das Manifest wurde nach dem Schreiben geändert)."
     file_changed: "Inhalt oder Größe der Datei weicht vom Manifest ab."

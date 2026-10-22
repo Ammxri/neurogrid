@@ -76,7 +76,7 @@ class CheckContext:
     show_paths: bool = False  # --show-paths: clear paths and IDs in raw folders (D-10 f, A-51)
     strict: bool = False  # --strict (CLI-04)
     as_of: date | None = None  # the run's reference date (A-14 expiry, A-15 review dates)
-    manifest_path: Path | None = None  # --manifest; None: the default location (A-22)
+    manifest_path: Path | None = None  # --manifest; None: <dataset>/.neurogrid/manifest.json (A-22, A-82)
     evidence_path: Path | None = None  # --evidence; None: the default location (A-15)
     _validator: ValidatorResult | None = field(default=None, repr=False)
     # M11/M12 dataset structure (participants, splits, labels), built once by checks.ai_dataset (A-81)
