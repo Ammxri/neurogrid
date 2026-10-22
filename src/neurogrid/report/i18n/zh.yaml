@@ -51,6 +51,7 @@ cli:
     written: "清单已写入 {path}"
     unreadable: "{count} 个文件或文件夹无法读取："
     not_written: "未写入清单：不完整的清单无法显示这些文件此后的变化。"
+    too_many_entries: "数据集中的文件或未计算哈希值的条目超过清单可列出的数量（上限 {limit}）；未写入清单。"
     bids_hint: "提示：BIDS 验证器会列出 BIDS 未定义的文件，此处即清单文件。不使用 --out 时，清单写入 .neurogrid/manifest.json，验证器不会进入该文件夹；也可以将清单写到数据集之外，或将其列入 .bidsignore。"
     bids_hint_bidsignore: "提示：BIDS 验证器会列出 BIDS 未定义的文件（.bidsignore 涵盖的文件除外），因此可能会列出清单文件。不使用 --out 时，清单写入 .neurogrid/manifest.json，验证器不会进入该文件夹；也可以将清单写到数据集之外，或将其列入 .bidsignore。"
     more: "……另有 {count} 项"
@@ -169,7 +170,6 @@ errors:
     excluded_invalid: "清单无效：字段 '{field}' 只能指明 vault 访问日志。"
     needs_folder: "manifest 和 verify 需要数据集文件夹，而不是单个文件。"
     steps_invalid: ".neurogrid/processing_steps.json 无法使用（{problem}）；未写入清单。"
-    too_many_entries: "数据集中的文件或未计算哈希值的条目超过清单可列出的数量（上限 {limit}）；未写入清单。"
   provenance:
     invalid: ".neurogrid/provenance.yaml 无效：字段 '{field}'（{problem}）。"
     unreadable: "无法读取 .neurogrid/provenance.yaml。"

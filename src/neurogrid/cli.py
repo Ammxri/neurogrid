@@ -380,7 +380,9 @@ def manifest(
     _state["dataset_root"] = pipeline.resolve_target(path).root
     target = _output_file(out) if out is not None else None
     run = pipeline.run_manifest(path, target, show_paths=show_paths)
-    if run.manifest is None or run.data is None:
+    if run.too_many_entries is not None:  # dataset data: a result without a manifest, not an error (C2)
+        _say("cli.manifest.too_many_entries", limit=run.too_many_entries)
+    elif run.manifest is None or run.data is None:
         _say("cli.manifest.unreadable", count=len(run.unreadable))
         _print_list(run.unreadable)
         _say("cli.manifest.not_written")

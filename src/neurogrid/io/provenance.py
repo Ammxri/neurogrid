@@ -380,8 +380,12 @@ def shown_target(own: str, *, plain: bool) -> str:
 
 
 def _bidsignore_lines(root: Path) -> list[str] | None:
-    """The lines of the dataset's .bidsignore ([] without one), None if it cannot be read (dataset data: never
-    an error, C2)."""
+    """The lines of the dataset's .bidsignore as the bundled validator reads them ([] without one), None if it
+    cannot be read (dataset data: never an error, C2).
+
+    The validator decodes UTF-8 with replacement characters and drops one leading byte order mark; text that
+    then starts with a replacement character is taken for UTF-16 and the whole file is left unused. It splits
+    at LF only, so a CR stays at the end of its line."""
     path = root / ".bidsignore"
     try:
         if not os.path.lexists(path):
@@ -391,7 +395,29 @@ def _bidsignore_lines(root: Path) -> list[str] | None:
         data = read_limited(path, MAX_BIDSIGNORE_BYTES)
     except (OSError, InputError):
         return None
-    return data.decode("utf-8", "replace").split("\n")
+    text = data.decode("utf-8-sig", "replace")
+    if text.startswith("\ufffd"):
+        return []
+    return text.split("\n")
+
+
+def _js_fold(text: str) -> str:
+    """Case folding of a JavaScript regular expression with the i flag and without the u flag, as the
+    validator matches .bidsignore patterns (ECMA-262 Canonicalize): each UTF-16 unit becomes its upper case
+    when that is one unit and does not turn a non-ASCII unit into ASCII; characters outside the BMP (two
+    units in JavaScript) stay as they are. Unlike str.lower, the Kelvin sign does not match 'k', and final
+    sigma matches sigma."""
+    folded: list[str] = []
+    for char in text:
+        upper = char.upper()
+        if ord(char) > 0xFFFF or len(upper) != 1 or (ord(char) >= 128 and ord(upper) < 128):
+            folded.append(char)
+        else:
+            folded.append(upper)
+    return "".join(folded)
+
+
+_FOLDED_IGNORED_FOLDERS = frozenset(_js_fold(name) for name in VALIDATOR_IGNORED_FOLDERS)
 
 
 def validator_listing(root: Path, own: str) -> str | None:
@@ -399,26 +425,32 @@ def validator_listing(root: Path, own: str) -> str | None:
     None if it does not, "listed" if it does, "maybe" if .bidsignore cannot be read, holds patterns this check
     does not evaluate (wildcards, escapes) or a negation that may list a covered file again.
 
-    Measured with the bundled validator (VALIDATOR_VERSION): it lists no hidden entry at any level and
-    nothing in the top-level folders of VALIDATOR_IGNORED_FOLDERS (also in other case), and it applies
-    .bidsignore with gitignore rules, without case and with trailing whitespace dropped. A literal line names
-    a file or folder anywhere when it has no slash, from the root when it has one (a trailing slash names a
-    folder only)."""
-    parts = own.lower().split("/")
+    Measured with the bundled validator (VALIDATOR_VERSION), whose .bidsignore rules are those of the ignore
+    package 7.0.8: it lists no hidden entry at any level and nothing in the top-level folders of
+    VALIDATOR_IGNORED_FOLDERS (also in other case), and it applies .bidsignore with gitignore rules and
+    without case (_js_fold). A line is skipped when it is empty, holds only spaces or starts with '#'; a
+    leading '!' negates it. Of the rest a leading byte order mark, then trailing CRs, then trailing spaces
+    are dropped, nothing else: a tab, a no-break or an ideographic space at the end stays part of the name.
+    A line that is empty then matches every path. A literal line names a file or folder anywhere when it has
+    no slash, from the root when it has one (a trailing slash names a folder only)."""
+    parts = [_js_fold(part) for part in own.split("/")]
     if any(part.startswith(".") for part in parts):
         return None
-    if len(parts) > 1 and parts[0] in VALIDATOR_IGNORED_FOLDERS:
+    if len(parts) > 1 and parts[0] in _FOLDED_IGNORED_FOLDERS:
         return None
     lines = _bidsignore_lines(root)
     if lines is None:
         return "maybe"
     covered = negated = unknown = False
     for raw in lines:
-        line = raw.removeprefix("\ufeff").rstrip()
-        if not line or line.startswith("#"):
+        if not raw.strip(" ") or raw.startswith("#"):
             continue
-        if line.startswith("!"):  # may list the file again
+        if raw.startswith("!"):  # may list the file again
             negated = True
+            continue
+        line = raw.removeprefix("\ufeff").rstrip("\r").rstrip(" ")
+        if not line:
+            covered = True
             continue
         if any(char in line for char in "*?[\\"):
             unknown = True
@@ -426,7 +458,7 @@ def validator_listing(root: Path, own: str) -> str | None:
         folder_only = line.endswith("/")
         body = line[:-1] if folder_only else line
         anchored = "/" in body
-        pattern = body.removeprefix("/").lower().split("/")
+        pattern = [_js_fold(part) for part in body.removeprefix("/").split("/")]
         if "" in pattern:
             unknown = True
             continue

@@ -721,14 +721,16 @@ def _folder(raw_target: str | Path) -> Path:
 
 @dataclass(frozen=True)
 class ManifestRun:
-    """What ``manifest`` built (CLI-06, A-22, A-82). ``data`` is None when files or folders could not be read:
-    an incomplete manifest would hide changes, so nothing is written and the command ends with exit 1."""
+    """What ``manifest`` built (CLI-06, A-22, A-82). ``data`` is None when files or folders could not be read
+    (an incomplete manifest would hide changes) or the dataset holds more entries than a manifest lists
+    (``too_many_entries``, the limit; dataset data, C2): nothing is written, the command ends with exit 1."""
 
     root: Path
     target: Path
     manifest: Manifest | None
     data: bytes | None
     unreadable: list[str]  # displayed IDs (A-51)
+    too_many_entries: int | None  # the limit (MAX_MANIFEST_ENTRIES) when the dataset holds more entries
     skipped: dict[str, int]  # kind -> number of entries not hashed
     files: int
     total_bytes: int
@@ -791,6 +793,7 @@ def run_manifest(
         manifest=built.manifest,
         data=manifest_bytes(built.manifest) if built.manifest is not None else None,
         unreadable=[show(path, plain=plain).file for path in built.unreadable],
+        too_many_entries=built.too_many,
         skipped=dict(sorted(skipped.items())),
         files=len(built.manifest.files) if built.manifest is not None else 0,
         total_bytes=built.total_bytes,

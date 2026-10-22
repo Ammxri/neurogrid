@@ -492,15 +492,36 @@ def test_refused_and_plain_names_that_read_alike_stay_apart(tmp_path: Path) -> N
     assert info.value.message_key == "manifest.duplicate_path"
 
 
-def test_more_entries_than_a_manifest_holds_are_a_clean_error(
+def test_more_entries_than_a_manifest_holds_give_no_manifest_but_no_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
-    (tmp_path / "b.txt").write_text("b", encoding="utf-8")
+    """Dataset data (C2): more files or more skipped entries than MAX_MANIFEST_ENTRIES are a result without a
+    manifest (``too_many``, the limit; exit 1 in ``manifest``), never a ManifestError; nothing is hashed then.
+    Up to the limit the manifest is built."""
+    root = tmp_path / "ds"
+    root.mkdir()
+    (root / "a.txt").write_text("a", encoding="utf-8")
+    (root / "b.txt").write_text("b", encoding="utf-8")
+    monkeypatch.setattr(kp, "MAX_MANIFEST_ENTRIES", 2)
+    at_limit = build_manifest(root, _exclusions())
+    assert at_limit.manifest is not None and at_limit.too_many is None
     monkeypatch.setattr(kp, "MAX_MANIFEST_ENTRIES", 1)
-    with pytest.raises(ManifestError) as info:
-        build_manifest(tmp_path, _exclusions())
-    assert info.value.message_key == "manifest.too_many_entries" and info.value.params == {"limit": 1}
+
+    def no_hashing(*_args: object) -> None:
+        raise AssertionError("hashed although no manifest can be written")
+
+    monkeypatch.setattr(kp, "hash_files", no_hashing)
+    assert build_manifest(root, _exclusions()) == kp.BuildResult(None, (), (), 0, too_many=1)
+    (root / "b.txt").unlink()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    dir_link(root / "one", elsewhere)
+    dir_link(root / "two", elsewhere)  # one file, two skipped links
+    assert build_manifest(root, _exclusions()) == kp.BuildResult(None, (), (), 0, too_many=1)
+    monkeypatch.undo()  # hashing again
+    monkeypatch.setattr(kp, "MAX_MANIFEST_ENTRIES", 2)
+    with_links = build_manifest(root, _exclusions())
+    assert with_links.manifest is not None and len(with_links.manifest.skipped) == 2
 
 
 def test_escaped_names_round_trip() -> None:
@@ -1065,16 +1086,61 @@ def test_the_written_manifest_is_named_as_a51_allows() -> None:
         ("manifest.json", "*.json\n", "maybe"),
         ("manifest.json", "manifest.json\n!manifest.json\n", "maybe"),
         ("manifest.json", "other.txt\n!x\n", "listed"),
+        # only CRs, then spaces are dropped at the end of a line: other whitespace stays part of the name
+        ("manifest.json", "manifest.json\t\n", "listed"),
+        ("manifest.json", "manifest.json　\n", "listed"),  # ideographic space (Chinese input methods)
+        ("manifest.json", "manifest.json \n", "listed"),
+        ("manifest.json", "manifest.json\x0b\n", "listed"),
+        ("manifest.json", "manifest.json\x0c\n", "listed"),
+        ("manifest.json", "manifest.json \t \n", "listed"),
+        ("sub-01/manifest.json", "sub-01\t\n", "listed"),
+        ("manifest.json", "manifest.json   \r\n", None),
+        ("manifest.json", "manifest.json\r\r\n", None),
+        ("manifest.json", "manifest.json\r   \n", "listed"),  # spaces after a CR: the CR stays
+        ("manifest.json", "manifest.json  \r  \n", "listed"),
+        # a line that is empty only after that matches every path; one of spaces only is skipped
+        ("manifest.json", "other.txt\r\n\r\nzzz\r\n", None),  # an empty line of a CRLF file
+        ("manifest.json", " \r\n", None),
+        ("manifest.json", "other.txt\n﻿\n", None),
+        ("manifest.json", "   \n", "listed"),
+        ("manifest.json", "\t\n", "listed"),
+        ("manifest.json", "manifest.json\n!\r\n", "maybe"),
+        # the reader drops the file's byte order mark; a later one hides '!' and '#' and is then dropped
+        ("manifest.json", "﻿\nother.txt\n", "listed"),
+        ("manifest.json", "﻿!manifest.json\n", "listed"),
+        ("manifest.json", "manifest.json\n﻿!manifest.json\n", None),
+        ("manifest.json", "﻿﻿manifest.json\n", None),
+        ("manifest.json", "﻿#x\nmanifest.json\n", None),
+        ("#manifest.json", "﻿#manifest.json\n", "listed"),
+        ("#manifest.json", "x\n﻿#manifest.json\n", None),
+        ("manifest.json", "!﻿manifest.json\nmanifest.json\n", "maybe"),
+        # text starting with a replacement character is taken for UTF-16: the whole file is not used
+        ("manifest.json", b"\xff\nmanifest.json\n", "listed"),
+        ("manifest.json", b"\xef\xbb\xbf\xff\nmanifest.json\n", "listed"),
+        ("manifest.json", "�\nmanifest.json\n", "listed"),
+        ("manifest.json", b"x\n\xff\nmanifest.json\n", None),
+        # case as a JavaScript regular expression without the u flag compares it
+        ("k.json", "K.json\n", "listed"),  # Kelvin sign
+        ("K.json", "k.json\n", "listed"),
+        ("K.json", "K.json\n", None),
+        ("σ.json", "ς.json\n", None),  # sigma and final sigma
+        ("\U00010428.json", "\U00010400.json\n", "listed"),  # outside the BMP: no case
+        ("\U00010428.json", "\U00010428.json\n", None),
+        ("é.json", "É.JSON\n", None),
+        ("i.json", "İ.json\n", "listed"),
+        ("straße.json", "STRASSE.json\n", "listed"),
     ],
 )
 def test_validator_listing_follows_the_bundled_validator(
-    tmp_path: Path, own: str, bidsignore: str | None, expected: str | None
+    tmp_path: Path, own: str, bidsignore: str | bytes | None, expected: str | None
 ) -> None:
-    """PRO23: where the bundled validator 3.0.2 lists a file (measured: hidden entries, the top-level folders
-    of VALIDATOR_IGNORED_FOLDERS and .bidsignore with gitignore rules without case); patterns NeuroGrid does
-    not evaluate give "maybe" (conditional hint)."""
+    """PRO23: where the bundled validator 3.0.2 lists a file (each case measured with validator.run: hidden
+    entries, the top-level folders of VALIDATOR_IGNORED_FOLDERS and .bidsignore with the gitignore rules of
+    its ignore package, without case); patterns NeuroGrid does not evaluate give "maybe" (conditional
+    hint)."""
     if bidsignore is not None:
-        (tmp_path / ".bidsignore").write_bytes(bidsignore.encode("utf-8"))
+        data = bidsignore if isinstance(bidsignore, bytes) else bidsignore.encode("utf-8")
+        (tmp_path / ".bidsignore").write_bytes(data)
     assert io_provenance.validator_listing(tmp_path, own) == expected
 
 
@@ -1180,10 +1246,10 @@ def test_every_provenance_key_exists_in_every_language() -> None:
             "excluded_invalid",
             "needs_folder",
             "steps_invalid",
-            "too_many_entries",
         )
     }
     keys |= {
+        "cli.manifest.too_many_entries",
         "cli.manifest.bids_hint",
         "cli.manifest.bids_hint_bidsignore",
         "notice.output_inside_dataset",

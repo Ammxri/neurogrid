@@ -644,6 +644,27 @@ def test_unreadable_files_write_no_manifest(tmp_path: Path, capsys: pytest.Captu
     assert result.unreadable == [pseudonym(PurePosixPath("rec_a.edf")) + ".edf"]  # raw folder (A-51, A-70)
 
 
+def test_more_entries_than_a_manifest_holds_end_with_exit_1(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dataset data never give exit 2 (C2): a dataset with more files or entries not hashed than a manifest
+    lists ends ``manifest`` with exit 1 and the limit, no manifest and not even .neurogrid/ written, like
+    unreadable files; up to the limit it is written."""
+    ds = _copy(tmp_path)
+    count = sum(1 for item in ds.rglob("*") if item.is_file())
+    monkeypatch.setattr("neurogrid.kernel.provenance.MAX_MANIFEST_ENTRIES", count)
+    code, out, err = run(["manifest", str(ds)], capsys)
+    assert code == 0 and (ds / ".neurogrid" / "manifest.json").is_file() and err == ""
+    shutil.rmtree(ds / ".neurogrid")
+    monkeypatch.setattr("neurogrid.kernel.provenance.MAX_MANIFEST_ENTRIES", count - 1)
+    code, out, err = run(["manifest", str(ds)], capsys)
+    assert code == 1 and err == "" and "Internal error" not in out
+    assert f"than a manifest can list (limit {count - 1}); no manifest was written." in out
+    assert "cannot be read" not in out and not (ds / ".neurogrid").exists()
+    result = pipeline.run_manifest(ds)
+    assert result.data is None and result.too_many_entries == count - 1 and result.exit_code == 1
+
+
 def test_manifest_command_refuses_links_folders_and_invalid_sources(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -912,6 +933,17 @@ def test_validator_hint_only_where_the_bundled_validator_lists_the_manifest(
     (ds / ".bidsignore").unlink()
     code, out, _ = run(["manifest", str(ds), "--out", str(ds / "ignored.json")], capsys)
     assert code == 0 and "lists files that BIDS does not define, here the manifest file" in out
+    # the validator drops only CRs and spaces at the end of a line: a tab or an ideographic space stays part
+    # of the name, so it lists the manifest; an empty CRLF line matches every path
+    for content, hint in (
+        ("ignored.json\t\n", True),
+        ("ignored.json　\n", True),
+        ("ignored.json \r\n", False),
+        ("x.txt\r\n\r\n", False),
+    ):
+        (ds / ".bidsignore").write_bytes(content.encode("utf-8"))
+        code, out, _ = run(["manifest", str(ds), "--out", str(ds / "ignored.json")], capsys)
+        assert code == 0 and ("here the manifest file" in out) is hint and "may list" not in out, content
 
 
 def test_a_single_file_gets_no_output_inside_notice(

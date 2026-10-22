@@ -50,6 +50,7 @@ cli:
     written: "Manifest geschrieben nach {path}"
     unreadable: "{count} Datei(en) oder Ordner nicht lesbar:"
     not_written: "Kein Manifest geschrieben: Ein unvollständiges Manifest würde spätere Änderungen an diesen Dateien nicht zeigen."
+    too_many_entries: "Der Datensatz enthält mehr Dateien oder nicht gehashte Einträge, als ein Manifest aufführen kann (Grenze {limit}); kein Manifest geschrieben."
     bids_hint: "Hinweis: Der BIDS-Validator meldet Dateien, die BIDS nicht vorsieht, hier die Manifest-Datei. Ohne --out wird das Manifest nach .neurogrid/manifest.json geschrieben; den Ordner .neurogrid/ betritt der Validator nicht. Sonst das Manifest außerhalb des Datensatzes schreiben oder in .bidsignore aufnehmen."
     bids_hint_bidsignore: "Hinweis: Der BIDS-Validator meldet Dateien, die BIDS nicht vorsieht, sofern .bidsignore sie nicht erfasst; die Manifest-Datei kann daher gemeldet werden. Ohne --out wird das Manifest nach .neurogrid/manifest.json geschrieben; den Ordner .neurogrid/ betritt der Validator nicht. Sonst das Manifest außerhalb des Datensatzes schreiben oder in .bidsignore aufnehmen."
     more: "… und {count} weitere"
@@ -168,7 +169,6 @@ errors:
     excluded_invalid: "Ungültiges Manifest: Feld '{field}' darf nur das Zugriffsprotokoll des Vaults nennen."
     needs_folder: "manifest und verify brauchen einen Datensatzordner, keine einzelne Datei."
     steps_invalid: ".neurogrid/processing_steps.json ist nicht verwendbar ({problem}); kein Manifest geschrieben."
-    too_many_entries: "Der Datensatz enthält mehr Dateien oder nicht gehashte Einträge, als ein Manifest aufführen kann (Grenze {limit}); kein Manifest geschrieben."
   provenance:
     invalid: "Ungültige .neurogrid/provenance.yaml: Feld '{field}' ({problem})."
     unreadable: ".neurogrid/provenance.yaml kann nicht gelesen werden."

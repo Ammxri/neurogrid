@@ -442,12 +442,14 @@ def hash_files(entries: Sequence[FileEntry], threads: int = HASH_THREADS) -> lis
 
 @dataclass(frozen=True)
 class BuildResult:
-    """A manifest, or None with the files and folders that could not be read (nothing is written then)."""
+    """A manifest, or None with the files and folders that could not be read, or with ``too_many`` (the
+    limit) when the dataset holds more entries than a manifest lists (nothing is written then)."""
 
     manifest: Manifest | None
     unreadable: tuple[str, ...]
     skipped: tuple[SkippedEntry, ...]
     total_bytes: int
+    too_many: int | None = None
 
 
 def build_manifest(
@@ -461,11 +463,12 @@ def build_manifest(
 ) -> BuildResult:
     """Inventory and hash ``root``. ``excluded`` lists the paths recorded as left out (the vault log).
 
-    More than MAX_MANIFEST_ENTRIES files or skipped entries cannot be written (``manifest.too_many_entries``),
-    steps whose parameters canonical JSON cannot hold neither (``manifest.steps_invalid``)."""
+    More than MAX_MANIFEST_ENTRIES files or skipped entries cannot be written: that is dataset data, so it is
+    a result without a manifest (``too_many``, nothing hashed; exit 1, C2), not an error. Steps whose
+    parameters canonical JSON cannot hold are an error (``manifest.steps_invalid``)."""
     found = inventory(root, exclusions)
     if max(len(found.files), len(found.skipped)) > MAX_MANIFEST_ENTRIES:
-        raise ManifestError("manifest.too_many_entries", limit=MAX_MANIFEST_ENTRIES)
+        return BuildResult(None, (), (), 0, too_many=MAX_MANIFEST_ENTRIES)
     hashes = hash_files(found.files, threads)
     failed = {entry.relative for entry, digest in zip(found.files, hashes, strict=True) if digest is None}
     unreadable = tuple(sorted(failed | set(found.unreadable) | set(found.unlistable)))

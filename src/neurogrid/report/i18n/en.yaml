@@ -50,6 +50,7 @@ cli:
     written: "Manifest written to {path}"
     unreadable: "{count} file(s) or folder(s) cannot be read:"
     not_written: "No manifest was written: an incomplete manifest would not show later changes to these files."
+    too_many_entries: "The dataset holds more files or entries that are not hashed than a manifest can list (limit {limit}); no manifest was written."
     bids_hint: "Note: the BIDS validator lists files that BIDS does not define, here the manifest file. Without --out the manifest is written to .neurogrid/manifest.json; the validator does not enter .neurogrid/. Otherwise write it outside the dataset or list it in .bidsignore."
     bids_hint_bidsignore: "Note: the BIDS validator lists files that BIDS does not define unless .bidsignore covers them, so it may list the manifest file. Without --out the manifest is written to .neurogrid/manifest.json; the validator does not enter .neurogrid/. Otherwise write it outside the dataset or list it in .bidsignore."
     more: "… and {count} more"
@@ -168,7 +169,6 @@ errors:
     excluded_invalid: "Invalid manifest: field '{field}' may only name the vault access log."
     needs_folder: "manifest and verify need a dataset folder, not a single file."
     steps_invalid: ".neurogrid/processing_steps.json cannot be used ({problem}); no manifest was written."
-    too_many_entries: "The dataset holds more files or entries that are not hashed than a manifest can list (limit {limit}); no manifest was written."
   provenance:
     invalid: "Invalid .neurogrid/provenance.yaml: field '{field}' ({problem})."
     unreadable: ".neurogrid/provenance.yaml cannot be read."
