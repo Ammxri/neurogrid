@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date
 
 import pytest
@@ -9,9 +10,10 @@ import pytest
 from neurogrid.kernel import engine
 from neurogrid.kernel.errors import ConfigError, RulepackError
 from neurogrid.kernel.evidence import DocumentCheck, DocumentResult, EvidenceItem, EvidenceState
-from neurogrid.kernel.findings import Light, Phase, Status
+from neurogrid.kernel.findings import Light, ParamValue, Phase, Status
 from neurogrid.kernel.rules import (
     CheckSpec,
+    Evaluation,
     Measurement,
     ParamSpec,
     at_least,
@@ -158,6 +160,32 @@ def test_not_checkable_does_not_count() -> None:
     assert result.findings[0].status is Status.NOT_CHECKABLE and result.exit_code == 0
     na = run([pack(RULE_MAX)], {"test.max": [m("test.max", "a", None, state="not_applicable", reason="r")]})
     assert na.findings[0].status is Status.NOT_APPLICABLE
+
+
+def test_evaluator_can_find_a_measurement_not_checkable() -> None:
+    """An evaluator may decide under the rule's parameters that a measurement cannot be judged (A-51: the
+    verdict would reveal a withheld small cell): not_checkable with its reason, never counted, the threshold
+    kept; the other measurements keep passed/failed."""
+
+    def bounded(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
+        limit = params["limit"]
+        if measurement.value is None:
+            return Evaluation(passed=True, threshold=limit, not_checkable="test.withheld")
+        return Evaluation(passed=measurement.value <= limit, threshold=limit)
+
+    registry = {**REGISTRY, "test.max": CheckSpec("test.max", bounded, {"limit": ParamSpec("number", 10)})}
+    result = engine.run(
+        engine.EngineInput(
+            packs=[pack(RULE_MAX)],
+            registry=registry,
+            measurements={"test.max": [m("test.max", "a", None), m("test.max", "b", 4.0)]},
+            as_of=AS_OF,
+        )
+    )
+    assert [(f.object, f.status, f.reason, f.threshold) for f in result.findings] == [
+        ("a", Status.NOT_CHECKABLE, "test.withheld", 5)
+    ]
+    assert [(p.object, p.count) for p in result.passed] == [("b", 1)] and result.exit_code == 0
 
 
 @pytest.mark.parametrize(

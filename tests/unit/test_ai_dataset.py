@@ -9,14 +9,17 @@ from typing import get_args
 
 import pytest
 
+import neurogrid.io.annotations as annotations_module
 from conftest import dir_link  # type: ignore[import-not-found]
 from neurogrid import config as config_module
 from neurogrid.checks import ai_dataset
 from neurogrid.checks.context import CheckContext
+from neurogrid.io.annotations import read_events
 from neurogrid.io.discover import FoundFile, pseudonym, scan
 from neurogrid.io.events import event_labels
 from neurogrid.io.identifying import display_text
 from neurogrid.io.participants import (
+    AGE_GROUPS,
     age_group,
     parse_participants,
     read_participants,
@@ -26,6 +29,7 @@ from neurogrid.io.participants import (
 from neurogrid.io.splits import MAX_SPLITS_ROWS, assign, locate, parse_splits, read_splits
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
+from neurogrid.kernel.rules import Measurement
 from neurogrid.model.results import AILabels
 from neurogrid.report.texts import tables
 
@@ -45,7 +49,10 @@ FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
         (" 89 ", "80-89"),
         ("90", "90+"),
         ("120", "90+"),
-        ("89+", "80+"),
+        ("89+", "80-89"),  # A-81: "N+" counts in the group of N
+        ("75+", "70-79"),
+        ("65 +", "60-69"),
+        ("90+", "90+"),
         ("95+", "90+"),
         ("20-25", "20-29"),
         ("25 - 35", "20-29"),
@@ -53,24 +60,61 @@ FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 )
 def test_age_groups(text: str, group: str) -> None:
     assert age_group(text) == group
+    assert group in AGE_GROUPS  # only the 10-year scheme, never "<decade>+"
 
 
-@pytest.mark.parametrize("text", ["adult", "-1", "nan", "inf", "1e400", "1_000", "150", "999+", "30-20", ""])
+@pytest.mark.parametrize(
+    "text", ["adult", "-1", "nan", "inf", "1e400", "1_000", "150", "150+", "999+", "30-20", ""]
+)
 def test_unparseable_ages(text: str) -> None:
     assert age_group(text) is None
 
 
 def test_sex_categories_and_subject_labels() -> None:
-    assert [sex_category(v) for v in ("F", "female", " m ", "Male", "x", "other", "unknown")] == [
+    assert [sex_category(v) for v in ("F", "female", " m ", "Male", "x", "other", "genderqueer")] == [
         "female",
         "female",
         "male",
         "male",
         "other",
         "other",
-        "given",
+        "given",  # a real value outside the three categories
     ]
     assert subject_label(" sub-07 ") == "07" and subject_label("pd3") == "pd3"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "unknown",
+        "Unknown",
+        " UNK ",
+        "u",
+        "U",
+        "nan",
+        "NaN",
+        "na",
+        "NA",
+        "n/a",
+        "None",
+        "null",
+        "missing",
+        "Not reported",
+        "not available",
+        "?",
+        "-",
+        "",
+    ],
+)
+def test_sex_placeholders_document_no_sex(text: str) -> None:
+    """A-81: a placeholder says the sex is not known; it documents nothing (CORE-M11-02 ai.value_missing)."""
+    assert sex_category(text) is None
+    table = parse_participants(f"participant_id\tage\tsex\nsub-01\t30\t{text}\nsub-02\t31\tF\n")
+    placeholder, documented = table.participants["01"], table.participants["02"]
+    assert (placeholder.sex, placeholder.subject.sex) == ("missing", None)
+    assert (documented.sex, documented.subject.sex) == ("documented", "female")
+    gender = parse_participants(f"participant_id\tGender\nsub-01\t{text}\n")
+    assert gender.sex_column == "gender" and gender.participants["01"].sex == "missing"
 
 
 # --- participants.tsv ------------------------------------------------------------------------------------
@@ -301,7 +345,52 @@ def test_event_labels_from_the_nearest_events_tsv() -> None:
     missing = event_labels(root, PurePosixPath("sub-02/eeg/sub-02_task-rest_run-1_eeg.edf"), "value")
     assert missing.table and not missing.column
     none = event_labels(FIX / "bids_issues", PurePosixPath("sub-02/eeg/sub-02_task-rest_eeg.edf"), "x")
-    assert not none.table
+    assert not none.table and not none.unreadable
+
+
+def test_event_labels_use_the_reader_and_header_rule_of_m10(tmp_path: Path) -> None:
+    """Critic G10: events:<column> reads events.tsv with io.annotations.read_events. A table that is not
+    UTF-8 is unreadable (not "no column"); duplicate columns: the first one counts, as in M10."""
+    data_file = PurePosixPath("sub-01/eeg/sub-01_task-rest_eeg.edf")
+    folder = tmp_path / "sub-01" / "eeg"
+    folder.mkdir(parents=True)
+    events = folder / "sub-01_task-rest_events.tsv"
+    events.write_bytes("onset\tduration\ttrial_type\n0\t1\t睁眼\n".encode("gbk"))
+    unreadable = event_labels(tmp_path, data_file, "trial_type")
+    assert unreadable.unreadable and unreadable.table and not unreadable.column and not unreadable.values
+    events.write_text(
+        "onset\tduration\ttrial_type\tTrial_Type \n0\t1\tA\tB\n1\t1\tn/a\tB\n2\t1\t\tB\n", encoding="utf-8"
+    )
+    (tmp_path / "task-rest_events.json").write_text(
+        '{"trial_type": {"Levels": {"A": "a"}}}', encoding="utf-8"
+    )
+    first = event_labels(tmp_path, data_file, " TRIAL_TYPE")
+    assert (first.unreadable, first.column, first.values, first.vocabulary) == (False, True, ("A",), {"A"})
+    table = read_events(tmp_path, data_file)
+    assert table is not None and tuple(table.values("trial_type") or ()) == first.values  # M10's cells
+
+
+def test_event_labels_of_an_oversized_events_tsv_are_unreadable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AI13 (A-53, C2): a table above the size or row limit of M10's reader is unreadable, not "no table" and
+    no exit 2; an empty table is readable and simply has no label column."""
+    data_file = PurePosixPath("sub-01/eeg/sub-01_task-rest_eeg.edf")
+    folder = tmp_path / "sub-01" / "eeg"
+    folder.mkdir(parents=True)
+    events = folder / "sub-01_task-rest_events.tsv"
+    events.write_text("onset\tduration\ttrial_type\n0\t1\tA\n1\t1\tB\n2\t1\tA\n", encoding="utf-8")
+    assert event_labels(tmp_path, data_file, "trial_type").values == ("A", "B", "A")
+    monkeypatch.setattr(annotations_module, "MAX_ANNOTATIONS", 2)
+    rows = event_labels(tmp_path, data_file, "trial_type")
+    assert (rows.table, rows.column, rows.unreadable, rows.values) == (True, False, True, ())
+    monkeypatch.setattr(annotations_module, "MAX_ANNOTATIONS", 3)
+    monkeypatch.setattr(annotations_module, "MAX_TSV_BYTES", 16)
+    assert event_labels(tmp_path, data_file, "trial_type").unreadable
+    monkeypatch.undo()
+    events.write_text("", encoding="utf-8")
+    empty = event_labels(tmp_path, data_file, "trial_type")
+    assert (empty.table, empty.column, empty.unreadable) == (True, False, False)
 
 
 def test_display_rule_for_free_text() -> None:
@@ -313,16 +402,68 @@ def test_display_rule_for_free_text() -> None:
     assert display_text("x" * 33)[0] is None and display_text("x" * 33) == display_text("x" * 33)
 
 
-def test_small_cell_suppression() -> None:
-    cells, total = ai_dataset.suppressed({"A": 30, "B": 3, "C": 0}, 33)
-    assert cells == {"A": None, "B": None, "C": 0} and total == 33  # complementary: A hides B
-    cells, total = ai_dataset.suppressed({"A": 30, "B": 3, "C": 12}, 45)
-    assert cells == {"A": 30, "B": None, "C": None} and total == 45
-    cells, total = ai_dataset.suppressed({"A": 3, "B": 2}, 5)
-    assert cells == {"A": None, "B": None} and total == 5
-    assert ai_dataset.suppressed({"A": 3}, 3) == ({"A": None}, None)
-    assert ai_dataset.suppressed({"A": 7, "B": 9}, 16) == ({"A": 7, "B": 9}, 16)
-    assert ai_dataset.suppressed({}, 0) == ({}, 0)
+@pytest.mark.parametrize(
+    "cells",
+    [
+        {"A": 30, "B": 3, "C": 0},
+        {"A": 30, "B": 3, "C": 12},
+        {"A": 3, "B": 2},
+        {"A": 3},  # a single category (CON49)
+        {"A": 1, "B": 1, "C": 30},  # hidden cells at their minimum (AI10)
+        {"A": 4, "B": 4, "C": 4, "D": 30},
+        {key: 1 for key in "ABCDEF"},
+        {"F": 1, "M": 0},  # a zero next to a single small cell (INT38)
+    ],
+)
+def test_a_table_with_a_small_cell_is_withheld_as_a_whole(cells: dict[str, int]) -> None:
+    """A-51 table rule: no category key and no count of a table with a non-zero cell of 1-4 subjects, so no
+    cell is derivable from the public total, zero cells or the keys."""
+    assert ai_dataset.small_cell(cells) and ai_dataset.published(cells) is None
+
+
+def test_a_table_without_small_cells_is_published() -> None:
+    assert ai_dataset.published({"M": 9, "F": 7}) == {"F": 7, "M": 9}
+    assert ai_dataset.published({"A": 5, "B": 0}) == {"A": 5, "B": 0}  # zero cells may then show
+    assert ai_dataset.published({"female": 5}) == {"female": 5}
+    assert ai_dataset.published({}) == {} and not ai_dataset.small_cell({"A": 0, "B": 5})
+
+
+def _scope(total: int, small: bool, value: float | None = None) -> Measurement:
+    details = {"scope": "all", "unit": "subjects", "total": total, "small_cell": small}
+    return Measurement(check_id=ai_dataset.CLASS_BALANCE, object="dataset", value=value, details=details)
+
+
+@pytest.mark.parametrize(
+    ("total", "min_share", "passed", "not_checkable"),
+    [
+        (100, 0.05, False, None),  # 4/100 < 0.05: every possible small count fails
+        (81, 0.05, False, None),
+        (80, 0.05, False, "ai.small_cell"),  # 3 of 80 fails, 4 of 80 passes: the outcome would tell
+        (30, 0.05, False, "ai.small_cell"),  # AI09: 1 of 30 fails, 2 of 30 passes
+        (21, 0.05, False, "ai.small_cell"),
+        (20, 0.05, True, None),  # 1/20 reaches 0.05: every non-zero cell passes
+        (6, 0.05, True, None),
+        (6, 0.9, False, None),
+        (6, 0.5, False, "ai.small_cell"),
+        (1, 0.9, True, None),
+    ],
+)
+def test_withheld_scope_with_a_small_cell_is_judged_from_public_facts(
+    total: int, min_share: float, passed: bool, not_checkable: str | None
+) -> None:
+    """A-51: the number of subjects N of the scope and min_share only; the share of the measurement is
+    never used (it is None)."""
+    verdict = ai_dataset._class_share(_scope(total, True), {"min_share": min_share})
+    assert (verdict.passed, verdict.not_checkable, verdict.threshold) == (passed, not_checkable, min_share)
+
+
+def test_scope_withheld_through_linkage_and_published_classes_keep_the_exact_outcome() -> None:
+    linked = ai_dataset._class_share(_scope(30, False, 0.0), {"min_share": 0.05})  # a class absent
+    assert (linked.passed, linked.not_checkable) == (False, None)
+    assert ai_dataset._class_share(_scope(30, False, 0.2), {"min_share": 0.05}).passed
+    published = Measurement(check_id=ai_dataset.CLASS_BALANCE, object="dataset", value=0.05, details={})
+    assert ai_dataset._class_share(published, {"min_share": 0.05}).passed
+    assert not ai_dataset._class_share(published, {"min_share": 0.06}).passed
 
 
 def _finding(details: dict[str, object], message_key: str = "check.ai.class_balance") -> Finding:
@@ -345,14 +486,18 @@ def _finding(details: dict[str, object], message_key: str = "check.ai.class_bala
 
 
 def test_suppress_small_cells_after_the_engine() -> None:
-    hidden, shown, other = ai_dataset.suppress_small_cells(
+    """The share that decided a withheld scope never reaches the output, also for a scope withheld only
+    through its linked scopes (small_cell false); published classes and other checks keep their value."""
+    hidden, linked, shown, other = ai_dataset.suppress_small_cells(
         [
-            _finding({"small_cell": True, "unit": "subjects"}),
+            _finding({"small_cell": True, "unit": "subjects", "scope": "test", "total": 3}),
+            _finding({"small_cell": False, "unit": "subjects", "scope": "all", "total": 30}),
             _finding({"count": 1, "total": 25, "unit": "events"}),
             _finding({"small_cell": True}, message_key="check.quality.flatline"),
         ]
     )
     assert hidden.measured_value is None and hidden.reason == "ai.small_cell"
+    assert linked.measured_value is None and linked.reason == "ai.small_cell"
     assert shown.measured_value == 0.04 and other.measured_value == 0.04
 
 
@@ -452,6 +597,7 @@ def test_language_keys_of_the_area() -> None:
         )
     ]
     keys += ["errors.config.splits_not_found", "report.ai.unit_events", "report.ai.unit_subjects"]
+    keys += ["report.ai.withheld"]
     keys += ["reason.recording.annotations_only", "reason.header.unreadable", "reason.quality.not_computed"]
     for lang in ("zh", "en", "de"):
         missing = [key for key in keys if key not in loaded[lang]]

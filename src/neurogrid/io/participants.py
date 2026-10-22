@@ -10,11 +10,14 @@ in raw folders ``participant_id`` is the subject label of the mapping, with or w
   ``sex`` with the fallback ``gender`` (A-04). A ``split`` column assigns subjects to train/val/test.
 - Cells are stripped; empty cells and ``n/a`` (any case) count as missing. Several rows of one participant:
   the first row gives the cells, the split values of all rows count (a subject in several splits, A-21).
-- Age groups in 10-year steps "0-9" ... "80-89", "90+" (A-21). BIDS top-coding "N+" becomes "90+" from 90 and
-  "<decade>+" below; a range "20-25" counts in its lower decade; anything else is unparseable and counts as
-  missing (``ai.age_unparseable``). The raw age stays inside :class:`Subject` (``exclude=True``) and is never
-  serialised; cell text never leaves this module except through the checks' display rule (A-17, C5).
-- Sex is normalised to female | male | other | given (documented, but in none of the three categories).
+- Age groups in 10-year steps "0-9" ... "80-89", "90+" (A-21, :data:`AGE_GROUPS`). BIDS top-coding "N+"
+  counts in the group of N ("89+" -> "80-89", "95+" -> "90+", A-81); a range "20-25" counts in its lower
+  decade; anything else is unparseable and counts as missing (``ai.age_unparseable``). The raw age stays
+  inside :class:`Subject` (``exclude=True``) and is never serialised; cell text never leaves this module
+  except through the checks' display rule (A-17, C5).
+- Sex is normalised to female | male | other | given (documented, but in none of the three categories). A
+  placeholder of :data:`SEX_PLACEHOLDERS` ("unknown", "U", "nan", "?", ...) documents no sex: it counts as
+  missing like an empty cell (A-81).
 """
 
 from __future__ import annotations
@@ -41,6 +44,25 @@ AGE_LIMIT = 150.0  # a decimal age at or above this is no age
 _DECIMAL = re.compile(r"^\d{1,3}(?:\.\d+)?$")  # no sign, exponent, nan or inf (A-75)
 _TOP_CODED = re.compile(r"^(?P<age>\d{1,3}(?:\.\d+)?)\s*\+$")  # BIDS "89+"
 _RANGE = re.compile(r"^(?P<low>\d{1,3}(?:\.\d+)?)\s*-\s*(?P<high>\d{1,3}(?:\.\d+)?)$")
+AGE_GROUPS: tuple[str, ...] = (*(f"{low}-{low + 9}" for low in range(0, 90, 10)), "90+")  # A-21
+# Sex cells that say the sex is not known, compared after strip and casefold: no documentation (A-81)
+SEX_PLACEHOLDERS = frozenset(
+    {
+        "unknown",
+        "unk",
+        "u",
+        "nan",
+        "na",
+        "n/a",
+        "none",
+        "null",
+        "missing",
+        "not reported",
+        "not available",
+        "?",
+        "-",
+    }
+)
 _SEX = {
     "f": "female",
     "female": "female",
@@ -91,11 +113,8 @@ def age_group(text: str) -> str | None:
     if _DECIMAL.fullmatch(value):
         return _decade(float(value))
     top = _TOP_CODED.fullmatch(value)
-    if top:
-        age = float(top.group("age"))
-        if age >= AGE_LIMIT:
-            return None
-        return "90+" if age >= 90 else f"{int(age // 10) * 10}+"
+    if top:  # "N+" counts in the group of N (A-81)
+        return _decade(float(top.group("age")))
     span = _RANGE.fullmatch(value)
     if span and float(span.group("low")) <= float(span.group("high")):
         return _decade(float(span.group("low")))
@@ -110,8 +129,12 @@ def _age(text: str) -> float | None:
     return None
 
 
-def sex_category(text: str) -> str:
-    return _SEX.get(text.strip().casefold(), "given")
+def sex_category(text: str) -> str | None:
+    """female | male | other | given; None when the cell documents no sex (empty, n/a or a placeholder)."""
+    value = text.strip().casefold()
+    if not value or value in SEX_PLACEHOLDERS:
+        return None
+    return _SEX.get(value, "given")
 
 
 @dataclass(frozen=True)
@@ -162,13 +185,13 @@ def _levels(root: Path) -> dict[str, frozenset[str]]:
     return out
 
 
-def _state(cells: Mapping[str, str], column: str | None, parse: bool = False) -> ValueState:
+def _state(cells: Mapping[str, str], column: str | None, kind: Literal["age", "sex"]) -> ValueState:
     if column is None:
         return "no_column"
     value = cells.get(column, "")
-    if missing(value):
+    if missing(value) or (kind == "sex" and sex_category(value) is None):
         return "missing"
-    if parse and age_group(value) is None:
+    if kind == "age" and age_group(value) is None:
         return "unparseable"
     return "documented"
 
@@ -207,8 +230,8 @@ def parse_participants(
     for label, row in first.items():
         age_text = row.get("age", "")
         sex_text = row.get(sex_column, "") if sex_column else ""
-        age = _state(row, age_column, parse=True)
-        sex = _state(row, sex_column)
+        age = _state(row, age_column, "age")
+        sex = _state(row, sex_column, "sex")
         subject = Subject(
             pseudo_id=f"sub-{label}",
             age_group=age_group(age_text) if age == "documented" else None,

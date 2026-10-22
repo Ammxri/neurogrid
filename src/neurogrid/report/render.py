@@ -110,8 +110,9 @@ class _Formatter:
         return " ".join(parts) if parts else self.tr("report.value.none")
 
     def ai_details(self, details: dict[str, Any]) -> list[str]:
-        """M11/M12 details (A-81): class counts, free-text labels, split members and duplicate groups. Names
-        are displayed recording IDs (pseudonymous in raw folders); signal hashes never reach results.json."""
+        """M11/M12 details (A-81): class counts or a withheld subject-level scope (A-51), free-text labels,
+        split members and duplicate groups. Names are displayed recording IDs (pseudonymous in raw folders);
+        signal hashes never reach results.json."""
         parts: list[str] = []
         label_chars = details.get("label_chars")
         if details.get("label") is None and isinstance(label_chars, int):
@@ -127,6 +128,8 @@ class _Formatter:
                     unit=self.tr(f"report.ai.unit_{unit}"),
                 )
             )
+        if unit == "subjects" and "small_cell" in details and isinstance(details.get("total"), int):
+            parts.append(self.tr("report.ai.withheld", total=details["total"]))  # A-51 table rule
         recordings = details.get("split_recordings")
         order = ("train", "val", "test")  # DM-06; results.json sorts the keys
         for split, names in (

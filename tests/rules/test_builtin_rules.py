@@ -60,8 +60,22 @@ def _ai_participants_split(fixture: Path, tmp: Path) -> tuple[Path, dict[str, ob
     return folder, {}
 
 
+def _ai_unassigned_placeholder(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+    """P4 review (AI14, AI15): a splits.tsv with only its header (a split source that assigns nothing) and
+    the sex of sub-03 given as the placeholder "unknown"."""
+    folder = tmp / fixture.name
+    shutil.copytree(fixture, folder)
+    (folder / ".neurogrid" / "splits.tsv").write_text("recording\tsplit\n", encoding="utf-8")
+    table = folder / "participants.tsv"
+    table.write_text(
+        table.read_text(encoding="utf-8").replace("sub-03\t45\tF", "sub-03\t45\tunknown"), "utf-8"
+    )
+    return folder, {}
+
+
 SETUPS["ai_duplicate_copy"] = _ai_duplicate_copy
 SETUPS["ai_participants_split"] = _ai_participants_split
+SETUPS["ai_unassigned_placeholder"] = _ai_unassigned_placeholder
 
 
 WET = '[metadata.defaults]\nelectrode_type = "wet"\n'
@@ -116,6 +130,9 @@ SETUPS.update(
     }
 )
 AI_LABELS = '[ai]\nlabels = "events:trial_type"\n'  # M11 label source (A-81)
+# P4 review: subject-level label sources, withheld by the A-51 table rule (cells of 1-4 subjects)
+AGE_LABELS = '[ai]\nlabels = "participants:age"\n'
+SEX_LABELS_STRICT = '[ai]\nlabels = "participants:sex"\n[rules."CORE-M11-01".params]\nmin_share = 0.9\n'
 # P4 annotation (M10, A-80): continuous sleep staging with the vocabulary of tools/gen_fixtures.py
 CONTINUOUS = (
     '[annotation]\nmode = "continuous"\nepoch_s = 30\n'
@@ -284,14 +301,25 @@ CASES = [
     Case("CORE-M11-01", "bids_ai_issues", Status.FAILED, AI_LABELS),  # 'rare' 1 of 40 events; test lacks C
     Case("CORE-M11-01", "edf_ok", Status.NOT_APPLICABLE),  # no [ai] labels (A-81)
     Case("CORE-M11-01", "edf_ok", Status.NOT_CHECKABLE, AI_LABELS),  # events.tsv labels need BIDS
+    # P4 review (A-51 table rule): age groups of 6 subjects are withheld; 1 of 6 reaches 0.05, so every
+    # possible small cell passes
+    Case("CORE-M11-01", "bids_ai_ok", Status.PASSED, AGE_LABELS, setup="ai_unassigned_placeholder"),
+    Case("CORE-M11-01", "bids_ai_ok", Status.FAILED, SEX_LABELS_STRICT),  # all: even 4 of 6 is below 0.9
+    Case(
+        "CORE-M11-01", "bids_ai_ok", Status.NOT_CHECKABLE, SEX_LABELS_STRICT
+    ),  # train: 1 of 4 fails, 4 passes
     Case("CORE-M11-02", "bids_ai_ok", Status.PASSED, AI_LABELS),
     Case("CORE-M11-02", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-03 age n/a, sub-04 without a row
     Case("CORE-M11-02", "bids_ok", Status.FAILED),  # participants.tsv without age and sex columns
     Case("CORE-M11-02", "edf_ok", Status.NOT_CHECKABLE),  # raw folder without mapping: subjects unknown
+    # P4 review (AI15): sex "unknown" is a placeholder, not documented
+    Case("CORE-M11-02", "bids_ai_ok", Status.FAILED, AGE_LABELS, setup="ai_unassigned_placeholder"),
     Case("CORE-M12-01", "bids_ai_ok", Status.PASSED, AI_LABELS),
     Case("CORE-M12-01", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-02 in train and test (NG-F09)
     Case("CORE-M12-01", "bids_ai_ok", Status.FAILED, setup="ai_participants_split"),  # sub-01 train + val
     Case("CORE-M12-01", "bids_ok", Status.NOT_APPLICABLE),  # no splits (A-21, C11)
+    # P4 review (AI14): splits.tsv with only its header assigns no recording
+    Case("CORE-M12-01", "bids_ai_ok", Status.NOT_APPLICABLE, AGE_LABELS, setup="ai_unassigned_placeholder"),
     Case("CORE-M12-02", "bids_ai_ok", Status.PASSED, AI_LABELS),
     Case("CORE-M12-02", "edf_ok", Status.PASSED),  # rec_a and rec_b have different signals
     Case("CORE-M12-02", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-05 run-1 = sub-01 run-1
