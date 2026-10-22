@@ -37,6 +37,7 @@ from neurogrid.io.discover import _suffix as classify_suffix  # the extension ru
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.provenance import (
     DEFAULT_MANIFEST,
+    MAX_STEPS_DEPTH,
     VAULT_LOCK,
     VAULT_LOG,
     Comparison,
@@ -44,6 +45,7 @@ from neurogrid.kernel.provenance import (
     Manifest,
     ManifestError,
     ManifestStatus,
+    NestingError,
     ParsedManifest,
     ProcessingStep,
     SoftwareEntry,
@@ -61,6 +63,7 @@ from neurogrid.kernel.safety import (
     resolve_within,
 )
 from neurogrid.model.results import ManifestInfo
+from neurogrid.validator import VALIDATOR_IGNORED_FOLDERS
 
 STEPS_FILE = PurePosixPath(".neurogrid", "processing_steps.json")
 PROVENANCE_FILE = PurePosixPath(".neurogrid", "provenance.yaml")
@@ -89,6 +92,9 @@ KNOWN_CONTROL_FILES = frozenset(
 )
 # Extensions shown next to a pseudonym; others (letters outside ASCII, odd characters) are left out (A-51).
 _SHOWN_SUFFIX = re.compile(r"^(?:\.[a-z0-9]{1,10}){1,2}$")
+# Marks the stable name of a refused name (show); no stored path contains a colon.
+UNSAFE_IDENTITY = "unsafe_name:"
+MAX_BIDSIGNORE_BYTES = 1_000_000
 
 
 # --- documentation sources ------------------------------------------------------------------------------
@@ -165,7 +171,8 @@ def load_provenance_file(root: Path) -> ProvenanceFile | None:
 
 
 def load_processing_steps(root: Path) -> tuple[list[ProcessingStep], str | None]:
-    """The steps ``convert`` wrote, and the problem if the file cannot be used (link, json, schema, …)."""
+    """The steps ``convert`` wrote, and the problem if the file cannot be used (link, json, too_deep, schema,
+    …). Nested deeper than steps with the deepest parameters a manifest can hold is ``too_deep`` (A-53)."""
     try:
         path = resolve_within(root, STEPS_FILE, must_exist=False)
     except UnsafePathError:
@@ -181,7 +188,9 @@ def load_processing_steps(root: Path) -> tuple[list[ProcessingStep], str | None]
     except OSError:
         return [], "unreadable"
     try:
-        raw = strict_json(data.decode("utf-8-sig"))
+        raw = strict_json(data.decode("utf-8-sig"), max_depth=MAX_STEPS_DEPTH)
+    except NestingError:
+        return [], "too_deep"
     except (UnicodeDecodeError, ValueError):
         return [], "json"
     if not isinstance(raw, list):
@@ -339,15 +348,96 @@ class Shown:
 
 
 def show(path: str, *, plain: bool, kind: str | None = None) -> Shown:
-    """How a stored manifest path appears in findings and on the console (A-51, A-68, A-70, critic X14)."""
+    """How a stored manifest path appears in findings and on the console (A-51, A-68, A-70, critic X14).
+
+    A refused name (``kind`` unsafe_name) is stored percent-encoded, which can read like a plain name; its
+    stable name (the finding key) is therefore marked with UNSAFE_IDENTITY, which no stored path contains (a
+    colon is refused in plain names and percent-encoded in refused ones). Exception patterns still match the
+    stored path, the pseudonym and the pseudonymous file name."""
+    unsafe = kind == "unsafe_name"
     pseudo = "rec-" + hashlib.sha256(name_bytes(path, kind)).hexdigest()[:8]
     suffix = classify_suffix(path.rsplit("/", 1)[-1])
     if not _SHOWN_SUFFIX.match(suffix):
         suffix = ""
-    identity = (path, pseudo, pseudo + suffix)
-    if plain or path in KNOWN_CONTROL_FILES:
+    names = (path, pseudo, pseudo + suffix)
+    identity = (UNSAFE_IDENTITY + path, *names) if unsafe else names
+    if plain or (not unsafe and path in KNOWN_CONTROL_FILES):
         return Shown(path, path, identity)
     return Shown(pseudo, pseudo + suffix, identity)
+
+
+def shown_target(own: str, *, plain: bool) -> str:
+    """The manifest file ``manifest`` writes inside the dataset (relative POSIX path), as the console names it
+    (A-51, A-82): in clear in BIDS datasets, with --show-paths and for the default location or another of
+    NeuroGrid's fixed names in .neurogrid/; otherwise by the pseudonymous file name ``verify`` shows, after
+    '…/' when it lies in a folder (whose name is not shown either)."""
+    if own == DEFAULT_MANIFEST.as_posix():
+        return own
+    shown = show(own, plain=plain)
+    if shown.file == own:
+        return own
+    return ("…/" if "/" in own else "") + shown.file
+
+
+def _bidsignore_lines(root: Path) -> list[str] | None:
+    """The lines of the dataset's .bidsignore ([] without one), None if it cannot be read (dataset data: never
+    an error, C2)."""
+    path = root / ".bidsignore"
+    try:
+        if not os.path.lexists(path):
+            return []
+        if is_link(path) or not path.is_file():
+            return None
+        data = read_limited(path, MAX_BIDSIGNORE_BYTES)
+    except (OSError, InputError):
+        return None
+    return data.decode("utf-8", "replace").split("\n")
+
+
+def validator_listing(root: Path, own: str) -> str | None:
+    """Whether the bundled BIDS validator lists a file at ``own`` (relative POSIX path in a BIDS dataset):
+    None if it does not, "listed" if it does, "maybe" if .bidsignore cannot be read, holds patterns this check
+    does not evaluate (wildcards, escapes) or a negation that may list a covered file again.
+
+    Measured with the bundled validator (VALIDATOR_VERSION): it lists no hidden entry at any level and
+    nothing in the top-level folders of VALIDATOR_IGNORED_FOLDERS (also in other case), and it applies
+    .bidsignore with gitignore rules, without case and with trailing whitespace dropped. A literal line names
+    a file or folder anywhere when it has no slash, from the root when it has one (a trailing slash names a
+    folder only)."""
+    parts = own.lower().split("/")
+    if any(part.startswith(".") for part in parts):
+        return None
+    if len(parts) > 1 and parts[0] in VALIDATOR_IGNORED_FOLDERS:
+        return None
+    lines = _bidsignore_lines(root)
+    if lines is None:
+        return "maybe"
+    covered = negated = unknown = False
+    for raw in lines:
+        line = raw.removeprefix("\ufeff").rstrip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("!"):  # may list the file again
+            negated = True
+            continue
+        if any(char in line for char in "*?[\\"):
+            unknown = True
+            continue
+        folder_only = line.endswith("/")
+        body = line[:-1] if folder_only else line
+        anchored = "/" in body
+        pattern = body.removeprefix("/").lower().split("/")
+        if "" in pattern:
+            unknown = True
+            continue
+        candidates = parts[:-1] if folder_only else parts
+        if anchored:
+            covered |= len(pattern) <= len(candidates) and parts[: len(pattern)] == pattern
+        else:
+            covered |= pattern[0] in candidates
+    if covered:
+        return "maybe" if negated else None
+    return "maybe" if unknown else "listed"
 
 
 def is_bids_folder(root: Path) -> bool:
@@ -425,6 +515,8 @@ class ProvenanceState:
         return self._comparison
 
     def sources(self) -> Sources:
+        """Read once; ``check`` asks before the signal pass, so an invalid provenance.yaml (a control file)
+        ends the run with exit 2 before the data are read (C2)."""
         if self._sources is None:
             self._sources = load_sources(self.root, self.is_bids)
         return self._sources

@@ -11,17 +11,31 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 import jsonschema
 import pytest
+from pydantic import BaseModel, Field, ValidationError
 
 from conftest import DOCUMENTED_TOML, dir_link, documented_config  # type: ignore[import-not-found]
 from neurogrid import pipeline
+from neurogrid.checks.context import CheckContext
 from neurogrid.cli import main
+from neurogrid.io import provenance as io_provenance
 from neurogrid.io.discover import pseudonym
+from neurogrid.io.provenance import show
 from neurogrid.kernel import canonical
+from neurogrid.kernel.errors import ConfigError
 from neurogrid.kernel.findings import Light, Phase, Severity, Status
-from neurogrid.kernel.provenance import ManifestError, ManifestStatus, manifest_hash
+from neurogrid.kernel.provenance import (
+    MAX_ESCAPED_CHARS,
+    MAX_PATH_CHARS,
+    ManifestError,
+    ManifestStatus,
+    SkippedEntry,
+    escape_name,
+    manifest_hash,
+)
 from neurogrid.model.results import Results
 from neurogrid.report.render import render_report
 
@@ -731,6 +745,312 @@ def test_chinese_messages_and_vault_log(tmp_path: Path, capsys: pytest.CaptureFi
     (vault / "roles.yaml").write_text("roles: [x]\n", encoding="utf-8")
     code, out, _ = run(["verify", str(ds), "--manifest", str(written)], capsys)
     assert code == 1 and ".neurogrid/vault/roles.yaml" in out
+
+
+# --- P4 review R12: the walk, the readers and the console stay within C2 and A-51 ---------------------
+
+
+def _native(path: Path) -> Path:
+    """A path the file system takes literally: on Windows the extended-length form, which keeps names with a
+    trailing dot or space and reserved names, and allows long paths."""
+    return Path("\\\\?\\" + str(path)) if WINDOWS else path
+
+
+def _put(path: Path, data: bytes | None = None) -> None:
+    """Create a folder (``data`` None) or a file under a name the path check refuses."""
+    if data is None:
+        _native(path).mkdir()
+    else:
+        _native(path).write_bytes(data)
+
+
+def _remove_tree(path: Path) -> None:
+    shutil.rmtree(_native(path))
+
+
+def _nested_json(levels: int) -> str:
+    """A JSON object nested ``levels`` levels deep, written as text (json.dumps itself recurses)."""
+    return '{"a":' * (levels - 1) + '{"a":1' + "}" * levels
+
+
+def test_long_refused_names_never_end_with_exit_2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """PRO19 (C2, A-12, A-82): a refused name whose percent-encoded form is longer than 3 * MAX_PATH_CHARS
+    (CJK folders above a folder with a trailing space) and a path the length rule alone refuses are skipped
+    entries: manifest, verify and check end with 0 or 1, never with an internal ValidationError (exit 2)."""
+    ds = _copy(tmp_path)
+    folder = ds
+    for _ in range(5):  # 80 characters per folder: 240 bytes, within the 255-byte limit of POSIX file systems
+        folder = folder / ("患者资料" * 20)
+        _put(folder)
+    trailing = folder / "x "
+    _put(trailing)
+    _put(trailing / "rec.edf", b"1")
+    deep = ds
+    for _ in range(13):
+        deep = deep / ("脑电" * 40)
+        _put(deep)
+    _put(deep / "x.edf", b"2")
+    written = ds / ".neurogrid" / "manifest.json"
+    try:
+        refused = escape_name((trailing / "rec.edf").relative_to(ds).as_posix())
+        length_only = (deep / "x.edf").relative_to(ds).as_posix()
+        assert len(refused) > 3 * MAX_PATH_CHARS and len(length_only) > MAX_PATH_CHARS
+        code, _, err = run(["manifest", str(ds)], capsys)
+        assert code == 0 and "Internal error" not in err
+        manifest = json.loads(written.read_text(encoding="utf-8"))
+        unsafe = {entry["path"] for entry in manifest["skipped"] if entry["kind"] == "unsafe_name"}
+        assert {refused, escape_name(length_only)} <= unsafe
+        code, out, _ = run(["verify", str(ds), "--manifest", str(written)], capsys)
+        assert code == 0 and "matches the manifest" in out
+        assert _m13(_check(ds))["CORE-M13-02"] == {(Status.PASSED, None)}
+        _put(trailing / "new.edf", b"3")
+        code, out, err = run(["verify", str(ds), "--manifest", str(written)], capsys)
+        assert code == 1 and "New: 1" in out and "Internal error" not in err
+        assert _m13(_check(ds))["CORE-M13-02"] == {(Status.FAILED, "new")}
+    finally:
+        _remove_tree(ds)
+
+
+def test_debug_traceback_never_shows_validated_input(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PRO19 (A-51): the models built from dataset names hide their input in validation errors, and the
+    --debug traceback cuts what any other validation error quotes (relative names carry no <dataset>)."""
+    secret = "Zh" + "ang_San"
+    with pytest.raises(ValidationError) as hidden:
+        SkippedEntry(path=secret * MAX_ESCAPED_CHARS, kind="unsafe_name")
+    assert secret not in str(hidden.value)
+
+    class Plain(BaseModel):
+        name: str = Field(max_length=3)
+
+    def boom(*args: object, **kwargs: object) -> None:
+        Plain(name=secret + "/rec.edf")
+
+    monkeypatch.setattr(pipeline, "run_manifest", boom)
+    code, _, err = run(["--debug", "manifest", str(_copy(tmp_path))], capsys)
+    assert code == 2 and "Traceback" in err and "ValidationError" in err
+    assert "ang_San" not in err and "input_value=…" in err
+
+
+def test_verify_and_check_see_changes_below_a_refused_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PRO20 (NG-F10, A-82, critic X8): a folder the path check refuses ('con') is walked; the names below it
+    are compared by presence (never hashed): a file added or deleted there is a deviation for verify (exit 1),
+    CORE-M13-02 and GX-05, also when nothing else changed."""
+    ds = _copy(tmp_path)
+    for folder in ("con", "pat"):
+        _put(ds / folder)
+        _put(ds / folder / "sub01.edf", b"a" * 10)
+    _put(ds / "con" / "keep.edf", b"k")
+    written = ds / ".neurogrid" / "manifest.json"
+    try:
+        code, out, _ = run(["manifest", str(ds)], capsys)
+        assert code == 0 and "3 name(s) the path check refuses, also everything inside such a folder" in out
+        _put(ds / "con" / "sub01.edf", b"b" * 10)  # same size, other content: never hashed (X8)
+        code, out, _ = run(["verify", str(ds), "--manifest", str(written)], capsys)
+        assert code == 0
+        _put(ds / "con" / "sub02.edf", b"n")
+        _native(ds / "con" / "keep.edf").unlink()
+        code, out, _ = run(["verify", str(ds), "--manifest", str(written), "--show-paths"], capsys)
+        assert code == 1 and "Changed: 0" in out and "New: 1" in out and "Missing: 1" in out
+        assert "- con/sub02.edf" in out and "- con/keep.edf" in out
+        results = _check(ds, rulepacks=("gxdsl008",))  # next to core
+        assert {f.subkey for f in results.findings if f.rule_id == "CORE-M13-02"} == {"new", "missing"}
+        assert results.manifest is not None and results.manifest.status is ManifestStatus.DIFFERS
+        gx05 = next(f for f in results.findings if f.rule_id == "GXDSL008-STO-002")
+        assert (gx05.status, gx05.reason) == (Status.FAILED, "provenance.files_differ")
+    finally:
+        _remove_tree(ds)
+
+
+def test_a_deeply_nested_manifest_is_a_finding_in_check_and_exit_2_in_verify(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PRO21 (C2, A-53, A-82): a manifest at the default location nested 1200 levels deep (the JSON parser
+    takes it, canonical JSON would overflow) is manifest.invalid: check writes results.json with CORE-M13-01
+    failed, verify ends with exit 2 and the invalid-manifest message; neither ends with an internal error."""
+    ds = _copy(tmp_path)
+    written = _manifest(ds)
+    data = json.loads(written.read_text(encoding="utf-8"))
+    data["processing_steps"] = [{"step": "s", "tool": "t", "version": "1", "parameters": "DEEP"}]
+    written.write_text(json.dumps(data).replace('"DEEP"', _nested_json(1200)), encoding="utf-8")
+    results_file = tmp_path / "r.json"
+    config = str(documented_config(tmp_path))
+    code, _, err = run(["check", str(ds), "--out", str(results_file), "--config", config], capsys)
+    assert code == 0 and "Internal error" not in err  # CORE-M13-01 is a warning
+    results = Results.model_validate_json(results_file.read_bytes())
+    finding = next(f for f in results.findings if f.rule_id == "CORE-M13-01")
+    assert (finding.status, finding.reason) == (Status.FAILED, "provenance.manifest_invalid")
+    assert finding.details["problem"] == "manifest.invalid"
+    assert results.manifest is not None and results.manifest.status is ManifestStatus.INVALID
+    assert _m13(results)["CORE-M13-02"] == {(Status.NOT_CHECKABLE, None)}
+    code, _, err = run(["verify", str(ds), "--manifest", str(written)], capsys)
+    assert code == 2 and "Invalid manifest: field '-' (too_deep)" in err and "Internal error" not in err
+
+
+def test_validator_hint_only_where_the_bundled_validator_lists_the_manifest(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PRO23 (A-82): the bundled validator ignores the top-level folders sourcedata/, derivatives/ and code/
+    (also stimuli/, log/, doc/) and what .bidsignore names: no hint there and no BIDS-STO-001 finding.
+    Patterns NeuroGrid does not evaluate give the conditional hint; a listed manifest the plain one."""
+    ds = _copy(tmp_path, "bids_ok")
+    (ds / ".bidsignore").write_text("ignored.json\n", encoding="utf-8")
+    for own in ("sourcedata/manifest.json", "derivatives/manifest.json", "code/m.json", "ignored.json"):
+        target = ds.joinpath(*own.split("/"))
+        target.parent.mkdir(exist_ok=True)
+        code, out, _ = run(["manifest", str(ds), "--out", str(target)], capsys)
+        assert code == 0 and "BIDS validator" not in out
+    results = _check(ds, rulepacks=("bids",), manifest_path=ds / "ignored.json")
+    assert [f for f in results.findings if f.rule_id == "BIDS-STO-001"] == []
+    assert any(p.rule_id == "BIDS-STO-001" for p in results.passed)
+    (ds / ".bidsignore").write_text("*.txt\n", encoding="utf-8")
+    code, out, _ = run(["manifest", str(ds), "--out", str(ds / "ignored.json")], capsys)
+    assert code == 0 and "so it may list the manifest file" in out
+    (ds / ".bidsignore").unlink()
+    code, out, _ = run(["manifest", str(ds), "--out", str(ds / "ignored.json")], capsys)
+    assert code == 0 and "lists files that BIDS does not define, here the manifest file" in out
+
+
+def test_a_single_file_gets_no_output_inside_notice(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PRO24 (A-66, A-82): a single file is no dataset, so results.json next to it is no output inside a
+    dataset (no manifest covers its folder); a folder target keeps the notice."""
+    ds = _copy(tmp_path)
+    single = ds / "single.json"
+    code, out, _ = run(["check", str(ds / "rec_a.edf"), "--out", str(single)], capsys)
+    results = Results.model_validate_json(single.read_bytes())
+    assert code == 1 and "lies inside the dataset" not in out
+    assert all(notice.message_key != "notice.output_inside_dataset" for notice in results.notices)
+    assert results.manifest is not None and results.manifest.status is ManifestStatus.NOT_APPLICABLE
+    code, out, _ = run(["check", str(ds), "--out", str(ds / "folder.json")], capsys)
+    assert "lies inside the dataset" in out
+
+
+def test_deeply_nested_processing_steps_are_named_by_manifest_and_check(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PRO25 (C2, A-53): processing_steps.json whose parameters nest deeper than a manifest holds ends
+    manifest with exit 2 naming the file (too_deep), never an internal ValueError; check reports it as
+    CORE-M13-03 steps_invalid instead of counting the step as documented, so the two agree."""
+    ds = _copy(tmp_path)
+    (ds / ".neurogrid").mkdir()
+    step = '[{"step":"convert","tool":"neurogrid","version":"0.1.0","parameters":DEEP}]'
+    steps = ds / ".neurogrid" / "processing_steps.json"
+    steps.write_text(step.replace("DEEP", _nested_json(120)), encoding="utf-8")
+    code, _, err = run(["manifest", str(ds)], capsys)
+    assert code == 2 and ".neurogrid/processing_steps.json cannot be used (too_deep)" in err
+    assert "Internal error" not in err and not (ds / ".neurogrid" / "manifest.json").exists()
+    results = _check(ds)
+    finding = next(
+        f for f in results.findings if (f.rule_id, f.subkey) == ("CORE-M13-03", "processing_steps")
+    )
+    assert (finding.reason, finding.details["problem"]) == ("provenance.steps_invalid", "too_deep")
+
+
+def test_an_invalid_provenance_yaml_ends_check_before_the_signal_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PRO26 (C2): provenance.yaml is a control file. Like evidence.yaml and splits.tsv, an invalid one ends
+    the run with exit 2 before the signal quality pass; a valid one is read once, also before it."""
+    calls: list[str] = []
+    real_quality = CheckContext.compute_quality
+    real_load = io_provenance.load_provenance_file
+
+    def quality(self: CheckContext, **kwargs: Any) -> None:
+        calls.append("quality")
+        real_quality(self, **kwargs)
+
+    def load(root: Path) -> Any:
+        calls.append("provenance.yaml")
+        return real_load(root)
+
+    monkeypatch.setattr(CheckContext, "compute_quality", quality)
+    monkeypatch.setattr(io_provenance, "load_provenance_file", load)
+    ds = _copy(tmp_path)
+    (ds / ".neurogrid").mkdir()
+    (ds / ".neurogrid" / "provenance.yaml").write_text("processing_steps: [\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as info:
+        _check(ds)
+    assert info.value.message_key == "provenance.yaml_syntax" and calls == ["provenance.yaml"]
+    calls.clear()
+    (ds / ".neurogrid" / "provenance.yaml").write_text("processing_steps: []\n", encoding="utf-8")
+    results = _check(ds)
+    assert calls == ["provenance.yaml", "quality"]
+    assert _m13(results)["CORE-M13-03"] == {(Status.PASSED, None), (Status.FAILED, "software")}
+
+
+def test_refused_and_plain_names_that_read_alike_stay_two_entries(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """PRO27 (critic X8, A-68): 'COM¹.txt' is refused and stored as 'COM%C2%B9.txt', the name of a plain file
+    next to it. The reader accepts the manifest NeuroGrid wrote; when both go missing, verify lists two
+    entries and check gives two CORE-M13-02 findings with different keys and pseudonyms."""
+    ds = _copy(tmp_path)
+    _put(ds / "COM¹.txt", b"refused name")
+    (ds / "COM%C2%B9.txt").write_bytes(b"plain name")
+    written = ds / ".neurogrid" / "manifest.json"
+    try:
+        code, _, _ = run(["manifest", str(ds)], capsys)
+        assert code == 0
+        code, out, err = run(["verify", str(ds), "--manifest", str(written)], capsys)
+        assert code == 0 and "matches the manifest" in out and "more than once" not in err
+        assert _m13(_check(ds))["CORE-M13-01"] == {(Status.PASSED, None)}
+        _native(ds / "COM¹.txt").unlink()
+        (ds / "COM%C2%B9.txt").unlink()
+        code, out, _ = run(["verify", str(ds), "--manifest", str(written), "--show-paths"], capsys)
+        assert code == 1 and "Missing: 2" in out and out.count("- COM%C2%B9.txt") == 2
+        missing = [f for f in _check(ds).findings if f.rule_id == "CORE-M13-02"]
+        assert [f.subkey for f in missing] == ["missing", "missing"]
+        assert len({f.key for f in missing}) == 2 and len({f.object for f in missing}) == 2
+    finally:
+        _remove_tree(ds)
+
+
+def test_empty_option_values_are_invalid_paths(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """INT44 (A-82): an option given with an empty value (an unset variable in a batch script) is an invalid
+    path with exit 2, never the default location; nothing is written."""
+    ds = _copy(tmp_path)
+    results_file = tmp_path / "r.json"
+    for option in ("--manifest", "--evidence", "--config"):
+        code, _, err = run(["check", str(ds), "--out", str(results_file), option, ""], capsys)
+        assert code == 2 and "Invalid path." in err and not results_file.exists()
+    code, _, err = run(["manifest", str(ds), "--out", ""], capsys)
+    assert code == 2 and "Invalid path." in err and not (ds / ".neurogrid").exists()
+    code, out, err = run(["scan", str(ds), "--out", ""], capsys)
+    assert code == 2 and "Invalid path." in err and out == ""  # refused before the scan
+    run(["check", str(ds), "--out", str(results_file)], capsys)
+    code, _, err = run(["report", str(results_file), "--out", ""], capsys)
+    assert code == 2 and "Invalid path." in err and not list(tmp_path.glob("report.*.html"))
+    converted = tmp_path / "bids"
+    code, _, err = run(["convert", str(ds), "--to", "bids", "--out", str(converted), "--config", ""], capsys)
+    assert code == 2 and "Invalid path." in err and not converted.exists()
+
+
+def test_manifest_names_its_target_as_a51_allows(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """INT45 (A-51, A-82): in a raw folder the console names a manifest written inside the dataset by the
+    pseudonymous file name verify shows (after '…' for its folder), never by its real names; in clear with
+    --show-paths, at the default location and in BIDS datasets."""
+    secret = "Zh" + "ang_San"
+    ds = _copy(tmp_path)
+    (ds / secret).mkdir()
+    default = _manifest(ds)  # before m.json exists: verify then lists it as new
+    code, out, _ = run(["manifest", str(ds), "--out", str(ds / secret / "m.json")], capsys)
+    pseudonymous = show(f"{secret}/m.json", plain=False).file
+    assert code == 0 and "ang_San" not in out and pseudonymous.startswith("rec-")
+    assert f"Manifest written to {Path('<dataset>', '…', pseudonymous)}" in out
+    code, out, _ = run(["verify", str(ds), "--manifest", str(default)], capsys)
+    assert code == 1 and f"- {pseudonymous}" in out and "ang_San" not in out  # the same name
+    code, out, _ = run(["manifest", str(ds), "--out", str(ds / secret / "m.json"), "--show-paths"], capsys)
+    assert f"Manifest written to {Path('<dataset>', secret, 'm.json')}" in out
+    code, out, _ = run(["manifest", str(ds)], capsys)
+    assert f"Manifest written to {Path('<dataset>', '.neurogrid', 'manifest.json')}" in out
+    bids = _copy(tmp_path, "bids_ok", "bids")
+    code, out, _ = run(["manifest", str(bids), "--out", str(bids / "sub-01" / "m.json")], capsys)
+    assert f"Manifest written to {Path('<dataset>', 'sub-01', 'm.json')}" in out
 
 
 # --- real subprocesses --------------------------------------------------------------------------------

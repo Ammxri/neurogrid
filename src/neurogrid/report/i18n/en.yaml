@@ -45,12 +45,13 @@ cli:
     library: "Note: a library reported a warning ({type}); results are not affected."
   manifest:
     summary: "Manifest: {files} file(s), {size} MB"
-    skipped: "Not hashed: {links} link(s) or junction(s) (not followed), {special} special file(s), {unsafe} name(s) the path check refuses"
+    skipped: "Not hashed: {links} link(s) or junction(s) (not followed), {special} special file(s), {unsafe} name(s) the path check refuses, also everything inside such a folder (only their presence is compared)"
     hash: "Manifest hash: {hash}"
     written: "Manifest written to {path}"
     unreadable: "{count} file(s) or folder(s) cannot be read:"
     not_written: "No manifest was written: an incomplete manifest would not show later changes to these files."
     bids_hint: "Note: the BIDS validator lists files that BIDS does not define, here the manifest file. Without --out the manifest is written to .neurogrid/manifest.json; the validator does not enter .neurogrid/. Otherwise write it outside the dataset or list it in .bidsignore."
+    bids_hint_bidsignore: "Note: the BIDS validator lists files that BIDS does not define unless .bidsignore covers them, so it may list the manifest file. Without --out the manifest is written to .neurogrid/manifest.json; the validator does not enter .neurogrid/. Otherwise write it outside the dataset or list it in .bidsignore."
     more: "… and {count} more"
   verify:
     hash_ok: "Manifest hash {hash} matches the manifest content."
@@ -167,6 +168,7 @@ errors:
     excluded_invalid: "Invalid manifest: field '{field}' may only name the vault access log."
     needs_folder: "manifest and verify need a dataset folder, not a single file."
     steps_invalid: ".neurogrid/processing_steps.json cannot be used ({problem}); no manifest was written."
+    too_many_entries: "The dataset holds more files or entries that are not hashed than a manifest can list (limit {limit}); no manifest was written."
   provenance:
     invalid: "Invalid .neurogrid/provenance.yaml: field '{field}' ({problem})."
     unreadable: ".neurogrid/provenance.yaml cannot be read."
