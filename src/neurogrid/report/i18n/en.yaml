@@ -120,6 +120,7 @@ errors:
     unsafe_path: "Configuration: field '{field}' must be a relative path inside the project (no '..', drive, network or device paths)."
     unsafe_pattern: "Configuration: the regular expression in field '{field}' can take extremely long on some file names (a repeated part contains another repetition or alternatives, or it uses a back-reference). Please simplify it."
     too_deep: "Configuration file is nested too deeply."
+    duplicate_path: "Configuration: field '{field}' names the same file as an earlier row of [[annotation.files]]; each file may be assigned only once."
   evidence:
     invalid: "Invalid evidence file: field '{field}' ({problem})."
     not_mapping: "An evidence file must be a YAML mapping with format_version and evidence."
@@ -204,7 +205,7 @@ notice:
   annotations_unassigned: "{count} annotation-only file(s) (e.g. hypnograms) match no signal recording; each is checked as a recording of its own. Assign them with [[annotation.files]] in neurogrid.toml."
   annotations_ambiguous: "{count} annotation-only file(s) match several signal recordings equally well; each is checked as a recording of its own. Assign them with [[annotation.files]] in neurogrid.toml."
   annotation_files_unmatched: "{count} row(s) of [[annotation.files]] in neurogrid.toml name no annotation-only file or no signal recording of the dataset."
-  events_rows_invalid: "{count} row(s) of events.tsv files have no valid onset or duration and were left out of the annotation checks."
+  events_rows_invalid: "{count} row(s) of events.tsv files have no valid onset or duration (finite numbers, within about 31.7 years of the recording start) and were left out of the annotation checks."
 
 severity:
   error: "Error"
@@ -335,6 +336,9 @@ reason:
     software_missing: "No software versions documented (provenance.yaml, processing steps, or GeneratedBy with Name and Version)."
   annotation:
     none: "No annotations."
+    all_excluded: "[annotation] annotators leaves out every annotator (the patterns are compared with annotator IDs, not with file names)."
+    markers_only: "Only markers of duration 0; kappa, gaps and overlaps need annotations with a duration."
+    too_many_annotators: "More annotators than the limit for Cohen's kappa (100 per recording)."
     single_annotator: "Only one annotator; Cohen's kappa needs at least two."
     event_mode: "Gaps and coverage are checked in continuous mode only ([annotation] mode)."
     no_vocabulary: "No vocabulary to compare the codes with ([annotation] vocabulary or events.json Levels)."

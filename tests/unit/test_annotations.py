@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -25,21 +27,24 @@ from neurogrid.checks.context import CheckContext
 from neurogrid.io import annotations as reader
 from neurogrid.io.annotations import AnnotationsUnreadable, build_index
 from neurogrid.io.discover import FoundFile, pseudonym, scan
-from neurogrid.io.identifying import annotator_pseudonym, display_text
+from neurogrid.io.identifying import annotator_pseudonym, display_text, short_hash
 from neurogrid.kernel.errors import ConfigError
 from neurogrid.model.dataset import Annotation, Recording
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 
 
-def _annotation_file(path: Path, tal: bytes, *, bdf: bool = False) -> Path:
-    """An annotation-only EDF+C/BDF+C with one record of duration 0 whose annotation signal holds ``tal``."""
+def _annotation_file(
+    path: Path, tal: bytes, *, bdf: bool = False, plus: str = "C", record_s: int = 0
+) -> Path:
+    """An annotation-only EDF+C/BDF+C (or +D) with one record of ``record_s`` seconds whose annotation signal
+    holds ``tal``."""
     bps = 3 if bdf else 2
     samples = -(-len(tal) // bps)
     header = bytearray(b"\xffBIOSEMI" if bdf else _field("0", 8))
     header += _field("X X X X", 80) + _field("Startdate X X X X", 80) + _field("01.01.85", 8)
-    header += _field("00.00.00", 8) + _num(512, 8) + _field("BDF+C" if bdf else "EDF+C", 44)
-    header += _num(1, 8) + _num(0, 8) + _num(1, 4)
+    header += _field("00.00.00", 8) + _num(512, 8) + _field(("BDF+" if bdf else "EDF+") + plus, 44)
+    header += _num(1, 8) + _num(record_s, 8) + _num(1, 4)
     digital = (-8388608, 8388607) if bdf else (-32768, 32767)
     entry = ("BDF Annotations" if bdf else "EDF Annotations", "", "", -1.0, 1.0, *digital, "", samples)
     for value, width in zip(entry, (16, 80, 8, 8, 8, 8, 8, 80, 8), strict=True):
@@ -860,6 +865,439 @@ def test_build_index_with_plain_sources(tmp_path: Path) -> None:
     plain = [_Plain(r.found, r.path, r.recording, r.annotations_only) for r in ctx.recordings]
     index = build_index(tmp_path, plain, is_bids=False)
     assert [len(obj.tracks) for obj in index.objects] == [1]
+
+
+# --- P4 review: bounded times and header sizes (R7: ANN00, CON47, INT40, ANN01) -----------------------------
+
+
+@pytest.mark.parametrize(
+    ("onset", "duration", "valid"),
+    [
+        (1.0, 0.5, True),
+        (-0.5, 0.25, True),  # before the start of the recording (EDF+ allows it)
+        (999_999_999.0, 1.0, True),  # ends at the limit
+        (-1e9, 0.0, True),
+        (1e308, 1e308, False),  # each finite, their end is not (ANN00)
+        (2.0, 1.7e308, False),  # a finite end after 10^9 s
+        (1e9, 1.0, False),
+        (-1e9 - 1.0, 10.0, False),
+        (math.nan, 0.0, False),
+        (0.0, math.inf, False),
+    ],
+)
+def test_valid_times_are_finite_and_bounded(onset: float, duration: float, valid: bool) -> None:
+    assert reader.valid_times(onset, duration) is valid
+
+
+def test_events_rows_whose_times_are_not_valid_are_counted(tmp_path: Path) -> None:
+    """ANN00, CON47, INT40: onset and duration are finite on their own, their end is not or lies after
+    10^9 s: invalid rows (notice.events_rows_invalid), never an annotation (A-53)."""
+    events = (
+        "onset\tduration\ttrial_type\tannotator\n"
+        "1\t0.5\tstim\tA1\n"
+        "1e308\t1e308\tstim\tA1\n"
+        "9e307\t9e307\tstim\tA2\n"
+        "2\t1.7e308\tstim\tA2\n"
+        "-2e9\t0\tstim\tA1\n"
+        "999999999\t1\tstim\tA2\n"  # ends exactly at the limit: an annotation
+    )
+    root = _bids(tmp_path / "ds", events)
+    relative = PurePosixPath("sub-01/eeg/sub-01_task-x_eeg.edf")
+    table = reader.read_events(root, relative)
+    assert table is not None
+    found = reader.events_annotations(root, relative, table)
+    assert [(a.onset_s, a.duration_s) for a in found.annotations] == [(1.0, 0.5), (999_999_999.0, 1.0)]
+    assert found.invalid_rows == 4
+
+
+def test_overflowing_rows_never_reach_the_measurements(tmp_path: Path) -> None:
+    """The reviewers' crash cases: two annotators (math.ceil(inf) in the epoch classes), one annotator with
+    two such rows (an infinite overlap) and an unknown code (an infinite time range) are measured normally."""
+    events = (
+        "onset\tduration\ttrial_type\tannotator\n"
+        "1\t2\tstim\tA1\n1\t2\tstim\tA2\n4\t2\tresp\tA1\n4\t2\tresp\tA2\n"
+        "1e308\t1e308\tstim\tA1\n1e308\t1e308\tstim\tA1\n1e308\t1e308\tstimx\tA2\n"
+    )
+    root = _bids(
+        tmp_path / "ds", events, {"trial_type": {"Levels": {"stim": "Stimulus", "resp": "Response"}}}
+    )
+    ctx = _context(root)
+    measured = [m for check in checks.MEASURERS.values() for m in check(ctx)]
+    (kappa,) = [m for m in measured if m.check_id == checks.KAPPA]
+    assert kappa.value == 1.0
+    assert display_text("stimx").subkey not in {m.subkey for m in measured}  # the row was no annotation
+    assert all(math.isfinite(m.value["overlap_s"]) for m in measured if m.check_id == checks.OVERLAPS)
+    notices = {n.message_key: n.params["count"] for n in checks.notices(ctx)}
+    assert notices == {"notice.events_rows_invalid": 3}
+
+
+@pytest.mark.parametrize(
+    "tal",
+    [
+        b"+0\x14\x14\x00+1000000001\x14late\x14\x00",  # starts after 10^9 s
+        b"+0\x14\x14\x00+999999999\x152\x14long\x14\x00",  # ends after 10^9 s
+        b"+0\x14\x14\x00-1000000001\x14early\x14\x00",  # starts before -10^9 s
+    ],
+)
+def test_tal_times_beyond_the_limit_make_the_file_unreadable(tmp_path: Path, tal: bytes) -> None:
+    with pytest.raises(AnnotationsUnreadable) as info:
+        reader.read_edf_tal(_annotation_file(tmp_path / "far.edf", tal))
+    assert info.value.reason == "annotation.unreadable"
+    ok = _annotation_file(tmp_path / "ok.edf", b"+0\x14\x14\x00+999999999\x151\x14end\x14\x00")
+    assert _codes(reader.read_edf_tal(ok)) == [(999_999_999.0, 1.0, "end")]
+
+
+def test_edf_plus_d_record_onset_beyond_the_limit_is_unreadable(tmp_path: Path) -> None:
+    ok = _annotation_file(tmp_path / "ok.edf", b"+5\x14\x14\x00", plus="D", record_s=1)
+    assert reader.read_edf_tal(ok).data_intervals == ((5.0, 6.0),)
+    far = _annotation_file(tmp_path / "far.edf", b"+2000000000\x14\x14\x00", plus="D", record_s=1)
+    with pytest.raises(AnnotationsUnreadable):
+        reader.read_edf_tal(far)
+
+
+def test_vmrk_marker_beyond_the_limit_is_unreadable(tmp_path: Path) -> None:
+    vhdr = tmp_path / "rec.vhdr"
+    write_brainvision(vhdr, sfreq=500, seconds=1, labels=("Fz",))
+    _vmrk(vhdr, "Mk1=Stimulus,S 1,501,1,0\nMk2=Stimulus,S 2,600000000001,1,0\n")  # 1.2 * 10^9 s at 500 Hz
+    with pytest.raises(AnnotationsUnreadable):
+        reader.read_vmrk(vhdr)
+
+
+def test_eeglab_event_whose_onset_overflows_is_unreadable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A sampling rate far below 1 Hz: (latency - 1) / srate overflows to infinity (ANN00)."""
+    events: dict[str, Any] = {"srate": 1e-300, "event": {"type": "x", "latency": 1e300}}
+    monkeypatch.setattr(reader, "load_events", lambda _path: events)
+    with pytest.raises(AnnotationsUnreadable):
+        reader.read_eeglab_events(tmp_path / "rec.set")
+    events.update(srate=100.0, event={"type": "x", "latency": 11.0, "duration": 5.0})
+    assert _codes(reader.read_eeglab_events(tmp_path / "rec.set")) == [(0.1, 0.05, "x")]
+
+
+@pytest.mark.parametrize(
+    ("latency", "duration"), [(math.inf, 5.0), (-math.inf, 5.0), (11.0, math.inf), (11.0, "-Inf")]
+)
+def test_eeglab_infinite_times_make_the_events_unreadable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, latency: float, duration: float | str
+) -> None:
+    """R7: an infinite latency or duration is damage (formerly read as "no latency" or duration 0 without a
+    trace); a NaN latency stays an event EEGLAB ignores and MNE drops, a NaN duration is 0 as before."""
+    rows = {"type": ["x", "y"], "latency": [21.0, latency], "duration": [0.0, duration]}
+    events: dict[str, Any] = {"srate": 100.0, "event": rows}
+    monkeypatch.setattr(reader, "load_events", lambda _path: events)
+    with pytest.raises(AnnotationsUnreadable):
+        reader.read_eeglab_events(tmp_path / "rec.set")
+    rows.update(latency=[21.0, math.nan], duration=[math.nan, 5.0])
+    assert _codes(reader.read_eeglab_events(tmp_path / "rec.set")) == [(0.2, 0.0, "x")]
+    rows["type"] = ["x", "boundary"]  # a structural marker is no annotation, whatever its times
+    rows.update(latency=[21.0, math.inf])
+    assert _codes(reader.read_eeglab_events(tmp_path / "rec.set")) == [(0.2, 0.0, "x")]
+
+
+@pytest.mark.parametrize(
+    ("onset", "duration"), [(math.nan, 0.0), (1.0, math.inf), (2e9, 0.0), (1.0, -math.inf)]
+)
+def test_fif_annotation_times_that_are_not_valid_make_it_unreadable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, onset: float, duration: float
+) -> None:
+    """Formerly dropped without a trace (non-finite) or kept (after 10^9 s): now the source is unreadable."""
+    stored = SimpleNamespace(onset=[1.0, onset], duration=[0.5, duration], description=["stim", "far"])
+    monkeypatch.setattr(reader, "_unsafe_split", lambda _path: False)
+    monkeypatch.setattr(reader, "_raw", lambda _path: SimpleNamespace(annotations=stored, first_time=0.0))
+    with pytest.raises(AnnotationsUnreadable):
+        reader.read_fif_annotations(tmp_path / "rec_raw.fif")
+    stored.onset, stored.duration = [1.0, 2.0], [0.5, -1.0]  # a negative duration is 0 (MNE)
+    assert _codes(reader.read_fif_annotations(tmp_path / "rec_raw.fif")) == [
+        (1.0, 0.5, "stim"),
+        (2.0, 0.0, "far"),
+    ]
+
+
+def test_grid_and_epoch_classes_stay_finite_for_any_time() -> None:
+    """R7 defence in depth: values the readers never let through, and an epoch length so small that the
+    quotient overflows, end neither in OverflowError nor in an infinite grid."""
+    huge = [_a(0.0, 1e308, "W"), _a(1e308, 1e308, "N1"), _a(-1e308, 1e308, "N2"), _a(30.0, math.inf, "R")]
+    assert checks.epoch_classes(huge, _grid(90.0)) == [("W",), ("W",), ("W",)]
+    tiny = checks.Grid(duration_s=90.0, epoch_s=5e-324, epochs=3, data=((0.0, 90.0),))
+    assert checks.epoch_classes([_a(1e10, 1.0, "W"), _a(-1e10, 2e10, "N1")], tiny) == [("N1",)] * 3
+    found = FoundFile(PurePosixPath("hyp.edf"), "rec-x", ".edf", 0)
+    track = reader.Track("default", (_a(0.0, 30.0, "W"), _a(1e308, 1e308, "N1")), "edf_tal", found)
+    own = reader.AnnotatedRecording(found=found, duration_s=None, tracks=(track,), unassigned=True)
+    frame = checks.grid(own, 30.0)
+    assert (
+        frame is not None and frame.duration_s == 30.0 and frame.epochs == 1
+    )  # the infinite end is left out
+    assert checks.grid(reader.AnnotatedRecording(found=found, duration_s=300.0), 5e-324) is None
+
+
+@pytest.mark.parametrize("plus", ["C", "D"])
+@pytest.mark.parametrize("size", [b"-1      ", b"-768    ", b"256     "])
+def test_header_size_below_the_header_makes_the_annotations_unreadable(
+    tmp_path: Path, plus: str, size: bytes
+) -> None:
+    """ANN01: a negative header size made numpy's memory map raise OverflowError (exit 2); a size below the
+    fixed and signal headers holds no data offset either. M01 reports the header (header.size_field)."""
+    path = tmp_path / "rec.edf"
+    write_edf(path, sfreq=8, seconds=3, labels=("Fz",), plus=plus, annotations=((0.5, 1.0, "W"),))
+    assert _codes(reader.read_edf_tal(path)) == [(0.5, 1.0, "W")]
+    raw = bytearray(path.read_bytes())
+    raw[184:192] = size
+    path.write_bytes(bytes(raw))
+    with pytest.raises(AnnotationsUnreadable) as info:
+        reader.read_edf_tal(path)
+    assert info.value.reason == "annotation.unreadable"
+
+
+# --- P4 review: who takes part in kappa, gaps and overlaps (R9: ANN03, ANN04) -------------------------------
+
+
+def _marker_night(root: Path, relative: str = "night.edf") -> None:
+    """A signal EDF+C whose only annotations are the technician's zero-duration markers (a PSG export)."""
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    markers = ((12.0, 0.0, "Lights off"), (50.0, 0.0, "Lights on"))
+    write_edf(path, sfreq=8, seconds=60, labels=("C3",), plus="C", annotations=markers)
+
+
+def test_a_track_of_markers_only_counts_for_the_codes_alone(tmp_path: Path) -> None:
+    """ANN03: the markers in the signal file are no rater: two identical scorers give kappa 1.0 (not 0.33)
+    and no gaps failure for 'default'; the markers are still judged as codes and counted as [ai] labels."""
+    _marker_night(tmp_path)
+    _hypnogram(tmp_path, "night_s1.edf", ("W", "N1"))
+    _hypnogram(tmp_path, "night_s2.edf", ("W", "N1"))
+    ctx = _context(tmp_path, '[annotation]\nmode = "continuous"\nvocabulary = ["W", "N1", "Lights off"]\n')
+    (obj,) = ctx.annotations().objects
+    assert [t.annotator for t in obj.tracks] == ["default", "s1", "s2"]
+    assert [t.annotator for t in checks.scored_tracks(obj)] == ["s1", "s2"]
+    (kappa,) = checks.measure_kappa(ctx)
+    assert kappa.value == 1.0 and (kappa.details["annotators"], kappa.details["pairs"]) == (2, 1)
+    scorers = sorted(annotator_pseudonym(n) for n in ("s1", "s2"))
+    gaps = checks.measure_gaps(ctx)
+    assert sorted(m.subkey or "" for m in gaps) == scorers and {m.value["coverage"] for m in gaps} == {1.0}
+    assert sorted(m.subkey or "" for m in checks.measure_overlaps(ctx)) == scorers
+    codes = {m.subkey: m.value for m in checks.measure_codes(ctx)}
+    assert codes == {"Lights off": True, "Lights on": False, "N1": True, "W": True}  # markers count here
+    labels = {a.code for a in ctx.annotations().by_recording()[PurePosixPath("night.edf")]}
+    assert {"Lights off", "Lights on"} <= labels  # [ai] labels = "annotations" (A-81)
+    (summary,) = checks.summaries(ctx).values()
+    assert summary["annotators"] == [annotator_pseudonym(n) for n in ("default", "s1", "s2")]
+    assert summary["kappa"]["annotators"] == 2 and summary["kappa"]["mean"] == 1.0
+    assert sorted(summary["coverage"]) == scorers
+
+
+def test_a_signal_recording_with_markers_only_is_uncovered(tmp_path: Path) -> None:
+    """The same signal file alone: no scored annotation, so coverage 0 for the recording (A-80); kappa and
+    overlaps name the reason markers_only, per recording when another recording has scorers."""
+    _marker_night(tmp_path)
+    ctx = _context(tmp_path, '[annotation]\nmode = "continuous"\n')
+    (gap,) = checks.measure_gaps(ctx)
+    assert gap.subkey is None and gap.value == {"gaps": 1, "gap_s": 60.0, "coverage": 0.0}
+    for check in (checks.measure_kappa, checks.measure_overlaps):
+        assert _states(check(ctx)) == [("dataset", "not_applicable", "annotation.markers_only")]
+    _night(tmp_path, "day.edf")
+    _hypnogram(tmp_path, "day_s1.edf", ("W", "N1"))
+    _hypnogram(tmp_path, "day_s2.edf", ("W", "W"))
+    states = _states(checks.measure_kappa(_context(tmp_path, '[annotation]\nmode = "continuous"\n')))
+    night, day = pseudonym(PurePosixPath("night.edf")), pseudonym(PurePosixPath("day.edf"))
+    assert states == sorted([(day, "measured", None), (night, "not_applicable", "annotation.markers_only")])
+
+
+def test_bids_markers_without_annotator_next_to_two_scorers(tmp_path: Path) -> None:
+    """ANN03 in BIDS: stimulus markers (duration 0, no annotator) and two scorers in one events.tsv."""
+    events = (
+        "onset\tduration\ttrial_type\tannotator\n"
+        "1\t0\tbeep\tn/a\n5\t0\tbeep\tn/a\n"
+        "0\t10\tW\tA1\n10\t10\tN1\tA1\n0\t10\tW\tA2\n10\t10\tN1\tA2\n"
+    )
+    ctx = _context(_bids(tmp_path / "ds", events))
+    (kappa,) = checks.measure_kappa(ctx)
+    assert kappa.value == 1.0 and kappa.details["annotators"] == 2
+    overlaps = {m.subkey for m in checks.measure_overlaps(ctx)}
+    assert overlaps == {annotator_pseudonym("A1"), annotator_pseudonym("A2")}
+
+
+def test_an_attached_file_without_annotation_is_an_annotator_with_coverage_0(tmp_path: Path) -> None:
+    """ANN04: one file per annotator (A-80); a scorer file without annotations (a failed export) is no longer
+    dropped: coverage 0 fails CORE-M10-03, it takes no part in kappa and is listed in the summary."""
+    _night(tmp_path, "night.edf")
+    _hypnogram(tmp_path, "night_s1.edf", ("W", "N1"))
+    _hypnogram(tmp_path, "night_s2.edf", ("W", "W"))
+    write_annotation_edf(tmp_path / "night_s3.edf", ())
+    toml = '[annotation]\nmode = "continuous"\n'
+    ctx = _context(tmp_path, toml)
+    (obj,) = ctx.annotations().objects
+    assert [(t.annotator, len(t.annotations)) for t in obj.tracks] == [("s1", 2), ("s2", 2), ("s3", 0)]
+    (kappa,) = checks.measure_kappa(ctx)
+    assert kappa.details["annotators"] == 2
+    empty = {m.subkey: m for m in checks.measure_gaps(ctx)}[annotator_pseudonym("s3")]
+    assert empty.value == {"gaps": 1, "gap_s": 60.0, "coverage": 0.0}
+    assert empty.file == pseudonym(PurePosixPath("night_s3.edf")) + ".edf"
+    assert annotator_pseudonym("s3") not in {m.subkey for m in checks.measure_overlaps(ctx)}
+    assert [m.state for m in checks.measure_codes(ctx)] == ["not_applicable"]  # no vocabulary, as before
+    (summary,) = checks.summaries(ctx).values()
+    assert summary["annotators"] == [annotator_pseudonym(n) for n in ("s1", "s2", "s3")]
+    assert summary["coverage"][annotator_pseudonym("s3")] == 0.0 and summary["kappa"]["annotators"] == 2
+    # left out by the patterns: counted, no finding
+    ctx = _context(tmp_path, toml + 'annotators = ["s1", "s2"]\n')
+    (obj,) = ctx.annotations().objects
+    assert obj.excluded_annotators == 1
+    assert annotator_pseudonym("s3") not in {m.subkey for m in checks.measure_gaps(ctx)}
+    # alone: the recording is judged through that annotator, coverage 0
+    for name in ("night_s1.edf", "night_s2.edf"):
+        (tmp_path / name).unlink()
+    (alone,) = checks.measure_gaps(_context(tmp_path, toml))
+    assert alone.subkey == annotator_pseudonym("s3") and alone.value["coverage"] == 0.0
+
+
+# --- P4 review: kappa limits and one computation per object (R8: ANN05) -------------------------------------
+
+
+def test_kappa_annotator_limit_and_one_computation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _night(tmp_path, "night.edf")
+    for n, stages in enumerate((("W", "N1"), ("W", "W"), ("N1", "N1")), start=1):
+        _hypnogram(tmp_path, f"night_s{n}.edf", stages)
+    toml = '[annotation]\nmode = "continuous"\n'
+    monkeypatch.setattr(checks, "MAX_KAPPA_ANNOTATORS", 2)
+    ctx = _context(tmp_path, toml)
+    (measured,) = checks.measure_kappa(ctx)
+    assert (measured.state, measured.reason) == ("not_checkable", "annotation.too_many_annotators")
+    (summary,) = checks.summaries(ctx).values()
+    assert summary["kappa"] is None and len(summary["annotators"]) == 3
+    monkeypatch.setattr(checks, "MAX_KAPPA_ANNOTATORS", 3)  # at the limit: measured
+    calls: list[str] = []
+    original = checks.kappa
+
+    def counted(obj: reader.AnnotatedRecording, frame: checks.Grid) -> checks.KappaResult | None:
+        calls.append(obj.found.display_id)
+        return original(obj, frame)
+
+    monkeypatch.setattr(checks, "kappa", counted)
+    ctx = _context(tmp_path, toml)
+    (measured,) = checks.measure_kappa(ctx)
+    assert measured.state == "measured" and measured.details["annotators"] == 3
+    (summary,) = checks.summaries(ctx).values()
+    assert summary["kappa"]["annotators"] == 3 and summary["kappa"]["pairs"] == 3
+    assert len(calls) == 1  # the measurement and the summary share one computation (A-53)
+
+
+def test_kappa_keeps_the_lowest_pairs_only_but_averages_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Memory does not grow with the number of pairs: only MAX_PAIRS_LISTED pairs are kept (lowest first, as
+    the full sort gave them); mean, minimum and the pair count still cover every pair, exactly."""
+    monkeypatch.setattr(checks, "MAX_PAIRS_LISTED", 2)
+    found = FoundFile(PurePosixPath("night.edf"), "rec-x", ".edf", 0)
+    stages = {"s1": "W W N1 N1", "s2": "W N1 N1 N1", "s3": "W W N1 N1", "s4": "N1 N1 W W", "s5": "W W W N1"}
+    tracks = tuple(
+        reader.Track(
+            name, tuple(_a(30.0 * i, 30.0, s) for i, s in enumerate(text.split())), "annotation_file", found
+        )
+        for name, text in stages.items()
+    )
+    result = checks.kappa(
+        reader.AnnotatedRecording(found=found, duration_s=120.0, tracks=tracks), _grid(120.0)
+    )
+    assert result is not None
+    names = sorted(stages)
+    expected = []
+    for index, first in enumerate(names):
+        for second in names[index + 1 :]:
+            value = checks.cohen_kappa(stages[first].split(), stages[second].split())
+            assert value is not None
+            expected.append((value, *sorted((annotator_pseudonym(first), annotator_pseudonym(second)))))
+    expected.sort()
+    assert (result.pair_count, result.annotators, len(result.pairs)) == (10, 5, 2)
+    assert result.mean == float(sum((v for v, _a, _b in expected), Fraction(0)) / 10)
+    assert result.minimum == float(expected[0][0])
+    assert result.pairs == tuple((a, b, float(v)) for v, a, b in expected[:2])
+
+
+# --- P4 review: dates in free text (R10: ANN02) -------------------------------------------------------------
+
+
+def test_display_text_hides_real_dates_and_clock_times() -> None:
+    for hidden in ("born 12.03.1961", "recorded 2019-03-12", "Lights off 22.31.07", "DOB 1961-03-12"):
+        assert display_text(hidden) == (None, "text-" + short_hash(hidden))
+        assert display_text(hidden, (hidden,)).shown == hidden  # vocabulary entries still pass
+    for kept in ("Lights off", "Sleep stage W", "N2", "Stage 2", "Auditory/Left", "rest_open", "01.01.85"):
+        assert display_text(kept).shown == kept  # no date, or a placeholder date (A-05)
+
+
+def test_dated_codes_and_annotators_are_free_text(tmp_path: Path) -> None:
+    """In-file TAL texts with a birth date, a recording date and a clock time (ANN02) and a BIDS annotator ID
+    with a date appear only as text-<sha8> with their length."""
+    texts = ("Lights off 22.31.07", "recorded 2019-03-12", "born 12.03.1961", "W")
+    write_edf(
+        tmp_path / "night.edf",
+        sfreq=8,
+        seconds=60,
+        labels=("C3",),
+        plus="C",
+        annotations=tuple((10.0 * i, 0.0, text) for i, text in enumerate(texts)),
+    )
+    measured = checks.measure_codes(_context(tmp_path, '[annotation]\nvocabulary = ["W"]\n'))
+    text = repr([(m.subkey, dict(m.details)) for m in measured])
+    assert "1961" not in text and "2019" not in text and "22.31" not in text
+    hidden = {m.subkey: m.details["chars"] for m in measured if m.value is False}
+    assert hidden == {display_text(t).subkey: len(t) for t in texts[:3]}
+    events = "onset\tduration\ttrial_type\tannotator\n1\t1\tstim\tAB 12.03.1961\n1\t1\tstim\tA2\n"
+    ctx = _context(_bids(tmp_path / "ds", events))
+    details = [dict(m.details) for m in checks.measure_overlaps(ctx)]
+    assert sorted(d.get("annotator", "") for d in details) == ["", "A2"]  # BIDS: shown only if displayable
+
+
+# --- P4 review: annotation configuration (R11: ANN06, ANN08) ------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        ("hyp/s1.edf", "hyp/s1.edf"),
+        ("hyp\\\\s1.edf", "hyp/s1.edf"),  # the same file with Windows separators
+        ("./s1.edf", "s1.edf"),
+        ("hyp//s1.edf", "hyp/s1.edf"),
+    ],
+)
+def test_a_file_appears_in_annotation_files_only_once(first: str, second: str) -> None:
+    """ANN06: a second row for the same file was ignored without a trace (C2: exit 2 naming the field)."""
+
+    def rows(last: str) -> str:
+        return (
+            f'[[annotation.files]]\npath = "{first}"\nrecording = "other.edf"\nannotator = "s1"\n'
+            '[[annotation.files]]\npath = "x.edf"\nrecording = "night.edf"\n'
+            f'[[annotation.files]]\npath = "{last}"\nrecording = "night.edf"\nannotator = "s9"\n'
+        )
+
+    with pytest.raises(ConfigError) as info:
+        config_module.parse(rows(second))
+    assert info.value.message_key == "config.duplicate_path"
+    assert info.value.params == {"field": "annotation.files.2.path"}  # the field only, never the path
+    assert len(config_module.parse(rows("hyp/s2.edf")).annotation.files) == 3  # several files: fine
+
+
+def test_patterns_that_leave_out_every_annotator_name_the_reason(tmp_path: Path) -> None:
+    """ANN08: the patterns are compared with annotator IDs; a file-name pattern leaves out everyone, and the
+    findings say so (annotation.all_excluded) instead of 'no annotations'."""
+    _night(tmp_path, "night.edf")
+    _hypnogram(tmp_path, "night_scorer1.edf", ("W", "N1"))
+    _hypnogram(tmp_path, "night_scorer2.edf", ("W", "W"))
+    toml = '[annotation]\nmode = "continuous"\n'
+    ctx = _context(tmp_path, toml + 'annotators = ["night_scorer*.edf"]\n')
+    for check in (checks.measure_kappa, checks.measure_codes, checks.measure_overlaps):
+        assert _states(check(ctx)) == [("dataset", "not_applicable", "annotation.all_excluded")]
+    (gap,) = checks.measure_gaps(ctx)
+    assert gap.value["coverage"] == 0.0 and gap.details == {"excluded_annotators": 2}
+    (kappa,) = checks.measure_kappa(_context(tmp_path, toml + 'annotators = ["scorer*"]\n'))  # IDs
+    assert kappa.state == "measured" and kappa.details["annotators"] == 2
+    # per recording, when another recording has annotators that take part
+    _night(tmp_path, "day.edf")
+    _hypnogram(tmp_path, "day_other.edf", ("W", "N1"))  # the annotator ID is "other"
+    ctx = _context(tmp_path, toml + 'annotators = ["scorer*"]\n')
+    day = next(m for m in checks.measure_kappa(ctx) if m.object == pseudonym(PurePosixPath("day.edf")))
+    assert (day.state, day.reason, dict(day.details)) == (
+        "not_applicable",
+        "annotation.all_excluded",
+        {"excluded_annotators": 1},
+    )
 
 
 # --- language tables (C7) -----------------------------------------------------------------------------------

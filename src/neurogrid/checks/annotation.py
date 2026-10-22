@@ -2,7 +2,13 @@
 
 Objects are the signal recordings with the annotations attached to them, and annotation-only files that could
 not be attached (CheckContext.annotations(), io/annotations.py). Only the annotators that take part count
-(``[annotation] annotators``); the others are counted in the details.
+(``[annotation] annotators``, compared with annotator IDs); the others are counted in the details. When the
+patterns leave out every annotator, the findings say so (``annotation.all_excluded``).
+
+Participants (A-80): an annotator takes part in κ, gaps and overlaps only with at least one annotation of
+duration > 0 (a *scored* track). A track of zero-duration markers only counts for the codes and for
+``[ai] labels = "annotations"``. An attached annotation-only file without any annotation is an annotator all
+the same: it has coverage 0 in the gaps check, takes no part in κ and is listed in the summary.
 
 - **κ** (``annotation.kappa``, CORE-M10-01): pairwise unweighted Cohen's κ on an epoch grid of ``epoch_s``
   (default 30 s continuous, 1 s events) from t = 0 to the end of the recording, complete epochs only (floor),
@@ -11,15 +17,17 @@ not be attached (CheckContext.annotations(), io/annotations.py). Only the annota
   EDF+D file do not count. κ is computed exactly with fractions from integer counts, so it does not depend on
   the platform (A-11). The value is the mean of the pairwise κ (compared with ``min_kappa``, 0.6, PRD); the
   minimum, the number of pairs and the pairs are in the details. A pair whose expected agreement is 1 has no
-  κ and is counted as undefined. One annotator: not_applicable.
+  κ and is counted as undefined. One annotator: not_applicable. Limits (A-53): at most MAX_EPOCHS epochs and
+  MAX_KAPPA_ANNOTATORS scored annotators (4950 pairs) per object, else not_checkable; κ is computed once per
+  object and run (measure and summary share it), and only the MAX_PAIRS_LISTED lowest pairs are kept.
 - **Codes** (``annotation.codes``, CORE-M10-02): one measurement per object and distinct code: in the
   vocabulary (``[annotation] vocabulary`` > events.json Levels of the code column), compared exactly; and one
   dataset-level measurement per label (events.json Levels description) that must not carry several codes.
   Zero-duration markers count here.
 - **Gaps** (``annotation.gaps``, CORE-M10-03), continuous mode only: per object and annotator the parts of the
   scored range (the complete epochs, without EDF+D record gaps) that no annotation with duration > 0 covers;
-  coverage is the covered share of the whole recording. A signal recording without any annotation fails with
-  coverage 0 (A-80).
+  coverage is the covered share of the whole recording. A signal recording without any scored annotation
+  fails with coverage 0 (A-80), and so does an attached annotation-only file without annotation.
 - **Overlaps** (``annotation.overlaps``, CORE-M10-04): per object and annotator the maximal intervals covered
   by two or more annotations with duration > 0; in events mode only annotations with the same code count.
   Touching ends ([0, 30) and [30, 60)) do not overlap.
@@ -27,11 +35,13 @@ not be attached (CheckContext.annotations(), io/annotations.py). Only the annota
 TIME_TOLERANCE_S (1 ms) is a numerical epsilon for interval ends (gaps and overlaps shorter than it are not
 counted, intervals closer than it are joined), not a threshold (A-80, critic G13). Rules without anything to
 judge in the whole dataset give one dataset-level measurement instead of one per recording (C11, A-59).
+Annotation times are bounded when they are read (io.annotations.valid_times, A-53); the grid and the epoch
+classes stay finite for any value all the same.
 
-Display (A-17, A-51, C5): codes and labels appear only if io.identifying.display_text allows it, otherwise as
-``text-<sha8>`` with their length; annotators always as ``ann-<sha8>`` subkeys, their clear ID only in the
-details and only in BIDS datasets (through the same display rule) or with --show-paths. Subkeys do not depend
-on --show-paths (A-68).
+Display (A-17, A-51, C5): codes and labels appear only if io.identifying.display_text allows it (no name,
+long number, absolute path, real date or clock time), otherwise as ``text-<sha8>`` with their length;
+annotators always as ``ann-<sha8>`` subkeys, their clear ID only in the details and only in BIDS datasets
+(through the same display rule) or with --show-paths. Subkeys do not depend on --show-paths (A-68).
 """
 
 from __future__ import annotations
@@ -73,11 +83,15 @@ MAX_TIME_RANGES = 20  # A-10
 MAX_PAIRS_LISTED = 100
 MAX_CODES_LISTED = 20
 MAX_EPOCHS = 5_000_000  # A-53: epochs per object compared for kappa (58 days of 1-s epochs)
+MAX_KAPPA_ANNOTATORS = 100  # A-53: scored annotators per object compared for kappa (4950 pairs)
 DATASET = "dataset"
 LABEL_PREFIX = "label:"
 # every reason key the M10 measurements can carry (reason.<key> in the language tables; also built at runtime)
 REASONS = (
     "annotation.none",
+    "annotation.all_excluded",
+    "annotation.markers_only",
+    "annotation.too_many_annotators",
     "annotation.single_annotator",
     "annotation.event_mode",
     "annotation.no_vocabulary",
@@ -173,15 +187,49 @@ def _positive(annotations: Iterable[Annotation]) -> list[Annotation]:
     return [a for a in annotations if a.duration_s > 0]
 
 
+def _is_scored(track: Track) -> bool:
+    return any(a.duration_s > 0 for a in track.annotations)
+
+
+def scored_tracks(obj: AnnotatedRecording) -> tuple[Track, ...]:
+    """The annotators that take part in κ and overlaps: at least one annotation with duration > 0 (A-80); a
+    track of zero-duration markers only counts for the codes and the [ai] labels alone."""
+    return tuple(track for track in obj.tracks if _is_scored(track))
+
+
+def gap_tracks(obj: AnnotatedRecording) -> tuple[Track, ...]:
+    """The annotators the gaps check judges: the scored tracks and the attached annotation-only files without
+    any annotation (an annotator who scored nothing has coverage 0, A-80)."""
+    return tuple(track for track in obj.tracks if not track.annotations or _is_scored(track))
+
+
+def _nothing_scored(objects: Sequence[AnnotatedRecording]) -> str:
+    """The reason when none of ``objects`` has a scored track: only markers, every annotator left out by the
+    ``[annotation] annotators`` patterns, or no annotation at all."""
+    if any(obj.annotations for obj in objects):
+        return "annotation.markers_only"
+    return _nothing_kept(objects)
+
+
+def _nothing_kept(objects: Sequence[AnnotatedRecording]) -> str:
+    """The reason when none of ``objects`` has an annotation of an annotator that takes part."""
+    return "annotation.all_excluded" if any(obj.excluded_annotators for obj in objects) else "annotation.none"
+
+
 def grid(obj: AnnotatedRecording, epoch_s: float) -> Grid | None:
-    """None when the length is unknown: no recording duration and no annotation with an end."""
+    """None when the length is unknown: no recording duration and no annotation with an end. Times are bounded
+    when they are read (A-53); a length or an epoch count that is not finite gives None as well (defence in
+    depth: never an overflow)."""
     duration = obj.duration_s
     if duration is None:
-        ends = [a.onset_s + a.duration_s for a in obj.annotations]
+        ends = [end for end in (a.onset_s + a.duration_s for a in obj.annotations) if math.isfinite(end)]
         duration = max(ends) if ends and max(ends) > 0 else None
-    if duration is None:
+    if duration is None or not math.isfinite(duration):
         return None
-    epochs = max(0, math.floor((duration + TIME_TOLERANCE_S) / epoch_s))
+    ratio = (duration + TIME_TOLERANCE_S) / epoch_s
+    if not math.isfinite(ratio):
+        return None
+    epochs = max(0, math.floor(ratio))
     data = obj.data_intervals or ((0.0, duration),)
     clipped = tuple((max(0.0, start), min(stop, duration)) for start, stop in data if stop > 0)
     return Grid(duration_s=duration, epoch_s=epoch_s, epochs=epochs, data=clipped)
@@ -190,17 +238,25 @@ def grid(obj: AnnotatedRecording, epoch_s: float) -> Grid | None:
 # --- κ ------------------------------------------------------------------------------------------------------
 
 
+def _epoch_at(time_s: float, frame: Grid) -> int:
+    """The first epoch whose midpoint lies at or after ``time_s``: ceil(time / epoch_s - 0.5), limited to
+    -1 … epochs (the same result inside the grid; a time far outside it, or a quotient that overflows for a
+    tiny epoch_s, cannot reach math.ceil as an infinity)."""
+    position = time_s / frame.epoch_s - 0.5
+    return math.ceil(min(max(position, -1.0), float(frame.epochs)))
+
+
 def epoch_classes(annotations: Iterable[Annotation], frame: Grid) -> list[tuple[str, ...]]:
     """The class of every epoch: the sorted codes of the annotations with duration > 0 that cover its midpoint
     (half-open intervals), () for "no event". A sweep over the epochs keeps the cost linear."""
     starts: dict[int, list[str]] = {}
     stops: dict[int, list[str]] = {}
     for annotation in _positive(annotations):
-        first = max(0, math.ceil(annotation.onset_s / frame.epoch_s - 0.5))
-        last = min(
-            frame.epochs - 1,
-            math.ceil((annotation.onset_s + annotation.duration_s) / frame.epoch_s - 0.5) - 1,
-        )
+        end = annotation.onset_s + annotation.duration_s
+        if not (math.isfinite(annotation.onset_s) and math.isfinite(end)):
+            continue  # never read (A-53); kept out here as well, so math.ceil never sees an infinity
+        first = max(0, _epoch_at(annotation.onset_s, frame))
+        last = min(frame.epochs - 1, _epoch_at(end, frame) - 1)
         if first <= last:
             starts.setdefault(first, []).append(annotation.code)
             stops.setdefault(last + 1, []).append(annotation.code)
@@ -228,18 +284,24 @@ def cohen_kappa(first: Sequence[Any], second: Sequence[Any]) -> Fraction | None:
     codes = [
         np.array([labels.setdefault(x, len(labels)) for x in seq], dtype=np.int64) for seq in (first, second)
     ]
-    return _kappa(codes[0], codes[1], len(labels))
+    classes = len(labels)
+    return _kappa(codes[0], codes[1], _class_counts(codes[0], classes), _class_counts(codes[1], classes))
 
 
-def _kappa(first: np.ndarray, second: np.ndarray, classes: int) -> Fraction | None:
-    """κ = (n·agree − Σ nₐ(c)·n_b(c)) / (n² − Σ nₐ(c)·n_b(c)) from integer counts (class numbers 0 …
-    classes − 1), so the value is exact and the same on every platform (A-11)."""
+def _class_counts(sequence: np.ndarray, classes: int) -> np.ndarray:
+    """How often each class number 0 … classes − 1 occurs, as Python integers (no overflow in products)."""
+    return np.bincount(sequence, minlength=classes).astype(object)
+
+
+def _kappa(
+    first: np.ndarray, second: np.ndarray, counts_a: np.ndarray, counts_b: np.ndarray
+) -> Fraction | None:
+    """κ = (n·agree − Σ nₐ(c)·n_b(c)) / (n² − Σ nₐ(c)·n_b(c)) from integer counts (``_class_counts`` of
+    both sequences over the same classes), so the value is exact and the same on every platform (A-11)."""
     n = len(first)
     if n == 0:
         return None
     agree = int(np.count_nonzero(first == second))
-    counts_a = np.bincount(first, minlength=classes).astype(object)  # Python integers: no overflow
-    counts_b = np.bincount(second, minlength=classes).astype(object)
     expected = int(sum(counts_a * counts_b))
     denominator = n * n - expected
     if denominator == 0:
@@ -251,39 +313,53 @@ def _kappa(first: np.ndarray, second: np.ndarray, classes: int) -> Fraction | No
 class KappaResult:
     mean: float
     minimum: float
-    pairs: tuple[tuple[str, str, float], ...]  # (annotator subkey, annotator subkey, κ), lowest first
+    # (annotator subkey, annotator subkey, κ), lowest first: the MAX_PAIRS_LISTED lowest pairs only
+    pairs: tuple[tuple[str, str, float], ...]
+    pair_count: int  # pairs with a κ
     annotators: int
     epochs: int
     undefined_pairs: int
 
 
+def _sequence(classes: list[tuple[str, ...]], numbers: dict[tuple[str, ...], int]) -> np.ndarray:
+    """Class numbers of the epochs in the smallest unsigned type that holds them (memory per annotator)."""
+    sequence = np.array([numbers.setdefault(c, len(numbers)) for c in classes], dtype=np.int64)
+    return sequence.astype(np.min_scalar_type(len(numbers)))
+
+
 def kappa(obj: AnnotatedRecording, frame: Grid) -> KappaResult | None:
-    """Pairwise κ of the annotators of ``obj``; None when no pair has a κ."""
+    """Pairwise κ of the scored annotators of ``obj``; None when no pair has a κ. The mean is exact over every
+    pair (a running sum of fractions); only the MAX_PAIRS_LISTED lowest pairs are kept, so the memory does not
+    grow with the number of pairs (A-53). The class counts of each annotator are taken once, not per pair."""
     counted = frame.counted_mask()
     numbers: dict[tuple[str, ...], int] = {}
     labels: list[tuple[str, np.ndarray]] = []
-    for track in obj.tracks:
-        classes = epoch_classes(track.annotations, frame)
-        sequence = np.array([numbers.setdefault(c, len(numbers)) for c in classes], dtype=np.int64)
+    for track in scored_tracks(obj):
+        sequence = _sequence(epoch_classes(track.annotations, frame), numbers)
         labels.append((annotator_pseudonym(track.annotator), sequence[counted]))
-    values: list[tuple[Fraction, str, str]] = []
-    undefined = 0
+    counts = [_class_counts(sequence, len(numbers)) for _name, sequence in labels]
+    total, count, undefined = Fraction(0), 0, 0
+    lowest: list[tuple[Fraction, str, str]] = []
     for index, (name_a, seq_a) in enumerate(labels):
-        for name_b, seq_b in labels[index + 1 :]:
-            value = _kappa(seq_a, seq_b, len(numbers))
+        for other, (name_b, seq_b) in enumerate(labels[index + 1 :], start=index + 1):
+            value = _kappa(seq_a, seq_b, counts[index], counts[other])
             if value is None:
                 undefined += 1
-            else:
-                low, high = sorted((name_a, name_b))
-                values.append((value, low, high))
-    if not values:
+                continue
+            total += value
+            count += 1
+            low, high = sorted((name_a, name_b))
+            lowest.append((value, low, high))
+            if len(lowest) >= 2 * MAX_PAIRS_LISTED:
+                lowest = sorted(lowest)[:MAX_PAIRS_LISTED]
+    if not count:
         return None
-    values.sort()
-    mean = sum((value for value, _a, _b in values), Fraction(0)) / len(values)
+    lowest = sorted(lowest)[:MAX_PAIRS_LISTED]
     return KappaResult(
-        mean=float(mean),
-        minimum=float(values[0][0]),
-        pairs=tuple((a, b, float(value)) for value, a, b in values),
+        mean=float(total / count),
+        minimum=float(lowest[0][0]),
+        pairs=tuple((a, b, float(value)) for value, a, b in lowest),
+        pair_count=count,
         annotators=len(labels),
         epochs=len(labels[0][1]),
         undefined_pairs=undefined,
@@ -426,33 +502,50 @@ def _track_base(
     )
 
 
+def cached_kappa(ctx: CheckContext, obj: AnnotatedRecording, frame: Grid) -> KappaResult | None:
+    """κ of ``obj`` on ``frame``, computed once per object and run: the measurement and the summary of
+    results.json share it (A-53). The frame is the same for both (one configuration per run)."""
+    cache = ctx.annotation_kappa
+    if obj.found.relative not in cache:
+        cache[obj.found.relative] = kappa(obj, frame)
+    result = cache[obj.found.relative]
+    return result if isinstance(result, KappaResult) else None
+
+
 def measure_kappa(ctx: CheckContext) -> list[Measurement]:
     config = settings(ctx)
     objects = ctx.annotations().objects
     out = [_not_checkable(obj, KAPPA, obj.issue) for obj in objects if obj.issue]
     readable = [obj for obj in objects if not obj.issue]
-    if not any(len(obj.tracks) >= 2 for obj in readable):  # nothing to compare anywhere (C11)
-        reason = "annotation.single_annotator" if any(obj.tracks for obj in readable) else "annotation.none"
+    if not any(len(scored_tracks(obj)) >= 2 for obj in readable):  # nothing to compare anywhere (C11)
+        reason = (
+            "annotation.single_annotator" if any(map(scored_tracks, readable)) else _nothing_scored(readable)
+        )
         return [_dataset(KAPPA, reason), *out]
     for obj in readable:
         details = {"excluded_annotators": obj.excluded_annotators} if obj.excluded_annotators else {}
         frame = grid(obj, config.epoch_s)
+        scored = scored_tracks(obj)
         if config.continuous and obj.epoched:
             out.append(_base(obj, KAPPA, state="not_applicable", reason="annotation.epoched"))
-        elif not obj.tracks:
-            out.append(_base(obj, KAPPA, state="not_applicable", reason="annotation.none", details=details))
-        elif len(obj.tracks) == 1:
+        elif not scored:
+            reason = _nothing_scored([obj])
+            out.append(_base(obj, KAPPA, state="not_applicable", reason=reason, details=details))
+        elif len(scored) == 1:
             out.append(
                 _base(
                     obj, KAPPA, state="not_applicable", reason="annotation.single_annotator", details=details
                 )
             )
+        elif len(scored) > MAX_KAPPA_ANNOTATORS:  # A-53: the pairs grow with the square of the annotators
+            reason, counted = "annotation.too_many_annotators", {**details, "annotators": len(scored)}
+            out.append(_base(obj, KAPPA, state="not_checkable", reason=reason, details=counted))
         elif frame is not None and frame.epochs > MAX_EPOCHS:
             out.append(_not_checkable(obj, KAPPA, "annotation.too_many_epochs"))
         elif frame is None or frame.epochs == 0 or not frame.counted_mask().any():
             out.append(_not_checkable(obj, KAPPA, "annotation.too_short"))
         else:
-            result = kappa(obj, frame)
+            result = cached_kappa(ctx, obj, frame)
             if result is None:
                 out.append(_not_checkable(obj, KAPPA, "annotation.kappa_undefined"))
                 continue
@@ -463,7 +556,7 @@ def measure_kappa(ctx: CheckContext) -> list[Measurement]:
 def _kappa_details(result: KappaResult) -> dict[str, Any]:
     return {
         "min": result.minimum,
-        "pairs": len(result.pairs),
+        "pairs": result.pair_count,
         "annotators": result.annotators,
         "epochs": result.epochs,
         "undefined_pairs": result.undefined_pairs,
@@ -479,15 +572,16 @@ def measure_codes(ctx: CheckContext) -> list[Measurement]:
     objects = ctx.annotations().objects
     out = [_not_checkable(obj, CODES, obj.issue) for obj in objects if obj.issue]
     readable = [obj for obj in objects if not obj.issue]
-    judged = [obj for obj in readable if obj.tracks and (config.vocabulary or obj.vocabulary)]
+    judged = [obj for obj in readable if obj.annotations and (config.vocabulary or obj.vocabulary)]
     labels = _label_measurements(readable)
     if not judged and not labels:  # nothing to compare anywhere (C11)
-        reason = "annotation.no_vocabulary" if any(obj.tracks for obj in readable) else "annotation.none"
+        has_codes = any(obj.annotations for obj in readable)
+        reason = "annotation.no_vocabulary" if has_codes else _nothing_kept(readable)
         return [_dataset(CODES, reason), *out]
     for obj in readable:
         vocabulary = config.vocabulary or obj.vocabulary
-        if not obj.tracks:
-            out.append(_base(obj, CODES, state="not_applicable", reason="annotation.none"))
+        if not obj.annotations:  # markers count here (A-80); an empty track has no code
+            out.append(_base(obj, CODES, state="not_applicable", reason=_nothing_kept([obj])))
         elif not vocabulary:
             out.append(_base(obj, CODES, state="not_applicable", reason="annotation.no_vocabulary"))
         else:
@@ -544,10 +638,12 @@ def _label_measurements(objects: Sequence[AnnotatedRecording]) -> list[Measureme
 
 
 def _uncovered(obj: AnnotatedRecording, frame: Grid) -> Measurement:
-    """A-80: a signal recording without any annotation in continuous mode is not covered at all."""
+    """A-80: a signal recording without any scored annotation in continuous mode is not covered at all (the
+    details count the annotators the ``[annotation] annotators`` patterns left out)."""
     scored = list(frame.scored)
     value = {"gaps": len(scored), "gap_s": _length(scored), "coverage": 0.0}
-    return _base(obj, GAPS, value=value, **_ranges(scored))
+    details = {"excluded_annotators": obj.excluded_annotators} if obj.excluded_annotators else {}
+    return _base(obj, GAPS, value=value, details=details, **_ranges(scored))
 
 
 def measure_gaps(ctx: CheckContext) -> list[Measurement]:
@@ -565,10 +661,10 @@ def measure_gaps(ctx: CheckContext) -> list[Measurement]:
             out.append(_not_checkable(obj, GAPS, "annotation.duration_unknown"))
         elif frame.epochs == 0 or not frame.scored:
             out.append(_not_checkable(obj, GAPS, "annotation.too_short"))
-        elif not obj.tracks:
+        elif not gap_tracks(obj):  # no annotation, markers only, or every annotator left out
             out.append(_uncovered(obj, frame))
         else:
-            for track in obj.tracks:
+            for track in gap_tracks(obj):
                 missing, coverage = gaps(track.annotations, frame)
                 value = {"gaps": len(missing), "gap_s": _length(missing), "coverage": coverage}
                 out.append(_track_base(ctx, obj, track, GAPS, value=value, **_ranges(missing)))
@@ -580,15 +676,15 @@ def measure_overlaps(ctx: CheckContext) -> list[Measurement]:
     objects = ctx.annotations().objects
     out = [_not_checkable(obj, OVERLAPS, obj.issue) for obj in objects if obj.issue]
     readable = [obj for obj in objects if not obj.issue]
-    if not any(obj.tracks for obj in readable):  # nothing to compare anywhere (C11)
-        return [_dataset(OVERLAPS, "annotation.none"), *out]
+    if not any(map(scored_tracks, readable)):  # nothing to compare anywhere (C11)
+        return [_dataset(OVERLAPS, _nothing_scored(readable)), *out]
     for obj in readable:
         if config.continuous and obj.epoched:
             out.append(_base(obj, OVERLAPS, state="not_applicable", reason="annotation.epoched"))
-        elif not obj.tracks:
-            out.append(_base(obj, OVERLAPS, state="not_applicable", reason="annotation.none"))
+        elif not scored_tracks(obj):
+            out.append(_base(obj, OVERLAPS, state="not_applicable", reason=_nothing_scored([obj])))
         else:
-            for track in obj.tracks:
+            for track in scored_tracks(obj):
                 found = overlaps(track.annotations, same_code=not config.continuous)
                 value = {"overlaps": len(found), "overlap_s": _length(found)}
                 out.append(_track_base(ctx, obj, track, OVERLAPS, value=value, **_ranges(found)))
@@ -605,7 +701,9 @@ def summaries(ctx: CheckContext) -> dict[PurePosixPath, dict[str, Any]]:
     """The M10 summary per object for recordings[].metrics["annotation"] (critic X10): passed κ values are
     otherwise only counted (A-59). Empty when the annotations were not read (no M10 check ran, and no M11
     class balance with ``[ai] labels = "annotations"``, A-81); objects without any annotation source (no
-    annotation, no attached or excluded file, nothing unreadable) get none, their findings say it (A-59)."""
+    annotation, no attached or excluded file, nothing unreadable) get none, their findings say it (A-59).
+    ``annotators`` lists every annotator that takes part (marker-only and empty tracks included); κ covers
+    the scored ones, ``coverage`` the ones the gaps check judges."""
     if not ctx.annotations_read:
         return {}
     config = settings(ctx)
@@ -635,19 +733,20 @@ def summaries(ctx: CheckContext) -> dict[PurePosixPath, dict[str, Any]]:
         if obj.invalid_rows:
             entry["invalid_rows"] = obj.invalid_rows
         usable = not obj.issue and frame is not None and frame.epochs > 0 and not obj.epoched
-        if usable and frame is not None and len(obj.tracks) >= 2 and frame.epochs <= MAX_EPOCHS:
-            result = kappa(obj, frame)
+        comparable = 2 <= len(scored_tracks(obj)) <= MAX_KAPPA_ANNOTATORS
+        if usable and frame is not None and comparable and frame.epochs <= MAX_EPOCHS:
+            result = cached_kappa(ctx, obj, frame)
             if result is not None:
                 entry["kappa"] = {
                     "mean": result.mean,
                     "min": result.minimum,
-                    "pairs": len(result.pairs),
+                    "pairs": result.pair_count,
                     "annotators": result.annotators,
                     "undefined_pairs": result.undefined_pairs,
                 }
         if config.continuous and usable and frame is not None:
             entry["coverage"] = {
-                annotator_pseudonym(t.annotator): gaps(t.annotations, frame)[1] for t in obj.tracks
+                annotator_pseudonym(t.annotator): gaps(t.annotations, frame)[1] for t in gap_tracks(obj)
             }
         out[obj.found.relative] = entry
     return out

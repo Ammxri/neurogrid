@@ -71,7 +71,7 @@
     },
     "AnnotationSection": {
       "additionalProperties": false,
-      "description": "M10 (A-17, A-80). ``epoch_s`` unset: 30 s in continuous, 1 s in events mode. ``vocabulary`` is\nmatched exactly (outer whitespace ignored); unset, the events.json Levels of the code column apply.\n``annotators`` is a list of patterns (``*``, ``?``, case-sensitive) over annotator IDs; only matching\nannotators take part.",
+      "description": "M10 (A-17, A-80). ``epoch_s`` unset: 30 s in continuous, 1 s in events mode. ``vocabulary`` is\nmatched exactly (outer whitespace ignored); unset, the events.json Levels of the code column apply.\n``annotators`` is a list of patterns (``*``, ``?``, case-sensitive) over annotator IDs (the events.tsv\ncolumn ``annotator``, ``files[].annotator`` or the stem rest after '<recording stem>_'), not over file\nnames; only matching annotators take part. A path may appear in ``files`` only once.",
       "properties": {
         "annotators": {
           "anyOf": [

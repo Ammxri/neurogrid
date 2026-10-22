@@ -74,9 +74,14 @@ class DisplayedText(NamedTuple):
 
 def display_text(value: str, vocabulary: Collection[str] = ()) -> DisplayedText:
     """A-17 with the refinement of C5: a value is shown if it is in the vocabulary, or if it fully matches
-    the A-17 pattern (``DISPLAYABLE``) and does not look identifying (a name, a long number, an absolute
-    path). Annotation codes, class labels and annotator IDs from files all use this one rule (A-51)."""
-    if value in vocabulary or (DISPLAYABLE.fullmatch(value) and not looks_identifying(value)):
+    the A-17 pattern (``DISPLAYABLE``) and does not look like personal data: no name, long number or
+    absolute path (``looks_identifying``) and no real date or clock time such as "born 12.03.1961",
+    "recorded 2019-03-12" or "Lights off 22.31.07" (``real_dates``, A-05; placeholder dates such as 01.01.85
+    stay visible). Annotation codes, class labels and annotator IDs from files all use this one rule
+    (A-51)."""
+    if value in vocabulary or (
+        DISPLAYABLE.fullmatch(value) and not looks_identifying(value) and not real_dates(value)
+    ):
         return DisplayedText(value, value)
     return DisplayedText(None, FREE_TEXT_PREFIX + short_hash(value))
 

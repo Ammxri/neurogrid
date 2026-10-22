@@ -355,8 +355,9 @@ class AnnotationFile(_Section):
 class AnnotationSection(_Section):
     """M10 (A-17, A-80). ``epoch_s`` unset: 30 s in continuous, 1 s in events mode. ``vocabulary`` is
     matched exactly (outer whitespace ignored); unset, the events.json Levels of the code column apply.
-    ``annotators`` is a list of patterns (``*``, ``?``, case-sensitive) over annotator IDs; only matching
-    annotators take part."""
+    ``annotators`` is a list of patterns (``*``, ``?``, case-sensitive) over annotator IDs (the events.tsv
+    column ``annotator``, ``files[].annotator`` or the stem rest after '<recording stem>_'), not over file
+    names; only matching annotators take part. A path may appear in ``files`` only once."""
 
     mode: Literal["continuous", "events"] = "events"
     epoch_s: float | None = Field(default=None, gt=0, le=86_400)
@@ -453,6 +454,18 @@ def _check_paths(cfg: Config) -> None:
             raise ConfigError("config.unsafe_path", field=name) from None
 
 
+def _check_annotation_files(cfg: Config) -> None:
+    """A-80: every annotation-only file appears in [[annotation.files]] at most once. Paths are compared as
+    io.annotations.build_index looks them up ('\\' as '/', POSIX normal form), so two spellings of one file
+    are one file; a second row would contradict the first or be ignored (C2: an error naming the field)."""
+    seen: set[str] = set()
+    for index, entry in enumerate(cfg.annotation.files):
+        key = PurePosixPath(entry.path.replace("\\", "/")).as_posix()
+        if key in seen:
+            raise ConfigError("config.duplicate_path", field=f"annotation.files.{index}.path")
+        seen.add(key)
+
+
 def parse(text: str) -> Config:
     if len(text.encode("utf-8", "surrogatepass")) > MAX_CONFIG_BYTES:
         raise ConfigError("config.too_large")
@@ -471,6 +484,7 @@ def parse(text: str) -> Config:
         location = ".".join(str(part) for part in first["loc"])
         raise ConfigError("config.invalid", field=location, problem=first["type"]) from None
     _check_paths(cfg)
+    _check_annotation_files(cfg)
     return cfg
 
 
