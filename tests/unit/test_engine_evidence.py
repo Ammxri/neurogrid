@@ -7,7 +7,7 @@ from datetime import date
 
 import pytest
 
-from neurogrid.config import parse
+from neurogrid.config import ConfigExceptionEntry, parse
 from neurogrid.kernel import engine
 from neurogrid.kernel.errors import ConfigError
 from neurogrid.kernel.evidence import DocumentCheck, DocumentResult, EvidenceItem, EvidenceState
@@ -285,6 +285,38 @@ def test_summary_counts_are_the_sum_over_the_phases() -> None:
     assert sum(p.open_evidence for p in result.phases.values()) == 2
 
 
+MANUAL_INFO = rule(
+    "DEMO-ANN-001", "evidence.document", phase="annotation", severity="info", verification="manual"
+)
+
+
+def test_open_evidence_of_an_info_rule_is_listed_but_not_counted() -> None:
+    """A-16: errors and warnings contain the open evidence, open_evidence is only a breakdown of them; the
+    open evidence of an info rule (a 可 clause, PRD §11) is a finding but no count (review P4, EVI33)."""
+    result = run([pack(MANUAL_INFO + MANUAL_WARNING)])
+    annotation = result.phases[Phase.ANNOTATION]
+    assert (annotation.light, annotation.errors, annotation.warnings, annotation.open_evidence) == (
+        Light.GREEN,
+        0,
+        0,
+        0,
+    )
+    info = next(f for f in result.findings if f.rule_id == "DEMO-ANN-001")
+    assert (info.status, info.severity) == (Status.EVIDENCE_OPEN, Severity.INFO)
+    assert result.phases[Phase.ACCESS].open_evidence == 1 and result.exit_code == 0
+    for summary in result.phases.values():
+        assert summary.open_evidence <= summary.errors + summary.warnings
+
+
+def test_open_evidence_counts_with_the_effective_severity() -> None:
+    """strict_severity (A-82) decides whether open evidence is counted, as for errors and warnings."""
+    raised = MANUAL_INFO.replace("    severity: info\n", "    severity: info\n    strict_severity: warning\n")
+    normal = run([pack(raised)]).phases[Phase.ANNOTATION]
+    strict = run([pack(raised)], strict=True).phases[Phase.ANNOTATION]
+    assert (normal.light, normal.warnings, normal.open_evidence) == (Light.GREEN, 0, 0)
+    assert (strict.light, strict.warnings, strict.open_evidence) == (Light.YELLOW, 1, 1)
+
+
 # --- exceptions completed (A-14) ----------------------------------------------------------------------------
 
 
@@ -321,12 +353,20 @@ def test_exception_for_a_rule_that_is_not_loaded_is_a_warning() -> None:
     assert notice.params == {"rule": "DEMO-ACQ-010"} and result.exceptions[0].used is False
 
 
-def test_exception_rule_id_must_be_a_rule_id() -> None:
+def test_exception_rule_id_must_be_a_rule_id_in_neurogrid_toml() -> None:
+    """The form of a rule ID is checked where neurogrid.toml is read (A-83); the entry stored in results.json
+    takes any rule text, as results of P1-P3 hold it (C1, review P4 INT41)."""
+    assert engine.ExceptionEntry(rule="core-m05-02", reason="lower case").rule == "core-m05-02"
     with pytest.raises(ValueError):
-        engine.ExceptionEntry(rule="core-m05-02", reason="lower case")
-    with pytest.raises(ConfigError) as info:
-        parse('[[exceptions]]\nrule = "M05 impedance"\nreason = "x"\n')
-    assert info.value.message_key == "config.invalid" and info.value.params["field"] == "exceptions.0.rule"
+        ConfigExceptionEntry(rule="core-m05-02", reason="lower case")
+    for rule_text in ("M05 impedance", "core-m05-02"):
+        with pytest.raises(ConfigError) as info:
+            parse(f'[[exceptions]]\nrule = "{rule_text}"\nreason = "x"\n')
+        assert info.value.message_key == "config.invalid"
+        assert info.value.params["field"] == "exceptions.0.rule"
+    assert isinstance(
+        parse('[[exceptions]]\nrule = "CORE-M05-02"\nreason = "x"\n').exceptions[0], ConfigExceptionEntry
+    )
 
 
 def test_subkey_matches_exactly() -> None:

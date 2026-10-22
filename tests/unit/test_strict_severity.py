@@ -14,7 +14,7 @@ import pytest
 from neurogrid.kernel import engine
 from neurogrid.kernel.errors import RulepackError
 from neurogrid.kernel.findings import Light, Phase, Severity, Status
-from neurogrid.kernel.rules import CheckSpec, Measurement, is_true, load_rulepack
+from neurogrid.kernel.rules import CheckSpec, Measurement, evidence_spec, is_true, load_rulepack
 
 AS_OF = date(2026, 10, 11)
 SCHEMA = Path(__file__).parent.parent.parent / "src" / "neurogrid" / "schemas" / "rulepack.schema.json"
@@ -105,6 +105,42 @@ def test_rule_pack_schema_lists_strict_severity() -> None:
     data["rules"][0]["strict_severity"] = "fatal"  # type: ignore[index]
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(data, schema)
+
+
+NORM_HEADER = "rulepack: norm\nversion: '1.0'\nsource: Test\nsource_status: inventory\nnorm: true\nrules:\n"
+NORM_REGISTRY = {**REGISTRY, "evidence.document": evidence_spec()}
+
+
+def _norm_rule(rule_id: str, clause: str, severity: str, *, strict: str | None = None) -> str:
+    """An automatic storage rule on test.flag, or for an access ID (-ACC-) a manual evidence rule."""
+    manual = "-ACC-" in rule_id
+    return (
+        f"  - id: {rule_id}\n    clause: '{clause}'\n    title_zh: 条款\n    title_en: Clause\n"
+        f"    phase: {'access' if manual else 'storage'}\n"
+        f"    check: {'evidence.document' if manual else 'test.flag'}\n    severity: {severity}\n"
+        + (f"    strict_severity: {strict}\n" if strict else "")
+        + f"    verification: {'manual' if manual else 'automatic'}\n"
+    )
+
+
+def _coverage(body: str, *, strict: bool) -> float | str:
+    pack = load_rulepack(NORM_HEADER + body, origin="path")
+    inp = engine.EngineInput(
+        packs=[pack], registry=NORM_REGISTRY, measurements={}, as_of=AS_OF, strict=strict
+    )
+    return engine.run(inp).coverage["norm"]
+
+
+def test_coverage_uses_the_base_severity_also_in_strict_mode() -> None:
+    """A-82 'Das Abdeckungsmaß nutzt weiter den Grundschweregrad' (A-16, RP-07): must-clauses are the clauses
+    of error rules by their base severity, whatever strict_severity makes of them in a strict run."""
+    raised = _norm_rule("NORM-STO-001", "1", "warning", strict="error")
+    raised += _norm_rule("NORM-ACC-001", "2", "error")
+    # by the effective severity, strict mode would count clause 1 as a covered must-clause: 0.5
+    assert _coverage(raised, strict=False) == _coverage(raised, strict=True) == 0.0
+    lowered = _norm_rule("NORM-STO-001", "1", "error", strict="warning")
+    # by the effective severity, strict mode would leave no must-clause: 'n/a'
+    assert _coverage(lowered, strict=False) == _coverage(lowered, strict=True) == 1.0
 
 
 def test_core_m13_01_uses_strict_severity() -> None:

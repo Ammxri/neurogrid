@@ -7,7 +7,9 @@
 # not change GXDSL008-ACQ-001 (A-13).
 # GX-03 reads "EDF or HDF5" as the storage format of the recordings: EDF, EDF+C and EDF+D, and EEGLAB data sets
 # in a MAT v7.3 (HDF5) container pass; BDF, BrainVision, EEGLAB MAT v5 and FIF give the warning, also for
-# BrainVision written by NeuroGrid's own convert (A-83).
+# BrainVision written by NeuroGrid's own convert (A-83). Recordings in formats NeuroGrid cannot read and
+# orphan companions (.cnt, .mff, a .eeg without its header) give the warning too, named by their extension
+# (an NWB file that is HDF5 passes): the pack is evaluated on its own, also without core (A-02, A-40).
 # GX-05 reads "checksums" as the provenance manifest of M13 (A-82): without a usable manifest, when its
 # manifest_hash does not match its content or when a file differs from it, the rule gives the warning.
 rulepack: gxdsl008

@@ -74,6 +74,7 @@ BIDS = ("bids",)
 # documents 60 Hz for data with 50 Hz line noise (A-47)
 LINE_60_HZ = "[metadata.defaults]\nline_frequency_hz = 60\n"
 GX = ("gxdsl008",)
+GX_ONLY = '[check]\nrulepacks = ["gxdsl008"]\n'  # gxdsl008 without core (A-02): evaluated on its own (A-40)
 
 
 def _evidence_setup(entry: str) -> Callable[[Path, Path], tuple[Path, dict[str, object]]]:
@@ -101,8 +102,29 @@ def _eeglab_v73(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
     return tmp, {}
 
 
+def _nwb_setup(hdf5: bool) -> Callable[[Path, Path], tuple[Path, dict[str, object]]]:
+    """GX-03 (A-83): a copy of the fixture with an NWB file next to its recordings, an HDF5 container or
+    not (written at run time like the MAT v7.3 data set)."""
+
+    def setup(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+        folder = tmp / fixture.name
+        shutil.copytree(fixture, folder)
+        if hdf5:
+            import h5py
+
+            with h5py.File(folder / "session.nwb", "w") as handle:
+                handle.attrs["nwb_version"] = "2.7.0"
+        else:
+            (folder / "session.nwb").write_bytes(b"not an HDF5 container\n")
+        return folder, {}
+
+    return setup
+
+
 SETUPS.update(
     {
+        "nwb_hdf5": _nwb_setup(hdf5=True),
+        "nwb_not_hdf5": _nwb_setup(hdf5=False),
         "evidence_provided": _evidence_setup(
             "    status: provided\n    document: it-security-sop.txt\n"
             "    reviewer: QA\n    date: 2026-10-01\n"
@@ -266,6 +288,11 @@ CASES = [
     Case("GXDSL008-STO-001", "bdf_ok", Status.FAILED, rulepacks=GX),
     Case("GXDSL008-STO-001", "brainvision_ok", Status.FAILED, rulepacks=GX),
     Case("GXDSL008-STO-001", "eeglab_ok", Status.FAILED, rulepacks=GX),  # MATLAB v5
+    # formats NeuroGrid cannot read and orphan companions, by their extension (review P4, EVI30)
+    Case("GXDSL008-STO-001", "unsupported", Status.FAILED, GX_ONLY),  # legacy.cnt, core deselected (A-02)
+    Case("GXDSL008-STO-001", "orphan", Status.FAILED, rulepacks=GX),  # lonely.fdt
+    Case("GXDSL008-STO-001", "edf_ok", Status.PASSED, rulepacks=GX, setup="nwb_hdf5"),  # NWB in HDF5
+    Case("GXDSL008-STO-001", "edf_ok", Status.FAILED, rulepacks=GX, setup="nwb_not_hdf5"),
     Case("GXDSL008-ACC-001", "edf_ok", Status.EVIDENCE_OPEN, rulepacks=GX),  # no evidence.yaml
     Case("GXDSL008-ACC-001", "edf_ok", Status.PASSED, rulepacks=GX, setup="evidence_provided"),
     Case("GXDSL008-ACC-001", "edf_ok", Status.EVIDENCE_OPEN, rulepacks=GX, setup="evidence_open"),

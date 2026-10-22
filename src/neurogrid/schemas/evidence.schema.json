@@ -2,6 +2,47 @@
   "$defs": {
     "EvidenceItem": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "not_applicable"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "justification": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "justification"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "provided"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "document": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "document"
+            ]
+          }
+        }
+      ],
       "description": "One entry of evidence.yaml. Strict like neurogrid.toml (A-53); ``status`` is read from its text.",
       "properties": {
         "comment": {
@@ -41,6 +82,7 @@
             }
           ],
           "default": null,
+          "description": "A plain relative path: no '..', drive, UNC, device, stream or URL (A-52).",
           "title": "Document"
         },
         "justification": {
@@ -72,7 +114,7 @@
         "sha256": {
           "anyOf": [
             {
-              "pattern": "^[0-9a-f]{64}$",
+              "pattern": "^[0-9a-fA-F]{64}$",
               "type": "string"
             },
             {
@@ -107,17 +149,25 @@
   "description": "The whole evidence.yaml (schemas/evidence.schema.json is generated from this model).",
   "properties": {
     "evidence": {
-      "maxProperties": 10000,
-      "patternProperties": {
-        "^[A-Z0-9]+(-[A-Z0-9]+)+$": {
-          "$ref": "#/$defs/EvidenceItem"
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "maxProperties": 10000,
+          "patternProperties": {
+            "^[A-Z0-9]+(-[A-Z0-9]+)+$": {
+              "$ref": "#/$defs/EvidenceItem"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
         }
-      },
-      "propertyNames": {
-        "maxLength": 64
-      },
-      "title": "Evidence",
-      "type": "object"
+      ],
+      "title": "Evidence"
     },
     "format_version": {
       "const": 1,

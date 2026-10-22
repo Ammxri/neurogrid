@@ -9,6 +9,7 @@ import platform
 import re
 import sys
 import tempfile
+from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import date
@@ -27,7 +28,7 @@ from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
 from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan
-from neurogrid.io.identifying import annotator_pseudonym
+from neurogrid.io.identifying import annotator_pseudonym, display_text
 from neurogrid.io.provenance import (
     KNOWN_CONTROL_FILES,
     comparison_exclusions,
@@ -35,6 +36,7 @@ from neurogrid.io.provenance import (
     is_bids_folder,
     load_sources,
     show,
+    shown_suffix,
     vault_exclusions,
 )
 from neurogrid.kernel import canonical, engine
@@ -433,7 +435,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             strict=strict,
             sampling=canonical.normalize(cfg.sampling.model_dump(mode="json")),
             effective_params=result.effective_params,
-            effective_settings=_effective_settings(cfg, plain_names),
+            effective_settings=_effective_settings(cfg, plain_names, show_paths=options.show_paths),
             evidence_sha256=evidence.sha256,
         ),
         recordings=_recording_summaries(ctx),
@@ -505,27 +507,63 @@ def _shown_setting(value: Any, kind: str) -> Any:
         kind = "file"
     if kind == "file":
         relative = PurePosixPath(value.replace("\\", "/"))
-        return pseudonym(relative) + relative.suffix.lower()
+        return pseudonym(relative) + shown_suffix(relative.name)  # an odd extension is left out (A-51)
     if kind == "annotator":
         return annotator_pseudonym(value)
     return _shown_pattern(value, plain_names=False)
 
 
-def _effective_settings(cfg: Config, plain_names: bool) -> dict[str, Any]:
+# Annotator values of the configuration. Path values are shown as configured in BIDS, but annotator IDs are
+# names of people as often as codes: without --show-paths they follow the display rule of the annotator IDs
+# that findings show from events.tsv (C5, "Freitext in Ausgaben"), else ann-<sha8> or pattern-<sha8>.
+_ANNOTATOR_SETTINGS: tuple[tuple[str, str, str | None, str], ...] = (
+    ("annotation", "files", "annotator", "annotator"),
+    ("annotation", "annotators", None, "pattern"),
+)
+
+
+def _displayed_annotator(value: Any, kind: str) -> Any:
+    """An annotator ID ("annotator") or pattern ("pattern") of the configuration as BIDS datasets show it
+    without --show-paths: as configured if display_text shows it, else as in raw folders. The wildcards of a
+    pattern count as word separators, so 'Zhang*San' is hidden like 'Zhang San'."""
+    if isinstance(value, list):
+        return [_displayed_annotator(item, kind) for item in value]
+    if not isinstance(value, str):
+        return value
+    literal = value.replace("*", " ").replace("?", " ") if kind == "pattern" else value
+    if display_text(literal).shown is not None:
+        return value
+    return _shown_setting(value, kind)
+
+
+def _replace_settings(
+    settings: dict[str, Any],
+    table: tuple[tuple[str, str, str | None, str], ...],
+    shown: Callable[[Any, str], Any],
+) -> None:
+    """Replace each value named in ``table`` by ``shown(value, kind)``; a row key names the key inside each
+    row of a list of tables."""
+    for section, key, row_key, kind in table:
+        holder = settings.get(section, {})
+        if row_key is None:
+            holder[key] = shown(holder.get(key), kind)
+            continue
+        for row in holder.get(key) or []:
+            row[row_key] = shown(row.get(row_key), kind)
+
+
+def _effective_settings(cfg: Config, plain_names: bool, *, show_paths: bool = False) -> dict[str, Any]:
     """The effective configuration, cleaned for output (A-51, A-61). Paths in it are relative by
     construction (A-52); exception patterns are shown as in the exceptions block, and in raw folders without
-    --show-paths the path-bearing values of _HIDDEN_SETTINGS are replaced (C4)."""
+    --show-paths the path-bearing values of _HIDDEN_SETTINGS are replaced (C4). In BIDS datasets without
+    --show-paths the annotator values follow the display rule of C5 (_ANNOTATOR_SETTINGS)."""
     settings = cfg.model_dump(mode="json")
     for entry in settings.get("exceptions", []):
         entry["object"] = _shown_pattern(entry.get("object"), plain_names)
     if not plain_names:
-        for section, key, row_key, kind in _HIDDEN_SETTINGS:
-            holder = settings.get(section, {})
-            if row_key is None:
-                holder[key] = _shown_setting(holder.get(key), kind)
-                continue
-            for row in holder.get(key) or []:
-                row[row_key] = _shown_setting(row.get(row_key), kind)
+        _replace_settings(settings, _HIDDEN_SETTINGS, _shown_setting)
+    elif not show_paths:
+        _replace_settings(settings, _ANNOTATOR_SETTINGS, _displayed_annotator)
     normalized: dict[str, Any] = canonical.normalize(settings)
     return normalized
 

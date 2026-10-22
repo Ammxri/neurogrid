@@ -24,10 +24,14 @@ UNKNOWN_CLAUSE = "unknown"  # clause of a pack whose norm text is not accessible
 
 
 class _Formatter:
-    def __init__(self, lang: str) -> None:
+    def __init__(self, lang: str, recordings: frozenset[str] = frozenset()) -> None:
+        """``recordings`` are the IDs of results.json's recordings: a finding on one of them without a time
+        range covers the whole recording; one on another file (a control file, a new file in the manifest
+        comparison, an unsupported or orphan data file) covers the whole file (A-10)."""
         self.lang = lang
         self.tr = translator(lang).t
         self.has = translator(lang).has
+        self.recordings = recordings
 
     def value(self, value: Any) -> str:
         if value is None:
@@ -77,7 +81,9 @@ class _Formatter:
             return shown + (f" (+{extra})" if extra > 0 else "")
         if finding.file is None:
             return self.tr("report.value.dataset_level")
-        return self.tr("report.value.whole_recording")
+        if finding.object in self.recordings:
+            return self.tr("report.value.whole_recording")
+        return self.tr("report.value.whole_file")
 
     def details(self, finding: Finding) -> str:
         parts: list[str] = []
@@ -321,7 +327,7 @@ def _evidence_rows(results: Results, fmt: _Formatter, titles: dict[str, str]) ->
 
 
 def build_context(results: Results, lang: str) -> dict[str, Any]:
-    fmt = _Formatter(lang)
+    fmt = _Formatter(lang, recordings=frozenset(rec.id for rec in results.recordings))
     title_field = "title_zh" if lang == "zh" else "title_en"
     titles = {rule.id: getattr(rule, title_field) for rule in results.rules}
     evaluated = [f for f in results.findings if f.source_status is not SourceStatus.PLACEHOLDER]

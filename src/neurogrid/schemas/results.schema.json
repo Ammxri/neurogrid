@@ -643,7 +643,7 @@
     },
     "ExceptionEntry": {
       "additionalProperties": false,
-      "description": "A justified exception from neurogrid.toml (NG-F18, A-14).\n\n``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well. ``subkey``\nmust equal the finding's subkey (e.g. a validator code, a field or a channel). Exceptions are per rule ID:\nthe same defect reported by two packs (A-40) needs one entry per rule.",
+      "description": "A justified exception from neurogrid.toml (NG-F18, A-14).\n\n``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well. ``subkey``\nmust equal the finding's subkey (e.g. a validator code, a field or a channel). Exceptions are per rule ID:\nthe same defect reported by two packs (A-40) needs one entry per rule. In results.json ``rule`` may be any\ntext, as results of earlier versions hold it (C1); neurogrid.toml must name a rule ID (A-83, checked when\nthe file is read).",
       "properties": {
         "approved_by": {
           "anyOf": [
@@ -679,7 +679,6 @@
         "rule": {
           "maxLength": 64,
           "minLength": 1,
-          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)+$",
           "title": "Rule",
           "type": "string"
         },
