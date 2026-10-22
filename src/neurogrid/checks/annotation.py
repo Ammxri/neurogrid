@@ -603,7 +603,8 @@ MEASURERS = {KAPPA: measure_kappa, CODES: measure_codes, GAPS: measure_gaps, OVE
 
 def summaries(ctx: CheckContext) -> dict[PurePosixPath, dict[str, Any]]:
     """The M10 summary per object for recordings[].metrics["annotation"] (critic X10): passed κ values are
-    otherwise only counted (A-59). Empty when no M10 check ran; objects without any annotation source (no
+    otherwise only counted (A-59). Empty when the annotations were not read (no M10 check ran, and no M11
+    class balance with ``[ai] labels = "annotations"``, A-81); objects without any annotation source (no
     annotation, no attached or excluded file, nothing unreadable) get none, their findings say it (A-59)."""
     if not ctx.annotations_read:
         return {}

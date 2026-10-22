@@ -29,6 +29,7 @@ from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
 from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan
 from neurogrid.io.identifying import annotator_pseudonym
 from neurogrid.io.provenance import (
+    KNOWN_CONTROL_FILES,
     comparison_exclusions,
     inside,
     is_bids_folder,
@@ -477,9 +478,10 @@ def _shown_pattern(pattern: str | None, plain_names: bool) -> str | None:
 
 # Configuration values that can carry file names, folder names or names derived from them (A-51, C4). In raw
 # folders without --show-paths they appear as in findings: a file path as its pseudonymous file name
-# (rec-<sha8>.<ext>, A-70), a pattern as pattern-<sha8> (A-69), an annotator as ann-<sha8> (C5). Each entry is
+# (rec-<sha8>.<ext>, A-70), a pattern as pattern-<sha8> (A-69), an annotator as ann-<sha8> (C5). A control
+# file (ai.splits, A-81) keeps its name only if it is one of NeuroGrid's fixed names in .neurogrid/, which
+# identify nobody (as manifest/verify show them, A-82); any other path is shown as a file. Each entry is
 # (section, key, row key or None, kind); a row key names the key inside each row of a list of tables.
-# Extension point for further path keys (e.g. ai.splits outside .neurogrid, A-81): add an entry here.
 _HIDDEN_SETTINGS: tuple[tuple[str, str, str | None, str], ...] = (
     ("convert", "pattern", None, "pattern"),
     ("convert", "files", "path", "file"),
@@ -487,6 +489,7 @@ _HIDDEN_SETTINGS: tuple[tuple[str, str, str | None, str], ...] = (
     ("annotation", "files", "recording", "file"),
     ("annotation", "files", "annotator", "annotator"),
     ("annotation", "annotators", None, "pattern"),
+    ("ai", "splits", None, "control_file"),
 )
 
 
@@ -496,6 +499,10 @@ def _shown_setting(value: Any, kind: str) -> Any:
         return [_shown_setting(item, kind) for item in value]
     if not isinstance(value, str):
         return value
+    if kind == "control_file":
+        if PurePosixPath(value.replace("\\", "/")).as_posix() in KNOWN_CONTROL_FILES:
+            return value
+        kind = "file"
     if kind == "file":
         relative = PurePosixPath(value.replace("\\", "/"))
         return pseudonym(relative) + relative.suffix.lower()

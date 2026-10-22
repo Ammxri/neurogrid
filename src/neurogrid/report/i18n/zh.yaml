@@ -184,6 +184,7 @@ notice:
   splits_unassigned: "{count} 条记录不属于任何数据划分。"
   splits_outside_dataset: "[ai] splits 中设置的数据划分文件位于数据集之外；数据集的清单不包含该文件。"
   participants_split_invalid: "participants.tsv 的 'split' 列中有 {count} 个值不是 train、val 或 test；这些行未分配数据划分。"
+  annotation_labels_unreadable: "{count} 条记录的标注无法读取，未计入类别占比（标签来源 'annotations'）。"
   override_unused: "配置为未加载的规则 {rule} 设置了参数。"
   exception_expired: "规则 {rule} 的例外已于 {valid_until} 过期，未予应用。"
   exception_unused: "规则 {rule} 的例外未匹配任何结果。"

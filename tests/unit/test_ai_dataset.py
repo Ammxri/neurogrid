@@ -5,13 +5,15 @@ from __future__ import annotations
 
 import re
 from pathlib import Path, PurePosixPath
+from typing import get_args
 
 import pytest
 
 from conftest import dir_link  # type: ignore[import-not-found]
 from neurogrid import config as config_module
 from neurogrid.checks import ai_dataset
-from neurogrid.io.discover import FoundFile, pseudonym
+from neurogrid.checks.context import CheckContext
+from neurogrid.io.discover import FoundFile, pseudonym, scan
 from neurogrid.io.events import event_labels
 from neurogrid.io.identifying import display_text
 from neurogrid.io.participants import (
@@ -24,6 +26,7 @@ from neurogrid.io.participants import (
 from neurogrid.io.splits import MAX_SPLITS_ROWS, assign, locate, parse_splits, read_splits
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
+from neurogrid.model.results import AILabels
 from neurogrid.report.texts import tables
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
@@ -356,16 +359,70 @@ def test_suppress_small_cells_after_the_engine() -> None:
 # --- configuration and language keys ---------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("value", ["events:trial_type", "participants:Group", "events:value.code-1"])
+@pytest.mark.parametrize(
+    "value", ["events:trial_type", "participants:Group", "events:value.code-1", "annotations"]
+)
 def test_label_source_grammar_accepts(value: str) -> None:
     assert config_module.parse(f'[ai]\nlabels = "{value}"\n').ai.labels == value
 
 
-@pytest.mark.parametrize("value", ["foo", "events:", "annotations", "events:a b", "participants:" + "x" * 65])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "foo",
+        "events:",
+        "events:a b",
+        "participants:" + "x" * 65,
+        "annotations:code",  # the M10 code is the class, there is no column to choose
+        "annotation",
+        "Annotations",
+        " annotations",
+        "annotations\\n",
+    ],
+)
 def test_label_source_grammar_refuses(value: str) -> None:
     with pytest.raises(ConfigError) as info:
         config_module.parse(f'[ai]\nlabels = "{value}"\n')
     assert info.value.message_key == "config.invalid" and info.value.params["field"] == "ai.labels"
+
+
+def test_label_sources_agree_with_the_grammar_and_results_model() -> None:
+    """A-81: the three label sources of the configuration, the check module and results.ai.labels."""
+    assert config_module.AI_LABEL_SOURCES == ("events", "participants", "annotations")
+    assert get_args(ai_dataset.LabelSource) == config_module.AI_LABEL_SOURCES
+    source = AILabels.model_fields["source"].annotation
+    assert get_args(source) == config_module.AI_LABEL_SOURCES
+    for value in ("events:x", "participants:x", "annotations"):
+        match = config_module.AI_LABELS.fullmatch(value)
+        assert match is not None and (match.group("source") or match.group("annotations")) in get_args(source)
+
+
+def test_annotation_labels_are_counted_once_and_only_when_needed() -> None:
+    """The source "annotations" reads the M10 annotations (A-80) lazily: building the structure (before the
+    signal pass, C2) does not, the first labels() call does, and later calls reuse the count."""
+    folder = FIX / "annotation_continuous_ok"
+    ctx = CheckContext.build(scan(folder), config_module.parse('[ai]\nlabels = "annotations"\n'))
+    ai_dataset.structure(ctx)
+    assert not ctx.annotations_read
+    counted = ai_dataset.labels(ctx)
+    assert ctx.annotations_read and counted is not None and ai_dataset.labels(ctx) is counted
+    assert (counted.source, counted.column, counted.unit, counted.reason) == (
+        "annotations",
+        None,
+        "events",
+        None,
+    )
+    # three scorers attached by their stem (C10): 31 annotations, "Lights off" (zero duration) included
+    assert dict(counted.counts[ai_dataset.SCOPE_ALL]) == {
+        "Lights off": 1,
+        "N1": 4,
+        "N2": 9,
+        "N3": 6,
+        "R": 4,
+        "W": 7,
+    }
+    unset = CheckContext.build(scan(folder), config_module.Config())
+    assert ai_dataset.labels(unset) is None and not unset.annotations_read
 
 
 def test_splits_path_must_be_relative() -> None:

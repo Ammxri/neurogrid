@@ -9,7 +9,15 @@ dataset and that is also its identity, so keys and exceptions do not depend on -
 - CORE-M11-01 ``ai.class_balance``: class shares per scope (all recordings, then train, val, test as far as
   present) and class; ``min_share`` 0.05 (PRD, not calibrated, A-20). Label source ``[ai] labels``:
   ``events:<column>`` counts the event rows of the BIDS events.tsv files, ``participants:<column>`` counts
-  subjects. Unset: one dataset-level not_applicable (A-81). A class missing from a split has share 0.
+  subjects, ``annotations`` counts the annotations of the M10 reader (CheckContext.annotations(), A-80): every
+  annotation of an annotator that takes part (``[annotation] annotators``) is one event of the class of its
+  code, zero-duration markers included. Annotations of an attached annotation-only file (hypnogram) count in
+  the splits of the signal recording M10 attaches it to (C10), whatever splits.tsv says about the file
+  itself; annotation-only files that could not be attached belong to no recording and are not counted (M10
+  reports them). Recordings whose annotations cannot be read are left out as a whole and counted in a
+  warning notice. Unset: one dataset-level not_applicable (A-81). A class missing from a split has share 0.
+  The labels are counted once per run and only when ai.class_balance is loaded (its check and
+  results.ai.labels).
 - CORE-M11-02 ``ai.demographics_complete``: age and sex of every subject in participants.tsv at the dataset
   root (also for raw folders); one measurement per subject and value. Format headers are no source (A-51,
   A-64: the EDF patient field is never read).
@@ -34,6 +42,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from neurogrid.checks.annotation import settings as annotation_settings
 from neurogrid.checks.context import CheckContext, RecordingState
 from neurogrid.config import AI_LABELS
 from neurogrid.io.events import event_labels
@@ -89,8 +98,9 @@ NOTICES = (
     "notice.splits_unassigned",
     "notice.splits_outside_dataset",
     "notice.participants_split_invalid",
+    "notice.annotation_labels_unreadable",
 )
-LabelSource = Literal["events", "participants"]
+LabelSource = Literal["events", "participants", "annotations"]
 Unit = Literal["events", "subjects"]
 SplitSource = Literal["splits.tsv", "participants.tsv"]
 _VALUE_REASONS = {
@@ -115,15 +125,18 @@ class Member:
 
 @dataclass(frozen=True)
 class Labels:
-    """Class counts of the configured label source. ``reason`` is set when nothing can be counted."""
+    """Class counts of the configured label source. ``reason`` is set when nothing can be counted; ``column``
+    is None for the source ``annotations``; ``unreadable`` counts the recordings whose annotations could not
+    be read (source ``annotations``; they are left out)."""
 
     source: LabelSource
-    column: str
+    column: str | None
     unit: Unit
     reason: str | None = None
     counts: Mapping[str, Counter[str]] = field(default_factory=dict)  # scope -> class key -> count
     shown: Mapping[str, str | None] = field(default_factory=dict)  # class key -> label (None: free text)
     chars: Mapping[str, int] = field(default_factory=dict)  # class key -> length of a free text label
+    unreadable: int = 0
 
     @property
     def classes(self) -> list[str]:
@@ -136,8 +149,10 @@ class Structure:
     participants: ParticipantsTable | None
     split_source: SplitSource | None
     splits: tuple[Split, ...]  # DM-06, recording IDs as displayed
-    labels: Labels | None  # None: [ai] labels not configured
     notices: list[Notice] = field(default_factory=list)
+    # the labels of [ai] labels (None: not configured), counted by labels() when first needed
+    counted_labels: Labels | None = field(default=None, repr=False)
+    labels_counted: bool = field(default=False, repr=False)
 
     @property
     def subjects_known(self) -> bool:
@@ -156,6 +171,17 @@ def structure(ctx: CheckContext) -> Structure:
     built = _build(ctx)
     ctx.ai_structure = built
     return built
+
+
+def labels(ctx: CheckContext) -> Labels | None:
+    """The class labels of ``[ai] labels`` (None: not configured), counted once per run and only when
+    CORE-M11-01's check or its results block needs them: the source ``annotations`` reads the annotations of
+    every recording (CheckContext.annotations())."""
+    data = structure(ctx)
+    if not data.labels_counted:
+        data.counted_labels = _labels(ctx, data.members, data.participants)
+        data.labels_counted = True
+    return data.counted_labels
 
 
 def _subject(rec: RecordingState) -> str | None:
@@ -231,7 +257,6 @@ def _build(ctx: CheckContext) -> Structure:
         participants=participants,
         split_source=split_source,
         splits=splits,
-        labels=_labels(ctx, members, participants),
         notices=notices,
     )
 
@@ -244,6 +269,8 @@ def _labels(
         return None
     match = AI_LABELS.fullmatch(configured)  # validated when the configuration was read
     assert match is not None
+    if match.group("annotations"):
+        return _annotation_labels(ctx, members)
     column = match.group("column")
     if match.group("source") == "events":
         return _event_labels(ctx, members, column)
@@ -252,11 +279,13 @@ def _labels(
 
 def _counted(
     source: LabelSource,
-    column: str,
+    column: str | None,
     unit: Unit,
     members: Sequence[Member],
     units: Sequence[tuple[str, frozenset[str]]],
     vocabulary: frozenset[str],
+    *,
+    unreadable: int = 0,
 ) -> Labels:
     """Count ``units`` (label, splits) per scope and class; labels are keyed by the A-17 display rule."""
     counts: dict[str, Counter[str]] = {scope: Counter() for scope in _scopes(members)}
@@ -271,7 +300,9 @@ def _counted(
         for split in splits:
             counts[split][key] += 1
     reason = None if counts[SCOPE_ALL] else "ai.no_label_values"
-    return Labels(source, column, unit, reason=reason, counts=counts, shown=shown, chars=chars)
+    return Labels(
+        source, column, unit, reason=reason, counts=counts, shown=shown, chars=chars, unreadable=unreadable
+    )
 
 
 def _event_labels(ctx: CheckContext, members: Sequence[Member], column: str) -> Labels:
@@ -308,6 +339,35 @@ def _participant_labels(members: Sequence[Member], table: ParticipantsTable | No
             units.append((value, frozenset(splits)))
     vocabulary = table.vocabulary.get(wanted, frozenset())
     return _counted("participants", column, "subjects", members, units, vocabulary)
+
+
+def _annotation_labels(ctx: CheckContext, members: Sequence[Member]) -> Labels:
+    """``annotations``: the codes of the annotations M10 attaches to each signal recording (in-file
+    annotations or, in BIDS, events.tsv, and the attached annotation-only files), one event per annotation of
+    every annotator that takes part, in the splits of that signal recording (C10). The vocabulary that
+    decides which codes may be shown is M10's: ``[annotation] vocabulary``, else the events.json Levels of
+    the code column (A-80, C5)."""
+    if not members:
+        return Labels("annotations", None, "events", reason="ai.no_label_values")
+    index = ctx.annotations()
+    annotations = index.by_recording()
+    objects = {obj.found.relative: obj for obj in index.objects}  # every signal recording is an M10 object
+    configured = annotation_settings(ctx).vocabulary
+    vocabulary: set[str] = set(configured or ())
+    units: list[tuple[str, frozenset[str]]] = []
+    unreadable = 0
+    for member in members:
+        relative = member.rec.found.relative
+        obj = objects[relative]
+        if obj.issue is not None:  # a source or the header could not be read: no partial count (as M10)
+            unreadable += 1
+            continue
+        if configured is None:
+            vocabulary.update(obj.vocabulary or ())
+        units.extend((annotation.code, member.splits) for annotation in annotations[relative])
+    return _counted(
+        "annotations", None, "events", members, units, frozenset(vocabulary), unreadable=unreadable
+    )
 
 
 def _table_reason(table: ParticipantsTable | None) -> str | None:
@@ -366,14 +426,14 @@ def _on_subject(label: str, check_id: str, **kwargs: Any) -> Measurement:
 
 
 def measure_class_balance(ctx: CheckContext) -> list[Measurement]:
-    labels = structure(ctx).labels
-    if labels is None:
+    counted = labels(ctx)
+    if counted is None:
         return [_dataset(CLASS_BALANCE, state="not_applicable", reason="ai.labels_not_configured")]
-    if labels.reason is not None:
-        return [_dataset(CLASS_BALANCE, state="not_checkable", reason=labels.reason)]
-    classes = labels.classes
+    if counted.reason is not None:
+        return [_dataset(CLASS_BALANCE, state="not_checkable", reason=counted.reason)]
+    classes = counted.classes
     out: list[Measurement] = []
-    for scope, counter in labels.counts.items():
+    for scope, counter in counted.counts.items():
         total = sum(counter.values())
         if not total:
             out.append(
@@ -388,12 +448,12 @@ def measure_class_balance(ctx: CheckContext) -> list[Measurement]:
             continue
         cells = {key: counter.get(key, 0) for key in classes}
         shown_cells, shown_total = (
-            suppressed(cells, total) if labels.unit == "subjects" else (dict(cells), total)
+            suppressed(cells, total) if counted.unit == "subjects" else (dict(cells), total)
         )
         for key in classes:
-            details: dict[str, Any] = {"scope": scope, "label": labels.shown[key], "unit": labels.unit}
-            if labels.shown[key] is None:
-                details["label_chars"] = labels.chars[key]
+            details: dict[str, Any] = {"scope": scope, "label": counted.shown[key], "unit": counted.unit}
+            if counted.shown[key] is None:
+                details["label_chars"] = counted.chars[key]
             if shown_cells[key] is None:
                 details["small_cell"] = True
             else:
@@ -634,7 +694,9 @@ class Outputs:
 
 
 def outputs(ctx: CheckContext, check_ids: Iterable[str]) -> Outputs:
-    """The results.json blocks of M11/M12 (decision C1: optional) and the notices about the splits."""
+    """The results.json blocks of M11/M12 (decision C1: optional) and the notices about the splits and the
+    labels. The labels block belongs to CORE-M11-01: it is filled only when ai.class_balance is loaded, so a
+    run without it never reads the annotations for it."""
     loaded = set(check_ids)
     duplicates = (
         [[rec.object_id for rec in group] for group in duplicate_groups(ctx)]
@@ -644,11 +706,21 @@ def outputs(ctx: CheckContext, check_ids: Iterable[str]) -> Outputs:
     if not loaded & CHECKS:
         return Outputs(duplicates=duplicates, summary=None, notices=[])
     data = structure(ctx)
+    notices = list(data.notices)
     summary = None
     if loaded & STRUCTURE_CHECKS:
+        counted = labels(ctx) if CLASS_BALANCE in loaded else None
+        if counted is not None and counted.unreadable:
+            notices.append(
+                Notice(
+                    level=Severity.WARNING,
+                    message_key="notice.annotation_labels_unreadable",
+                    params={"count": counted.unreadable},
+                )
+            )
         summary = AISummary(
-            labels=_labels_block(data.labels),
+            labels=_labels_block(counted),
             demographics=_demographics_block(data),
             splits=_splits_block(data),
         )
-    return Outputs(duplicates=duplicates, summary=summary, notices=list(data.notices))
+    return Outputs(duplicates=duplicates, summary=summary, notices=notices)
