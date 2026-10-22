@@ -1,6 +1,7 @@
 """M11/M12 end to end (NG-F09, M11, M12; A-04, A-21, A-51, A-81; KONZEPT DoD P4): a subject in train and test
 is an error, duplicates are found via the signal hash, splits.tsv is a control file (exit 2), demography
-and labels leave the process only aggregated, and hashes and raw ages never leave it at all.
+and labels leave the process only aggregated, and hashes and raw ages never leave it at all. Class labels
+also come from the M10 annotations (A-80), hypnograms counting in the split of their signal recording (C10).
 
 Most runs use a rule pack with only the four M11/M12 checks (``aionly``), so that the exit code shows their
 verdict alone; the core rules are covered by tests/rules.
@@ -14,20 +15,21 @@ import shutil
 import subprocess
 import sys
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import jsonschema
 import pytest
 
-from gen_fixtures import write_edf  # type: ignore[import-not-found]
+from gen_fixtures import write_annotation_edf, write_edf  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.checks.context import CheckContext
 from neurogrid.cli import main
 from neurogrid.config import Config
 from neurogrid.io.discover import pseudonym, scan
+from neurogrid.io.identifying import display_text
 from neurogrid.kernel import canonical
 from neurogrid.kernel.errors import ConfigError, InputError
-from neurogrid.kernel.findings import Status
+from neurogrid.kernel.findings import Light, Severity, Status
 from neurogrid.model.results import Results
 from neurogrid.report.render import render_report
 
@@ -530,6 +532,194 @@ def test_raw_ages_never_leave_the_process(tmp_path: Path, capsys: pytest.Capture
     assert data["ai"]["demographics"]["subjects"] == 6
 
 
+# --- CORE-M11-01 with [ai] labels = "annotations": the M10 reader as label source (A-80, A-81, C10) --------
+
+# [annotation] of the annotation fixtures (tools/gen_fixtures.py): three scorers stage ten 30-s epochs each
+SLEEP = (
+    '[annotation]\nmode = "continuous"\nepoch_s = 30\n'
+    'vocabulary = ["W", "N1", "N2", "N3", "R", "Lights off"]\n'
+)
+ANNOTATION_LABELS = '[ai]\nlabels = "annotations"\n'
+
+
+def test_annotation_labels_take_the_split_of_their_signal_recording(tmp_path: Path) -> None:
+    """C10: the hypnograms attached to night.edf count as its events and in its split; the splits.tsv row of
+    a hypnogram itself is ignored. Every annotation of every scorer is one event, the zero-duration marker
+    "Lights off" included: 1 of 31 events, below min_share."""
+    folder = copy_fixture("annotation_continuous_ok", tmp_path)
+    write_splits(folder, [("night.edf", "train"), ("night_scorer1.edf", "test")])
+    results = run(folder, ai_config(tmp_path, SLEEP + ANNOTATION_LABELS, rules=(CLASSES,)))
+    labels = results.ai.labels if results.ai else None
+    assert labels is not None and (labels.source, labels.column, labels.unit) == (
+        "annotations",
+        None,
+        "events",
+    )
+    classes = {"Lights off": 1, "N1": 4, "N2": 9, "N3": 6, "R": 4, "W": 7}
+    assert {scope: value.classes for scope, value in labels.scopes.items()} == {
+        "all": classes,
+        "train": classes,
+    }
+    assert labels.scopes["all"].total == labels.scopes["train"].total == 31
+    assert findings(results, CLASSES) == [
+        ("dataset", "all:Lights off", Status.FAILED, None),
+        ("dataset", "train:Lights off", Status.FAILED, None),
+    ]
+    marker = next(f for f in results.findings if f.subkey == "all:Lights off")
+    assert marker.details == {
+        "scope": "all",
+        "label": "Lights off",
+        "unit": "events",
+        "count": 1,
+        "total": 31,
+    }
+    assert [(p.rule_id, p.object, p.count) for p in results.passed] == [(CLASSES, "dataset", 10)]
+    keys = {n.message_key for n in results.notices}
+    assert not keys & {"notice.splits_unassigned", "notice.splits_unknown_rows"}  # hypnograms: no recordings
+    assert "notice.annotation_labels_unreadable" not in keys
+    # the annotations were read once for the labels: the recording carries the M10 summary (A-80, X10)
+    assert [
+        r.metrics["annotation"]["annotations"] for r in results.recordings if "annotation" in r.metrics
+    ] == [31]
+    jsonschema.validate(json.loads(canonical.dumps(results)), SCHEMA)
+    assert "1 of 31 (events)" in render_report(results, "en")
+
+
+def test_annotation_labels_follow_the_annotators_filter(tmp_path: Path) -> None:
+    """Only the annotators that take part count ([annotation] annotators, A-80): without scorer1 there is no
+    "Lights off" and every class has at least 3 of 20 events. A recording whose header cannot be read gives
+    no annotations: it is left out and counted in a warning notice."""
+    folder = copy_fixture("annotation_continuous_ok", tmp_path)
+    (folder / "broken.edf").write_bytes(b"0" * 300)
+    config = SLEEP + 'annotators = ["scorer2", "scorer3"]\n' + ANNOTATION_LABELS
+    results = run(folder, ai_config(tmp_path, config, rules=(CLASSES,)))
+    labels = results.ai.labels if results.ai else None
+    assert labels is not None and list(labels.scopes) == ["all"]  # no splits: the scope "all" only
+    assert labels.scopes["all"].classes == {"N1": 3, "N2": 6, "N3": 4, "R": 3, "W": 4}
+    assert not results.findings and results.summary.exit_code == 0
+    notices = {n.message_key: (n.level, n.params) for n in results.notices}
+    assert notices["notice.annotation_labels_unreadable"] == (Severity.WARNING, {"count": 1})
+    assert "The annotations of 1 recording(s) could not be read" in render_report(results, "en")
+
+
+def test_annotation_labels_in_bids_come_from_events_tsv(tmp_path: Path) -> None:
+    """In BIDS the M10 reader takes events.tsv (code = trial_type, A-80): the same classes as
+    events:trial_type. An events.tsv that cannot be read leaves its recording out as a whole, so the test
+    split (sub-06 alone) has no labelled event."""
+    events = run(FIX / "bids_ai_ok", ai_config(tmp_path, LABELS, rules=(CLASSES,)))
+    annotations = run(FIX / "bids_ai_ok", ai_config(tmp_path, ANNOTATION_LABELS, rules=(CLASSES,)))
+    assert events.ai is not None and events.ai.labels is not None
+    assert annotations.ai is not None and annotations.ai.labels is not None
+    assert annotations.ai.labels.source == "annotations" and annotations.ai.labels.column is None
+    assert annotations.ai.labels.scopes == events.ai.labels.scopes
+    assert annotations.ai.labels.scopes["all"].classes == {"A": 28, "B": 21, "C": 21}
+    assert not annotations.findings
+    folder = copy_fixture("bids_ai_ok", tmp_path)
+    damaged = folder / "sub-06" / "eeg" / "sub-06_task-rest_run-1_events.tsv"
+    damaged.write_bytes(b"onset\tduration\ttrial_type\n0\t0.1\t\xff\n")
+    results = run(folder, ai_config(tmp_path, ANNOTATION_LABELS, rules=(CLASSES,)))
+    assert findings(results, CLASSES) == [("dataset", "test", Status.NOT_CHECKABLE, "ai.no_label_values")]
+    unreadable = [n for n in results.notices if n.message_key == "notice.annotation_labels_unreadable"]
+    assert [(n.level, n.params) for n in unreadable] == [(Severity.WARNING, {"count": 1})]
+
+
+def test_free_text_annotation_codes_are_not_shown(tmp_path: Path) -> None:
+    """C5, A-51: a code that looks like a name is a class of its own, keyed text-<sha8> and shown only with
+    its length."""
+    folder = tmp_path / "raw"
+    write_edf(folder / "night.edf", sfreq=8, seconds=60, labels=("C3",))
+    write_annotation_edf(folder / "night_scorer1.edf", ((0.0, 30.0, "Max Mustermann"), (30.0, 30.0, "W")))
+    extra = ANNOTATION_LABELS + '[rules."AI-PROC-001".params]\nmin_share = 0.9\n'
+    results = run(folder, ai_config(tmp_path, extra, rules=(CLASSES,)))
+    hidden = display_text("Max Mustermann").subkey
+    labels = results.ai.labels if results.ai else None
+    assert labels is not None and labels.scopes["all"].classes == {hidden: 1, "W": 1}
+    free = next(f for f in results.findings if f.subkey == f"all:{hidden}")
+    assert free.details["label"] is None and free.details["label_chars"] == 14
+    texts = [
+        canonical.dumps(results).decode("utf-8"),
+        render_report(results, "en"),
+        render_report(results, "zh"),
+    ]
+    assert all("Mustermann" not in text for text in texts)
+
+
+def test_annotations_are_read_for_labels_only_with_the_class_balance(tmp_path: Path) -> None:
+    """The labels belong to CORE-M11-01: a pack without ai.class_balance neither counts them nor reads the
+    annotations for them (no M10 summary, no labels block)."""
+    config = ai_config(tmp_path, SLEEP + ANNOTATION_LABELS, rules=(DEMOGRAPHY,))
+    results = run(FIX / "annotation_continuous_ok", config)
+    assert results.ai is not None and results.ai.labels is None
+    assert all("annotation" not in r.metrics for r in results.recordings)
+
+
+# --- datasets without labels and splits (C11) and the processing light (C6) ---------------------------------
+
+
+def test_without_labels_and_splits_each_rule_gives_one_dataset_level_finding(tmp_path: Path) -> None:
+    """C11: without [ai] labels and without splits CORE-M11-01 and CORE-M12-01 give exactly one dataset-level
+    not_applicable each, not one per recording. C6: the processing light is grey when no M11/M12 rule passed
+    or failed, and green when the duplicate check passed."""
+    results = run(FIX / "edf_ok", ai_config(tmp_path))
+    assert findings(results, CLASSES) == [
+        ("dataset", None, Status.NOT_APPLICABLE, "ai.labels_not_configured")
+    ]
+    assert findings(results, SPLITS) == [("dataset", None, Status.NOT_APPLICABLE, "ai.no_splits")]
+    assert findings(results, DEMOGRAPHY) == [("dataset", None, Status.NOT_CHECKABLE, "ai.subjects_unknown")]
+    assert findings(results, DUPLICATES) == []
+    assert {p.object for p in results.passed if p.rule_id == DUPLICATES} == {
+        pseudonym(Path("rec_a.edf")),
+        pseudonym(Path("rec_b.edf")),
+    }
+    assert results.summary.phases["processing"].light is Light.GREEN and results.summary.exit_code == 0
+    alone = run(FIX / "edf_ok", ai_config(tmp_path, rules=(CLASSES, SPLITS)))
+    assert sorted((f.rule_id, f.object, f.subkey, f.status) for f in alone.findings) == [
+        (CLASSES, "dataset", None, Status.NOT_APPLICABLE),
+        (SPLITS, "dataset", None, Status.NOT_APPLICABLE),
+    ]
+    assert not alone.passed and alone.summary.exit_code == 0
+    assert alone.summary.phases["processing"].light is Light.GREY
+    core = pipeline.run_check(FIX / "edf_ok", pipeline.CheckOptions(as_of=AS_OF))
+    for rule in ("CORE-M11-01", "CORE-M12-01"):
+        assert [(f.object, f.status) for f in core.findings if f.rule_id == rule] == [
+            ("dataset", Status.NOT_APPLICABLE)
+        ]
+    # labels from the annotations of a dataset that has none: one dataset-level not_checkable
+    empty = run(FIX / "edf_ok", ai_config(tmp_path, ANNOTATION_LABELS, rules=(CLASSES,)))
+    assert findings(empty, CLASSES) == [("dataset", None, Status.NOT_CHECKABLE, "ai.no_label_values")]
+    assert empty.summary.phases["processing"].light is Light.GREY
+
+
+# --- privacy of the configured splits file (C4, A-51) ------------------------------------------------------
+
+
+def test_configured_splits_path_is_hidden_in_raw_folders(tmp_path: Path) -> None:
+    """A configured [ai] splits outside .neurogrid/ can carry a name. Raw folders without --show-paths show
+    it as its pseudonymous file name, in results.json and in the report appendix; NeuroGrid's own name in
+    .neurogrid/, --show-paths and BIDS datasets show it as configured."""
+    folder = _raw_folder(tmp_path, {"s01.edf": 1, "s02.edf": 2})
+    planted = tmp_path / "Zhang_San" / "splits.tsv"
+    planted.parent.mkdir()
+    planted.write_text("recording\tsplit\ns01.edf\ttrain\ns02.edf\ttest\n", encoding="utf-8")
+    config = ai_config(tmp_path, '[ai]\nsplits = "Zhang_San/splits.tsv"\n')
+    results = run(folder, config)
+    assert results.ai is not None and results.ai.splits is not None  # the planted file was used
+    assert results.ai.splits.recordings == {"train": 1, "val": 0, "test": 1}
+    shown = pseudonym(PurePosixPath("Zhang_San/splits.tsv")) + ".tsv"
+    assert results.config.effective_settings["ai"]["splits"] == shown
+    english = render_report(results, "en")
+    texts = [canonical.dumps(results).decode("utf-8"), english, render_report(results, "zh")]
+    assert all("Zhang" not in text for text in texts) and shown in english
+    clear = run(folder, config, show_paths=True)
+    assert clear.config.effective_settings["ai"]["splits"] == "Zhang_San/splits.tsv"
+    assert clear.config.canonical_sha256 == results.config.canonical_sha256  # over the real configuration
+    bids = run(FIX / "bids_ai_ok", config)
+    assert bids.config.effective_settings["ai"]["splits"] == "Zhang_San/splits.tsv"
+    write_splits(tmp_path, [("s01.edf", "train")])  # .neurogrid/splits.tsv next to neurogrid.toml
+    own = run(folder, ai_config(tmp_path, '[ai]\nsplits = ".neurogrid/splits.tsv"\n'))
+    assert own.config.effective_settings["ai"]["splits"] == ".neurogrid/splits.tsv"
+
+
 # --- exceptions, determinism, schema and report ------------------------------------------------------------
 
 
@@ -581,7 +771,7 @@ def test_results_schema_and_report(tmp_path: Path) -> None:
 
 def test_labels_grammar_is_checked_when_the_configuration_is_read(tmp_path: Path) -> None:
     with pytest.raises(ConfigError) as info:
-        run(FIX / "bids_ai_ok", ai_config(tmp_path, '[ai]\nlabels = "annotations"\n'))
+        run(FIX / "bids_ai_ok", ai_config(tmp_path, '[ai]\nlabels = "annotations:trial_type"\n'))
     assert info.value.params["field"] == "ai.labels"
     folder = copy_fixture("bids_ai_ok", tmp_path)
     (folder / ".neurogrid" / "splits.tsv").write_bytes(b"recording\tsplit\n\xff\ttrain\n")

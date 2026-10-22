@@ -140,6 +140,26 @@ def _renamed_hypnograms(fixture: Path, tmp: Path) -> tuple[Path, dict[str, objec
 
 SETUPS["annotation_files_table"] = _renamed_hypnograms
 
+# P4 integration: M11 class shares from the M10 annotations ([ai] labels = "annotations", A-80/A-81)
+ANNOTATION_LABELS = CONTINUOUS + '[ai]\nlabels = "annotations"\n'
+# scorer2 and scorer3 only: W/N1/N2/N3/R at 4/3/6/4/3 of 20 events (scorer1's "Lights off" left out)
+TWO_SCORERS_LABELS = CONTINUOUS + 'annotators = ["scorer2", "scorer3"]\n[ai]\nlabels = "annotations"\n'
+
+
+def _annotation_split(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+    """A copy of an annotation fixture with night.edf in train (.neurogrid/splits.tsv): its hypnograms count
+    in train too (C10)."""
+    folder = tmp / fixture.name
+    shutil.copytree(fixture, folder)
+    (folder / ".neurogrid").mkdir()
+    (folder / ".neurogrid" / "splits.tsv").write_text(
+        "recording\tsplit\nnight.edf\ttrain\n", encoding="utf-8"
+    )
+    return folder, {}
+
+
+SETUPS["annotation_split"] = _annotation_split
+
 
 CASES = [
     Case("CORE-M01-01", "edf_ok", Status.PASSED),
@@ -306,6 +326,22 @@ CASES = [
     Case("CORE-M10-04", "annotation_continuous_ok", Status.PASSED, CONTINUOUS),
     Case("CORE-M10-04", "annotation_continuous_issues", Status.FAILED, CONTINUOUS),  # 80-90 s
     Case("CORE-M10-04", "bids_events_issues", Status.FAILED),  # two "standard" events overlap
+    # --- P4 integration: CORE-M11-01 with [ai] labels = "annotations" (A-81) in the scopes all and train ---
+    Case(
+        "CORE-M11-01",
+        "annotation_continuous_ok",
+        Status.PASSED,
+        TWO_SCORERS_LABELS,
+        setup="annotation_split",
+    ),  # every class at least 3 of 20 events
+    Case(
+        "CORE-M11-01",
+        "annotation_continuous_issues",
+        Status.FAILED,
+        ANNOTATION_LABELS,
+        setup="annotation_split",
+    ),  # "Stage 2" 1 of 29 events
+    Case("CORE-M11-01", "edf_ok", Status.NOT_CHECKABLE, '[ai]\nlabels = "annotations"\n'),  # no annotation
 ]
 
 

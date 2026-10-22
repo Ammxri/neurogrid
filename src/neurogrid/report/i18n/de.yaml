@@ -183,6 +183,7 @@ notice:
   splits_unassigned: "{count} Aufnahme(n) gehören zu keinem Split."
   splits_outside_dataset: "Die in [ai] splits gesetzte Split-Datei liegt außerhalb des Datensatzes; ein Manifest des Datensatzes erfasst sie nicht."
   participants_split_invalid: "{count} Wert(e) in der Spalte 'split' von participants.tsv sind nicht train, val oder test; diese Zeilen ordnen keinen Split zu."
+  annotation_labels_unreadable: "Die Annotationen von {count} Aufnahme(n) konnten nicht gelesen werden; sie zählen nicht zu den Klassenanteilen (Labelquelle 'annotations')."
   override_unused: "Die Konfiguration setzt Parameter für Regel {rule}, die nicht geladen ist."
   exception_expired: "Ausnahme für Regel {rule} ist am {valid_until} abgelaufen und wurde nicht angewendet."
   exception_unused: "Ausnahme für Regel {rule} hat keinen Befund getroffen."

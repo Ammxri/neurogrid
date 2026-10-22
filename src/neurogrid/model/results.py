@@ -156,12 +156,13 @@ class AILabelScope(BaseModel):
 
 class AILabels(BaseModel):
     """M11 class shares per split and overall (A-21, A-81). Class keys are the displayed labels or
-    ``text-<sha8>`` for free text (A-17, C5)."""
+    ``text-<sha8>`` for free text (A-17, C5). ``column`` is None for the source ``annotations`` (the
+    annotation codes of the M10 reader)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    source: Literal["events", "participants"]
-    column: str
+    source: Literal["events", "participants", "annotations"]
+    column: str | None = None
     unit: Literal["events", "subjects"]
     scopes: dict[str, AILabelScope] = Field(default_factory=dict)
 

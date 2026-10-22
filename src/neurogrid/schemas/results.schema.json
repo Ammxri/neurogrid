@@ -103,11 +103,19 @@
     },
     "AILabels": {
       "additionalProperties": false,
-      "description": "M11 class shares per split and overall (A-21, A-81). Class keys are the displayed labels or\n``text-<sha8>`` for free text (A-17, C5).",
+      "description": "M11 class shares per split and overall (A-21, A-81). Class keys are the displayed labels or\n``text-<sha8>`` for free text (A-17, C5). ``column`` is None for the source ``annotations`` (the\nannotation codes of the M10 reader).",
       "properties": {
         "column": {
-          "title": "Column",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Column"
         },
         "scopes": {
           "additionalProperties": {
@@ -119,7 +127,8 @@
         "source": {
           "enum": [
             "events",
-            "participants"
+            "participants",
+            "annotations"
           ],
           "title": "Source",
           "type": "string"
@@ -135,7 +144,6 @@
       },
       "required": [
         "source",
-        "column",
         "unit"
       ],
       "title": "AILabels",
