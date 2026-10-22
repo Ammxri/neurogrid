@@ -19,7 +19,10 @@ the same: it has coverage 0 in the gaps check, takes no part in κ and is listed
   minimum, the number of pairs and the pairs are in the details. A pair whose expected agreement is 1 has no
   κ and is counted as undefined. One annotator: not_applicable. Limits (A-53): at most MAX_EPOCHS epochs and
   MAX_KAPPA_ANNOTATORS scored annotators (4950 pairs) per object, else not_checkable; κ is computed once per
-  object and run (measure and summary share it), and only the MAX_PAIRS_LISTED lowest pairs are kept.
+  object and run (measure and summary share it), and only the MAX_PAIRS_LISTED lowest pairs are kept. The
+  classes are runs of epochs (they change only where an annotation starts or ends), compared on the segments
+  between the run limits of all annotators, so the work grows with the annotations and the pairs and not
+  with the epochs a header declares; at most MAX_KAPPA_CELLS class numbers are held at once.
 - **Codes** (``annotation.codes``, CORE-M10-02): one measurement per object and distinct code: in the
   vocabulary (``[annotation] vocabulary`` > events.json Levels of the code column), compared exactly; and one
   dataset-level measurement per label (events.json Levels description) that must not carry several codes.
@@ -39,7 +42,7 @@ Annotation times are bounded when they are read (io.annotations.valid_times, A-5
 classes stay finite for any value all the same.
 
 Display (A-17, A-51, C5): codes and labels appear only if io.identifying.display_text allows it (no name,
-long number, absolute path, real date or clock time), otherwise as ``text-<sha8>`` with their length;
+long number, absolute path, date, year or clock time), otherwise as ``text-<sha8>`` with their length;
 annotators always as ``ann-<sha8>`` subkeys, their clear ID only in the details and only in BIDS datasets
 (through the same display rule) or with --show-paths. Subkeys do not depend on --show-paths (A-68).
 """
@@ -48,7 +51,8 @@ from __future__ import annotations
 
 import bisect
 import math
-from collections.abc import Iterable, Mapping, Sequence
+from collections import Counter
+from collections.abc import Hashable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import PurePosixPath
@@ -84,6 +88,7 @@ MAX_PAIRS_LISTED = 100
 MAX_CODES_LISTED = 20
 MAX_EPOCHS = 5_000_000  # A-53: epochs per object compared for kappa (58 days of 1-s epochs)
 MAX_KAPPA_ANNOTATORS = 100  # A-53: scored annotators per object compared for kappa (4950 pairs)
+MAX_KAPPA_CELLS = 25_000_000  # A-53: class numbers (annotators x segments) held at once for kappa
 DATASET = "dataset"
 LABEL_PREFIX = "label:"
 # every reason key the M10 measurements can carry (reason.<key> in the language tables; also built at runtime)
@@ -172,15 +177,28 @@ class Grid:
         index = bisect.bisect_right([start for start, _stop in self.data], middle) - 1
         return index >= 0 and middle < self.data[index][1]
 
-    def counted_mask(self) -> np.ndarray:
-        """``counted`` for every epoch at once."""
-        middles = (np.arange(self.epochs) + 0.5) * self.epoch_s
-        starts = np.array([start for start, _stop in self.data], dtype=float)
-        stops = np.array([stop for _start, stop in self.data], dtype=float)
-        index = np.searchsorted(starts, middles, side="right") - 1
-        inside = index >= 0
-        inside[inside] = middles[inside] < stops[index[inside]]
-        return np.asarray(inside, dtype=bool)
+    def counted_runs(self) -> tuple[tuple[int, int], ...]:
+        """The epochs ``counted`` holds for, as sorted, disjoint runs [first, stop): two binary searches per
+        part with data, so the cost does not grow with the number of epochs (A-53)."""
+        runs = []
+        for start, stop in self.data:
+            first, end = self._first_from(start), self._first_from(stop)
+            if first < end:
+                runs.append((first, end))
+        return tuple(runs)
+
+    def _first_from(self, time_s: float) -> int:
+        """The first epoch whose midpoint (epoch + 0.5) · epoch_s lies at or after ``time_s``, ``epochs`` when
+        none does: a binary search on the same float expression as ``counted`` (the midpoints never
+        decrease), so both agree on every epoch."""
+        low, high = 0, self.epochs
+        while low < high:
+            middle = (low + high) // 2
+            if (middle + 0.5) * self.epoch_s >= time_s:
+                high = middle
+            else:
+                low = middle + 1
+        return low
 
 
 def _positive(annotations: Iterable[Annotation]) -> list[Annotation]:
@@ -246,11 +264,13 @@ def _epoch_at(time_s: float, frame: Grid) -> int:
     return math.ceil(min(max(position, -1.0), float(frame.epochs)))
 
 
-def epoch_classes(annotations: Iterable[Annotation], frame: Grid) -> list[tuple[str, ...]]:
-    """The class of every epoch: the sorted codes of the annotations with duration > 0 that cover its midpoint
-    (half-open intervals), () for "no event". A sweep over the epochs keeps the cost linear."""
-    starts: dict[int, list[str]] = {}
-    stops: dict[int, list[str]] = {}
+def class_runs(annotations: Iterable[Annotation], frame: Grid) -> tuple[tuple[int, tuple[str, ...]], ...]:
+    """The class of every epoch as runs (first epoch, class) in epoch order: the first run starts at epoch 0,
+    each reaches to the next one's start and the last to ``frame.epochs``; neighbouring runs differ. A class
+    is the sorted codes of the annotations with duration > 0 that cover the epoch's midpoint (half-open
+    intervals), () for "no event". The class changes only where an annotation starts or ends, so the work
+    grows with the annotations, not with the epochs (A-53)."""
+    changes: dict[int, dict[str, int]] = {}
     for annotation in _positive(annotations):
         end = annotation.onset_s + annotation.duration_s
         if not (math.isfinite(annotation.onset_s) and math.isfinite(end)):
@@ -258,51 +278,46 @@ def epoch_classes(annotations: Iterable[Annotation], frame: Grid) -> list[tuple[
         first = max(0, _epoch_at(annotation.onset_s, frame))
         last = min(frame.epochs - 1, _epoch_at(end, frame) - 1)
         if first <= last:
-            starts.setdefault(first, []).append(annotation.code)
-            stops.setdefault(last + 1, []).append(annotation.code)
-    active: dict[str, int] = {}
-    current: tuple[str, ...] = ()
-    classes: list[tuple[str, ...]] = []
-    for epoch in range(frame.epochs):
-        ending, beginning = stops.get(epoch, ()), starts.get(epoch, ())
-        for code in ending:
-            active[code] -= 1
-        for code in beginning:
-            active[code] = active.get(code, 0) + 1
-        if ending or beginning:  # the class changes only where an annotation starts or ends
-            current = tuple(sorted(code for code, count in active.items() if count > 0))
-        classes.append(current)
-    return classes
+            starting = changes.setdefault(first, {})
+            starting[annotation.code] = starting.get(annotation.code, 0) + 1
+            ending = changes.setdefault(last + 1, {})
+            ending[annotation.code] = ending.get(annotation.code, 0) - 1
+    active: dict[str, int] = {}  # code -> annotations of it that cover the current epoch (only counts > 0)
+    runs: list[tuple[int, tuple[str, ...]]] = [(0, ())]
+    for epoch in sorted(changes):
+        if epoch >= frame.epochs:
+            break  # annotations that end with the last epoch
+        for code, step in changes[epoch].items():
+            count = active.get(code, 0) + step
+            if count:
+                active[code] = count
+            else:
+                del active[code]
+        current = tuple(sorted(active))
+        if current != runs[-1][1]:
+            if runs[-1][0] == epoch:  # only at epoch 0: the class of the first run
+                runs[-1] = (epoch, current)
+            else:
+                runs.append((epoch, current))
+    return tuple(runs)
 
 
-def cohen_kappa(first: Sequence[Any], second: Sequence[Any]) -> Fraction | None:
+def cohen_kappa(first: Sequence[Hashable], second: Sequence[Hashable]) -> Fraction | None:
     """Unweighted Cohen's κ of two label sequences, exact; None when the expected agreement is 1 (or no
     labels): then κ is not defined."""
     if len(first) != len(second):
         return None
-    labels: dict[Any, int] = {}
-    codes = [
-        np.array([labels.setdefault(x, len(labels)) for x in seq], dtype=np.int64) for seq in (first, second)
-    ]
-    classes = len(labels)
-    return _kappa(codes[0], codes[1], _class_counts(codes[0], classes), _class_counts(codes[1], classes))
+    counts_b = Counter(second)
+    expected = sum(count * counts_b[label] for label, count in Counter(first).items())
+    return _kappa(len(first), sum(1 for a, b in zip(first, second, strict=True) if a == b), expected)
 
 
-def _class_counts(sequence: np.ndarray, classes: int) -> np.ndarray:
-    """How often each class number 0 … classes − 1 occurs, as Python integers (no overflow in products)."""
-    return np.bincount(sequence, minlength=classes).astype(object)
-
-
-def _kappa(
-    first: np.ndarray, second: np.ndarray, counts_a: np.ndarray, counts_b: np.ndarray
-) -> Fraction | None:
-    """κ = (n·agree − Σ nₐ(c)·n_b(c)) / (n² − Σ nₐ(c)·n_b(c)) from integer counts (``_class_counts`` of
-    both sequences over the same classes), so the value is exact and the same on every platform (A-11)."""
-    n = len(first)
+def _kappa(n: int, agree: int, expected: int) -> Fraction | None:
+    """κ = (n·agree − Σ nₐ(c)·n_b(c)) / (n² − Σ nₐ(c)·n_b(c)) from integer counts: n epochs, ``agree`` of them
+    with the same class and ``expected`` = Σ nₐ(c)·n_b(c) over the classes. The value is exact and the same
+    on every platform (A-11)."""
     if n == 0:
         return None
-    agree = int(np.count_nonzero(first == second))
-    expected = int(sum(counts_a * counts_b))
     denominator = n * n - expected
     if denominator == 0:
         return None
@@ -321,37 +336,129 @@ class KappaResult:
     undefined_pairs: int
 
 
-def _sequence(classes: list[tuple[str, ...]], numbers: dict[tuple[str, ...], int]) -> np.ndarray:
-    """Class numbers of the epochs in the smallest unsigned type that holds them (memory per annotator)."""
-    sequence = np.array([numbers.setdefault(c, len(numbers)) for c in classes], dtype=np.int64)
-    return sequence.astype(np.min_scalar_type(len(numbers)))
+@dataclass(frozen=True)
+class _Runs:
+    """One scored annotator's classes on the grid (``class_runs``): run i covers the epochs bounds[i] …
+    bounds[i + 1] − 1 and has the class number ids[i]."""
+
+    name: str
+    bounds: np.ndarray
+    ids: np.ndarray
+
+
+def _runs(track: Track, frame: Grid, numbers: dict[tuple[str, ...], int]) -> _Runs:
+    runs = class_runs(track.annotations, frame)
+    bounds = np.array([first for first, _class in runs] + [frame.epochs], dtype=np.int64)
+    ids = np.array([numbers.setdefault(found, len(numbers)) for _first, found in runs], dtype=np.int64)
+    return _Runs(annotator_pseudonym(track.annotator), bounds, ids)
+
+
+@dataclass(frozen=True)
+class _Segments:
+    """The grid cut wherever a scored annotator's class changes or a run of counted epochs begins or ends,
+    so every annotator has one class per segment: segment i starts at epoch starts[i] and holds weights[i]
+    counted epochs (segments without a counted epoch are left out)."""
+
+    starts: np.ndarray
+    weights: np.ndarray
+
+    @classmethod
+    def of(cls, frame: Grid, annotators: Sequence[_Runs]) -> _Segments:
+        counted = np.array(frame.counted_runs(), dtype=np.int64).reshape(-1, 2)
+        limits = [
+            np.array([0, frame.epochs], dtype=np.int64),
+            counted.ravel(),
+            *(a.bounds for a in annotators),
+        ]
+        edges = np.unique(np.concatenate(limits))
+        starts, weights = edges[:-1], np.zeros(len(edges) - 1, dtype=np.int64)
+        if len(counted):  # every segment lies wholly inside or outside the counted runs
+            run = np.searchsorted(counted[:, 0], starts, side="right") - 1
+            inside = (run >= 0) & (starts < counted[np.maximum(run, 0), 1])
+            weights = np.where(inside, np.diff(edges), 0)
+        return cls(starts[weights > 0], weights[weights > 0])
+
+    def row(self, annotator: _Runs, dtype: np.dtype[Any]) -> np.ndarray:
+        """The annotator's class number in every segment: each run repeated for the segments it holds."""
+        held = np.diff(np.searchsorted(self.starts, annotator.bounds))
+        return np.repeat(annotator.ids.astype(dtype), held)
+
+
+@dataclass(frozen=True)
+class _ClassCounts:
+    """How many counted epochs an annotator gives each class: the class numbers that occur (ascending) and
+    their counts."""
+
+    present: np.ndarray
+    counts: np.ndarray
+
+    @classmethod
+    def of(cls, row: np.ndarray, weights: np.ndarray) -> _ClassCounts:
+        # float64 sums of integers below 2**53 (at most MAX_EPOCHS counted epochs) are exact
+        totals = np.bincount(row, weights=weights.astype(np.float64))
+        present = np.flatnonzero(totals)
+        return cls(present, np.rint(totals[present]).astype(np.int64))
+
+
+def _expected(first: _ClassCounts, second: _ClassCounts, n: int) -> int:
+    """Σ nₐ(c)·n_b(c) over the classes both annotators use, in int64 while n² fits (every product and the
+    sum are at most n²), else in Python integers."""
+    _common, at_first, at_second = np.intersect1d(
+        first.present, second.present, assume_unique=True, return_indices=True
+    )
+    a, b = first.counts[at_first], second.counts[at_second]
+    if n * n < 2**63:
+        return int(np.dot(a, b))
+    return sum(int(x) * int(y) for x, y in zip(a, b, strict=True))
+
+
+def _agreements(
+    annotators: Sequence[_Runs], segments: _Segments, dtype: np.dtype[Any]
+) -> Iterator[tuple[int, int, int]]:
+    """(i, j, the counted epochs on which annotators i < j agree) for every pair. At most MAX_KAPPA_CELLS
+    class numbers are held at once (A-53): the rows are taken in blocks, and each block is compared within
+    itself and with every later row."""
+    block = max(2, MAX_KAPPA_CELLS // max(1, len(segments.starts)))
+    for low in range(0, len(annotators), block):
+        held = [
+            (i, segments.row(annotators[i], dtype)) for i in range(low, min(low + block, len(annotators)))
+        ]
+        for position, (i, first) in enumerate(held):
+            for j, second in held[position + 1 :]:
+                yield i, j, int(segments.weights.sum(where=first == second))
+        for j in range(low + block, len(annotators)):
+            second = segments.row(annotators[j], dtype)
+            for i, first in held:
+                yield i, j, int(segments.weights.sum(where=first == second))
 
 
 def kappa(obj: AnnotatedRecording, frame: Grid) -> KappaResult | None:
-    """Pairwise κ of the scored annotators of ``obj``; None when no pair has a κ. The mean is exact over every
-    pair (a running sum of fractions); only the MAX_PAIRS_LISTED lowest pairs are kept, so the memory does not
-    grow with the number of pairs (A-53). The class counts of each annotator are taken once, not per pair."""
-    counted = frame.counted_mask()
+    """Pairwise κ of the scored annotators of ``obj``; None when no pair has a κ. Each annotator's classes are
+    runs of epochs (``class_runs``), compared on the segments between the run limits of all annotators and
+    of the counted epochs, so the work grows with the annotations and the pairs, never with the epochs: a
+    header that declares a very long recording costs no more than a short one (A-53). The mean is exact over
+    every pair (a running sum of fractions); only the MAX_PAIRS_LISTED lowest pairs are kept, so the memory
+    does not grow with the number of pairs. The class counts of each annotator are taken once, not per
+    pair."""
     numbers: dict[tuple[str, ...], int] = {}
-    labels: list[tuple[str, np.ndarray]] = []
-    for track in scored_tracks(obj):
-        sequence = _sequence(epoch_classes(track.annotations, frame), numbers)
-        labels.append((annotator_pseudonym(track.annotator), sequence[counted]))
-    counts = [_class_counts(sequence, len(numbers)) for _name, sequence in labels]
+    annotators = [_runs(track, frame, numbers) for track in scored_tracks(obj)]
+    segments = _Segments.of(frame, annotators)
+    dtype = np.min_scalar_type(max(len(numbers) - 1, 0))
+    counts = [_ClassCounts.of(segments.row(annotator, dtype), segments.weights) for annotator in annotators]
+    n = int(segments.weights.sum())
     total, count, undefined = Fraction(0), 0, 0
     lowest: list[tuple[Fraction, str, str]] = []
-    for index, (name_a, seq_a) in enumerate(labels):
-        for other, (name_b, seq_b) in enumerate(labels[index + 1 :], start=index + 1):
-            value = _kappa(seq_a, seq_b, counts[index], counts[other])
-            if value is None:
-                undefined += 1
-                continue
-            total += value
-            count += 1
-            low, high = sorted((name_a, name_b))
-            lowest.append((value, low, high))
-            if len(lowest) >= 2 * MAX_PAIRS_LISTED:
-                lowest = sorted(lowest)[:MAX_PAIRS_LISTED]
+    for i, j, agree in _agreements(annotators, segments, dtype):
+        value = _kappa(n, agree, _expected(counts[i], counts[j], n))
+        if value is None:
+            undefined += 1
+            continue
+        total += value
+        count += 1
+        low, high = sorted((annotators[i].name, annotators[j].name))
+        lowest.append((value, low, high))
+        if len(lowest) >= 2 * MAX_PAIRS_LISTED:
+            lowest = sorted(lowest)[:MAX_PAIRS_LISTED]
     if not count:
         return None
     lowest = sorted(lowest)[:MAX_PAIRS_LISTED]
@@ -360,8 +467,8 @@ def kappa(obj: AnnotatedRecording, frame: Grid) -> KappaResult | None:
         minimum=float(lowest[0][0]),
         pairs=tuple((a, b, float(value)) for value, a, b in lowest),
         pair_count=count,
-        annotators=len(labels),
-        epochs=len(labels[0][1]),
+        annotators=len(annotators),
+        epochs=n,
         undefined_pairs=undefined,
     )
 
@@ -542,7 +649,7 @@ def measure_kappa(ctx: CheckContext) -> list[Measurement]:
             out.append(_base(obj, KAPPA, state="not_checkable", reason=reason, details=counted))
         elif frame is not None and frame.epochs > MAX_EPOCHS:
             out.append(_not_checkable(obj, KAPPA, "annotation.too_many_epochs"))
-        elif frame is None or frame.epochs == 0 or not frame.counted_mask().any():
+        elif frame is None or frame.epochs == 0 or not frame.counted_runs():
             out.append(_not_checkable(obj, KAPPA, "annotation.too_short"))
         else:
             result = cached_kappa(ctx, obj, frame)

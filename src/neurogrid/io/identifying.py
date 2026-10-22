@@ -27,13 +27,53 @@ NON_ASCII = "�"  # replacement character from decoding non-ASCII bytes
 ABSOLUTE_PATH = re.compile(r"(?:\b[A-Za-z]:[\\/]|\\\\[^\\\s]|(?:^|\s)/[A-Za-z0-9_.-]+/)")
 
 
+# Further forms of dates and clock times that the display rule hides (C5, A-51) besides real_dates, which the
+# A-05 header heuristics keep narrow: a month name next to a day or a year ("12 Mar 1961", "March 1961"), a
+# year 1900-2099 not glued to letters or digits ("born 1961", also the year of a blanked date such as
+# 01.01.1985: a birth year is an age), and clock times hh.mm(.ss) with a two-digit hour ("22.31"), hhHmm
+# ("22h31") or with am/pm ("10.30 pm", "8pm"). Not counted, so that codes stay readable: decimals with a
+# one-digit whole part ("0.25", "8.30"), a year glued to letters ("S1999") and four digits that are no year
+# ("2231").
+_MONTH = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
+    r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+NAMED_DATE = re.compile(
+    rf"(?<![A-Za-z0-9])(?:\d{{1,2}}(?:st|nd|rd|th)?[ _.,/-]{{0,3}}{_MONTH}(?![A-Za-z])"
+    rf"|{_MONTH}\.?[ _.,/-]{{0,3}}\d{{1,4}}(?!\d))",
+    re.IGNORECASE,
+)
+YEAR_IN_TEXT = re.compile(r"(?<![A-Za-z0-9])(?:19|20)\d{2}(?!\d)")
+CLOCK_TIME = re.compile(
+    r"(?<![A-Za-z0-9.])(?:(?:[01]\d|2[0-3])\.[0-5]\d(?:\.[0-5]\d)?(?![\d.])"
+    r"|(?:[01]?\d|2[0-3])h[0-5]\d(?!\d)"
+    r"|(?:0?[1-9]|1[0-2])(?:[.h][0-5]\d)?[ _]?[ap]\.?m\.?(?![A-Za-z]))",
+    re.IGNORECASE,
+)
+
+
 def placeholder(text: str) -> bool:
     return all(token.lower() in PLACEHOLDER_TOKENS for token in text.split())
 
 
+def _numeric_dates(text: str) -> bool:
+    return any(not DATE_PLACEHOLDER.match(m.group(0)) for m in DATE_IN_TEXT.finditer(text))
+
+
 def real_dates(text: str) -> bool:
-    spaced = text.replace("_", " ")  # EDF+ writes spaces inside subfields as underscores
-    return any(not DATE_PLACEHOLDER.match(m.group(0)) for m in DATE_IN_TEXT.finditer(spaced))
+    return _numeric_dates(text.replace("_", " "))  # EDF+ writes spaces inside subfields as underscores
+
+
+def dates_or_times(text: str) -> bool:
+    """The display rule's wider view (C5, A-51): a real date (``real_dates``, also with underscores as date
+    separators: "born_12_03_1961"), a date with a month name, a year standing alone, or a clock time."""
+    return bool(
+        real_dates(text)
+        or _numeric_dates(text.replace("_", "-"))
+        or NAMED_DATE.search(text)
+        or YEAR_IN_TEXT.search(text)
+        or CLOCK_TIME.search(text)
+    )
 
 
 def looks_identifying(text: str) -> bool:
@@ -75,12 +115,12 @@ class DisplayedText(NamedTuple):
 def display_text(value: str, vocabulary: Collection[str] = ()) -> DisplayedText:
     """A-17 with the refinement of C5: a value is shown if it is in the vocabulary, or if it fully matches
     the A-17 pattern (``DISPLAYABLE``) and does not look like personal data: no name, long number or
-    absolute path (``looks_identifying``) and no real date or clock time such as "born 12.03.1961",
-    "recorded 2019-03-12" or "Lights off 22.31.07" (``real_dates``, A-05; placeholder dates such as 01.01.85
-    stay visible). Annotation codes, class labels and annotator IDs from files all use this one rule
-    (A-51)."""
+    absolute path (``looks_identifying``) and no date, year or clock time such as "born 12.03.1961",
+    "recorded 2019-03-12", "born 12 Mar 1961", "born 1961", "Lights off 22.31" or "22h31"
+    (``dates_or_times``, A-05; the placeholder date 01.01.85 stays visible). Annotation codes, class labels
+    and annotator IDs from files all use this one rule (A-51)."""
     if value in vocabulary or (
-        DISPLAYABLE.fullmatch(value) and not looks_identifying(value) and not real_dates(value)
+        DISPLAYABLE.fullmatch(value) and not looks_identifying(value) and not dates_or_times(value)
     ):
         return DisplayedText(value, value)
     return DisplayedText(None, FREE_TEXT_PREFIX + short_hash(value))

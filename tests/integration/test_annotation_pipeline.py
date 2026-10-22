@@ -8,7 +8,9 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import date
+from fractions import Fraction
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -422,6 +424,78 @@ def test_dates_in_annotation_texts_are_free_text(tmp_path: Path) -> None:
         hidden = {f.subkey: f.details["chars"] for f in results.findings if f.rule_id == "CORE-M10-02"}
         assert hidden == {display_text(text).subkey: len(text) for text in texts}
         assert "free text (19 characters)" in render_report(results, "en")
+
+
+DATED_TEXTS = (
+    "born 12 Mar 1961",
+    "born March 1961",
+    "born 1961",
+    "Lights off 22.31",
+    "Lights off at 23.05",
+    "born_12_03_1961",
+)
+
+
+def test_month_names_years_and_clock_times_are_free_text(tmp_path: Path) -> None:
+    """ANN02 follow-up (A-51, C5): dates with a month name, a year standing alone, an underscore-separated
+    date and hh.mm clock times in the annotation texts of a raw folder, and a year in a BIDS annotator ID and
+    code, appeared in clear in results.json and the reports; now only as text-<sha8> with their length."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    write_edf(
+        raw / "night.edf",
+        sfreq=8,
+        seconds=80,
+        labels=("C3",),
+        plus="C",
+        annotations=tuple((10.0 * n, 0.0, text) for n, text in enumerate((*DATED_TEXTS, "W"))),
+    )
+    config = _config(tmp_path, '[annotation]\nvocabulary = ["W"]\n')
+    planted = ("12 Mar", "March 1961", "born 1961", "22.31", "23.05", "12_03_1961", "scored 2019")
+    for show_paths in (False, True):
+        results = _check(raw, config, show_paths=show_paths)
+        for text in [*_texts(results), render_report(results, "de")]:
+            assert not [p for p in planted if p in text]
+        hidden = {f.subkey: f.details["chars"] for f in results.findings if f.rule_id == "CORE-M10-02"}
+        assert hidden == {display_text(text).subkey: len(text) for text in DATED_TEXTS}
+    bids = _events_copy(tmp_path, "bids", "16.2\t0.6\tstandard\tscored 2019\n16.2\t0.6\tborn 1961\tA2\n")
+    results = _check(bids)  # BIDS without --show-paths: annotator IDs only through the display rule
+    for text in [*_texts(results), render_report(results, "de")]:
+        assert not [p for p in planted if p in text]
+    codes = {f.subkey for f in results.findings if f.rule_id == "CORE-M10-02"}
+    assert display_text("born 1961").subkey in codes
+    annotators = {f.subkey for f in results.findings} | {
+        a for r in results.recordings for a in r.metrics.get("annotation", {}).get("annotators", ())
+    }
+    assert annotator_pseudonym("scored 2019") in annotators
+
+
+def test_kappa_cost_does_not_follow_the_declared_records(tmp_path: Path) -> None:
+    """ANN05 residual (A-53): a truncated EDF of a few kB whose header declares 5,000,000 one-second records,
+    with a 2 kB events.tsv of 100 annotators, took about five minutes for this one object (every annotator's
+    classes were built epoch by epoch); now seconds, with the exact κ. Annotator n marks epoch n mod 18."""
+    rows = "".join(f"{(n % 18) + 0.5}\t0.6\tstandard\tR{n}\n" for n in range(100))
+    root = _events_copy(tmp_path, "long", rows, keep="nobody")
+    edf = root / "sub-01" / "eeg" / "sub-01_task-oddball_eeg.edf"
+    raw = bytearray(edf.read_bytes())
+    raw[236:244] = b"5000000 "
+    edf.write_bytes(bytes(raw))
+    started = time.perf_counter()
+    results = _check(root)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 60, elapsed
+    epochs = 5_000_000
+    (kappa,) = [f for f in results.findings if f.rule_id == "CORE-M10-01"]
+    # 230 pairs mark the same epoch (kappa 1), the other 4720 pairs have kappa -1/(epochs - 1)
+    mean = (Fraction(230) - Fraction(4720, epochs - 1)) / 4950
+    assert (kappa.status, kappa.measured_value) == (Status.FAILED, float(mean))
+    details = kappa.details
+    assert (details["annotators"], details["pairs"], details["epochs"]) == (100, 4950, epochs)
+    assert details["min"] == float(Fraction(-1, epochs - 1))
+    (summary,) = [r.metrics["annotation"] for r in results.recordings if "annotation" in r.metrics]
+    assert summary["epochs"] == epochs and summary["kappa"]["pairs"] == 4950
+    issues = [f.details.get("issues", ()) for f in results.findings if f.rule_id.startswith("CORE-M01")]
+    assert any("header.file_truncated" in found for found in issues)  # M01 reports the truncated file
 
 
 def test_markers_and_an_empty_scorer_file(tmp_path: Path) -> None:

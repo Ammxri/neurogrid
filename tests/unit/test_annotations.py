@@ -561,6 +561,12 @@ def _grid(
     return checks.Grid(duration_s=duration, epoch_s=epoch, epochs=epochs, data=data or ((0.0, duration),))
 
 
+def _per_epoch(runs: tuple[tuple[int, tuple[str, ...]], ...], epochs: int) -> list[tuple[str, ...]]:
+    """The class of every epoch from ``checks.class_runs``."""
+    bounds = [first for first, _class in runs[1:]] + [epochs]
+    return [found for (first, found), stop in zip(runs, bounds, strict=True) for _ in range(first, stop)]
+
+
 def test_epoch_classes_midpoints_combined_classes_and_floor_grid() -> None:
     frame = _grid(100.0)  # three complete epochs; 90-100 s are not scored
     annotations = [
@@ -571,7 +577,9 @@ def test_epoch_classes_midpoints_combined_classes_and_floor_grid() -> None:
         _a(60.0, 15.0, "N2"),  # ends at the midpoint 75: does not cover it
         _a(90.0, 10.0, "N3"),  # partial last epoch
     ]
-    assert checks.epoch_classes(annotations, frame) == [("Arousal", "W"), ("N1",), ()]
+    runs = checks.class_runs(annotations, frame)
+    assert runs == ((0, ("Arousal", "W")), (1, ("N1",)), (2, ()))
+    assert _per_epoch(runs, frame.epochs) == [("Arousal", "W"), ("N1",), ()]
 
 
 def test_kappa_of_an_object_with_three_annotators_and_undefined_pairs() -> None:
@@ -600,10 +608,10 @@ def test_kappa_of_an_object_with_three_annotators_and_undefined_pairs() -> None:
 def test_kappa_skips_epochs_in_record_gaps() -> None:
     frame = _grid(150.0, data=((0.0, 60.0), (90.0, 150.0)))
     assert [frame.counted(e) for e in range(frame.epochs)] == [True, True, False, True, True]
-    assert frame.counted_mask().tolist() == [True, True, False, True, True]
+    assert frame.counted_runs() == ((0, 2), (3, 5))
     assert frame.scored == ((0.0, 60.0), (90.0, 150.0))
     late = _grid(150.0, data=((40.0, 150.0),))
-    assert late.counted_mask().tolist() == [False, True, True, True, True] and not late.counted(0)
+    assert late.counted_runs() == ((1, 5),) and not late.counted(0)
 
 
 def test_interval_helpers_are_linear_merges() -> None:
@@ -1018,9 +1026,10 @@ def test_grid_and_epoch_classes_stay_finite_for_any_time() -> None:
     """R7 defence in depth: values the readers never let through, and an epoch length so small that the
     quotient overflows, end neither in OverflowError nor in an infinite grid."""
     huge = [_a(0.0, 1e308, "W"), _a(1e308, 1e308, "N1"), _a(-1e308, 1e308, "N2"), _a(30.0, math.inf, "R")]
-    assert checks.epoch_classes(huge, _grid(90.0)) == [("W",), ("W",), ("W",)]
+    assert _per_epoch(checks.class_runs(huge, _grid(90.0)), 3) == [("W",), ("W",), ("W",)]
     tiny = checks.Grid(duration_s=90.0, epoch_s=5e-324, epochs=3, data=((0.0, 90.0),))
-    assert checks.epoch_classes([_a(1e10, 1.0, "W"), _a(-1e10, 2e10, "N1")], tiny) == [("N1",)] * 3
+    tiny_runs = checks.class_runs([_a(1e10, 1.0, "W"), _a(-1e10, 2e10, "N1")], tiny)
+    assert _per_epoch(tiny_runs, 3) == [("N1",)] * 3
     found = FoundFile(PurePosixPath("hyp.edf"), "rec-x", ".edf", 0)
     track = reader.Track("default", (_a(0.0, 30.0, "W"), _a(1e308, 1e308, "N1")), "edf_tal", found)
     own = reader.AnnotatedRecording(found=found, duration_s=None, tracks=(track,), unassigned=True)
@@ -1298,6 +1307,163 @@ def test_patterns_that_leave_out_every_annotator_name_the_reason(tmp_path: Path)
         "annotation.all_excluded",
         {"excluded_annotators": 1},
     )
+
+
+# --- P4 review repair: dates in free text (ANN02 follow-up) and the kappa work (ANN05 residual) -------------
+
+
+def test_display_text_hides_month_names_years_and_hh_mm_clock_times() -> None:
+    """The display rule hid only the numeric date forms of A-05: dates with a month name or spaces, a year
+    standing alone, underscore-separated dates and hh.mm clock times were shown in clear."""
+    hidden = (
+        "born 12 Mar 1961",
+        "born March 1961",
+        "born_12_Mar_1961",
+        "DOB Mar 12 1961",
+        "born 1961",
+        "recorded 2019",
+        "born_12_03_1961",
+        "born_12_03_61",
+        "01.01.1985",  # the year of a birth date whose day and month were blanked
+        "1985-01-01",
+        "Lights off 22.31",
+        "Lights off at 23.05",
+        "lights_on_06.12",
+        "22h31",
+        "10.30 pm",
+        "8pm",
+        "10 a.m.",
+        "seen 12 May",
+    )
+    for text in hidden:
+        assert display_text(text) == (None, "text-" + short_hash(text)), text
+        assert display_text(text, (text,)).shown == text  # vocabulary entries still pass
+    kept = (
+        "01.01.85",  # the A-05 placeholder date
+        "Stage 2",
+        "Sleep stage W",
+        "S 1/2",
+        "Stimulus/S  1",
+        "S255",
+        "R128",
+        "1.2.3",
+        "v1.2.10",
+        "R1.10.2",
+        "seg 1-2-3",
+        "2-1-2",
+        "block 1.1.1",
+        "EEG 10-20",
+        "contrast_0.25",
+        "Stim 1.50",
+        "Marker 1",
+        "marker_2",
+        "Novel 3",
+        "Octave 4",
+        "Decimal 10",
+    )
+    for text in kept:
+        assert display_text(text).shown == text, text
+
+
+def test_kappa_work_does_not_grow_with_the_declared_epochs() -> None:
+    """ANN05 residual (A-53): the class of every epoch was built epoch by epoch for every annotator, so a
+    header that declares MAX_EPOCHS one-second records (a truncated file of a few kB) and 100 annotators
+    with one event each took minutes for one object; the runs make it independent of the epochs, with the
+    exact values: annotator k marks the epochs 100·k … 100·k + 999."""
+    import time
+    import tracemalloc
+
+    epochs = checks.MAX_EPOCHS
+    found = FoundFile(PurePosixPath("night.edf"), "rec-x", ".edf", 0)
+    tracks = tuple(
+        reader.Track(f"R{k:03d}", (_a(100.0 * k, 1000.0, "standard"),), "events", found) for k in range(100)
+    )
+    obj = reader.AnnotatedRecording(found=found, duration_s=float(epochs), tracks=tracks)
+    frame = checks.grid(obj, 1.0)
+    assert frame is not None and frame.epochs == epochs
+    tracemalloc.start()
+    started = time.perf_counter()
+    try:
+        result = checks.kappa(obj, frame)
+        elapsed = time.perf_counter() - started
+        _current, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert result is not None and elapsed < 20 and peak < 20_000_000, (elapsed, peak)
+
+    def exact(first: int, second: int) -> Fraction:
+        both = max(0, 1000 - 100 * abs(first - second))  # epochs both mark
+        agree = epochs - (2000 - 2 * both)
+        expected = 1000 * 1000 + (epochs - 1000) ** 2
+        return Fraction(epochs * agree - expected, epochs * epochs - expected)
+
+    values = sorted(exact(i, j) for i in range(100) for j in range(i + 1, 100))
+    assert (result.pair_count, result.annotators, result.epochs, result.undefined_pairs) == (
+        4950,
+        100,
+        epochs,
+        0,
+    )
+    assert result.mean == float(sum(values, Fraction(0)) / 4950)
+    assert result.minimum == float(values[0])
+
+
+def test_kappa_rows_in_blocks_give_the_same_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    """MAX_KAPPA_CELLS bounds the class numbers held at once (A-53): with room for two rows only, every pair
+    is still compared exactly once and κ equals Cohen's κ of the counted epochs (record gaps left out)."""
+    found = FoundFile(PurePosixPath("night.edf"), "rec-x", ".edf", 0)
+    stages = {"s1": "W W N1 N1 N2", "s2": "W N1 N1 N1 N2", "s3": "W W N1 N2 N2", "s4": "N1 N1 W W W"}
+    tracks = tuple(
+        reader.Track(
+            name, tuple(_a(30.0 * i, 30.0, s) for i, s in enumerate(text.split())), "annotation_file", found
+        )
+        for name, text in stages.items()
+    )
+    obj = reader.AnnotatedRecording(found=found, duration_s=150.0, tracks=tracks)
+    frame = _grid(150.0, data=((0.0, 60.0), (90.0, 150.0)))  # the middle epoch lies in a record gap
+    whole = checks.kappa(obj, frame)
+    monkeypatch.setattr(checks, "MAX_KAPPA_CELLS", 1)
+    blocks = checks.kappa(obj, frame)
+    assert whole is not None and whole == blocks
+    counted = [0, 1, 3, 4]
+    values = sorted(
+        (value, *sorted((annotator_pseudonym(a), annotator_pseudonym(b))))
+        for i, a in enumerate(sorted(stages))
+        for b in sorted(stages)[i + 1 :]
+        if (
+            value := checks.cohen_kappa(
+                [stages[a].split()[e] for e in counted], [stages[b].split()[e] for e in counted]
+            )
+        )
+        is not None
+    )
+    assert (whole.pair_count, whole.epochs) == (len(values), 4)
+    assert whole.mean == float(sum((v for v, _a, _b in values), Fraction(0)) / len(values))
+    assert whole.pairs == tuple((a, b, float(v)) for v, a, b in values)
+
+
+def test_class_runs_follow_overlapping_annotations_of_one_code() -> None:
+    """A code stays in the class while any of its annotations covers the epoch; codes whose annotations all
+    ended leave it (the sweep keeps only active codes, so its work follows the annotations)."""
+    frame = _grid(300.0)  # ten epochs
+    annotations = [
+        _a(0.0, 90.0, "A"),  # epochs 0-2
+        _a(60.0, 90.0, "A"),  # epochs 2-4, overlaps the first A in epoch 2
+        _a(30.0, 30.0, "B"),  # epoch 1
+        _a(150.0, 30.0, "C"),  # epoch 5
+        _a(240.0, 1e6, "D"),  # epochs 8-9, ends far behind the grid
+    ]
+    assert checks.class_runs(annotations, frame) == (
+        (0, ("A",)),
+        (1, ("A", "B")),
+        (2, ("A",)),
+        (5, ("C",)),
+        (6, ()),
+        (8, ("D",)),
+    )
+    many = [_a(30.0 * (i % 10), 30.0, f"code{i}") for i in range(1000)]
+    runs = checks.class_runs(many, frame)
+    assert len(runs) == 10 and all(len(found) == 100 for _first, found in runs)
 
 
 # --- language tables (C7) -----------------------------------------------------------------------------------

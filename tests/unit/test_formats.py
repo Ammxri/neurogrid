@@ -22,7 +22,7 @@ from neurogrid.io.channels import classify, standard_name
 from neurogrid.io.edf import SIGNAL_FIELDS, BdfAdapter, EdfAdapter, parse_header
 from neurogrid.io.eeglab import EeglabAdapter, _chanlocs, _EpochsAsRaw, _load, _text
 from neurogrid.io.fif import FifAdapter, _position
-from neurogrid.io.identifying import looks_identifying, placeholder, real_dates
+from neurogrid.io.identifying import dates_or_times, looks_identifying, placeholder, real_dates
 from neurogrid.io.montage_names import ONLY_1005, SYSTEM_1020
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -1514,6 +1514,44 @@ def test_placeholder(text: str, expected: bool) -> None:
 )
 def test_real_dates(text: str, expected: bool) -> None:
     assert real_dates(text) is expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Recorded 2021-08-24", True),  # everything real_dates finds
+        ("born_12_03_1961", True),  # underscores as date separators
+        ("born_12_03_61", True),
+        ("born 12 Mar 1961", True),
+        ("born March 1961", True),
+        ("seen 3rd of", False),
+        ("seen 3rd Sept", True),
+        ("born 1961", True),
+        ("01-JAN-1985", True),  # the year stays hidden in the display rule
+        ("2002/01/01", True),
+        ("Lights off 22.31", True),
+        ("Lights off at 23.05", True),
+        ("22h31", True),
+        ("10.30 pm", True),
+        ("8 PM", True),
+        ("01.01.85", False),  # the A-05 placeholder date
+        ("at 14:03:22", False),  # not displayable anyway (colon, A-17)
+        ("version 1.13.2", False),
+        ("v1.2.10", False),
+        ("R1.10.2", False),
+        ("Stim 1.50", False),
+        ("contrast_0.25", False),
+        ("EEG 10-20", False),
+        ("S1999", False),  # glued to letters: a code, not a year
+        ("Marker 12", False),
+        ("Decimal 10", False),
+        ("lights off 2231", False),  # four digits that are no year: indistinguishable from a code
+    ],
+)
+def test_dates_or_times(text: str, expected: bool) -> None:
+    """The display rule's view (C5, A-51); the A-05 header heuristic real_dates stays narrow."""
+    assert dates_or_times(text) is expected
+    assert not real_dates("born 1961") and not real_dates("Lights off 22.31")
 
 
 @pytest.mark.parametrize(
