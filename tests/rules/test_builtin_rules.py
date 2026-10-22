@@ -178,6 +178,73 @@ def _annotation_split(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]
 SETUPS["annotation_split"] = _annotation_split
 
 
+# P4 review (R7-R9): annotation inputs that ended the run with exit 2 or were judged wrongly
+def _annotation_copy(
+    change: Callable[[Path], None],
+) -> Callable[[Path, Path], tuple[Path, dict[str, object]]]:
+    """A copy of the fixture, then ``change`` applied to the copy."""
+
+    def setup(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
+        folder = tmp / fixture.name
+        shutil.copytree(fixture, folder)
+        change(folder)
+        return folder, {}
+
+    return setup
+
+
+def _marker_night(folder: Path) -> None:
+    """ANN03: night.edf as EDF+C whose only annotation is the technician's zero-duration "Lights off": no
+    rater, so κ (0.667, not 0.333) and the gaps judge the three scorers alone."""
+    from gen_fixtures import write_edf  # type: ignore[import-not-found]
+
+    markers = ((12.0, 0.0, "Lights off"),)
+    write_edf(folder / "night.edf", sfreq=16, seconds=300, labels=("C3", "C4"), plus="C", annotations=markers)
+
+
+def _empty_scorer(folder: Path) -> None:
+    """ANN04: a fourth scorer file without any annotation (a failed export): an annotator with coverage 0."""
+    from gen_fixtures import write_annotation_edf  # type: ignore[import-not-found]
+
+    write_annotation_edf(folder / "night_scorer4.edf", ())
+
+
+def _negative_header_size(folder: Path) -> None:
+    """ANN01: a hypnogram whose header size field reads -1 (numpy's memory map raised OverflowError)."""
+    path = folder / "night_scorer1.edf"
+    raw = bytearray(path.read_bytes())
+    raw[184:192] = b"-1      "
+    path.write_bytes(bytes(raw))
+
+
+ODDBALL_EVENTS_TSV = Path("sub-01") / "eeg" / "sub-01_task-oddball_events.tsv"
+
+
+def _overflowing_events(folder: Path) -> None:
+    """ANN00: rows whose onset and duration are finite but whose end overflows (1e308 + 1e308) under both
+    annotators: invalid rows, never an annotation (A-53)."""
+    with (folder / ODDBALL_EVENTS_TSV).open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write("1e308\t1e308\tstandard\tA1\n1e308\t1e308\tstimx\tA2\n")
+
+
+def _many_annotators(folder: Path) -> None:
+    """ANN05: 101 annotators with one event each, one more than MAX_KAPPA_ANNOTATORS (A-53)."""
+    rows = ["onset\tduration\ttrial_type\tannotator"]
+    rows += [f"{1.2 + 2 * (n % 7)}\t0.6\tstandard\tR{n}" for n in range(101)]
+    (folder / ODDBALL_EVENTS_TSV).write_text("\n".join(rows) + "\n", encoding="utf-8", newline="\n")
+
+
+SETUPS.update(
+    {
+        "annotation_marker_track": _annotation_copy(_marker_night),
+        "annotation_empty_scorer": _annotation_copy(_empty_scorer),
+        "annotation_negative_header": _annotation_copy(_negative_header_size),
+        "events_overflow": _annotation_copy(_overflowing_events),
+        "events_many_annotators": _annotation_copy(_many_annotators),
+    }
+)
+
+
 CASES = [
     Case("CORE-M01-01", "edf_ok", Status.PASSED),
     Case("CORE-M01-01", "empty", Status.FAILED),
@@ -361,6 +428,37 @@ CASES = [
     Case("CORE-M10-04", "annotation_continuous_ok", Status.PASSED, CONTINUOUS),
     Case("CORE-M10-04", "annotation_continuous_issues", Status.FAILED, CONTINUOUS),  # 80-90 s
     Case("CORE-M10-04", "bids_events_issues", Status.FAILED),  # two "standard" events overlap
+    # --- P4 review (R7-R9): inputs that ended the run with exit 2 or were judged wrongly ---
+    Case(
+        "CORE-M10-01",
+        "annotation_continuous_ok",
+        Status.PASSED,
+        CONTINUOUS,
+        setup="annotation_marker_track",
+    ),  # ANN03: the markers in night.edf are no rater
+    Case(
+        "CORE-M10-03",
+        "annotation_continuous_ok",
+        Status.PASSED,
+        CONTINUOUS,
+        setup="annotation_marker_track",
+    ),  # ANN03: no coverage 0 for the markers
+    Case(
+        "CORE-M10-03",
+        "annotation_continuous_ok",
+        Status.FAILED,
+        CONTINUOUS,
+        setup="annotation_empty_scorer",
+    ),  # ANN04: the empty scorer file has coverage 0
+    Case(
+        "CORE-M10-01",
+        "annotation_continuous_ok",
+        Status.NOT_CHECKABLE,
+        CONTINUOUS,
+        setup="annotation_negative_header",
+    ),  # ANN01: annotation.unreadable
+    Case("CORE-M10-01", "bids_events_issues", Status.PASSED, setup="events_overflow"),  # ANN00
+    Case("CORE-M10-01", "bids_events_issues", Status.NOT_CHECKABLE, setup="events_many_annotators"),  # ANN05
     # --- P4 integration: CORE-M11-01 with [ai] labels = "annotations" (A-81) in the scopes all and train ---
     Case(
         "CORE-M11-01",

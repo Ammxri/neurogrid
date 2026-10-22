@@ -8,17 +8,22 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from datetime import date
+from fractions import Fraction
 from pathlib import Path, PurePosixPath
+from typing import Any
 
 import jsonschema
 import pytest
 
 from gen_fixtures import write_annotation_edf, write_edf  # type: ignore[import-not-found]
 from neurogrid import pipeline
+from neurogrid.cli import main
 from neurogrid.io.discover import pseudonym
 from neurogrid.io.identifying import annotator_pseudonym, display_text
 from neurogrid.kernel import canonical
+from neurogrid.kernel.errors import ConfigError
 from neurogrid.kernel.findings import Light, Phase, Status
 from neurogrid.model.results import Results
 from neurogrid.report.render import render_report
@@ -326,3 +331,252 @@ def test_real_subprocess_check(tmp_path: Path) -> None:
     for stream in (console.stdout, console.stderr):
         assert b"Mustermann" not in stream
     assert b"Mustermann" not in out.read_bytes()
+
+
+# --- P4 review: inputs that ended the run with exit 2 or were judged wrongly (R7-R11) -----------------------
+
+STAGES = ("W", "W", "N1", "N2", "N2", "N3", "N3", "N2", "R", "W")
+EVENTS_TSV = Path("sub-01") / "eeg" / "sub-01_task-oddball_events.tsv"
+
+
+def _cli(args: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str, str]:
+    with pytest.raises(SystemExit) as info:
+        main(args)
+    out, err = capsys.readouterr()
+    return int(info.value.code or 0), out, err
+
+
+def _events_copy(tmp_path: Path, name: str, rows: str, *, keep: str | None = None) -> Path:
+    """A copy of bids_events_issues whose events.tsv keeps its header and its rows of annotator ``keep``
+    (every row when None), followed by ``rows``."""
+    root = tmp_path / name
+    shutil.copytree(FIX / "bids_events_issues", root)
+    lines = (root / EVENTS_TSV).read_text(encoding="utf-8").splitlines()
+    kept = [lines[0], *(line for line in lines[1:] if keep is None or line.endswith("\t" + keep))]
+    (root / EVENTS_TSV).write_text("\n".join(kept) + "\n" + rows, encoding="utf-8", newline="\n")
+    return root
+
+
+def test_values_that_overflowed_never_end_the_run_with_exit_2(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """C2, A-12: events rows whose onset and duration are finite but whose end overflows (ANN00, CON47, INT40:
+    math.ceil(inf) with two annotators, an infinite overlap and time range with one) and a hypnogram whose
+    header size field reads -1 (ANN01: numpy's memory map raised OverflowError) gave 'Internal error', exit 2
+    and no results.json."""
+    two = _events_copy(tmp_path, "two", "1e308\t1e308\tstandard\tA1\n9e307\t9e307\tstandard\tA2\n")
+    one = _events_copy(tmp_path, "one", "1e308\t1e308\tstimx\tA1\n1e308\t1e308\tstimx\tA1\n", keep="A1")
+    header = tmp_path / "header"
+    shutil.copytree(FIX / "annotation_continuous_ok", header)
+    raw = bytearray((header / "night_scorer1.edf").read_bytes())
+    raw[184:192] = b"-1      "
+    (header / "night_scorer1.edf").write_bytes(bytes(raw))
+    config = _config(tmp_path, CONTINUOUS)
+    outputs = {}
+    for root, extra in ((two, []), (one, []), (header, ["--config", str(config)])):
+        out = tmp_path / f"{root.name}.json"
+        code, _out, err = _cli(
+            ["check", str(root), "--out", str(out), "--as-of", "2026-10-11", *extra], capsys
+        )
+        assert code in (0, 1) and "Internal error" not in err, (root.name, err)
+        outputs[root.name] = json.loads(out.read_text(encoding="utf-8"))
+    for name, kept in (("two", 14), ("one", 7)):
+        data = outputs[name]
+        notices = {n["message_key"]: n["params"] for n in data["notices"]}
+        assert notices["notice.events_rows_invalid"] == {"count": 2}
+        (summary,) = [r["metrics"]["annotation"] for r in data["recordings"] if "annotation" in r["metrics"]]
+        assert (summary["annotations"], summary["invalid_rows"]) == (kept, 2)
+    assert "CORE-M10-01" in {p["rule_id"] for p in outputs["two"]["passed"]}  # kappa of the valid rows
+    assert not [f for f in outputs["one"]["findings"] if f["subkey"] == "stimx"]  # the rows are no annotation
+    night = pseudonym(PurePosixPath("night.edf"))
+    findings = outputs["header"]["findings"]
+    unreadable = {
+        f["rule_id"]: f["reason"]
+        for f in findings
+        if f["object"] == night and f["rule_id"].startswith("CORE-M10") and f["status"] == "not_checkable"
+    }
+    assert unreadable == {f"CORE-M10-0{n}": "annotation.unreadable" for n in (1, 2, 3, 4)}
+    scorer1 = pseudonym(PurePosixPath("night_scorer1.edf"))
+    (size,) = [f for f in findings if f["object"] == scorer1 and f["rule_id"] == "CORE-M01-02"]
+    assert "header.size_field" in size["details"]["issues"]  # M01 reports the damaged header
+
+
+def test_dates_in_annotation_texts_are_free_text(tmp_path: Path) -> None:
+    """ANN02 (A-51, C5): a clock time, a recording date and a birth date in the annotation texts of a raw
+    folder appear neither in results.json nor in the reports, with or without --show-paths: only as
+    text-<sha8> with their length."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    texts = ("Lights off 22.31.07", "recorded 2019-03-12", "born 12.03.1961")
+    write_edf(
+        raw / "night.edf",
+        sfreq=8,
+        seconds=60,
+        labels=("C3",),
+        plus="C",
+        annotations=tuple((10.0 * n, 0.0, text) for n, text in enumerate((*texts, "W"))),
+    )
+    config = _config(tmp_path, '[annotation]\nvocabulary = ["W"]\n')
+    for show_paths in (False, True):
+        results = _check(raw, config, show_paths=show_paths)
+        for text in [*_texts(results), render_report(results, "de")]:
+            assert not [p for p in ("22.31.07", "2019-03-12", "12.03.1961") if p in text]
+        hidden = {f.subkey: f.details["chars"] for f in results.findings if f.rule_id == "CORE-M10-02"}
+        assert hidden == {display_text(text).subkey: len(text) for text in texts}
+        assert "free text (19 characters)" in render_report(results, "en")
+
+
+DATED_TEXTS = (
+    "born 12 Mar 1961",
+    "born March 1961",
+    "born 1961",
+    "Lights off 22.31",
+    "Lights off at 23.05",
+    "born_12_03_1961",
+)
+
+
+def test_month_names_years_and_clock_times_are_free_text(tmp_path: Path) -> None:
+    """ANN02 follow-up (A-51, C5): dates with a month name, a year standing alone, an underscore-separated
+    date and hh.mm clock times in the annotation texts of a raw folder, and a year in a BIDS annotator ID and
+    code, appeared in clear in results.json and the reports; now only as text-<sha8> with their length."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    write_edf(
+        raw / "night.edf",
+        sfreq=8,
+        seconds=80,
+        labels=("C3",),
+        plus="C",
+        annotations=tuple((10.0 * n, 0.0, text) for n, text in enumerate((*DATED_TEXTS, "W"))),
+    )
+    config = _config(tmp_path, '[annotation]\nvocabulary = ["W"]\n')
+    planted = ("12 Mar", "March 1961", "born 1961", "22.31", "23.05", "12_03_1961", "scored 2019")
+    for show_paths in (False, True):
+        results = _check(raw, config, show_paths=show_paths)
+        for text in [*_texts(results), render_report(results, "de")]:
+            assert not [p for p in planted if p in text]
+        hidden = {f.subkey: f.details["chars"] for f in results.findings if f.rule_id == "CORE-M10-02"}
+        assert hidden == {display_text(text).subkey: len(text) for text in DATED_TEXTS}
+    bids = _events_copy(tmp_path, "bids", "16.2\t0.6\tstandard\tscored 2019\n16.2\t0.6\tborn 1961\tA2\n")
+    results = _check(bids)  # BIDS without --show-paths: annotator IDs only through the display rule
+    for text in [*_texts(results), render_report(results, "de")]:
+        assert not [p for p in planted if p in text]
+    codes = {f.subkey for f in results.findings if f.rule_id == "CORE-M10-02"}
+    assert display_text("born 1961").subkey in codes
+    annotators = {f.subkey for f in results.findings} | {
+        a for r in results.recordings for a in r.metrics.get("annotation", {}).get("annotators", ())
+    }
+    assert annotator_pseudonym("scored 2019") in annotators
+
+
+def test_kappa_cost_does_not_follow_the_declared_records(tmp_path: Path) -> None:
+    """ANN05 residual (A-53): a truncated EDF of a few kB whose header declares 5,000,000 one-second records,
+    with a 2 kB events.tsv of 100 annotators, took about five minutes for this one object (every annotator's
+    classes were built epoch by epoch); now seconds, with the exact κ. Annotator n marks epoch n mod 18."""
+    rows = "".join(f"{(n % 18) + 0.5}\t0.6\tstandard\tR{n}\n" for n in range(100))
+    root = _events_copy(tmp_path, "long", rows, keep="nobody")
+    edf = root / "sub-01" / "eeg" / "sub-01_task-oddball_eeg.edf"
+    raw = bytearray(edf.read_bytes())
+    raw[236:244] = b"5000000 "
+    edf.write_bytes(bytes(raw))
+    started = time.perf_counter()
+    results = _check(root)
+    elapsed = time.perf_counter() - started
+    assert elapsed < 60, elapsed
+    epochs = 5_000_000
+    (kappa,) = [f for f in results.findings if f.rule_id == "CORE-M10-01"]
+    # 230 pairs mark the same epoch (kappa 1), the other 4720 pairs have kappa -1/(epochs - 1)
+    mean = (Fraction(230) - Fraction(4720, epochs - 1)) / 4950
+    assert (kappa.status, kappa.measured_value) == (Status.FAILED, float(mean))
+    details = kappa.details
+    assert (details["annotators"], details["pairs"], details["epochs"]) == (100, 4950, epochs)
+    assert details["min"] == float(Fraction(-1, epochs - 1))
+    (summary,) = [r.metrics["annotation"] for r in results.recordings if "annotation" in r.metrics]
+    assert summary["epochs"] == epochs and summary["kappa"]["pairs"] == 4950
+    issues = [f.details.get("issues", ()) for f in results.findings if f.rule_id.startswith("CORE-M01")]
+    assert any("header.file_truncated" in found for found in issues)  # M01 reports the truncated file
+
+
+def test_markers_and_an_empty_scorer_file(tmp_path: Path) -> None:
+    """A-80: the technician's zero-duration markers in the signal file are no rater (ANN03: kappa 1.0 of two
+    identical scorers, not 0.33, and no gap for them); a scorer file without any annotation is an annotator
+    with coverage 0 that takes no part in kappa (ANN04: it was dropped without a trace)."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    markers = ((12.0, 0.0, "Lights off"), (290.0, 0.0, "Lights on"))
+    write_edf(raw / "night.edf", sfreq=16, seconds=300, labels=("C3",), plus="C", annotations=markers)
+    staged = tuple((30.0 * n, 30.0, stage) for n, stage in enumerate(STAGES))
+    for name in ("night_scorer1.edf", "night_scorer2.edf"):
+        write_annotation_edf(raw / name, staged)
+    config = _config(tmp_path, CONTINUOUS.replace('"Lights off"]', '"Lights off", "Lights on"]'))
+
+    def summary(results: Results) -> dict[str, Any]:
+        (found,) = [r.metrics["annotation"] for r in results.recordings if "annotation" in r.metrics]
+        return dict(found)
+
+    results = _check(raw, config)
+    assert _m10(results) == []
+    passed = {p.rule_id: p.count for p in results.passed if p.rule_id.startswith("CORE-M10")}
+    assert passed == {"CORE-M10-01": 1, "CORE-M10-02": 7, "CORE-M10-03": 2, "CORE-M10-04": 2}
+    first = summary(results)
+    assert first["kappa"] == {"mean": 1.0, "min": 1.0, "pairs": 1, "annotators": 2, "undefined_pairs": 0}
+    names = [annotator_pseudonym(n) for n in ("default", "scorer1", "scorer2")]
+    assert first["annotators"] == names and sorted(first["coverage"]) == sorted(names[1:])
+    write_annotation_edf(raw / "night_scorer3.edf", ())
+    results = _check(raw, config)
+    scorer3 = annotator_pseudonym("scorer3")
+    assert _m10(results) == [("CORE-M10-03", "failed", scorer3, None)]
+    (gap,) = [f for f in results.findings if f.rule_id == "CORE-M10-03"]
+    assert gap.measured_value == {"gaps": 1, "gap_s": 300.0, "coverage": 0.0}
+    assert gap.file == pseudonym(PurePosixPath("night_scorer3.edf")) + ".edf"
+    second = summary(results)
+    assert second["annotators"] == [*names, scorer3] and second["coverage"][scorer3] == 0.0
+    assert second["kappa"] == first["kappa"] and len(second["files"]) == 3
+
+
+def test_kappa_annotator_limit(tmp_path: Path) -> None:
+    """ANN05 (A-53): many annotators in a small events.tsv made the run quadratic (hours, then MemoryError);
+    above MAX_KAPPA_ANNOTATORS kappa is not_checkable and is never computed."""
+    rows = "".join(f"{1.2 + 2 * (n % 7)}\t0.6\tstandard\tR{n}\n" for n in range(101))
+    results = _check(_events_copy(tmp_path, "many", rows, keep="nobody"))
+    (kappa,) = [f for f in results.findings if f.rule_id == "CORE-M10-01"]
+    assert (kappa.status, kappa.reason, kappa.details) == (
+        Status.NOT_CHECKABLE,
+        "annotation.too_many_annotators",
+        {"annotators": 101},
+    )
+    (summary,) = [r.metrics["annotation"] for r in results.recordings if "annotation" in r.metrics]
+    assert summary["kappa"] is None and len(summary["annotators"]) == 101
+    assert "More annotators than the limit for Cohen" in render_report(results, "en")
+
+
+def test_annotation_configuration_errors_and_patterns(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """ANN06 (C2): a second [[annotation.files]] row for the same file is exit 2 naming the field (it was
+    ignored without a trace); ANN08: patterns are compared with annotator IDs, and a file-name pattern that
+    leaves out every annotator is reported as such, not as 'no annotations'."""
+    rows = "".join(
+        f'[[annotation.files]]\npath = "{path}"\nrecording = "night.edf"\nannotator = "{who}"\n'
+        for path, who in (("night_scorer1.edf", "s1"), ("./night_scorer1.edf", "s9"))
+    )
+    duplicate = _config(tmp_path, CONTINUOUS + rows, "duplicate.toml")
+    out = tmp_path / "dup.json"
+    code, _out, err = _cli(
+        ["check", str(FIX / "annotation_continuous_ok"), "--config", str(duplicate), "--out", str(out)],
+        capsys,
+    )
+    assert code == 2 and "annotation.files.1.path" in err and not out.exists()
+    with pytest.raises(ConfigError):
+        _check(FIX / "annotation_continuous_ok", duplicate)
+    by_file = _config(tmp_path, CONTINUOUS + 'annotators = ["night_scorer*.edf"]\n', "files.toml")
+    results = _check(FIX / "annotation_continuous_ok", by_file)
+    reasons = {f.rule_id: f.reason for f in results.findings if f.object == "dataset"}
+    assert {reasons[f"CORE-M10-0{n}"] for n in (1, 2, 4)} == {"annotation.all_excluded"}
+    (gap,) = [f for f in results.findings if f.rule_id == "CORE-M10-03"]
+    assert gap.measured_value["coverage"] == 0.0 and gap.details == {"excluded_annotators": 3}
+    for lang, text in (("en", "leaves out every annotator"), ("de", "schließt jeden Annotator aus")):
+        assert text in render_report(results, lang)
+    by_id = _config(tmp_path, CONTINUOUS + 'annotators = ["scorer*"]\n', "ids.toml")
+    assert "CORE-M10-01" in {p.rule_id for p in _check(FIX / "annotation_continuous_ok", by_id).passed}

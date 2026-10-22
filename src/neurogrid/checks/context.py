@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from neurogrid.config import Config
 from neurogrid.io import ADAPTERS
@@ -83,6 +83,8 @@ class CheckContext:
     ai_structure: object = field(default=None, repr=False)
     _provenance: ProvenanceState | None = field(default=None, repr=False)
     _annotations: AnnotationIndex | None = field(default=None, repr=False)
+    # M10 κ per object (relative path), computed once per run by checks.annotation.cached_kappa (A-53)
+    annotation_kappa: dict[PurePosixPath, object] = field(default_factory=dict, repr=False)
 
     def annotations(self) -> AnnotationIndex:
         """The annotations of every signal recording, with the annotation-only files attached to them (M10,

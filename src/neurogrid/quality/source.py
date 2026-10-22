@@ -25,7 +25,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from neurogrid.io.edf import EdfHeader, parse_header
+from neurogrid.io.edf import FIXED_HEADER_BYTES, SIGNAL_HEADER_BYTES, EdfHeader, parse_header
 from neurogrid.model.dataset import Recording
 
 _UNIT_TO_UV = {
@@ -118,6 +118,8 @@ class EdfSignals:
         spr = [s.samples_per_record or 0 for s in header.signals]
         if header.header_bytes is None or not header.record_duration or header.record_duration <= 0:
             raise ValueError("no valid data record duration")
+        if header.header_bytes < FIXED_HEADER_BYTES + SIGNAL_HEADER_BYTES * len(header.signals):
+            raise ValueError("header size field smaller than the header")  # e.g. -1: no data offset (A-53)
         self._record_bytes = sum(spr) * bps
         if self._record_bytes <= 0:
             raise ValueError("no samples per data record")

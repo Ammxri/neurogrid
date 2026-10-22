@@ -16,14 +16,17 @@ Sources (``Annotation.source``):
   comma read as a comma), onset = (position − 1) / rate, duration = size / rate.
 - ``eeglab_event``: EEG.event through the guarded EEGLAB loaders (A-77): code = type (a number as its
   canonical text, "2"), onset = (latency − 1) / srate, duration = duration / srate (0 without the field).
-  Epoched data sets are marked (M10 compares them in events mode only).
+  An event without a latency (empty or NaN, which EEGLAB ignores) is left out as MNE does; an infinite
+  latency or duration makes the source unreadable. Epoched data sets are marked (M10 compares them in events
+  mode only).
 - ``fif_annotations``: raw.annotations of a FIF file whose split chain is safe (A-77), onsets relative to the
   first sample (MNE's onset minus ``first_time``, with or without an origin time).
 - ``events_tsv``: the nearest BIDS events.tsv (inheritance principle), UTF-8 with or without BOM (ds000248
-  starts with one). code = trial_type if the column exists, else value; a row without code, or with an onset
-  that is no finite number or a negative duration, is no annotation (counted as invalid); duration n/a = 0;
-  annotator from the column ``annotator`` (A-04), else "default"; labels are the events.json "Levels"
-  descriptions of the code column, whose keys are the vocabulary (A-80, critic X11).
+  starts with one). code = trial_type if the column exists, else value; a row without code is no annotation;
+  a row whose onset or duration is no number, whose duration is negative or whose times are not valid (see
+  Limits) is no annotation either and is counted as invalid; duration n/a = 0; annotator from the column
+  ``annotator`` (A-04), else "default"; labels are the events.json "Levels" descriptions of the code column,
+  whose keys are the vocabulary (A-80, critic X11).
 
 Structural markers are never annotations (fixed list, documented, not configurable, A-80): the EDF+
 time-keeping entry, BrainVision "New Segment", EEGLAB "boundary", MNE "BAD_ACQ_SKIP" and "EDGE boundary".
@@ -33,13 +36,20 @@ both; no merge). Annotation-only files are no recordings for other checks (A-74,
 signal recording by [[annotation.files]] (dataset-relative paths, critic X12) or, as fallback, by their stem:
 '<stem of a signal recording>_<annotator>' (the longest such stem wins; on a tie the one in the same folder,
 then the one with the nearest common folder). A file that is still ambiguous or matches no recording is an M10
-object of its own with the annotator "default". ``[annotation] annotators`` (patterns, kernel.glob) restricts
-which annotators take part; the others are counted only.
+object of its own with the annotator "default"; an attached file without any annotation is still its
+annotator (an empty track). ``[annotation] annotators`` (patterns, kernel.glob) restricts which annotators
+take part; the patterns are compared with the annotator IDs (events.tsv column,
+``[[annotation.files]].annotator`` or the stem rest), not with file names; the others are counted only.
 
-Limits (A-53): at most MAX_ANNOTATIONS per source and per object, texts cut at MAX_TEXT_BYTES. A source that
-cannot be read gives AnnotationsUnreadable with a reason key; dataset data never end a run with exit 2
-(A-12, C2). Raw annotation texts and annotator IDs never leave the process unfiltered: outputs use
-io.identifying.display_text and annotator_pseudonym (A-17, A-51, C5).
+Limits (A-53): at most MAX_ANNOTATIONS per source and per object, texts cut at MAX_TEXT_BYTES. Onset, duration
+and end of every annotation must be finite and lie within MAX_ANNOTATION_TIME_S (10^9 s, about 31.7 years)
+of the recording start (``valid_times``), EDF+D record onsets as well. An events.tsv row that breaks this is
+counted as invalid; in the other formats such an annotation makes the source unreadable, like any other
+damaged content (never a silent drop). An EDF header whose size field is smaller than its fixed and signal
+headers makes the annotations unreadable. A source that cannot be read gives AnnotationsUnreadable with a
+reason key; dataset data never end a run with exit 2 (A-12, C2). Raw annotation texts and annotator IDs never
+leave the process unfiltered: outputs use io.identifying.display_text and annotator_pseudonym (A-17, A-51,
+C5).
 """
 
 from __future__ import annotations
@@ -60,7 +70,7 @@ from neurogrid.io.bids import MAX_TSV_BYTES, applicable, merged_json
 from neurogrid.io.brainvision import MAX_MARKER_BYTES, _decode, _reference, _sections, parse_vhdr
 from neurogrid.io.channels import ANNOTATION_LABELS
 from neurogrid.io.discover import FoundFile
-from neurogrid.io.edf import parse_header
+from neurogrid.io.edf import FIXED_HEADER_BYTES, SIGNAL_HEADER_BYTES, parse_header
 from neurogrid.io.eeglab import _number, _trials, load_events
 from neurogrid.io.fif import _raw, _unsafe_split
 from neurogrid.kernel import glob
@@ -77,6 +87,7 @@ SOURCE_FILE = "annotation_file"  # an annotation-only file attached to a signal 
 DEFAULT_ANNOTATOR = "default"
 MAX_ANNOTATIONS = 1_000_000
 MAX_TEXT_BYTES = 1024
+MAX_ANNOTATION_TIME_S = 1e9  # A-53: annotation times beyond 10^9 s (about 31.7 years) are no annotation
 UNREADABLE = "annotation.unreadable"
 TOO_MANY = "annotation.too_many"
 NEW_SEGMENT = "New Segment"
@@ -119,6 +130,20 @@ def _checked(annotations: list[Annotation]) -> None:
         raise AnnotationsUnreadable(TOO_MANY)
 
 
+def valid_times(onset: float, duration: float) -> bool:
+    """A-53: onset, duration and end are finite and the annotation lies within MAX_ANNOTATION_TIME_S of the
+    recording start (onset not before -MAX_ANNOTATION_TIME_S, end not after MAX_ANNOTATION_TIME_S). Every
+    later computation (epoch grid, interval lengths and their sums) then stays finite."""
+    end = onset + duration
+    return (
+        math.isfinite(onset)
+        and math.isfinite(duration)
+        and math.isfinite(end)
+        and onset >= -MAX_ANNOTATION_TIME_S
+        and end <= MAX_ANNOTATION_TIME_S
+    )
+
+
 def _merge(intervals: Iterable[tuple[float, float]]) -> tuple[tuple[float, float], ...]:
     merged: list[tuple[float, float]] = []
     for start, end in sorted(intervals):
@@ -145,8 +170,9 @@ def read_edf_tal(path: Path) -> AnnotationList:
         return AnnotationList((), SOURCE_EDF)
     bps = 3 if header.variant == "BDF" else 2
     spr = [s.samples_per_record for s in header.signals]
-    if header.header_bytes is None or any(n is None or n <= 0 for n in spr):
-        raise AnnotationsUnreadable(UNREADABLE)
+    smallest = FIXED_HEADER_BYTES + SIGNAL_HEADER_BYTES * len(header.signals)
+    if header.header_bytes is None or header.header_bytes < smallest or any(n is None or n <= 0 for n in spr):
+        raise AnnotationsUnreadable(UNREADABLE)  # also a size field below the header itself, e.g. -1
     counts = [n for n in spr if n is not None]
     record_bytes = sum(counts) * bps
     try:
@@ -164,7 +190,7 @@ def read_edf_tal(path: Path) -> AnnotationList:
             mapped = np.memmap(
                 path, dtype=np.uint8, mode="r", offset=header.header_bytes, shape=(records, record_bytes)
             )
-        except (OSError, ValueError):
+        except (OSError, ValueError, OverflowError):
             raise AnnotationsUnreadable(UNREADABLE) from None
         try:
             for first in range(0, records, _RECORD_CHUNK):
@@ -183,8 +209,8 @@ def read_edf_tal(path: Path) -> AnnotationList:
     if header.plus != "D":
         return AnnotationList(tuple(annotations), SOURCE_EDF)
     duration = header.record_duration_s
-    if not duration or any(math.isnan(onset) for onset in onsets):
-        raise AnnotationsUnreadable(UNREADABLE)  # EDF+D needs the time-keeping onset of every record
+    if not duration or not all(valid_times(onset, duration) for onset in onsets):
+        raise AnnotationsUnreadable(UNREADABLE)  # EDF+D needs a valid time-keeping onset for every record
     intervals = _merge((onset, onset + duration) for onset in onsets)
     return AnnotationList(
         tuple(annotations),
@@ -214,6 +240,8 @@ def _parse_record(raw: bytes, out: list[Annotation]) -> float | None:
         for raw_text in texts:
             text = _text(raw_text.split(_CHANNEL_LINK, 1)[0])
             if text:
+                if not valid_times(onset, duration):
+                    raise AnnotationsUnreadable(UNREADABLE)
                 out.append(Annotation(onset_s=onset, duration_s=duration, code=text, source=SOURCE_EDF))
     return keeping
 
@@ -253,14 +281,10 @@ def read_vmrk(path: Path) -> AnnotationList:
             continue
         samples = int(size) if size.isdecimal() and len(size) <= 15 else 0  # MNE: anything else is 0
         code = _text(f"{kind}/{description}".encode())
-        annotations.append(
-            Annotation(
-                onset_s=float((int(position) - 1) / rate),
-                duration_s=float(samples / rate),
-                code=code,
-                source=SOURCE_VMRK,
-            )
-        )
+        onset, duration = float((int(position) - 1) / rate), float(samples / rate)
+        if not valid_times(onset, duration):
+            raise AnnotationsUnreadable(UNREADABLE)
+        annotations.append(Annotation(onset_s=onset, duration_s=duration, code=code, source=SOURCE_VMRK))
         _checked(annotations)
     return AnnotationList(tuple(annotations), SOURCE_VMRK)
 
@@ -308,6 +332,14 @@ def _type_text(value: Any) -> str:
     return ""
 
 
+def _infinite(value: Any) -> bool:
+    """A number that is plus or minus infinity (NaN and empty fields are no value: no latency, duration 0)."""
+    try:
+        return math.isinf(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def read_eeglab_events(path: Path) -> AnnotationList:
     """EEG.event of an EEGLAB data set (see the module text)."""
     try:
@@ -324,14 +356,19 @@ def read_eeglab_events(path: Path) -> AnnotationList:
     annotations: list[Annotation] = []
     for row in rows:
         code = _text(_type_text(row.get("type")).encode("utf-8", "surrogatepass"))
+        if not code or code in EEGLAB_STRUCTURAL:
+            continue
+        if _infinite(row.get("latency")) or _infinite(row.get("duration")):
+            raise AnnotationsUnreadable(UNREADABLE)  # A-53: an infinite time is damage, not a missing value
         latency = _number(row.get("latency"))
-        if not code or code in EEGLAB_STRUCTURAL or latency is None:
-            continue  # MNE drops events without a latency as well
+        if latency is None:
+            continue  # MNE drops events without a latency (NaN: EEGLAB ignores them) as well
         samples = _number(row.get("duration"))
         duration = samples / rate if samples is not None and samples > 0 else 0.0
-        annotations.append(
-            Annotation(onset_s=(latency - 1) / rate, duration_s=duration, code=code, source=SOURCE_EEGLAB)
-        )
+        onset = (latency - 1) / rate  # overflows for a huge latency and a sampling rate far below 1 Hz
+        if not valid_times(onset, duration):
+            raise AnnotationsUnreadable(UNREADABLE)
+        annotations.append(Annotation(onset_s=onset, duration_s=duration, code=code, source=SOURCE_EEGLAB))
     return AnnotationList(tuple(annotations), SOURCE_EEGLAB, epoched=epochs is not None and epochs > 1)
 
 
@@ -358,9 +395,11 @@ def read_fif_annotations(path: Path) -> AnnotationList:
     annotations: list[Annotation] = []
     for onset, duration, description in entries:
         code = _text(str(description).encode("utf-8", "surrogatepass"))
-        onset_s, duration_s = float(onset) - shift, float(duration)
-        if not code or code in FIF_STRUCTURAL or not (math.isfinite(onset_s) and math.isfinite(duration_s)):
+        if not code or code in FIF_STRUCTURAL:
             continue
+        onset_s, duration_s = float(onset) - shift, float(duration)
+        if not math.isfinite(duration_s) or not valid_times(onset_s, max(duration_s, 0.0)):
+            raise AnnotationsUnreadable(UNREADABLE)
         annotations.append(
             Annotation(onset_s=onset_s, duration_s=max(duration_s, 0.0), code=code, source=SOURCE_FIF)
         )
@@ -466,8 +505,8 @@ def events_annotations(root: Path, data_file: PurePosixPath, table: EventsTable)
             continue  # a row without code is no annotation (e.g. only a HED string)
         start = _cell_number(row[onset])
         length = 0.0 if duration is None or row[duration] in _NA else _cell_number(row[duration])
-        if start is None or length is None or length < 0:
-            invalid += 1
+        if start is None or length is None or length < 0 or not valid_times(start, length):
+            invalid += 1  # e.g. onset and duration 1e308: each finite, but not their end (A-53)
             continue
         who = row[annotator] if annotator is not None and row[annotator] not in _NA else DEFAULT_ANNOTATOR
         annotations.append(
@@ -530,8 +569,11 @@ class Track:
 @dataclass(frozen=True)
 class AnnotatedRecording:
     """One M10 object: a signal recording with every annotation attached to it, or an annotation-only file
-    that could not be attached (``unassigned``). ``tracks`` hold the annotators that take part, sorted by ID;
-    ``issue`` is the reason key when a source could not be read (then the object is not checkable)."""
+    that could not be attached (``unassigned``). ``tracks`` hold the annotators the ``[annotation]
+    annotators`` patterns let through, sorted by ID; an attached annotation-only file without any annotation
+    is an empty track, and a track may hold zero-duration markers only (checks.annotation decides what each
+    track takes part in, A-80). ``issue`` is the reason key when a source could not be read (then the object
+    is not checkable)."""
 
     found: FoundFile
     duration_s: float | None
@@ -719,8 +761,11 @@ def _signal_object(
         except AnnotationsUnreadable as exc:
             issue = issue or exc.reason
             continue
-        tracks.extend(_tracks(extra.annotations, SOURCE_FILE, item.found, who, found.display_id))
-    kept, excluded = _included((t for t in tracks if t.annotations), annotators)
+        if extra.annotations:
+            tracks.extend(_tracks(extra.annotations, SOURCE_FILE, item.found, who, found.display_id))
+        else:  # one file per annotator (A-80): a file without annotation is its annotator all the same
+            tracks.append(Track(who, (), SOURCE_FILE, item.found))
+    kept, excluded = _included(tracks, annotators)
     if issue is None and sum(len(t.annotations) for t in kept) > MAX_ANNOTATIONS:
         issue = TOO_MANY
     duration = _duration(signal.recording)

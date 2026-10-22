@@ -120,6 +120,7 @@ errors:
     unsafe_path: "Konfiguration: Feld '{field}' muss ein relativer Pfad im Projekt sein (kein '..', kein Laufwerks-, Netz- oder Gerätepfad)."
     unsafe_pattern: "Konfiguration: Der reguläre Ausdruck in Feld '{field}' kann bei manchen Dateinamen sehr lange laufen (ein wiederholter Teil enthält eine weitere Wiederholung oder Alternativen, oder er nutzt einen Rückverweis). Bitte vereinfachen."
     too_deep: "Die Konfigurationsdatei ist zu tief verschachtelt."
+    duplicate_path: "Konfiguration: Feld '{field}' nennt dieselbe Datei wie eine frühere Zeile von [[annotation.files]]; jede Datei darf nur einmal zugeordnet werden."
   evidence:
     invalid: "Ungültige Nachweisdatei: Feld '{field}' ({problem})."
     not_mapping: "Eine Nachweisdatei muss eine YAML-Zuordnung mit format_version und evidence sein."
@@ -204,7 +205,7 @@ notice:
   annotations_unassigned: "{count} reine Annotationsdatei(en) (z. B. Hypnogramme) passen zu keiner Signalaufnahme; jede wird als eigene Aufnahme geprüft. Bitte mit [[annotation.files]] in neurogrid.toml zuordnen."
   annotations_ambiguous: "{count} reine Annotationsdatei(en) passen gleich gut zu mehreren Signalaufnahmen; jede wird als eigene Aufnahme geprüft. Bitte mit [[annotation.files]] in neurogrid.toml zuordnen."
   annotation_files_unmatched: "{count} Zeile(n) von [[annotation.files]] in neurogrid.toml nennen keine reine Annotationsdatei oder keine Signalaufnahme des Datensatzes."
-  events_rows_invalid: "{count} Zeile(n) von events.tsv-Dateien haben keinen gültigen Beginn oder keine gültige Dauer und wurden bei den Annotationsprüfungen ausgelassen."
+  events_rows_invalid: "{count} Zeile(n) von events.tsv-Dateien haben keinen gültigen Beginn oder keine gültige Dauer (endliche Zahlen, höchstens rund 31,7 Jahre vom Aufnahmebeginn entfernt) und wurden bei den Annotationsprüfungen ausgelassen."
 
 severity:
   error: "Fehler"
@@ -337,6 +338,9 @@ reason:
     software_missing: "Keine Softwareversionen dokumentiert (provenance.yaml, Verarbeitungsschritte oder GeneratedBy mit Name und Version)."
   annotation:
     none: "Keine Annotationen."
+    all_excluded: "[annotation] annotators schließt jeden Annotator aus (die Muster werden mit Annotator-IDs verglichen, nicht mit Dateinamen)."
+    markers_only: "Nur Marken der Dauer 0; Kappa, Lücken und Überlappungen brauchen Annotationen mit einer Dauer."
+    too_many_annotators: "Mehr Annotatoren als die Grenze für Cohens Kappa (100 je Aufnahme)."
     single_annotator: "Nur ein Annotator; Cohens Kappa braucht mindestens zwei."
     event_mode: "Lücken und Abdeckung werden nur im kontinuierlichen Modus geprüft ([annotation] mode)."
     no_vocabulary: "Kein Vokabular, mit dem die Codes verglichen werden können ([annotation] vocabulary oder events.json Levels)."

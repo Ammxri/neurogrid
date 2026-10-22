@@ -121,6 +121,7 @@ errors:
     unsafe_path: "配置：字段 '{field}' 必须是项目内的相对路径（不得含 '..'、盘符、网络或设备路径）。"
     unsafe_pattern: "配置：字段 '{field}' 中的正则表达式在某些文件名上可能运行极长时间（重复部分内含另一重复或分支，或使用了反向引用）。请简化该表达式。"
     too_deep: "配置文件嵌套层级过深。"
+    duplicate_path: "配置：字段 '{field}' 与 [[annotation.files]] 中前面一行指向同一文件；每个文件只能分配一次。"
   evidence:
     invalid: "证明材料文件无效：字段 '{field}'（{problem}）。"
     not_mapping: "证明材料文件必须是包含 format_version 和 evidence 的 YAML 映射。"
@@ -205,7 +206,7 @@ notice:
   annotations_unassigned: "{count} 个仅含标注的文件（如睡眠分期图）没有对应的信号记录；每个文件作为单独的记录检查。请在 neurogrid.toml 中用 [[annotation.files]] 指定对应关系。"
   annotations_ambiguous: "{count} 个仅含标注的文件同样可对应多个信号记录；每个文件作为单独的记录检查。请在 neurogrid.toml 中用 [[annotation.files]] 指定对应关系。"
   annotation_files_unmatched: "neurogrid.toml 中 [[annotation.files]] 的 {count} 行未指向数据集中的仅含标注的文件或信号记录。"
-  events_rows_invalid: "events.tsv 文件中有 {count} 行没有有效的起始时间或持续时间，未纳入标注检查。"
+  events_rows_invalid: "events.tsv 文件中有 {count} 行没有有效的起始时间或持续时间（须为有限数值，且距记录开始不超过约 31.7 年），未纳入标注检查。"
 
 severity:
   error: "错误"
@@ -338,6 +339,9 @@ reason:
     software_missing: "未记录软件版本（provenance.yaml、处理步骤，或带 Name 和 Version 的 GeneratedBy）。"
   annotation:
     none: "没有标注。"
+    all_excluded: "[annotation] annotators 排除了所有标注者（模式与标注者 ID 比对，而非文件名）。"
+    markers_only: "只有时长为 0 的标记；κ、间隙和重叠需要有时长的标注。"
+    too_many_annotators: "标注者数量超过 Cohen κ 的上限（每个记录 100 名）。"
     single_annotator: "只有一名标注者；Cohen κ 至少需要两名。"
     event_mode: "间隙和覆盖率仅在连续模式下检查（[annotation] mode）。"
     no_vocabulary: "没有可用于比对代码的词表（[annotation] vocabulary 或 events.json Levels）。"

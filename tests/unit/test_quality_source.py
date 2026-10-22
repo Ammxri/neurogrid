@@ -639,6 +639,19 @@ def test_zero_samples_per_record_raises(tmp_path: Path) -> None:
         EdfSignals(path, _recording(path), ["EEG Fp1", "EEG Fp2"])
 
 
+@pytest.mark.parametrize("size", [b"-1      ", b"-768    ", b"256     "])
+def test_header_size_below_the_header_raises(tmp_path: Path, size: bytes) -> None:
+    """P4 review (ANN01, R7): a negative header size made numpy's memory map raise OverflowError; a size
+    below the fixed and signal headers gives no data offset either. Both are a ValueError (read.failed)."""
+    path = _write_edf(tmp_path / "rec.edf", [_Signal("EEG Fp1", _ramp(8, 0, 1, EDF_LIMITS), 4)])
+    recording = _recording(path)
+    raw = bytearray(path.read_bytes())
+    raw[184:192] = size
+    path.write_bytes(bytes(raw))
+    with pytest.raises(ValueError, match="header size"):
+        EdfSignals(path, recording, ["EEG Fp1"])
+
+
 def test_edf_close_releases_the_file(tmp_path: Path) -> None:
     """A-24: close() drops the memory map, so the file is no longer held open (Windows locks mapped files)."""
     path = _write_edf(tmp_path / "rec.edf", [_Signal("EEG Fp1", _ramp(16, 0, 1, EDF_LIMITS), 8)])
