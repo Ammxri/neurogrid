@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from neurogrid.kernel import canonical
 from neurogrid.kernel.engine import ExceptionEntry
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
-from neurogrid.kernel.rules import ParamValue
+from neurogrid.kernel.rules import RULE_ID_PATTERN, ParamValue
 from neurogrid.kernel.safety import check_relative, decode_text, read_limited, resolve_within
 
 CONFIG_DIR = ".neurogrid"
@@ -405,13 +405,21 @@ class VaultSection(_Section):
     approval_ref: str | None = Field(default=None, max_length=120)
 
 
+class ConfigExceptionEntry(ExceptionEntry):
+    """An [[exceptions]] entry as neurogrid.toml must write it: ``rule`` is a rule ID (A-83), so a typo such
+    as lower case is an error (exit 2) instead of an exception that never applies. results.json stores the
+    looser ExceptionEntry, so that results of earlier versions still load (C1)."""
+
+    rule: str = Field(min_length=1, max_length=64, pattern=RULE_ID_PATTERN)
+
+
 class Config(_Section):
     dataset: DatasetSection = Field(default_factory=DatasetSection)
     check: CheckSection = Field(default_factory=CheckSection)
     sampling: SamplingSection = Field(default_factory=SamplingSection)
     quality: QualitySection = Field(default_factory=QualitySection)
     rules: dict[str, RuleOverride] = Field(default_factory=dict)
-    exceptions: list[ExceptionEntry] = Field(default_factory=list)
+    exceptions: list[ConfigExceptionEntry] = Field(default_factory=list)
     metadata: MetadataSection = Field(default_factory=MetadataSection)
     convert: ConvertSection = Field(default_factory=ConvertSection)
     annotation: AnnotationSection = Field(default_factory=AnnotationSection)

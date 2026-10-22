@@ -158,7 +158,7 @@ def _finding(**overrides: object) -> Finding:
 
 
 def test_report_formatter() -> None:
-    fmt = _Formatter("en")
+    fmt = _Formatter("en", recordings=frozenset({"rec-1"}))
     assert fmt.value(None) == "–" and fmt.value(True) == "yes" and fmt.value(False) == "no"
     assert fmt.value(0.123456789) == "0.123457" and fmt.value({"b": 1, "a": [1]}) == "a: 1; b: 1"
     measured = fmt.value({"rates_hz": [256.0, 512.0], "documented": False})
@@ -172,7 +172,13 @@ def test_report_formatter() -> None:
     text = fmt.time_range(_finding(time_ranges=ranges[:21], time_ranges_total=25))
     assert text.endswith("(+5)") and "0.000–0.500 s" in text
     assert fmt.time_range(_finding(file=None)) == "dataset"
-    assert fmt.time_range(_finding()) == "whole recording"
+    assert fmt.time_range(_finding()) == "whole recording"  # rec-1 is a recording of the results
+    # a file that is no recording: a control file or a new file in the manifest comparison (A-10, A-82)
+    control = _finding(object=".neurogrid/neurogrid.toml", file=".neurogrid/neurogrid.toml")
+    assert fmt.time_range(control) == "whole file"
+    assert fmt.time_range(_finding(object="rec-2", file="rec-2.txt")) == "whole file"
+    assert _Formatter("zh").time_range(control) == "整个文件"
+    assert _Formatter("de").time_range(control) == "gesamte Datei"
     detail = fmt.details(
         _finding(
             reason="read.failed",

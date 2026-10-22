@@ -97,6 +97,14 @@ UNSAFE_IDENTITY = "unsafe_name:"
 MAX_BIDSIGNORE_BYTES = 1_000_000
 
 
+def shown_suffix(name: str) -> str:
+    """The extension shown next to the pseudonym of a file called ``name`` (A-70), by the rule of show(): its
+    classifying extension (lower case) if _SHOWN_SUFFIX allows it, else none, so that a name written as an
+    extension never appears (A-51). Also used for the path values of the effective configuration (C4)."""
+    suffix = classify_suffix(name)
+    return suffix if _SHOWN_SUFFIX.match(suffix) else ""
+
+
 # --- documentation sources ------------------------------------------------------------------------------
 
 

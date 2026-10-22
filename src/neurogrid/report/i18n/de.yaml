@@ -234,7 +234,7 @@ light:
   yellow: "gelb"
   green: "grün"
   grey: "grau"
-  legend: "Rot: mindestens eine Fehler-Regel nicht bestanden oder ein Nachweis zu einer Fehler-Regel offen. Gelb: dasselbe bei Warn-Regeln. Grün: keine nicht bestandene Fehler- oder Warn-Regel und kein offener Nachweis in den geladenen Regelpaketen. Grau: keine Regel dieser Phase ergab bestanden oder nicht bestanden (keine Regeln, nur Platzhalter-Regeln oder nur nicht anwendbare oder nicht prüfbare Ergebnisse)."
+  legend: "Rot: mindestens eine Fehler-Regel nicht bestanden oder ein Nachweis zu einer Fehler-Regel offen. Gelb: dasselbe bei Warn-Regeln. Grün: keine nicht bestandene Fehler- oder Warn-Regel und kein offener Nachweis zu einer Fehler- oder Warn-Regel in den geladenen Regelpaketen. Grau: keine Regel dieser Phase ergab „bestanden“, „nicht bestanden“, „Ausnahme“ oder „Nachweis offen“ (keine Regeln, nur Platzhalter-Regeln oder nur gemessene Ergebnisse, die nicht anwendbar oder nicht prüfbar sind). Bei Regeln, die aus der evidence.yaml gelesen werden, zählt jedes Ergebnis, auch ein begründetes „nicht anwendbar“."
 
 source_status:
   placeholder: "Platzhalter"
@@ -528,6 +528,7 @@ report:
   value:
     none: "–"
     whole_recording: "gesamte Aufnahme"
+    whole_file: "gesamte Datei"
     dataset_level: "Datensatz"
     not_applicable_value: "– (für diese Regel nicht gemessen)"
     "yes": "ja"

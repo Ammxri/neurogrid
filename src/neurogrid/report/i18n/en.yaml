@@ -234,7 +234,7 @@ light:
   yellow: "yellow"
   green: "green"
   grey: "grey"
-  legend: "Red: at least one failed error rule or open evidence for an error rule. Yellow: the same for warning rules. Green: no failed error or warning rule and no open evidence in the loaded rule packs. Grey: no rule of this phase gave a passed or failed result (no rules, only placeholder rules, or only results that are not applicable or not checkable)."
+  legend: "Red: at least one failed error rule or open evidence for an error rule. Yellow: the same for warning rules. Green: no failed error or warning rule and no open evidence for an error or warning rule in the loaded rule packs. Grey: no rule of this phase gave a passed, not passed, exception or evidence open result (no rules, only placeholder rules, or only measured results that are not applicable or not checkable). For rules read from evidence.yaml every result counts, also a justified 'not applicable'."
 
 source_status:
   placeholder: "placeholder"
@@ -528,6 +528,7 @@ report:
   value:
     none: "–"
     whole_recording: "whole recording"
+    whole_file: "whole file"
     dataset_level: "dataset"
     not_applicable_value: "– (not measured for this rule)"
     "yes": "yes"

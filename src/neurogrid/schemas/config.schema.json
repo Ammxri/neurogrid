@@ -194,6 +194,82 @@
       "title": "CheckSection",
       "type": "object"
     },
+    "ConfigExceptionEntry": {
+      "additionalProperties": false,
+      "description": "An [[exceptions]] entry as neurogrid.toml must write it: ``rule`` is a rule ID (A-83), so a typo such\nas lower case is an error (exit 2) instead of an exception that never applies. results.json stores the\nlooser ExceptionEntry, so that results of earlier versions still load (C1).",
+      "properties": {
+        "approved_by": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approved By"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object"
+        },
+        "reason": {
+          "maxLength": 1000,
+          "title": "Reason",
+          "type": "string"
+        },
+        "rule": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)+$",
+          "title": "Rule",
+          "type": "string"
+        },
+        "subkey": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkey"
+        },
+        "valid_until": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid Until"
+        }
+      },
+      "required": [
+        "rule",
+        "reason"
+      ],
+      "title": "ConfigExceptionEntry",
+      "type": "object"
+    },
     "ConsentSection": {
       "additionalProperties": false,
       "properties": {
@@ -314,82 +390,6 @@
         }
       },
       "title": "DatasetSection",
-      "type": "object"
-    },
-    "ExceptionEntry": {
-      "additionalProperties": false,
-      "description": "A justified exception from neurogrid.toml (NG-F18, A-14).\n\n``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well. ``subkey``\nmust equal the finding's subkey (e.g. a validator code, a field or a channel). Exceptions are per rule ID:\nthe same defect reported by two packs (A-40) needs one entry per rule.",
-      "properties": {
-        "approved_by": {
-          "anyOf": [
-            {
-              "maxLength": 80,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Approved By"
-        },
-        "object": {
-          "anyOf": [
-            {
-              "maxLength": 512,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Object"
-        },
-        "reason": {
-          "maxLength": 1000,
-          "title": "Reason",
-          "type": "string"
-        },
-        "rule": {
-          "maxLength": 64,
-          "minLength": 1,
-          "pattern": "^[A-Z0-9]+(-[A-Z0-9]+)+$",
-          "title": "Rule",
-          "type": "string"
-        },
-        "subkey": {
-          "anyOf": [
-            {
-              "maxLength": 128,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Subkey"
-        },
-        "valid_until": {
-          "anyOf": [
-            {
-              "format": "date",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Valid Until"
-        }
-      },
-      "required": [
-        "rule",
-        "reason"
-      ],
-      "title": "ExceptionEntry",
       "type": "object"
     },
     "MappedFile": {
@@ -724,7 +724,7 @@
     },
     "exceptions": {
       "items": {
-        "$ref": "#/$defs/ExceptionEntry"
+        "$ref": "#/$defs/ConfigExceptionEntry"
       },
       "title": "Exceptions",
       "type": "array"

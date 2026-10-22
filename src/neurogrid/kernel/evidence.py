@@ -10,7 +10,7 @@ one entry per rule::
         document: .neurogrid/evidence/it-security-sop.pdf
         sha256: 3f...             # optional; compared with the document (upper case is accepted)
         reviewer: QA lead         # role or initials, never a name (A-51)
-        date: 2026-11-02
+        date: 2026-11-02          # a YAML date or the text "2026-11-02"
         comment: AES-256 at rest, role concept v2
         justification: ...        # required for not_applicable
 
@@ -21,6 +21,10 @@ following links. NeuroGrid computes the SHA-256 of every referenced document and
 sha256 is compared. A semi-automatic rule passes when its document exists, is no link and, if a hash was
 recorded, the hash matches (A-15 "Dokument vorhanden und Hash stimmt"). The file is a control file: invalid
 content ends the run with exit 2 and names the field, never the text of a value (C2).
+
+The models below are the parser: schemas/evidence.schema.json is generated from them and accepts the same
+documents (A-83), apart from what only the reader decides: whether a document path is a plain relative path
+(A-52; the schema describes the rule).
 """
 
 from __future__ import annotations
@@ -52,7 +56,10 @@ from neurogrid.kernel.rules import RULE_ID_PATTERN
 from neurogrid.kernel.safety import MAX_PATH_CHARS, check_relative, decode_text, is_link, load_yaml
 
 MAX_ENTRIES = 10_000
+MAX_RULE_ID_CHARS = 64
 _RULE_ID = re.compile(RULE_ID_PATTERN)
+# A date written as text: exactly what the JSON schema's format "date" (RFC 3339 full-date) accepts.
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
 # Parts of a field location that may be shown in an error: field names and rule IDs, never value text (C2).
 _SHOWN_LOCATION = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
 # Problems the validators report (as the ValueError text, a fixed key; pydantic_core is outside the kernel's
@@ -79,14 +86,37 @@ class DocumentCheck(StrEnum):
     HASH_MISMATCH = "hash_mismatch"
 
 
+# EvidenceItem._complete in the JSON schema: not_applicable needs a justification (A-15), provided a
+# document (NG-F12).
+_REQUIRED_BY_STATUS: dict[str, Any] = {
+    "allOf": [
+        {
+            "if": {"properties": {"status": {"const": EvidenceState.NOT_APPLICABLE.value}}},
+            "then": {
+                "required": ["justification"],
+                "properties": {"justification": {"type": "string", "pattern": r"\S"}},
+            },
+        },
+        {
+            "if": {"properties": {"status": {"const": EvidenceState.PROVIDED.value}}},
+            "then": {"required": ["document"], "properties": {"document": {"type": "string"}}},
+        },
+    ]
+}
+
+
 class EvidenceItem(BaseModel):
     """One entry of evidence.yaml. Strict like neurogrid.toml (A-53); ``status`` is read from its text."""
 
-    model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(extra="forbid", strict=True, json_schema_extra=_REQUIRED_BY_STATUS)
 
     status: EvidenceState = Field(strict=False)
-    document: str | None = Field(default=None, max_length=MAX_PATH_CHARS)
-    sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    document: str | None = Field(
+        default=None,
+        max_length=MAX_PATH_CHARS,
+        description="A plain relative path: no '..', drive, UNC, device, stream or URL (A-52).",
+    )
+    sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")  # stored in lower case
     reviewer: str | None = Field(default=None, max_length=80)
     date: dt.date | None = None
     comment: str | None = Field(default=None, max_length=500)
@@ -97,6 +127,19 @@ class EvidenceItem(BaseModel):
     def _lower_case(cls, value: Any) -> Any:
         """PowerShell's Get-FileHash prints upper-case hex; both spellings name the same hash."""
         return value.lower() if isinstance(value, str) else value
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def _date_text(cls, value: Any) -> Any:
+        """A YAML date, or the same date as the text 'YYYY-MM-DD' (quoted, or as an editor's YAML 1.2 reads
+        an unquoted one), which the schema's format "date" describes (A-83). Other text stays text and is
+        refused, like a date with a time."""
+        if isinstance(value, str) and _ISO_DATE.fullmatch(value):
+            try:
+                return dt.date.fromisoformat(value)
+            except ValueError:  # e.g. 2026-02-30
+                return value
+        return value
 
     @field_validator("document")
     @classmethod
@@ -118,7 +161,17 @@ class EvidenceItem(BaseModel):
         return self
 
 
-RuleId = Annotated[str, StringConstraints(pattern=RULE_ID_PATTERN, max_length=64)]
+RuleId = Annotated[str, StringConstraints(pattern=RULE_ID_PATTERN, max_length=MAX_RULE_ID_CHARS)]
+
+
+def _entries_schema(schema: dict[str, Any]) -> None:
+    """The JSON schema of ``evidence``: rule IDs only as keys (parse_evidence refuses other keys before the
+    model sees them), and an empty section (YAML null) that lists no entries."""
+    entries = {key: value for key, value in schema.items() if key != "title"}
+    entries["additionalProperties"] = False
+    for key in entries:
+        schema.pop(key, None)
+    schema["anyOf"] = [entries, {"type": "null"}]
 
 
 class EvidenceFile(BaseModel):
@@ -127,7 +180,22 @@ class EvidenceFile(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     format_version: Literal[1]
-    evidence: dict[RuleId, EvidenceItem] = Field(default_factory=dict, max_length=MAX_ENTRIES)
+    evidence: dict[RuleId, EvidenceItem] = Field(
+        default_factory=dict, max_length=MAX_ENTRIES, json_schema_extra=_entries_schema
+    )
+
+    @field_validator("format_version", mode="before")
+    @classmethod
+    def _not_bool(cls, value: Any) -> Any:
+        """YAML ``true`` is no format version (strict, as in the schema): a bool fails the literal check
+        instead of passing as 1."""
+        return str(value) if isinstance(value, bool) else value
+
+    @field_validator("evidence", mode="before")
+    @classmethod
+    def _empty_section(cls, value: Any) -> Any:
+        """An empty 'evidence:' section (YAML null) lists no entries."""
+        return {} if value is None else value
 
 
 def _location(parts: tuple[int | str, ...]) -> str:
@@ -140,12 +208,10 @@ def parse_evidence(data: bytes) -> EvidenceFile:
     raw = load_yaml(decode_text(data, ConfigError, "evidence.encoding"))
     if not isinstance(raw, dict):
         raise ConfigError("evidence.not_mapping")
-    if "evidence" in raw and raw["evidence"] is None:
-        raw = {**raw, "evidence": {}}  # an empty 'evidence:' section lists no entries
     entries = raw.get("evidence")
     if isinstance(entries, dict):
         for index, key in enumerate(entries, start=1):
-            if not isinstance(key, str) or len(key) > 64 or not _RULE_ID.match(key):
+            if not isinstance(key, str) or len(key) > MAX_RULE_ID_CHARS or not _RULE_ID.match(key):
                 # the position, not the key: a malformed key may be any text (C2)
                 raise ConfigError("evidence.invalid", field=f"evidence.#{index}", problem="rule_id")
     try:

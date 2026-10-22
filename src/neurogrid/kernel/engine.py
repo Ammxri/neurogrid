@@ -56,7 +56,6 @@ from neurogrid.kernel.findings import (
 )
 from neurogrid.kernel.rules import (
     EVIDENCE_CHECK,
-    RULE_ID_PATTERN,
     CheckSpec,
     LoadedRulepack,
     Measurement,
@@ -75,12 +74,14 @@ class ExceptionEntry(BaseModel):
 
     ``object`` is a pattern over relative POSIX paths; pseudonymous recording IDs match as well. ``subkey``
     must equal the finding's subkey (e.g. a validator code, a field or a channel). Exceptions are per rule ID:
-    the same defect reported by two packs (A-40) needs one entry per rule.
+    the same defect reported by two packs (A-40) needs one entry per rule. In results.json ``rule`` may be any
+    text, as results of earlier versions hold it (C1); neurogrid.toml must name a rule ID (A-83, checked when
+    the file is read).
     """
 
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    rule: str = Field(min_length=1, max_length=64, pattern=RULE_ID_PATTERN)
+    rule: str = Field(min_length=1, max_length=64)
     object: str | None = Field(default=None, max_length=512)
     subkey: str | None = Field(default=None, max_length=128)
     reason: str = Field(max_length=1000)
@@ -471,15 +472,20 @@ def _counts(finding: Finding) -> bool:
 
 
 def _phase_summary(findings: Sequence[Finding], evaluated: set[Phase]) -> dict[Phase, PhaseSummary]:
-    """Per phase: counted errors and warnings (open evidence included, A-16), the open evidence as a
-    breakdown, and the light. ``evaluated`` holds the phases in which a non-placeholder rule had an evaluated
-    outcome."""
+    """Per phase: counted errors and warnings (open evidence included, A-16), the open evidence of error and
+    warning rules as a breakdown of them (an info rule's open evidence is listed as a finding, never counted),
+    and the light. Severities are the effective ones of the run (strict_severity, A-82). ``evaluated`` holds
+    the phases in which a non-placeholder rule had an evaluated outcome."""
     result: dict[Phase, PhaseSummary] = {}
     for phase in Phase:
         relevant = [f for f in findings if f.phase is phase and _counts(f)]
         errors = sum(1 for f in relevant if f.severity is Severity.ERROR)
         warnings = sum(1 for f in relevant if f.severity is Severity.WARNING)
-        open_evidence = sum(1 for f in relevant if f.status is Status.EVIDENCE_OPEN)
+        open_evidence = sum(
+            1
+            for f in relevant
+            if f.status is Status.EVIDENCE_OPEN and f.severity in (Severity.ERROR, Severity.WARNING)
+        )
         if phase not in evaluated:
             light = Light.GREY
         elif errors:

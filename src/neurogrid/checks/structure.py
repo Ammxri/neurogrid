@@ -9,6 +9,7 @@ from pathlib import Path
 
 from neurogrid.checks.context import CheckContext, RecordingState
 from neurogrid.io import ORPHAN_SUFFIXES
+from neurogrid.io.discover import FoundFile
 from neurogrid.kernel.rules import CheckSpec, Evaluation, Measurement, ParamSpec, ParamValue, is_true
 
 READABLE = "structure.readable"
@@ -194,11 +195,11 @@ def measure_identifying(ctx: CheckContext) -> list[Measurement]:
 
 
 def _is_hdf5(path: Path) -> bool:
-    import h5py  # heavy import, only when an EEGLAB data set is checked
+    import h5py  # heavy import, only when an EEGLAB data set or an NWB file is checked
 
     try:
         return bool(h5py.is_hdf5(str(path)))
-    except OSError:
+    except (OSError, ValueError):  # unreadable, or a name the HDF5 library cannot encode: no HDF5 found
         return False
 
 
@@ -212,9 +213,19 @@ def storage_format(rec: RecordingState) -> str:
     return rec.recording.format if rec.recording is not None else rec.adapter.format
 
 
+def unsupported_format(found: FoundFile, root: Path) -> str:
+    """The storage format of a data file NeuroGrid cannot read (GX-03, A-83): its extension in upper case
+    ('CNT', 'MFF', 'FIF.GZ', 'FDT' for an orphan companion), never the file name (A-51). An NWB file is an
+    HDF5 container when the file is HDF5."""
+    if found.suffix == ".nwb" and _is_hdf5(root.joinpath(*found.relative.parts)):
+        return HDF5
+    return found.suffix.lstrip(".").upper()
+
+
 def measure_storage_format(ctx: CheckContext) -> list[Measurement]:
-    """GX-03 per recording; annotation-only files (hypnograms) are no recordings (A-74). Files NeuroGrid
-    cannot read are not measured: CORE-M01-04 reports them."""
+    """GX-03 per recording; annotation-only files (hypnograms) are no recordings (A-74). Recording files and
+    folders in formats NeuroGrid cannot read, and orphan companions, are measured too, by their extension:
+    each pack is evaluated on its own (A-40), also when core (CORE-M01-04) is not loaded (A-02)."""
     out: list[Measurement] = []
     for rec in ctx.recordings:
         if rec.annotations_only:
@@ -240,6 +251,17 @@ def measure_storage_format(ctx: CheckContext) -> list[Measurement]:
                 identity=rec.identity,
             )
         )
+    out.extend(
+        Measurement(
+            check_id=STORAGE_FORMAT,
+            object=found.display_id,
+            file=found.display_file,
+            value=unsupported_format(found, ctx.root),
+            details={"extension": found.suffix},
+            identity=found.identity,
+        )
+        for found in ctx.scan.unsupported
+    )
     return out
 
 
