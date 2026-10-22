@@ -14,10 +14,12 @@ in raw folders ``participant_id`` is the subject label of the mapping, with or w
   counts in the group of N ("89+" -> "80-89", "95+" -> "90+", A-81); a range "20-25" counts in its lower
   decade; anything else is unparseable and counts as missing (``ai.age_unparseable``). The raw age stays
   inside :class:`Subject` (``exclude=True``) and is never serialised; cell text never leaves this module
-  except through the checks' display rule (A-17, C5).
+  except through the checks' display rule (A-17, C5). Besides ``age``, a column whose name says age
+  (``age_years``, ``Age at scan``, ``AgeYears``; :func:`is_age_column`) holds ages as well: as a label
+  source it counts in the same groups (A-21).
 - Sex is normalised to female | male | other | given (documented, but in none of the three categories). A
   placeholder of :data:`SEX_PLACEHOLDERS` ("unknown", "U", "nan", "?", ...) documents no sex: it counts as
-  missing like an empty cell (A-81).
+  missing like an empty cell (A-81), also in a sex column used as label source.
 """
 
 from __future__ import annotations
@@ -45,6 +47,10 @@ _DECIMAL = re.compile(r"^\d{1,3}(?:\.\d+)?$")  # no sign, exponent, nan or inf (
 _TOP_CODED = re.compile(r"^(?P<age>\d{1,3}(?:\.\d+)?)\s*\+$")  # BIDS "89+"
 _RANGE = re.compile(r"^(?P<low>\d{1,3}(?:\.\d+)?)\s*-\s*(?P<high>\d{1,3}(?:\.\d+)?)$")
 AGE_GROUPS: tuple[str, ...] = (*(f"{low}-{low + 9}" for low in range(0, 90, 10)), "90+")  # A-21
+# A word of a column name that says the column holds ages: "age", "ages" or a compact form ("ageyears")
+_AGE_WORD = re.compile(r"ages?(?:years?|yrs?|months?|days?|at[a-z]*|group|grp)?")
+_NAME_WORDS = re.compile(r"[^0-9a-z]+")
+SEX_COLUMNS = ("sex", "gender")  # in this order (A-04)
 # Sex cells that say the sex is not known, compared after strip and casefold: no documentation (A-81)
 SEX_PLACEHOLDERS = frozenset(
     {
@@ -90,6 +96,13 @@ def canonical(name: str) -> str:
 
 def missing(value: str) -> bool:
     return value.strip().casefold() in ("", "n/a")
+
+
+def is_age_column(name: str) -> bool:
+    """Whether a column holds ages by its name: a word "age" (``age``, ``age_years``, ``Age at scan``,
+    ``subject_age``) or a compact form (``AgeYears``, ``AgeAtScan``), but not a word that only contains the
+    letters (``language``, ``stage``). Raw ages never leave the process (A-21)."""
+    return any(_AGE_WORD.fullmatch(word) for word in _NAME_WORDS.split(canonical(name)))
 
 
 def subject_label(participant_id: str) -> str:
@@ -224,7 +237,7 @@ def parse_participants(
         elif "split" in row and not missing(split):
             invalid[label] = invalid.get(label, 0) + 1
     columns = frozenset(header)
-    sex_column = "sex" if "sex" in columns else "gender" if "gender" in columns else None
+    sex_column = next((name for name in SEX_COLUMNS if name in columns), None)
     age_column = "age" if "age" in columns else None
     participants: dict[str, Participant] = {}
     for label, row in first.items():

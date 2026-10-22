@@ -10,7 +10,8 @@ dataset and that is also its identity, so keys and exceptions do not depend on -
   present) and class; ``min_share`` 0.05 (PRD, not calibrated, A-20). Label source ``[ai] labels``:
   ``events:<column>`` counts the event rows of the BIDS events.tsv files (the one events.tsv reader of M10,
   io.annotations.read_events, critic G10), ``participants:<column>`` counts subjects (``participants:age``
-  counts the 10-year age groups, never the raw age; an age that is no age is no label), ``annotations``
+  and every other column whose name says age count the 10-year age groups, never the raw age; an age that
+  is no age is no label; a sex placeholder such as "unknown" is no label either), ``annotations``
   counts the annotations of the M10 reader (CheckContext.annotations(), A-80): every annotation of an
   annotator that takes part (``[annotation] annotators``) is one event of the class of its code,
   zero-duration markers included. Annotations of an attached annotation-only file (hypnogram) count in the
@@ -18,7 +19,8 @@ dataset and that is also its identity, so keys and exceptions do not depend on -
   annotation-only files that could not be attached belong to no recording and are not counted (M10 reports
   them). Recordings whose events.tsv or annotations cannot be read are left out as a whole and counted in a
   warning notice; if none can be read, the check is not checkable (``ai.labels_unreadable``). Unset: one
-  dataset-level not_applicable (A-81). A class missing from a split has share 0. The labels are counted once
+  dataset-level not_applicable (A-81). A class missing from a split has share 0 (in a published table; a
+  withheld one is judged from the numbers of subjects only, see below). The labels are counted once
   per run and only when ai.class_balance is loaded (its check and results.ai.labels).
 - CORE-M11-02 ``ai.demographics_complete``: age and sex of every subject in participants.tsv at the dataset
   root (also for raw folders); one measurement per subject and value. Format headers are no source (A-51,
@@ -39,9 +41,11 @@ split, the subjects with a documented value and the per-subject CORE-M11-02 outc
 and counts are published only if every non-zero cell has at least 5 subjects (zero cells may then show);
 otherwise the table is withheld: no category keys, no counts, only its total. The scopes of a label source
 are linked by sums, so one withheld scope withholds them all. CORE-M11-01 then has one measurement per
-scope without class, label or count, judged from public facts only (:func:`_class_share`); a share that
-decided an outcome is removed after the engine (:func:`suppress_small_cells`). Event-level counts are never
-withheld. Free text labels are shown only by the A-17 rule (C5); raw ages are never output.
+scope without class, label, count or share, judged from the public numbers of subjects only
+(:func:`_class_share`): no outcome may depend on which scope holds the small cell or on a category missing
+from a split, as those facts, the sums and the split counts together pin down cells of 1-4 (P4 review
+repair, AI10, INT38, CON48). Event-level counts are never withheld. Free text labels are shown only by the
+A-17 rule (C5); raw ages are never output.
 """
 
 from __future__ import annotations
@@ -58,15 +62,18 @@ from neurogrid.io.events import event_labels
 from neurogrid.io.identifying import display_text
 from neurogrid.io.participants import (
     AGE_GROUPS,
+    SEX_COLUMNS,
     SPLIT_NAMES,
     ParticipantsTable,
     age_group,
     canonical,
+    is_age_column,
     missing,
     read_participants,
+    sex_category,
 )
 from neurogrid.io.splits import assign, locate, read_splits
-from neurogrid.kernel.findings import Finding, Notice, Severity
+from neurogrid.kernel.findings import Notice, Severity
 from neurogrid.kernel.rules import (
     CheckSpec,
     Evaluation,
@@ -351,11 +358,14 @@ def _event_labels(ctx: CheckContext, members: Sequence[Member], column: str) -> 
 
 
 def _participant_labels(members: Sequence[Member], table: ParticipantsTable | None, column: str) -> Labels:
-    """``participants:<column>``: one unit per subject with recordings and a value. The age column counts in
-    10-year groups (the groups are its vocabulary): the raw age never becomes a class (A-21, A-81)."""
+    """``participants:<column>``: one unit per subject with recordings and a value. A column that holds ages
+    (``age``, which CORE-M11-02 reads, or another name that says age) counts in 10-year groups (the groups
+    are its vocabulary): the raw age never becomes a class (A-21, A-81). In a sex column a placeholder
+    documents nothing, as for CORE-M11-02 and the demography (A-81)."""
     reason = _table_reason(table)
     wanted = canonical(column)
-    ages = wanted == "age"  # the column CORE-M11-02 reads the age from
+    ages = is_age_column(wanted)
+    sexes = wanted in SEX_COLUMNS
     if reason is None and table is not None and wanted not in table.columns:
         reason = "ai.label_column_missing"
     if reason is None and any(member.subject is None for member in members):
@@ -372,6 +382,8 @@ def _participant_labels(members: Sequence[Member], table: ParticipantsTable | No
         value = participant.cells.get(wanted, "") if participant is not None else ""
         if ages:
             value = age_group(value) or ""  # missing or no age: no label
+        elif sexes and sex_category(value) is None:
+            value = ""  # empty, n/a or a placeholder such as "unknown": no label
         if not missing(value):
             units.append((value, frozenset(splits)))
     vocabulary = frozenset(AGE_GROUPS) if ages else table.vocabulary.get(wanted, frozenset())
@@ -433,15 +445,11 @@ def published(cells: Mapping[str, int]) -> dict[str, int] | None:
     return None if small_cell(cells) else dict(sorted(cells.items()))
 
 
-def suppress_small_cells(findings: Sequence[Finding]) -> list[Finding]:
-    """Output filter after the engine (A-51): a scope of a withheld label source (details ``small_cell``) is
-    output without the share that decided a scope withheld only through its linked scopes."""
-    out = []
-    for finding in findings:
-        if finding.message_key == f"check.{CLASS_BALANCE}" and "small_cell" in finding.details:
-            finding = finding.model_copy(update={"measured_value": None, "reason": "ai.small_cell"})
-        out.append(finding)
-    return out
+def surely_small(total: int, totals: Iterable[int]) -> bool:
+    """Whether the public numbers of subjects alone say that a scope of a withheld label source holds a cell
+    of 1-4 subjects: it has 1-4 subjects, or every scope with subjects has the same subjects (equal totals;
+    a split is part of the scope all), so the one table they share is the withheld one."""
+    return 0 < total < SMALL_CELL or len({value for value in totals if value}) == 1
 
 
 # --- measurements ----------------------------------------------------------------------------------------
@@ -469,9 +477,10 @@ def measure_class_balance(ctx: CheckContext) -> list[Measurement]:
     if counted.reason is not None:
         return [_dataset(CLASS_BALANCE, state="not_checkable", reason=counted.reason)]
     classes = counted.classes
+    totals = {scope: sum(counter.values()) for scope, counter in counted.counts.items()}
     out: list[Measurement] = []
     for scope, counter in counted.counts.items():
-        total = sum(counter.values())
+        total = totals[scope]
         if not total:
             out.append(
                 _dataset(
@@ -483,10 +492,10 @@ def measure_class_balance(ctx: CheckContext) -> list[Measurement]:
                 )
             )
             continue
-        cells = {key: counter.get(key, 0) for key in classes}
         if counted.withheld:
-            out.append(_withheld_scope(scope, cells, total))
+            out.append(_withheld_scope(scope, total, surely_small(total, totals.values())))
             continue
+        cells = {key: counter.get(key, 0) for key in classes}
         for key in classes:
             details: dict[str, Any] = {"scope": scope, "label": counted.shown[key], "unit": counted.unit}
             if counted.shown[key] is None:
@@ -499,19 +508,15 @@ def measure_class_balance(ctx: CheckContext) -> list[Measurement]:
     return out
 
 
-def _withheld_scope(scope: str, cells: Mapping[str, int], total: int) -> Measurement:
-    """One measurement per scope of a withheld label source (A-51): no class key, label or count. A scope
-    with a cell of 1-4 subjects is judged from its total alone (:func:`_class_share`); a scope withheld only
-    through its linked scopes keeps the exact outcome of its lowest class share, which the output filter
-    removes again (:func:`suppress_small_cells`)."""
-    small = small_cell(cells)
-    return _dataset(
-        CLASS_BALANCE,
-        subkey=scope,
-        value=None if small else min(cells.values()) / total,
-        reason="ai.small_cell",
-        details={"scope": scope, "unit": "subjects", "total": total, "small_cell": small},
-    )
+def _withheld_scope(scope: str, total: int, small: bool) -> Measurement:
+    """One measurement per scope of a withheld label source (A-51): no class key, label, count or share,
+    only public facts: the number of subjects and, when the numbers alone tell it (:func:`surely_small`),
+    that the scope holds a cell of 1-4 subjects (details ``small_cell``). Whether a scope holds such a cell
+    or misses a category is otherwise never output, not even through its status (:func:`_class_share`)."""
+    details: dict[str, Any] = {"scope": scope, "unit": "subjects", "total": total, "withheld": True}
+    if small:
+        details["small_cell"] = True
+    return _dataset(CLASS_BALANCE, subkey=scope, value=None, reason="ai.small_cell", details=details)
 
 
 def measure_demographics(ctx: CheckContext) -> list[Measurement]:
@@ -654,17 +659,19 @@ def measure_duplicates(ctx: CheckContext) -> list[Measurement]:
 
 
 def _class_share(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
-    """At least ``min_share``. A withheld scope with a cell of 1-4 subjects (A-51) is judged from public facts
-    only, its number of subjects N and min_share: failed when 4/N is below it (every small cell fails),
-    passed when 1/N reaches it (every non-zero cell passes), otherwise not checkable (the outcome would tell
-    the count)."""
+    """At least ``min_share``. A scope of a withheld label source (A-51) is judged from public facts only:
+    its number of subjects N, min_share and whether the numbers alone say that it holds a cell of 1-4
+    subjects. Passed when 1/N reaches min_share (every category present passes, whatever the counts);
+    failed when the scope surely holds a small cell and even 4/N is below min_share; otherwise not
+    checkable, as the outcome would tell a count, which scope holds the small cell or that a category is
+    missing from a split (AI10, INT38, CON48)."""
     limit = params["min_share"]
-    if measurement.details.get("small_cell") is True:
+    if measurement.details.get("withheld") is True:
         total = measurement.details["total"]
-        if (SMALL_CELL - 1) / total < limit:
-            return Evaluation(passed=False, threshold=limit)
         if 1 / total >= limit:
             return Evaluation(passed=True, threshold=limit)
+        if measurement.details.get("small_cell") is True and (SMALL_CELL - 1) / total < limit:
+            return Evaluation(passed=False, threshold=limit)
         return Evaluation(passed=False, threshold=limit, not_checkable="ai.small_cell")
     return Evaluation(passed=measurement.value >= limit, threshold=limit)
 

@@ -304,10 +304,11 @@ CASES = [
     # P4 review (A-51 table rule): age groups of 6 subjects are withheld; 1 of 6 reaches 0.05, so every
     # possible small cell passes
     Case("CORE-M11-01", "bids_ai_ok", Status.PASSED, AGE_LABELS, setup="ai_unassigned_placeholder"),
-    Case("CORE-M11-01", "bids_ai_ok", Status.FAILED, SEX_LABELS_STRICT),  # all: even 4 of 6 is below 0.9
-    Case(
-        "CORE-M11-01", "bids_ai_ok", Status.NOT_CHECKABLE, SEX_LABELS_STRICT
-    ),  # train: 1 of 4 fails, 4 passes
+    # P4 review repair (AI10, INT38, CON48): without assigned splits the scope all surely holds the small
+    # cell (sex of 5 subjects, "unknown" is no label): even 4 of 5 is below 0.9
+    Case("CORE-M11-01", "bids_ai_ok", Status.FAILED, SEX_LABELS_STRICT, setup="ai_unassigned_placeholder"),
+    # with splits the numbers decide neither all (6) nor train (4: 1 of 4 fails, 4 of 4 passes)
+    Case("CORE-M11-01", "bids_ai_ok", Status.NOT_CHECKABLE, SEX_LABELS_STRICT),
     Case("CORE-M11-02", "bids_ai_ok", Status.PASSED, AI_LABELS),
     Case("CORE-M11-02", "bids_ai_issues", Status.FAILED, AI_LABELS),  # sub-03 age n/a, sub-04 without a row
     Case("CORE-M11-02", "bids_ok", Status.FAILED),  # participants.tsv without age and sex columns

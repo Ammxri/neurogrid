@@ -1,9 +1,12 @@
 """M11/M12 building blocks (NG-F09, A-04, A-21, A-51, A-81): participants.tsv, splits.tsv, event labels, the
-A-17 display rule, small-cell suppression, the [ai] configuration and the language keys of the area."""
+A-17 display rule, the small-cell table rule, the [ai] configuration and the language keys of the area."""
 
 from __future__ import annotations
 
+import itertools
 import re
+from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path, PurePosixPath
 from typing import get_args
 
@@ -21,14 +24,16 @@ from neurogrid.io.identifying import display_text
 from neurogrid.io.participants import (
     AGE_GROUPS,
     age_group,
+    is_age_column,
     parse_participants,
     read_participants,
     sex_category,
     subject_label,
 )
 from neurogrid.io.splits import MAX_SPLITS_ROWS, assign, locate, parse_splits, read_splits
+from neurogrid.kernel import engine
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
-from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
+from neurogrid.kernel.findings import Status
 from neurogrid.kernel.rules import Measurement
 from neurogrid.model.results import AILabels
 from neurogrid.report.texts import tables
@@ -428,9 +433,11 @@ def test_a_table_without_small_cells_is_published() -> None:
     assert ai_dataset.published({}) == {} and not ai_dataset.small_cell({"A": 0, "B": 5})
 
 
-def _scope(total: int, small: bool, value: float | None = None) -> Measurement:
-    details = {"scope": "all", "unit": "subjects", "total": total, "small_cell": small}
-    return Measurement(check_id=ai_dataset.CLASS_BALANCE, object="dataset", value=value, details=details)
+def _scope(total: int, small: bool) -> Measurement:
+    details: dict[str, object] = {"scope": "all", "unit": "subjects", "total": total, "withheld": True}
+    if small:
+        details["small_cell"] = True
+    return Measurement(check_id=ai_dataset.CLASS_BALANCE, object="dataset", value=None, details=details)
 
 
 @pytest.mark.parametrize(
@@ -448,57 +455,176 @@ def _scope(total: int, small: bool, value: float | None = None) -> Measurement:
         (1, 0.9, True, None),
     ],
 )
-def test_withheld_scope_with_a_small_cell_is_judged_from_public_facts(
+def test_withheld_scope_with_a_surely_small_cell_is_judged_from_public_facts(
     total: int, min_share: float, passed: bool, not_checkable: str | None
 ) -> None:
-    """A-51: the number of subjects N of the scope and min_share only; the share of the measurement is
-    never used (it is None)."""
+    """A-51: a scope that the numbers of subjects alone show to hold a cell of 1-4 subjects (details
+    small_cell) is judged from its number of subjects N and min_share; there is no share to use."""
     verdict = ai_dataset._class_share(_scope(total, True), {"min_share": min_share})
     assert (verdict.passed, verdict.not_checkable, verdict.threshold) == (passed, not_checkable, min_share)
 
 
-def test_scope_withheld_through_linkage_and_published_classes_keep_the_exact_outcome() -> None:
-    linked = ai_dataset._class_share(_scope(30, False, 0.0), {"min_share": 0.05})  # a class absent
-    assert (linked.passed, linked.not_checkable) == (False, None)
-    assert ai_dataset._class_share(_scope(30, False, 0.2), {"min_share": 0.05}).passed
+@pytest.mark.parametrize(
+    ("total", "min_share", "passed", "not_checkable"),
+    [
+        (100, 0.05, False, "ai.small_cell"),  # failed only if the scope surely held the small cell
+        (30, 0.05, False, "ai.small_cell"),
+        (24, 0.05, False, "ai.small_cell"),  # INT38/AI10 (L1): a train split with a class missing or not
+        (20, 0.05, True, None),  # every category present passes, whatever the counts
+        (6, 0.9, False, "ai.small_cell"),
+        (1, 0.9, True, None),
+    ],
+)
+def test_other_withheld_scopes_never_tell_where_the_small_cell_is(
+    total: int, min_share: float, passed: bool, not_checkable: str | None
+) -> None:
+    """P4 review repair (AI10, INT38, CON48): a withheld scope that may or may not hold the small cell gets
+    no exact outcome, as it would tell, with the sums, the split counts and a demographic table, which
+    scope holds a cell of 1-4 or that a category is missing from a split. Before, such a scope kept the
+    exact outcome of its lowest share and its own small_cell flag."""
+    verdict = ai_dataset._class_share(_scope(total, False), {"min_share": min_share})
+    assert (verdict.passed, verdict.not_checkable, verdict.threshold) == (passed, not_checkable, min_share)
+
+
+def test_published_classes_keep_the_exact_outcome() -> None:
     published = Measurement(check_id=ai_dataset.CLASS_BALANCE, object="dataset", value=0.05, details={})
     assert ai_dataset._class_share(published, {"min_share": 0.05}).passed
     assert not ai_dataset._class_share(published, {"min_share": 0.06}).passed
+    assert ai_dataset._class_share(published, {"min_share": 0.06}).not_checkable is None
 
 
-def _finding(details: dict[str, object], message_key: str = "check.ai.class_balance") -> Finding:
-    return Finding(
-        key="k",
-        rule_id="CORE-M11-01",
-        rulepack="core",
-        rulepack_version="1",
-        source_status=SourceStatus.FINAL,
-        clause="M11",
-        phase=Phase.PROCESSING,
-        severity=Severity.WARNING,
-        status=Status.FAILED,
-        object="dataset",
-        subkey="test:A",
-        measured_value=0.04,
-        details=details,
-        message_key=message_key,
+@pytest.mark.parametrize(
+    ("total", "totals", "small"),
+    [
+        (4, (30, 26, 4), True),  # 1-4 subjects: every non-zero cell is small
+        (26, (30, 26, 4), False),
+        (30, (30, 26, 4), False),
+        (6, (6,), True),  # no split: the scope all holds the small cell of the withheld source
+        (6, (6, 6), True),  # every subject in train: the two scopes are one table
+        (6, (6, 6, 0), True),  # a split without labelled subjects does not count
+        (6, (6, 5, 1), False),
+    ],
+)
+def test_surely_small_uses_the_numbers_of_subjects_only(
+    total: int, totals: tuple[int, ...], small: bool
+) -> None:
+    assert ai_dataset.surely_small(total, totals) is small
+
+
+def _withheld_outputs(
+    monkeypatch: pytest.MonkeyPatch, scopes: dict[str, dict[str, int]], min_share: float
+) -> str:
+    """Everything CORE-M11-01 and the labels block publish for a participants label source with these cells:
+    status, reason, threshold, value and details of every scope, the passed scopes and the labels block."""
+    counts = {scope: Counter({k: v for k, v in cells.items() if v}) for scope, cells in scopes.items()}
+    counted = ai_dataset.Labels(
+        "participants", "group", "subjects", counts=counts, shown={key: key for key in scopes["all"]}
     )
+    monkeypatch.setattr(ai_dataset, "labels", lambda ctx: counted)
+    spec = ai_dataset.SPECS[0]
+    published: list[object] = []
+    for measurement in ai_dataset.measure_class_balance(None):  # type: ignore[arg-type]
+        outcome = engine._measurement_outcome(spec, measurement, {"min_share": min_share})
+        passed = outcome.status is Status.PASSED
+        published.append(
+            (
+                measurement.subkey,
+                outcome.status.value,
+                None if passed else outcome.reason,
+                outcome.threshold,
+                outcome.measurement.value,
+                sorted(measurement.details.items()),
+            )
+        )
+    block = ai_dataset._labels_block(counted)
+    published.append(block.model_dump(mode="json") if block else None)
+    return repr(published)
 
 
-def test_suppress_small_cells_after_the_engine() -> None:
-    """The share that decided a withheld scope never reaches the output, also for a scope withheld only
-    through its linked scopes (small_cell false); published classes and other checks keep their value."""
-    hidden, linked, shown, other = ai_dataset.suppress_small_cells(
-        [
-            _finding({"small_cell": True, "unit": "subjects", "scope": "test", "total": 3}),
-            _finding({"small_cell": False, "unit": "subjects", "scope": "all", "total": 30}),
-            _finding({"count": 1, "total": 25, "unit": "events"}),
-            _finding({"small_cell": True}, message_key="check.quality.flatline"),
-        ]
-    )
-    assert hidden.measured_value is None and hidden.reason == "ai.small_cell"
-    assert linked.measured_value is None and linked.reason == "ai.small_cell"
-    assert shown.measured_value == 0.04 and other.measured_value == 0.04
+def _layouts(sizes: dict[str, int]) -> Iterator[dict[str, dict[str, int]]]:
+    """Every distribution of two classes A, B over splits of these sizes (each subject in one split)."""
+    names = list(sizes)
+    for minority in itertools.product(*(range(sizes[name] + 1) for name in names)):
+        splits = {name: {"A": a, "B": sizes[name] - a} for name, a in zip(names, minority, strict=True)}
+        total_a = sum(minority)
+        yield {"all": {"A": total_a, "B": sum(sizes.values()) - total_a}, **splits}
+
+
+@pytest.mark.parametrize(
+    "sizes",
+    [
+        {"train": 24, "test": 6},  # INT38 / AI10 L1: the class shared by all of train, 1 subject in test
+        {"train": 20, "val": 5, "test": 5},  # CON48 L2: val 1 F / 4 M from the outcomes of train and test
+        {"train": 26, "test": 4},  # CON48 L3: passed vs. not checkable told test 4 F / 0 M
+        {"train": 5, "test": 6},
+    ],
+)
+@pytest.mark.parametrize("min_share", [0.05, 0.2, 0.9])
+def test_withheld_outputs_depend_on_the_public_numbers_only(
+    monkeypatch: pytest.MonkeyPatch, sizes: dict[str, int], min_share: float
+) -> None:
+    """P4 review repair (AI10, INT38, CON48): every distribution of the subjects over the classes that is
+    withheld gives the same output, so neither the sums of the scopes, the split counts, the demographic
+    table of the same column nor the statuses tell a cell of 1-4. With the earlier rule, a scope without a
+    small cell kept its exact outcome and its small_cell flag, and these outputs differed."""
+    seen = {
+        _withheld_outputs(monkeypatch, scopes, min_share)
+        for scopes in _layouts(sizes)
+        if any(ai_dataset.small_cell(cells) for cells in scopes.values())
+    }
+    assert len(seen) == 1, seen
+    assert "('withheld', True)" in next(iter(seen))
+
+
+def test_withheld_scopes_carry_no_share_count_or_class(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A withheld scope is output with its public facts only (A-51), also a scope without a small cell of
+    its own; the output filter that removed a share after the engine is no longer needed."""
+    scopes = {"all": {"A": 25, "B": 5}, "train": {"A": 21, "B": 5}, "test": {"A": 4, "B": 0}}
+    counts = {scope: Counter({k: v for k, v in cells.items() if v}) for scope, cells in scopes.items()}
+    counted = ai_dataset.Labels("participants", "sex", "subjects", counts=counts, shown={"A": "A", "B": "B"})
+    monkeypatch.setattr(ai_dataset, "labels", lambda ctx: counted)
+    measured = ai_dataset.measure_class_balance(None)  # type: ignore[arg-type]
+    assert [(m.subkey, m.value, m.reason, m.details) for m in measured] == [
+        ("all", None, "ai.small_cell", {"scope": "all", "unit": "subjects", "total": 30, "withheld": True}),
+        (
+            "train",
+            None,
+            "ai.small_cell",
+            {"scope": "train", "unit": "subjects", "total": 26, "withheld": True},
+        ),
+        (
+            "test",
+            None,
+            "ai.small_cell",
+            {"scope": "test", "unit": "subjects", "total": 4, "withheld": True, "small_cell": True},
+        ),
+    ]
+    assert not hasattr(ai_dataset, "suppress_small_cells")
+
+
+@pytest.mark.parametrize(
+    ("name", "ages"),
+    [
+        ("age", True),
+        ("Age", True),
+        ("age_years", True),
+        ("Age at scan", True),
+        ("subject_age", True),
+        ("AgeYears", True),
+        ("AgeAtScan", True),
+        ("age-group", True),
+        ("ages", True),
+        ("language", False),
+        ("stage", False),
+        ("agency", False),
+        ("page_count", False),
+        ("group", False),
+    ],
+)
+def test_columns_that_hold_ages_by_their_name(name: str, ages: bool) -> None:
+    """A-21 (P4 review repair): every column whose name says age counts in the 10-year groups as a label
+    source, not only the column age."""
+    assert is_age_column(name) is ages
 
 
 # --- configuration and language keys ---------------------------------------------------------------------

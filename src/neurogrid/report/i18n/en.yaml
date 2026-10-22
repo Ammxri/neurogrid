@@ -262,7 +262,7 @@ reason:
     no_splits: "No splits defined (.neurogrid/splits.tsv or a 'split' column in participants.tsv)."
     splits_unassigned: "The split source assigns no recording to a split (no row of splits.tsv or of the 'split' column in participants.tsv matches a recording)."
     hash_unavailable: "No signal hash: the recording has no EEG channel to hash."
-    small_cell: "Classes withheld: a class of this label source has fewer than 5 subjects (small-cell rule). The result uses only the number of subjects in the scope and is not checkable where it would reveal a count."
+    small_cell: "Classes withheld: a class of this label source has fewer than 5 subjects in a scope (small-cell rule). The result follows from the numbers of subjects alone; where they do not decide it, it is not checkable."
   read:
     failed: "The data could not be read."
     unlistable: "The folder could not be read; its contents were not checked."

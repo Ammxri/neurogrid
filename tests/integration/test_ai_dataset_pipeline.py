@@ -534,8 +534,10 @@ def test_empty_scope_and_missing_column(tmp_path: Path) -> None:
 def test_subject_level_tables_are_withheld_as_a_whole(tmp_path: Path) -> None:
     """A-51 table rule (A-81): participants labels count subjects (sub-01's two recordings count once, CON50).
     Every scope of bids_ai_ok has a cell of 1-4 subjects, so no scope shows a class key or count, only its
-    total; CORE-M11-01 has one finding per scope, judged from the total and min_share alone: all (6 subjects)
-    fails because even 4 of 6 is below 0.9, train (4) is not checkable, val and test (1 each) pass."""
+    total; CORE-M11-01 has one finding per scope, judged from the numbers of subjects and min_share alone:
+    val and test (1 each) pass, train (4 subjects, surely a small cell) is not checkable, and all (6) is not
+    checkable either, as the numbers do not tell whether all holds the small cell (P4 review repair). Without
+    splits the scope all surely holds it, and even 4 of 6 is below 0.9: failed."""
     config = ai_config(
         tmp_path, '[ai]\nlabels = "participants:sex"\n[rules."AI-PROC-001".params]\nmin_share = 0.9\n'
     )
@@ -553,18 +555,21 @@ def test_subject_level_tables_are_withheld_as_a_whole(tmp_path: Path) -> None:
         "test": (1, None),
     }
     assert findings(results, CLASSES) == [
-        ("dataset", "all", Status.FAILED, "ai.small_cell"),
+        ("dataset", "all", Status.NOT_CHECKABLE, "ai.small_cell"),
         ("dataset", "train", Status.NOT_CHECKABLE, "ai.small_cell"),
     ]
     assert [(p.object, p.count) for p in results.passed if p.rule_id == CLASSES] == [("dataset", 2)]
     for finding in (f for f in results.findings if f.rule_id == CLASSES):
         assert finding.measured_value is None and finding.threshold == 0.9
-        assert finding.details == {
+        expected: dict[str, object] = {
             "scope": finding.subkey,
             "unit": "subjects",
             "total": labels.scopes[str(finding.subkey)].total,
-            "small_cell": True,
+            "withheld": True,
         }
+        if finding.subkey == "train":
+            expected["small_cell"] = True  # 4 subjects: every non-zero cell is small
+        assert finding.details == expected
     demography = results.ai.demographics if results.ai else None
     assert demography is not None and (demography.subjects, demography.age_documented) == (6, 6)
     assert demography.sex_documented == 6 and demography.sex is None and demography.age_groups is None
@@ -575,6 +580,18 @@ def test_subject_level_tables_are_withheld_as_a_whole(tmp_path: Path) -> None:
         results, "en"
     )
     assert "已隐去：存在少于 5 名受试者的类别（该范围共 6 名受试者）" in render_report(results, "zh")
+    folder = copy_fixture("bids_ai_ok", tmp_path)
+    (folder / ".neurogrid" / "splits.tsv").unlink()  # the scope all only
+    alone = run(folder, config)
+    assert findings(alone, CLASSES) == [("dataset", "all", Status.FAILED, "ai.small_cell")]
+    failed = next(f for f in alone.findings if f.rule_id == CLASSES)
+    assert failed.measured_value is None and failed.details == {
+        "scope": "all",
+        "unit": "subjects",
+        "total": 6,
+        "withheld": True,
+        "small_cell": True,
+    }
 
 
 def _subjects_dataset(
@@ -642,6 +659,18 @@ def _patients(*numbers: int) -> Changes:
     return {f"{n:02d}": {"group": "patient"} for n in numbers}
 
 
+def _sexes(*females: int) -> Changes:
+    """The sex of all 30 subjects: the given ones female, the others male."""
+    return {f"{n:02d}": {"sex": "F" if n in females else "M"} for n in range(1, 31)}
+
+
+def _split_at(train: int, val: int = 0) -> dict[str, str]:
+    """Subjects 1..train in train, the next ``val`` in val, the rest of the 30 in test."""
+    return {
+        f"{n:02d}": "train" if n <= train else "val" if n <= train + val else "test" for n in range(1, 31)
+    }
+
+
 THIRTY_SPLITS = {f"{n:02d}": "train" if n <= 20 else "val" if n <= 27 else "test" for n in range(1, 31)}
 LONE_TEST = {f"{n:02d}": "train" if n < 30 else "test" for n in range(1, 31)}  # sub-30 alone in test
 
@@ -657,6 +686,15 @@ LONE_TEST = {f"{n:02d}": "train" if n < 30 else "test" for n in range(1, 31)}  #
         ("participants:group", _patients(*range(1, 11), 30), _patients(*range(1, 11)), LONE_TEST),
         # CON48: the same with participants:sex; the demographic sex table (15/15) stays the same
         ("participants:sex", {}, {"29": {"sex": "M"}, "30": {"sex": "F"}}, LONE_TEST),
+        # P4 review repair, L1 (INT38, AI10): train 24 all control, test 5 patients and 1 control; a scope
+        # without a cell of 1-4 kept its exact outcome (train failed: a class missing) and told test's cell
+        ("participants:group", _patients(25, 26, 27, 28, 29), _patients(1, 25, 26, 27, 28), _split_at(24)),
+        # L2 (CON48): demographic sex F 6 / M 24 published; train 20 M, val 1 F + 4 M, test 5 F; the exact
+        # outcomes of train and test (both failed, small_cell false) gave val F=1 against train 1 F + 19 M
+        ("participants:sex", _sexes(21, 26, 27, 28, 29, 30), _sexes(1, 26, 27, 28, 29, 30), _split_at(20, 5)),
+        # L3 (CON48): F 25 / M 5, train 26 (21 F + 5 M), test 4 F; train passed exactly where a train with a
+        # small cell was not checkable, which gave test F=4 against test 3 F + 1 M
+        ("participants:sex", _sexes(*range(6, 31)), _sexes(*range(5, 27), 28, 29, 30), _split_at(26)),
     ],
 )
 def test_no_withheld_cell_can_be_derived(
@@ -664,7 +702,8 @@ def test_no_withheld_cell_can_be_derived(
 ) -> None:
     """A-51/A-81: two datasets that differ only in a cell of 1-4 subjects give the same results.json for
     every M11/M12 output, so no cell can be recovered from status and total, scope differences, the split
-    counts, zero cells or the category keys."""
+    counts, zero cells, the category keys or the outcomes of the scopes without a small cell of their own
+    together with a published demographic table (P4 review repair)."""
     config = ai_config(tmp_path, f'[ai]\nlabels = "{labels}"\n', rules=(CLASSES, DEMOGRAPHY, SPLITS))
     one = run(_subjects_dataset(tmp_path / "one", _thirty(first), splits), config)
     two = run(_subjects_dataset(tmp_path / "two", _thirty(second), splits), config)
@@ -739,6 +778,46 @@ def test_participant_labels_count_subjects_with_exact_values(tmp_path: Path) -> 
     assert ages.ai is not None and ages.ai.labels is not None
     assert ages.ai.labels.scopes["all"].classes == {"20-29": 5, "30-39": 6} and not ages.findings
     assert "37.25" not in canonical.dumps(ages).decode("utf-8")
+
+
+def test_sex_placeholders_are_no_labels(tmp_path: Path) -> None:
+    """R4 (P4 review repair): in a sex column used as label source a placeholder ("unknown", "U", "n/a")
+    documents nothing, as for CORE-M11-02 and the demographic sex table; it is no class of its own."""
+    rows = [(f"{n:02d}", "30", "F" if n <= 5 else "M", "x") for n in range(1, 11)]
+    rows += [("11", "30", "unknown", "x"), ("12", "30", "U", "x"), ("13", "30", "n/a", "x")]
+    folder = _subjects_dataset(tmp_path / "placeholders", rows)
+    results = run(folder, ai_config(tmp_path, '[ai]\nlabels = "participants:sex"\n', rules=(CLASSES,)))
+    labels = results.ai.labels if results.ai else None
+    assert labels is not None and labels.scopes["all"].classes == {"F": 5, "M": 5}
+    assert labels.scopes["all"].total == 10 and not results.findings
+    demography = results.ai.demographics if results.ai else None
+    assert demography is not None and demography.sex == {"female": 5, "male": 5}
+
+
+def test_every_column_that_holds_ages_counts_in_age_groups(tmp_path: Path) -> None:
+    """A-21 (P4 review repair): not only participants:age, every label column whose name says age counts in
+    the 10-year groups, so a raw age never becomes a class key, also with 5 or more subjects per age; a
+    cell that is no age is no label. A column whose name only contains the letters (stage) is no age."""
+    folder = _subjects_dataset(tmp_path / "ages", [(f"{n:02d}", "30", "F", "x") for n in range(1, 17)])
+    ages = ["34.5"] * 5 + ["35.5"] * 5 + ["41.5"] * 5 + ["adult"]
+    stages = ages[:-1] + ["34.5"]
+    lines = ["participant_id\tage_years\tAgeAtScan\tstage"]
+    lines += [
+        f"sub-{n:02d}\t{age}\t{age}\t{stage}"
+        for n, (age, stage) in enumerate(zip(ages, stages, strict=True), start=1)
+    ]
+    (folder / "participants.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    for column in ("age_years", "AgeAtScan"):
+        config = ai_config(tmp_path, f'[ai]\nlabels = "participants:{column}"\n', rules=(CLASSES,))
+        results = run(folder, config)
+        labels = results.ai.labels if results.ai else None
+        assert labels is not None and labels.scopes["all"].classes == {"30-39": 10, "40-49": 5}
+        assert labels.scopes["all"].total == 15  # "adult" is no age: no label
+        dumped = canonical.dumps(results).decode("utf-8")
+        assert all(text not in dumped for text in ("34.5", "35.5", "41.5", "adult"))
+    stage = run(folder, ai_config(tmp_path, '[ai]\nlabels = "participants:stage"\n', rules=(CLASSES,)))
+    assert stage.ai is not None and stage.ai.labels is not None
+    assert stage.ai.labels.scopes["all"].classes == {"34.5": 6, "35.5": 5, "41.5": 5}
 
 
 @pytest.mark.parametrize("labels", [LABELS, '[ai]\nlabels = "participants:age"\n'])
@@ -890,6 +969,18 @@ def test_unreadable_events_tsv_with_the_events_label_source(tmp_path: Path) -> N
         assert notices == [(Severity.WARNING, {"count": 7})]
     readable = run(FIX / "bids_ai_ok", ai_config(tmp_path, LABELS, rules=(CLASSES,)))
     assert not [n for n in readable.notices if n.message_key == "notice.labels_unreadable"]
+
+
+def test_events_label_source_without_any_events_tsv(tmp_path: Path) -> None:
+    """R5 (P4 review repair): a BIDS dataset without any events.tsv has no label table at all: no label
+    value, not "column missing" (that needs a readable table without the column) and not "unreadable"."""
+    folder = copy_fixture("bids_ai_ok", tmp_path)
+    for table in folder.glob("sub-*/eeg/*_events.tsv"):
+        table.unlink()
+    results = run(folder, ai_config(tmp_path, LABELS, rules=(CLASSES,)))
+    assert findings(results, CLASSES) == [("dataset", None, Status.NOT_CHECKABLE, "ai.no_label_values")]
+    assert results.ai is not None and results.ai.labels is None
+    assert not [n for n in results.notices if n.message_key == "notice.labels_unreadable"]
 
 
 def test_duplicate_label_columns_count_as_in_m10(tmp_path: Path) -> None:

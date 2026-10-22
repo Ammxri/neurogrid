@@ -128,7 +128,7 @@ class _Formatter:
                     unit=self.tr(f"report.ai.unit_{unit}"),
                 )
             )
-        if unit == "subjects" and "small_cell" in details and isinstance(details.get("total"), int):
+        if unit == "subjects" and details.get("withheld") is True and isinstance(details.get("total"), int):
             parts.append(self.tr("report.ai.withheld", total=details["total"]))  # A-51 table rule
         recordings = details.get("split_recordings")
         order = ("train", "val", "test")  # DM-06; results.json sorts the keys

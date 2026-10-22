@@ -263,7 +263,7 @@ reason:
     no_splits: "未定义数据划分（.neurogrid/splits.tsv 或 participants.tsv 中的 'split' 列）。"
     splits_unassigned: "数据划分来源未将任何记录分配到数据划分（splits.tsv 或 participants.tsv 'split' 列中没有与记录对应的行）。"
     hash_unavailable: "无信号哈希：该记录没有可计算哈希的 EEG 通道。"
-    small_cell: "类别已隐去：该标签来源中有类别少于 5 名受试者（小单元格规则）。结果仅依据该范围内的受试者人数得出；若结果会暴露计数，则为不可检查。"
+    small_cell: "类别已隐去：该标签来源在某一范围内有少于 5 名受试者的类别（小单元格规则）。结果仅由受试者人数得出；人数无法决定结果时为不可检查。"
   read:
     failed: "无法读取数据。"
     unlistable: "无法读取该文件夹；其内容未被检查。"
