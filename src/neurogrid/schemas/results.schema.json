@@ -2,59 +2,45 @@
   "$defs": {
     "AIDemographics": {
       "additionalProperties": false,
-      "description": "M11 demography of the subjects with recordings, aggregated only, small cells suppressed (A-51).",
+      "description": "M11 demography of the subjects with recordings, aggregated only (A-51). ``age_groups`` and ``sex`` are\nNone when withheld by the table rule (a group or category of 1-4 subjects); the numbers of subjects and\nof documented values are always shown.",
       "properties": {
         "age_documented": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Age Documented"
+          "default": 0,
+          "title": "Age Documented",
+          "type": "integer"
         },
         "age_groups": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "title": "Age Groups",
-          "type": "object"
-        },
-        "sex": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "title": "Sex",
-          "type": "object"
-        },
-        "sex_documented": {
           "anyOf": [
             {
-              "type": "integer"
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Sex Documented"
+          "title": "Age Groups"
+        },
+        "sex": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sex"
+        },
+        "sex_documented": {
+          "default": 0,
+          "title": "Sex Documented",
+          "type": "integer"
         },
         "subjects": {
           "title": "Subjects",
@@ -69,33 +55,26 @@
     },
     "AILabelScope": {
       "additionalProperties": false,
-      "description": "Class counts of one scope (all, train, val, test). None: a suppressed small cell (A-51).",
+      "description": "Class counts of one scope (all, train, val, test); the total is always shown. ``classes`` None:\nwithheld by the A-51 table rule (a subject-level label source with a class of 1-4 subjects in any scope:\nno class keys and no counts in every scope).",
       "properties": {
         "classes": {
-          "additionalProperties": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "title": "Classes",
-          "type": "object"
-        },
-        "total": {
           "anyOf": [
             {
-              "type": "integer"
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Total"
+          "title": "Classes"
+        },
+        "total": {
+          "default": 0,
+          "title": "Total",
+          "type": "integer"
         }
       },
       "title": "AILabelScope",

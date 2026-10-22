@@ -276,7 +276,8 @@ def test_ai_structure_without_labels_splits_or_duplicates(name: str) -> None:
 def test_demography_on_the_corpus() -> None:
     """CORE-M11-02: participants.tsv documents age and sex (ds002778 as 'gender', ds004504 as 'Gender'/'Age',
     ds004148 with spaces in other headers); ds000248 gives n/a for sub-01; PSG-IPA is a raw folder without a
-    mapping, so its subjects are unknown. Demography leaves the process only aggregated (A-51)."""
+    mapping, so its subjects are unknown. Demography leaves the process only aggregated, a table with a
+    category of 1-4 subjects without its categories and counts (A-51 table rule)."""
     for name in ("ds002778-1.0.5", "ds003775-1.2.1", "ds004148-1.0.1", "ds004504-1.0.9"):
         assert _reasons(_check(name), "CORE-M11-02") == {}, name
     ds000248 = _check("ds000248-1.2.4")
@@ -289,7 +290,14 @@ def test_demography_on_the_corpus() -> None:
     ds002778 = _check("ds002778-1.0.5").ai
     assert ds002778 is not None and ds002778.demographics is not None
     assert ds002778.demographics.sex == {"female": 5}  # 5 subjects: no small cell
-    assert set(ds002778.demographics.age_groups.values()) == {None}  # 1-4 per age group: suppressed
+    assert ds002778.demographics.age_groups is None  # 1-4 per age group: withheld, no group key
+    assert ds002778.demographics.age_documented == 5
+    # CON49: all 3 subjects of ds004148 are 10-19; a single key next to the documented total gave it away
+    ds004148 = _check("ds004148-1.0.1").ai
+    assert ds004148 is not None and ds004148.demographics is not None
+    demography = ds004148.demographics
+    assert (demography.subjects, demography.age_documented, demography.sex_documented) == (3, 3, 3)
+    assert demography.age_groups is None and demography.sex is None
 
 
 def test_psg_hypnograms_are_no_recordings_for_duplicates() -> None:

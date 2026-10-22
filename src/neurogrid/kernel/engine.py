@@ -176,6 +176,10 @@ def _measurement_outcome(
         # A-61: a non-finite value is never compared; the finding is not_checkable and the value null
         return _Outcome(replace(measurement, value=None), Status.NOT_CHECKABLE, reason="value.non_finite")
     evaluation = spec.evaluate(measurement, params)
+    if evaluation.not_checkable is not None:
+        return _Outcome(
+            measurement, Status.NOT_CHECKABLE, threshold=evaluation.threshold, reason=evaluation.not_checkable
+        )
     status = Status.PASSED if evaluation.passed else Status.FAILED
     return _Outcome(measurement, status, threshold=evaluation.threshold, reason=measurement.reason)
 

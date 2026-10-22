@@ -437,7 +437,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             evidence_sha256=evidence.sha256,
         ),
         recordings=_recording_summaries(ctx),
-        findings=ai_dataset.suppress_small_cells(result.findings),  # A-51 small cells (A-81)
+        findings=result.findings,
         passed=result.passed,
         evidence=result.evidence,
         exceptions=exceptions,

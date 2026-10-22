@@ -155,8 +155,13 @@ class Measurement:
 
 @dataclass(frozen=True)
 class Evaluation:
+    """The verdict of an evaluator. ``not_checkable`` (a reason key) says the measurement cannot be judged
+    under the rule's parameters, e.g. when the verdict would reveal a withheld small cell (A-51); the engine
+    then gives not_checkable and ignores ``passed``."""
+
     passed: bool
     threshold: Any = None
+    not_checkable: str | None = None
 
 
 Evaluator = Callable[[Measurement, Mapping[str, ParamValue]], Evaluation]

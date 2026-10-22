@@ -146,12 +146,14 @@ class Summary(BaseModel):
 
 
 class AILabelScope(BaseModel):
-    """Class counts of one scope (all, train, val, test). None: a suppressed small cell (A-51)."""
+    """Class counts of one scope (all, train, val, test); the total is always shown. ``classes`` None:
+    withheld by the A-51 table rule (a subject-level label source with a class of 1-4 subjects in any scope:
+    no class keys and no counts in every scope)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    total: int | None = None
-    classes: dict[str, int | None] = Field(default_factory=dict)
+    total: int = 0
+    classes: dict[str, int] | None = Field(default_factory=dict)
 
 
 class AILabels(BaseModel):
@@ -168,15 +170,17 @@ class AILabels(BaseModel):
 
 
 class AIDemographics(BaseModel):
-    """M11 demography of the subjects with recordings, aggregated only, small cells suppressed (A-51)."""
+    """M11 demography of the subjects with recordings, aggregated only (A-51). ``age_groups`` and ``sex`` are
+    None when withheld by the table rule (a group or category of 1-4 subjects); the numbers of subjects and
+    of documented values are always shown."""
 
     model_config = ConfigDict(extra="forbid")
 
     subjects: int
-    age_documented: int | None = None
-    sex_documented: int | None = None
-    age_groups: dict[str, int | None] = Field(default_factory=dict)
-    sex: dict[str, int | None] = Field(default_factory=dict)
+    age_documented: int = 0
+    sex_documented: int = 0
+    age_groups: dict[str, int] | None = Field(default_factory=dict)
+    sex: dict[str, int] | None = Field(default_factory=dict)
 
 
 class AISplits(BaseModel):
