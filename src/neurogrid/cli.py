@@ -14,7 +14,7 @@ import tempfile
 import traceback
 import warnings
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Annotated
 
 import typer
@@ -79,6 +79,12 @@ def _output_file(raw: str) -> Path:
     if raw.endswith(("/", "\\")):
         raise InputError("output.is_directory")
     return check_operator_path(raw)
+
+
+def _given_path(raw: str | None) -> Path | None:
+    """An optional file option. Given but empty (an unset variable in a batch script) is an invalid path
+    (exit 2), never the default location (A-82)."""
+    return None if raw is None else check_operator_path(raw)
 
 
 def _write_atomic(path: Path, data: bytes) -> None:
@@ -147,6 +153,7 @@ def scan(
 ) -> None:
     """Inventory: formats, subjects, recordings, sizes, unsupported files."""
     _state["dataset_root"] = pipeline.resolve_target(path).root
+    target = _output_file(out) if out is not None else None  # an invalid --out ends before the scan
     result = pipeline.run_scan(path, show_paths=show_paths)
     tr = translator(_lang()).t
     typer.echo(f"{tr('cli.scan.title')}")
@@ -175,8 +182,7 @@ def scan(
     if result.suspicious_names:
         typer.echo(tr("cli.scan.names_hint", count=result.suspicious_names))
     typer.echo(tr("disclaimer"))
-    if out:
-        target = _output_file(out)
+    if target is not None:
         _write_atomic(target, canonical.dumps(result))
         _say("cli.scan.written", path=_display_path(target))
 
@@ -235,15 +241,15 @@ def check(
     target = _output_file(out)
     options = pipeline.CheckOptions(
         rulepacks=tuple(_rulepack_refs(rulepack or [])),
-        config_path=Path(config) if config else None,
+        config_path=_given_path(config),
         strict=strict,
         as_of=reference,
         allow_draft_rulepacks=allow_draft_rulepacks,
         show_paths=show_paths,
         jobs=jobs,
         work_base=target.absolute().parent,  # work folder next to the results file (A-54)
-        evidence_path=Path(evidence) if evidence else None,
-        manifest_path=Path(manifest_file) if manifest_file else None,
+        evidence_path=_given_path(evidence),
+        manifest_path=_given_path(manifest_file),
     )
     results = pipeline.run_check(path, options)
     _write_atomic(target, canonical.dumps(results))
@@ -288,7 +294,7 @@ def convert(
     summary = pipeline.run_convert(
         path,
         output,
-        config_path=Path(config) if config else None,
+        config_path=_given_path(config),
         strip_identifying_headers=strip_identifying_headers,
         work_base=output.absolute().parent,
     )
@@ -339,7 +345,7 @@ def report(
     for name in formats:
         if name != "html":
             raise NeuroGridError("errors.report.format_unavailable", format=name)
-    folder = check_operator_path(out) if out else source.resolve().parent
+    folder = check_operator_path(out) if out is not None else source.resolve().parent
     if folder.exists() and not folder.is_dir():
         raise InputError("output.not_writable")
     for language in languages:
@@ -372,9 +378,11 @@ def manifest(
 ) -> None:
     """Write the provenance manifest: SHA-256 and size of every file, processing steps, software versions."""
     _state["dataset_root"] = pipeline.resolve_target(path).root
-    target = _output_file(out) if out else None
+    target = _output_file(out) if out is not None else None
     run = pipeline.run_manifest(path, target, show_paths=show_paths)
-    if run.manifest is None or run.data is None:
+    if run.too_many_entries is not None:  # dataset data: a result without a manifest, not an error (C2)
+        _say("cli.manifest.too_many_entries", limit=run.too_many_entries)
+    elif run.manifest is None or run.data is None:
         _say("cli.manifest.unreadable", count=len(run.unreadable))
         _print_list(run.unreadable)
         _say("cli.manifest.not_written")
@@ -389,9 +397,15 @@ def manifest(
                 unsafe=run.skipped.get("unsafe_name", 0),
             )
         _say("cli.manifest.hash", hash=run.manifest.manifest_hash)
-        _say("cli.manifest.written", path=_display_path(run.target))
-        if run.visible_to_validator:
+        if run.shown_target is not None:  # inside the dataset: real names only where A-51 allows them
+            shown = str(Path("<dataset>", *PurePosixPath(run.shown_target).parts))
+            _say("cli.manifest.written", path=_clean(shown))
+        else:
+            _say("cli.manifest.written", path=_display_path(run.target))
+        if run.validator_listing == "listed":
             _say("cli.manifest.bids_hint")
+        elif run.validator_listing == "maybe":
+            _say("cli.manifest.bids_hint_bidsignore")
     _say("disclaimer")
     raise typer.Exit(code=run.exit_code)
 
@@ -426,17 +440,19 @@ def _error_text(exc: NeuroGridError) -> str:
 
 
 _DATASET_PATH = re.compile(r"<dataset>[\\/][^\n]*")
+_INPUT_VALUE = re.compile(r"input_value=[^\n]*")  # pydantic shows the validated input, e.g. a file name
 
 
 def _internal_error_text(exc: BaseException) -> str:
     """Type name only; with --debug a traceback without control characters, home or dataset paths (A-51).
 
-    Paths inside the dataset are cut after ``<dataset>``: they may hold real names in raw folders.
+    Paths inside the dataset are cut after ``<dataset>``: they may hold real names in raw folders. So is the
+    input a validation error quotes (relative names from the dataset carry no ``<dataset>``).
     """
     text = translator(_lang()).t("cli.error.internal", type=type(exc).__name__)
     if _state["debug"]:
         trace = _redact(_clean_lines("".join(traceback.format_exception(exc))))
-        text += "\n" + _DATASET_PATH.sub("<dataset>/…", trace)
+        text += "\n" + _INPUT_VALUE.sub("input_value=…]", _DATASET_PATH.sub("<dataset>/…", trace))
     return text
 
 

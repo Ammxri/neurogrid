@@ -21,6 +21,9 @@ from neurogrid.kernel.errors import NeuroGridError
 from neurogrid.kernel.safety import read_limited
 
 VALIDATOR_VERSION = "3.0.2"
+# Top-level folders this validator never lists (its "ignore" defaults, compared without case; measured with
+# 3.0.2). Hidden entries are not listed at any level.
+VALIDATOR_IGNORED_FOLDERS = frozenset({"sourcedata", "derivatives", "code", "stimuli", "log", "doc"})
 MAX_RESULT_BYTES = 500_000_000
 TIMEOUT_S = 3600
 # Environment variables the bundle reads (determined with a permission probe, KONZEPT 8.1); values come

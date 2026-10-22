@@ -45,12 +45,14 @@ cli:
     library: "Hinweis: Eine Bibliothek hat eine Warnung gemeldet ({type}); die Ergebnisse sind davon nicht betroffen."
   manifest:
     summary: "Manifest: {files} Datei(en), {size} MB"
-    skipped: "Nicht gehasht: {links} Link(s) oder Junction(s) (nicht verfolgt), {special} Sonderdatei(en), {unsafe} Name(n), die die Pfadprüfung ablehnt"
+    skipped: "Nicht gehasht: {links} Link(s) oder Junction(s) (nicht verfolgt), {special} Sonderdatei(en), {unsafe} Name(n), die die Pfadprüfung ablehnt, auch alles in einem solchen Ordner (nur ihr Vorhandensein wird verglichen)"
     hash: "Manifest-Hash: {hash}"
     written: "Manifest geschrieben nach {path}"
     unreadable: "{count} Datei(en) oder Ordner nicht lesbar:"
     not_written: "Kein Manifest geschrieben: Ein unvollständiges Manifest würde spätere Änderungen an diesen Dateien nicht zeigen."
+    too_many_entries: "Der Datensatz enthält mehr Dateien oder nicht gehashte Einträge, als ein Manifest aufführen kann (Grenze {limit}); kein Manifest geschrieben."
     bids_hint: "Hinweis: Der BIDS-Validator meldet Dateien, die BIDS nicht vorsieht, hier die Manifest-Datei. Ohne --out wird das Manifest nach .neurogrid/manifest.json geschrieben; den Ordner .neurogrid/ betritt der Validator nicht. Sonst das Manifest außerhalb des Datensatzes schreiben oder in .bidsignore aufnehmen."
+    bids_hint_bidsignore: "Hinweis: Der BIDS-Validator meldet Dateien, die BIDS nicht vorsieht, sofern .bidsignore sie nicht erfasst; die Manifest-Datei kann daher gemeldet werden. Ohne --out wird das Manifest nach .neurogrid/manifest.json geschrieben; den Ordner .neurogrid/ betritt der Validator nicht. Sonst das Manifest außerhalb des Datensatzes schreiben oder in .bidsignore aufnehmen."
     more: "… und {count} weitere"
   verify:
     hash_ok: "Manifest-Hash {hash} passt zum Inhalt des Manifests."

@@ -21,6 +21,7 @@ from neurogrid import config as config_module
 from neurogrid.checks import ai_dataset
 from neurogrid.checks import annotation as annotation_checks
 from neurogrid.checks import evidence as evidence_module
+from neurogrid.checks import provenance as provenance_checks
 from neurogrid.checks.context import CheckContext
 from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
@@ -35,6 +36,8 @@ from neurogrid.io.provenance import (
     is_bids_folder,
     load_sources,
     show,
+    shown_target,
+    validator_listing,
     vault_exclusions,
 )
 from neurogrid.kernel import canonical, engine
@@ -328,6 +331,8 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         )
         if check_ids & ai_dataset.CHECKS:  # control files first: an invalid splits.tsv ends with exit 2 (C2)
             ai_dataset.structure(ctx)
+        if provenance_checks.DOCUMENTED in check_ids and not ctx.provenance().single_file:
+            ctx.provenance().sources()  # likewise an invalid provenance.yaml, before the signal pass (C2)
         stream = bool(check_ids & (STREAM_CHECKS | ai_dataset.STREAM_CHECKS))  # M12 needs the signal hash
         sample = bool(check_ids & SAMPLE_CHECKS)
         if stream or sample:
@@ -378,9 +383,14 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
                 params={"count": found.suspicious_names},
             )
         )
-    if options.work_base is not None and options.work_base.resolve().is_relative_to(target.root):
+    if (
+        target.only is None
+        and options.work_base is not None
+        and options.work_base.resolve().is_relative_to(target.root)
+    ):
         # results.json and the run's work folder land in the dataset: a manifest made later covers them, and a
-        # later check or verify reports them as new files (A-82, critic X15)
+        # later check or verify reports them as new files (A-82, critic X15). A single file is no dataset
+        # (A-66): no manifest covers its folder, so there is nothing to warn about.
         notices.append(Notice(level=Severity.WARNING, message_key="notice.output_inside_dataset"))
     notices.extend(annotation_checks.notices(ctx))  # M10: files and rows that could not be used (A-80)
     exceptions = [
@@ -711,19 +721,25 @@ def _folder(raw_target: str | Path) -> Path:
 
 @dataclass(frozen=True)
 class ManifestRun:
-    """What ``manifest`` built (CLI-06, A-22, A-82). ``data`` is None when files or folders could not be read:
-    an incomplete manifest would hide changes, so nothing is written and the command ends with exit 1."""
+    """What ``manifest`` built (CLI-06, A-22, A-82). ``data`` is None when files or folders could not be read
+    (an incomplete manifest would hide changes) or the dataset holds more entries than a manifest lists
+    (``too_many_entries``, the limit; dataset data, C2): nothing is written, the command ends with exit 1."""
 
     root: Path
     target: Path
     manifest: Manifest | None
     data: bytes | None
     unreadable: list[str]  # displayed IDs (A-51)
+    too_many_entries: int | None  # the limit (MAX_MANIFEST_ENTRIES) when the dataset holds more entries
     skipped: dict[str, int]  # kind -> number of entries not hashed
     files: int
     total_bytes: int
-    # --out into a BIDS dataset outside every hidden folder (such as .neurogrid/): the BIDS validator lists it
-    visible_to_validator: bool
+    # a target inside a BIDS dataset that the bundled BIDS validator lists ("listed") or may list ("maybe":
+    # .bidsignore holds patterns NeuroGrid does not evaluate); None: outside the dataset or not listed
+    validator_listing: str | None
+    # the target inside the dataset as the console names it (relative POSIX path or pseudonymous file name,
+    # A-51); None: outside the dataset
+    shown_target: str | None
 
     @property
     def exit_code(self) -> int:
@@ -739,8 +755,10 @@ def run_manifest(
     enter .neurogrid/), never written through a link, neither a linked .neurogrid nor a linked manifest.json
     (A-52, A-66); the caller creates .neurogrid/ when it is missing. ``out`` is an operator path that may lie
     outside the dataset (D-10 d) and is left out of the file list when it lies inside; inside a BIDS dataset
-    and outside every hidden folder such as .neurogrid/ the BIDS validator lists it
-    (``visible_to_validator``). neurogrid.toml is read from its default location only for [vault] path (the
+    the bundled BIDS validator may list it (``validator_listing``: never in hidden folders such as
+    .neurogrid/, in the top-level folders it ignores or in what .bidsignore names). Inside a raw folder the
+    console names it by its pseudonymous file name unless --show-paths is given or it is the default location
+    (``shown_target``, A-51). neurogrid.toml is read from its default location only for [vault] path (the
     access log is excluded and recorded as such). An invalid provenance.yaml or processing_steps.json ends
     with exit 2 (C2)."""
     root = _folder(raw_target)
@@ -769,19 +787,18 @@ def run_manifest(
     skipped: dict[str, int] = {}
     for entry in built.skipped:
         skipped[entry.kind] = skipped.get(entry.kind, 0) + 1
-    # the BIDS validator does not enter hidden folders (measured with the bundled 3.0.2): the default location
-    # never needs the hint, an --out at the BIDS root or in sub-01/ does
-    visible = is_bids and own is not None and not any(part.startswith(".") for part in own.split("/"))
     return ManifestRun(
         root=root,
         target=target,
         manifest=built.manifest,
         data=manifest_bytes(built.manifest) if built.manifest is not None else None,
         unreadable=[show(path, plain=plain).file for path in built.unreadable],
+        too_many_entries=built.too_many,
         skipped=dict(sorted(skipped.items())),
         files=len(built.manifest.files) if built.manifest is not None else 0,
         total_bytes=built.total_bytes,
-        visible_to_validator=visible,
+        validator_listing=validator_listing(root, own) if is_bids and own is not None else None,
+        shown_target=shown_target(own, plain=plain) if own is not None else None,
     )
 
 

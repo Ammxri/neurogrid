@@ -12,10 +12,16 @@ path, so the same data give byte-identical manifests (A-11).
 
 What a manifest does not cover, by design: directories (empty folders), mtime and permissions, NTFS alternate
 data streams, the targets of links (never followed), the contents of special files and of names the path
-check refuses (only their presence is compared), the manifest file itself and the excluded vault log. Names
-are not normalised (Unicode, case): a manifest made on Linux with A.txt and a.txt shows one of them missing on
-Windows. The manifest hash can be recomputed by anyone; it detects changes relative to the manifest, it does
-not protect against deliberate rewriting.
+check refuses (only their presence is compared; a folder the check refuses is walked, and every name below it
+is refused as well), the manifest file itself and the excluded vault log. Names are not normalised (Unicode,
+case): a manifest made on Linux with A.txt and a.txt shows one of them missing on Windows. The manifest hash
+can be recomputed by anyone; it detects changes relative to the manifest, it does not protect against
+deliberate rewriting.
+
+A refused name is stored percent-encoded and can read like a plain name ('a:b.edf' as 'a%3Ab.edf'); the
+reader and the comparison keep the two apart by the original name bytes. On Windows the walk uses the
+extended-length form of the root (the \\\\?\\ prefix), so names Windows would otherwise change (a trailing
+dot or space, reserved names) are listed and opened as they are.
 
 Hashing streams in CHUNK_BYTES pieces over a file descriptor opened without following links (where the system
 offers it), checks that the descriptor is the regular file that was listed and that the number of bytes read
@@ -36,11 +42,11 @@ from enum import StrEnum
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from neurogrid.kernel import canonical
 from neurogrid.kernel.errors import InputError, UnsafePathError
-from neurogrid.kernel.safety import MAX_PATH_CHARS, check_relative, is_link, read_limited
+from neurogrid.kernel.safety import MAX_PATH_CHARS, MAX_YAML_DEPTH, check_relative, is_link, read_limited
 
 CHUNK_BYTES = 1024 * 1024
 MANIFEST_FORMAT_VERSION = "1"
@@ -50,6 +56,21 @@ MANIFEST_FORMAT_VERSION = "1"
 DEFAULT_MANIFEST = PurePosixPath(".neurogrid", "manifest.json")
 MAX_MANIFEST_BYTES = 256_000_000  # as for results.json (A-53)
 MAX_MANIFEST_ENTRIES = 2_000_000
+# The longest relative path a walk can return, in UTF-8 bytes: Windows extended-length paths hold at most
+# 32,767 UTF-16 units, each at most 3 UTF-8 bytes (a surrogate pair is 2 units and 4 bytes); POSIX PATH_MAX is
+# far smaller. Percent-encoding turns a byte into at most 3 characters, so every refused name a walk finds,
+# also deep below a refused folder, fits MAX_ESCAPED_CHARS; writer and reader use the same bound.
+MAX_NAME_BYTES = 3 * 32_767
+MAX_ESCAPED_CHARS = 3 * MAX_NAME_BYTES
+# Nesting of JSON arrays and objects (A-53), checked before the schema, canonical JSON or the hash recurse
+# into a document. The parameters of a processing step nest at most MAX_PARAMETER_DEPTH levels (the
+# parameters object is level 1; provenance.yaml cannot nest deeper anyway). They sit at level 4 of a manifest
+# and at level 3 of processing_steps.json, so neither file the builder or ``convert`` writes ever nests deeper
+# than its reader's limit: the reader accepts every manifest the builder writes.
+MAX_JSON_DEPTH = 64
+MAX_PARAMETER_DEPTH = MAX_YAML_DEPTH
+MAX_MANIFEST_DEPTH = MAX_PARAMETER_DEPTH + 3
+MAX_STEPS_DEPTH = MAX_PARAMETER_DEPTH + 2
 HASH_THREADS = max(1, min(4, os.cpu_count() or 1))
 HASH_BATCH = 4096  # files submitted to the thread pool at a time: memory stays bounded for large datasets
 VAULT_LOG = "access.jsonl"  # the separately hash-chained access log (A-22, A-30) and its lock file
@@ -82,7 +103,32 @@ class ManifestError(InputError):
     """
 
 
+class NestingError(ValueError):
+    """JSON nested deeper than MAX_JSON_DEPTH (A-53)."""
+
+
+def nesting_within(value: Any, limit: int) -> bool:
+    """True if lists and mappings in ``value`` nest at most ``limit`` levels (a scalar is level 0).
+
+    Iterative, level by level, so any depth is measured without recursion."""
+    level = [value] if isinstance(value, (dict, list, tuple)) else []
+    depth = 0
+    while level:
+        depth += 1
+        if depth > limit:
+            return False
+        nested = []
+        for item in level:
+            for child in item.values() if isinstance(item, dict) else item:
+                if isinstance(child, (dict, list, tuple)):
+                    nested.append(child)
+        level = nested
+    return True
+
+
 # --- models ---------------------------------------------------------------------------------------------
+
+# The models hold names from the dataset: a validation error never shows its input (--debug tracebacks, A-51).
 
 
 class ProcessingStep(BaseModel):
@@ -90,7 +136,7 @@ class ProcessingStep(BaseModel):
     eingabe_hash→input_hash, ausgabe_hash→output_hash. ``convert`` writes one per recording (A-77); the
     manifest repeats the steps it found (A-22). Re-exported by neurogrid.model.dataset."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     step: str = Field(max_length=200)
     tool: str = Field(max_length=200)
@@ -99,9 +145,17 @@ class ProcessingStep(BaseModel):
     input_hash: str | None = Field(default=None, pattern=SHA256_PATTERN)
     output_hash: str | None = Field(default=None, pattern=SHA256_PATTERN)
 
+    @field_validator("parameters")
+    @classmethod
+    def _bounded_nesting(cls, value: dict[str, Any]) -> dict[str, Any]:
+        """Parameters nested deeper than MAX_PARAMETER_DEPTH would give a manifest its reader refuses."""
+        if not nesting_within(value, MAX_PARAMETER_DEPTH):
+            raise ValueError("parameters nested too deeply")
+        return value
+
 
 class ManifestFile(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     path: str = Field(min_length=1, max_length=MAX_PATH_CHARS)
     sha256: str = Field(pattern=SHA256_PATTERN)
@@ -116,9 +170,9 @@ class SkippedEntry(BaseModel):
     reading could block, A-78) or a name the central path check refuses (A-52, critic X8). The path of an
     ``unsafe_name`` is stored percent-encoded (bytes outside ``[A-Za-z0-9._- /]`` as ``%XX``)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
-    path: str = Field(min_length=1, max_length=3 * MAX_PATH_CHARS)
+    path: str = Field(min_length=1, max_length=MAX_ESCAPED_CHARS)
     kind: SkippedKind
 
 
@@ -127,7 +181,7 @@ class SoftwareEntry(BaseModel):
     a processing step), ``provenance`` (.neurogrid/provenance.yaml) or ``bids`` (dataset_description.json
     GeneratedBy)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     name: str = Field(min_length=1, max_length=200)
     version: str = Field(min_length=1, max_length=80)
@@ -137,7 +191,7 @@ class SoftwareEntry(BaseModel):
 class Manifest(BaseModel):
     """manifest.json, format version 1 (A-22, A-82, KONZEPT 2.5 plus ``skipped`` and ``excluded``)."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
     format_version: Literal["1"]
     files: list[ManifestFile] = Field(max_length=MAX_MANIFEST_ENTRIES)
@@ -261,27 +315,56 @@ def _relative_to(location: str | os.PathLike[str] | None, root: Path) -> str:
     return relative or "."
 
 
+def _walk_root(root: Path) -> Path:
+    """The root a walk starts from: on Windows its extended-length form (``\\\\?\\``), so that names Windows
+    would otherwise change (a trailing dot or space, reserved names such as aux) and long paths are listed and
+    opened as they are."""
+    if os.name != "nt":
+        return root
+    text = os.path.normpath(root.absolute())  # the extended form is taken literally: no "..", backslashes
+    if text.startswith("\\\\?\\"):
+        return Path(text)
+    if text.startswith("\\\\"):
+        return Path("\\\\?\\UNC\\" + text[2:])
+    return Path("\\\\?\\" + text)
+
+
 def inventory(root: Path, exclusions: Exclusions | None = None) -> Inventory:
     """Walk ``root`` without following links: everything is included (hidden entries, .neurogrid/, BIDS
-    derivatives, OS files such as .DS_Store), except the excluded paths (A-22, A-82)."""
+    derivatives, OS files such as .DS_Store), except the excluded paths (A-22, A-82).
+
+    A folder whose name the path check refuses is recorded and walked (unless it is a link): every name below
+    it is refused as well and recorded, so that new and missing entries there are noticed (presence only,
+    never hashed, critic X8). A folder that cannot be listed is reported in ``unlistable``."""
     exclusions = exclusions or Exclusions()
     result = Inventory()
+    top = _walk_root(root)
 
     def unlistable(error: OSError) -> None:
-        result.unlistable.append(_relative_to(error.filename, root))
+        result.unlistable.append(_relative_to(error.filename, top))
 
-    for dirpath, dirnames, filenames in os.walk(root, onerror=unlistable, followlinks=False):
+    def refused(relative: str) -> None:
+        escaped = escape_name(relative)
+        if len(escaped) > MAX_ESCAPED_CHARS:  # longer than any path a system returns: cannot be recorded
+            result.unreadable.append(relative)
+        else:
+            result.skipped.append(SkippedEntry(path=escaped, kind="unsafe_name"))
+
+    for dirpath, dirnames, filenames in os.walk(top, onerror=unlistable, followlinks=False):
         current = Path(dirpath)
-        base = _relative_to(current, root)
+        base = _relative_to(current, top)
         prefix = "" if base == "." else base + "/"
         kept = []
         for name in sorted(dirnames):
             relative = prefix + name
             if exclusions.covers(relative):
                 continue
+            linked = is_link(current / name)
             if not safe_relative(relative):
-                result.skipped.append(SkippedEntry(path=escape_name(relative), kind="unsafe_name"))
-            elif is_link(current / name):
+                refused(relative)
+                if not linked:
+                    kept.append(name)
+            elif linked:
                 result.skipped.append(SkippedEntry(path=relative, kind="link"))
             else:
                 kept.append(name)
@@ -291,7 +374,7 @@ def inventory(root: Path, exclusions: Exclusions | None = None) -> Inventory:
             if exclusions.covers(relative):
                 continue
             if not safe_relative(relative):
-                result.skipped.append(SkippedEntry(path=escape_name(relative), kind="unsafe_name"))
+                refused(relative)
                 continue
             path = current / name
             if is_link(path):
@@ -359,12 +442,14 @@ def hash_files(entries: Sequence[FileEntry], threads: int = HASH_THREADS) -> lis
 
 @dataclass(frozen=True)
 class BuildResult:
-    """A manifest, or None with the files and folders that could not be read (nothing is written then)."""
+    """A manifest, or None with the files and folders that could not be read, or with ``too_many`` (the
+    limit) when the dataset holds more entries than a manifest lists (nothing is written then)."""
 
     manifest: Manifest | None
     unreadable: tuple[str, ...]
     skipped: tuple[SkippedEntry, ...]
     total_bytes: int
+    too_many: int | None = None
 
 
 def build_manifest(
@@ -376,8 +461,14 @@ def build_manifest(
     software: Sequence[SoftwareEntry] = (),
     threads: int = HASH_THREADS,
 ) -> BuildResult:
-    """Inventory and hash ``root``. ``excluded`` lists the paths recorded as left out (the vault log)."""
+    """Inventory and hash ``root``. ``excluded`` lists the paths recorded as left out (the vault log).
+
+    More than MAX_MANIFEST_ENTRIES files or skipped entries cannot be written: that is dataset data, so it is
+    a result without a manifest (``too_many``, nothing hashed; exit 1, C2), not an error. Steps whose
+    parameters canonical JSON cannot hold are an error (``manifest.steps_invalid``)."""
     found = inventory(root, exclusions)
+    if max(len(found.files), len(found.skipped)) > MAX_MANIFEST_ENTRIES:
+        return BuildResult(None, (), (), 0, too_many=MAX_MANIFEST_ENTRIES)
     hashes = hash_files(found.files, threads)
     failed = {entry.relative for entry, digest in zip(found.files, hashes, strict=True) if digest is None}
     unreadable = tuple(sorted(failed | set(found.unreadable) | set(found.unlistable)))
@@ -389,16 +480,19 @@ def build_manifest(
         if digest is not None
     ]
     unique = {(item.name, item.version, item.source): item for item in software}
-    content: dict[str, Any] = canonical.normalize(
-        {
-            "format_version": MANIFEST_FORMAT_VERSION,
-            "files": [item.model_dump(mode="json") for item in files],
-            "skipped": [item.model_dump(mode="json") for item in found.skipped],
-            "excluded": sorted(set(excluded)),
-            "processing_steps": [step.model_dump(mode="json") for step in processing_steps],
-            "software": [unique[key].model_dump(mode="json") for key in sorted(unique)],
-        }
-    )
+    try:
+        content: dict[str, Any] = canonical.normalize(
+            {
+                "format_version": MANIFEST_FORMAT_VERSION,
+                "files": [item.model_dump(mode="json") for item in files],
+                "skipped": [item.model_dump(mode="json") for item in found.skipped],
+                "excluded": sorted(set(excluded)),
+                "processing_steps": [step.model_dump(mode="json") for step in processing_steps],
+                "software": [unique[key].model_dump(mode="json") for key in sorted(unique)],
+            }
+        )
+    except (TypeError, ValueError, RecursionError):  # defensive: the readers of the step sources refuse these
+        raise ManifestError("manifest.steps_invalid", problem="value") from None
     manifest = Manifest.model_validate({**content, "manifest_hash": manifest_hash(content)})
     return BuildResult(manifest, (), tuple(found.skipped), sum(item.size for item in files))
 
@@ -432,14 +526,19 @@ def _finite_float(text: str) -> float:
     return value
 
 
-def strict_json(text: str) -> Any:
-    """JSON without duplicate keys, NaN or Infinity (A-53, A-61); raises ValueError."""
+def strict_json(text: str, *, max_depth: int = MAX_JSON_DEPTH) -> Any:
+    """JSON without duplicate keys, NaN or Infinity, nested at most ``max_depth`` levels (A-53, A-61); raises
+    ValueError, NestingError for too deep nesting. Nothing deeper reaches a schema, canonical JSON or a hash,
+    which recurse."""
     try:
-        return json.loads(
+        value = json.loads(
             text, object_pairs_hook=_unique_keys, parse_constant=_no_constant, parse_float=_finite_float
         )
     except RecursionError:
-        raise ValueError("nested too deeply") from None
+        raise NestingError("nested too deeply") from None
+    if not nesting_within(value, max_depth):
+        raise NestingError("nested too deeply")
+    return value
 
 
 def _check_plain(path: str, location: str) -> None:
@@ -448,17 +547,20 @@ def _check_plain(path: str, location: str) -> None:
 
 
 def _check_paths(manifest: Manifest) -> None:
-    """Every path must be a plain relative path (A-52) and occur once; they are compared, never opened."""
-    seen: set[str] = set()
+    """Every path must be a plain relative path (A-52) and occur once; they are compared, never opened.
 
-    def once(path: str, location: str) -> None:
-        if path in seen:
+    "Once" is decided on the original name bytes: a refused name stored as 'a%3Ab.edf' and a plain file named
+    'a%3Ab.edf' are two entries, the same name listed twice (in any spelling) is refused."""
+    seen: set[bytes] = set()
+
+    def once(name: bytes, location: str) -> None:
+        if name in seen:
             raise ManifestError("manifest.duplicate_path", field=location)
-        seen.add(path)
+        seen.add(name)
 
     for index, item in enumerate(manifest.files):
         _check_plain(item.path, f"files.{index}.path")
-        once(item.path, f"files.{index}.path")
+        once(name_bytes(item.path), f"files.{index}.path")
     for index, entry in enumerate(manifest.skipped):
         location = f"skipped.{index}.path"
         if entry.kind == "unsafe_name":
@@ -466,7 +568,7 @@ def _check_paths(manifest: Manifest) -> None:
                 raise ManifestError("manifest.unsafe_path", field=location)
         else:
             _check_plain(entry.path, location)
-        once(entry.path, location)
+        once(name_bytes(entry.path, entry.kind), location)
     for index, excluded in enumerate(manifest.excluded):
         _check_plain(excluded, f"excluded.{index}")
         if PurePosixPath(excluded).name not in (VAULT_LOG, VAULT_LOCK):
@@ -482,7 +584,9 @@ def parse_manifest(data: bytes) -> ParsedManifest:
     except UnicodeDecodeError:
         raise ManifestError("manifest.encoding") from None
     try:
-        raw = strict_json(text)
+        raw = strict_json(text, max_depth=MAX_MANIFEST_DEPTH)
+    except NestingError:
+        raise ManifestError("manifest.invalid", field="-", problem="too_deep") from None
     except ValueError:
         raise ManifestError("manifest.invalid", field="-", problem="json") from None
     if not isinstance(raw, dict):
@@ -498,7 +602,7 @@ def parse_manifest(data: bytes) -> ParsedManifest:
     _check_paths(manifest)
     try:
         computed = manifest_hash(raw)
-    except (TypeError, ValueError):  # defensive: content canonical JSON cannot hold
+    except (TypeError, ValueError, RecursionError):  # defensive: content canonical JSON cannot hold
         raise ManifestError("manifest.invalid", field="-", problem="value") from None
     return ParsedManifest(manifest, computed == manifest.manifest_hash)
 
@@ -527,7 +631,8 @@ class Deviation:
     ``before`` and ``now`` are "file", a skipped kind (link, special, unsafe_name), "unreadable" or None
     (absent). changed: same path, other content or size; new / missing: absent in the manifest / now;
     skipped_changed: present in both, but a file became a link (or the other way round) or the kind of a
-    skipped entry changed; unreadable: listed as a file, but it cannot be read now (A-82)."""
+    skipped entry changed; unreadable: listed in the manifest, but it cannot be examined now (a file that
+    cannot be read, or any entry below a folder that cannot be listed, A-82)."""
 
     path: str
     kind: DeviationKind
@@ -554,66 +659,69 @@ class Comparison:
         return [deviation for deviation in self.deviations if deviation.kind == kind]
 
 
-def _below(path: str, folders: Sequence[str]) -> bool:
-    return any(folder == "." or path == folder or path.startswith(folder + "/") for folder in folders)
+def _below(name: bytes, folders: Sequence[bytes]) -> bool:
+    return any(folder == b"." or name == folder or name.startswith(folder + b"/") for folder in folders)
 
 
 def compare(
     root: Path, manifest: Manifest, exclusions: Exclusions, *, threads: int = HASH_THREADS
 ) -> Comparison:
     """Compare the dataset with a manifest: sizes first (a different size is a change without hashing), then
-    the hashes of the remaining common files. Paths the exclusions cover are not compared."""
+    the hashes of the remaining common files. Paths the exclusions cover are not compared.
+
+    Entries are matched by their original name bytes, so a refused name (stored percent-encoded) and a plain
+    name that reads the same stay two entries; a deviation carries the path as the manifest stores it."""
     found = inventory(root, exclusions)
-    before: dict[str, str] = {entry.path: entry.kind for entry in manifest.skipped}
-    before.update({item.path: "file" for item in manifest.files})
-    sizes = {item.path: item for item in manifest.files}
-    now: dict[str, str] = {entry.path: entry.kind for entry in found.skipped}
-    now.update({entry.relative: "file" for entry in found.files})
-    now.update({path: "unreadable" for path in found.unreadable})
-    current = {entry.relative: entry for entry in found.files}
+    before: dict[bytes, tuple[str, str]] = {}  # name bytes -> (stored path, kind)
+    listed: dict[bytes, ManifestFile] = {}
+    for entry in manifest.skipped:
+        before[name_bytes(entry.path, entry.kind)] = (entry.path, entry.kind)
+    for item in manifest.files:
+        before[name_bytes(item.path)] = (item.path, "file")
+        listed[name_bytes(item.path)] = item
+    now: dict[bytes, tuple[str, str]] = {}
+    current: dict[bytes, FileEntry] = {}
+    for entry in found.skipped:
+        now[name_bytes(entry.path, entry.kind)] = (entry.path, entry.kind)
+    for file in found.files:
+        now[name_bytes(file.relative)] = (file.relative, "file")
+        current[name_bytes(file.relative)] = file
+    for path in found.unreadable:
+        now[name_bytes(path)] = (path, "unreadable")
+    unlistable = [os.fsencode(folder) for folder in found.unlistable]
     deviations: list[Deviation] = []
-    to_hash: list[FileEntry] = []
-    for path in sorted(set(before) | set(now)):
-        if exclusions.covers(path):
+    to_hash: list[tuple[FileEntry, ManifestFile]] = []
+    for name in sorted(set(before) | set(now)):
+        if exclusions.covers(name.decode("utf-8", "surrogateescape")):
             continue
-        was, is_now = before.get(path), now.get(path)
-        if is_now is None and was is not None and _below(path, found.unlistable):
+        stored_path, was = before.get(name, ("", None))
+        present_path, is_now = now.get(name, ("", None))
+        path = stored_path or present_path
+        size_manifest = listed[name].size if name in listed else None
+        size_now = current[name].size if name in current else None
+        if is_now is None and was is not None and _below(name, unlistable):
             is_now = "unreadable"
         if was is None:
-            deviations.append(Deviation(path, "new", now=is_now, size_now=_size(current, path)))
+            deviations.append(Deviation(path, "new", now=is_now, size_now=size_now))
         elif is_now is None:
-            deviations.append(Deviation(path, "missing", before=was, size_manifest=_listed(sizes, path)))
+            deviations.append(Deviation(path, "missing", before=was, size_manifest=size_manifest))
         elif was == "file" and is_now == "file":
-            listed, entry = sizes[path], current[path]
-            if listed.size != entry.size:
-                deviations.append(Deviation(path, "changed", "file", "file", listed.size, entry.size))
+            if listed[name].size != current[name].size:
+                deviations.append(Deviation(path, "changed", "file", "file", size_manifest, size_now))
             else:
-                to_hash.append(entry)
-        elif was == "file" and is_now == "unreadable":
-            deviations.append(Deviation(path, "unreadable", "file", "unreadable", sizes[path].size))
+                to_hash.append((current[name], listed[name]))
+        elif is_now == "unreadable":
+            deviations.append(Deviation(path, "unreadable", was, "unreadable", size_manifest))
         elif was != is_now:
-            deviations.append(
-                Deviation(path, "skipped_changed", was, is_now, _listed(sizes, path), _size(current, path))
-            )
-    hashed = hash_files(to_hash, threads)
+            deviations.append(Deviation(path, "skipped_changed", was, is_now, size_manifest, size_now))
+    hashed = hash_files([entry for entry, _item in to_hash], threads)
     checked = 0
-    for entry, digest in zip(to_hash, hashed, strict=True):
-        listed = sizes[entry.relative]
+    for (_entry, item), digest in zip(to_hash, hashed, strict=True):
         if digest is None:
-            deviations.append(Deviation(entry.relative, "unreadable", "file", "unreadable", listed.size))
+            deviations.append(Deviation(item.path, "unreadable", "file", "unreadable", item.size))
             continue
         checked += digest[1]
-        if digest[0] != listed.sha256 or digest[1] != listed.size:
-            deviations.append(Deviation(entry.relative, "changed", "file", "file", listed.size, digest[1]))
-    deviations.sort(key=lambda deviation: deviation.path)
+        if digest[0] != item.sha256 or digest[1] != item.size:
+            deviations.append(Deviation(item.path, "changed", "file", "file", item.size, digest[1]))
+    deviations.sort(key=lambda deviation: (deviation.path, deviation.unsafe))
     return Comparison(tuple(deviations), len(manifest.files), checked)
-
-
-def _size(current: Mapping[str, FileEntry], path: str) -> int | None:
-    entry = current.get(path)
-    return entry.size if entry is not None else None
-
-
-def _listed(sizes: Mapping[str, ManifestFile], path: str) -> int | None:
-    item = sizes.get(path)
-    return item.size if item is not None else None

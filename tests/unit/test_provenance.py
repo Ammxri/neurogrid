@@ -6,10 +6,12 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import sys
 from pathlib import Path, PurePosixPath
 
 import pytest
+from pydantic import ValidationError
 
 from conftest import dir_link  # type: ignore[import-not-found]
 from neurogrid.io import provenance as io_provenance
@@ -25,6 +27,7 @@ from neurogrid.io.provenance import (
     load_provenance_file,
     load_sources,
     show,
+    shown_target,
     vault_exclusions,
 )
 from neurogrid.kernel import canonical
@@ -272,6 +275,255 @@ def test_names_the_path_check_refuses_are_skipped_and_compared(tmp_path: Path) -
             Path("\\\\?\\" + str(tmp_path / "aux")).rmdir()
 
 
+def _native(path: Path) -> Path:
+    """A path the file system takes literally: Windows would change names with a trailing dot or space and
+    reserved names, and long paths need the extended form."""
+    return Path("\\\\?\\" + str(path)) if WINDOWS else path
+
+
+def _put(path: Path, data: bytes | None = None) -> None:
+    """Create a folder (data None) or a file under a name the path check refuses."""
+    if data is None:
+        _native(path).mkdir()
+    else:
+        _native(path).write_bytes(data)
+
+
+def _remove(path: Path) -> None:
+    shutil.rmtree(_native(path))
+
+
+def _unsafe(manifest: kp.Manifest) -> set[str]:
+    return {entry.path for entry in manifest.skipped if entry.kind == "unsafe_name"}
+
+
+def test_long_escaped_refused_names_are_recorded(tmp_path: Path) -> None:
+    """PRO19: a refused name whose percent-encoded form is longer than 3 * MAX_PATH_CHARS is a skipped entry,
+    never a ValidationError: CJK folders (9 characters per character) above a name with a trailing space, and
+    a path the length rule alone refuses (over MAX_PATH_CHARS characters, no special character)."""
+    root = tmp_path / "ds"
+    root.mkdir()
+    (root / "ok.txt").write_text("ok", encoding="utf-8")
+    folder = root
+    for _ in range(5):  # 80 characters per folder: 240 bytes, within the 255-byte limit of POSIX file systems
+        folder = folder / ("患者资料" * 20)
+        _put(folder)
+    trailing = folder / "x "
+    _put(trailing)
+    _put(trailing / "rec.edf", b"1")
+    deep = root
+    for _ in range(13):
+        deep = deep / ("脑电" * 40)
+        _put(deep)
+    _put(deep / "x.edf", b"2")
+    try:
+        long_name = (trailing / "rec.edf").relative_to(root).as_posix()
+        length_only = (deep / "x.edf").relative_to(root).as_posix()
+        assert len(escape_name(long_name)) > 3 * kp.MAX_PATH_CHARS and len(length_only) > kp.MAX_PATH_CHARS
+        built = build_manifest(root, _exclusions())
+        assert built.manifest is not None
+        assert [item.path for item in built.manifest.files] == ["ok.txt"]
+        unsafe = _unsafe(built.manifest)
+        assert {escape_name(long_name), escape_name(length_only)} <= unsafe
+        parsed = parse_manifest(manifest_bytes(built.manifest))  # the reader takes the same bound
+        assert parsed.hash_ok and compare(root, parsed.manifest, _exclusions()).deviations == ()
+        _put(trailing / "new.edf", b"3")
+        assert [(d.path, d.kind) for d in compare(root, parsed.manifest, _exclusions()).deviations] == [
+            (escape_name((trailing / "new.edf").relative_to(root).as_posix()), "new")
+        ]
+    finally:
+        _remove(root)
+
+
+def test_escaped_names_are_bounded_alike_for_writer_and_reader(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PRO19: SkippedEntry holds every name a walk can return (MAX_ESCAPED_CHARS, writer and reader); longer
+    is refused by the reader, and a validation error never shows the name (--debug, A-51)."""
+    assert kp.MAX_ESCAPED_CHARS == 3 * 3 * 32_767
+    data = _valid(tmp_path)
+    data["skipped"] = [{"kind": "unsafe_name", "path": "%E8" * (kp.MAX_ESCAPED_CHARS // 3)}]
+    assert parse_manifest(_rehashed(data)).hash_ok  # at the bound: accepted
+    data["skipped"] = [{"kind": "unsafe_name", "path": "%E8" * (kp.MAX_ESCAPED_CHARS // 3) + "x"}]
+    with pytest.raises(ManifestError) as info:
+        parse_manifest(_rehashed(data))
+    assert info.value.message_key == "manifest.invalid" and info.value.params["field"] == "skipped.0.path"
+    secret = "Zhang" + "San"
+    with pytest.raises(ValidationError) as error:
+        kp.SkippedEntry(path=secret * kp.MAX_ESCAPED_CHARS, kind="unsafe_name")
+    assert secret not in str(error.value)
+    # defensive: a name longer than the bound cannot be recorded; it is reported, never raised
+    monkeypatch.setattr(kp, "MAX_ESCAPED_CHARS", 8)
+    _put(tmp_path / "long name.")
+    try:
+        found = inventory(tmp_path)
+        assert "long name." in found.unreadable and all(e.path != "long name." for e in found.skipped)
+    finally:
+        _remove(tmp_path / "long name.")
+
+
+def test_names_below_a_refused_folder_are_compared_by_presence(tmp_path: Path) -> None:
+    """PRO20 (A-82, critic X8): a folder the path check refuses is walked; every name below it is a skipped
+    unsafe_name entry, so new and missing files there are deviations. Their content is never hashed, and a
+    link below such a folder is recorded, not followed."""
+    root = tmp_path / "ds"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.edf").write_bytes(b"outside")
+    (root / "pat").mkdir()
+    (root / "pat" / "sub01.edf").write_bytes(b"p" * 10)
+    _put(root / "aux")
+    _put(root / "aux" / "sub01.edf", b"a" * 10)
+    _put(root / "aux" / "keep.edf", b"k")
+    _put(root / "aux" / "nested")
+    _put(root / "aux" / "nested" / "deep.edf", b"d")
+    _put(root / "sub-01.")
+    _put(root / "sub-01." / "rec.edf", b"r")
+    linked = root / "aux" / "linked"
+    if WINDOWS:
+        import _winapi
+
+        _winapi.CreateJunction(str(outside), str(_native(linked)))
+    else:
+        dir_link(linked, outside)
+    try:
+        built = build_manifest(root, _exclusions())
+        assert built.manifest is not None
+        assert [item.path for item in built.manifest.files] == ["pat/sub01.edf"]
+        assert _unsafe(built.manifest) == {
+            "aux",
+            "aux/keep.edf",
+            "aux/linked",
+            "aux/nested",
+            "aux/nested/deep.edf",
+            "aux/sub01.edf",
+            "sub-01.",
+            "sub-01./rec.edf",
+        }  # nothing from behind the link
+        manifest = parse_manifest(manifest_bytes(built.manifest)).manifest
+        assert compare(root, manifest, _exclusions()).deviations == ()
+        _put(root / "aux" / "sub01.edf", b"b" * 10)  # same size, other content: not hashed (X8)
+        assert compare(root, manifest, _exclusions()).deviations == ()
+        _put(root / "aux" / "sub02.edf", b"n")
+        _native(root / "aux" / "keep.edf").unlink()
+        _native(root / "sub-01." / "rec.edf").unlink()
+        found = {(d.path, d.kind, d.before, d.now) for d in compare(root, manifest, _exclusions()).deviations}
+        assert found == {
+            ("aux/sub02.edf", "new", None, "unsafe_name"),
+            ("aux/keep.edf", "missing", "unsafe_name", None),
+            ("sub-01./rec.edf", "missing", "unsafe_name", None),
+        }
+    finally:
+        if WINDOWS:
+            _native(linked).rmdir()  # the junction, not its target
+        else:
+            linked.unlink()
+        _remove(root)
+
+
+def test_files_below_an_unlistable_refused_folder_are_unreadable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """PRO20: a refused folder that cannot be listed stops the manifest (exit 1) and makes the entries below
+    it unreadable in a comparison, also when their stored names are percent-encoded."""
+    folder = tmp_path / "张三 "
+    _put(folder)
+    _put(folder / "a.edf", b"a")
+    try:
+        manifest = _manifest(tmp_path)
+        assert _unsafe(manifest) == {escape_name("张三 "), escape_name("张三 /a.edf")}
+        real_walk = os.walk
+
+        def walk(top: str | os.PathLike[str], **kwargs: object):  # type: ignore[no-untyped-def]
+            for dirpath, dirnames, filenames in real_walk(top, **kwargs):  # type: ignore[call-overload]
+                if Path(dirpath).name == "张三 ":
+                    kwargs["onerror"](PermissionError(13, "denied", dirpath))  # type: ignore[operator]
+                    continue
+                yield dirpath, dirnames, filenames
+
+        monkeypatch.setattr(kp.os, "walk", walk)
+        found = [(d.path, d.kind, d.before) for d in compare(tmp_path, manifest, _exclusions()).deviations]
+        assert found == [(escape_name("张三 /a.edf"), "unreadable", "unsafe_name")]
+        built = build_manifest(tmp_path, _exclusions())
+        assert built.manifest is None and built.unreadable == ("张三 ",)
+    finally:
+        monkeypatch.undo()
+        _remove(folder)
+
+
+def test_refused_and_plain_names_that_read_alike_stay_apart(tmp_path: Path) -> None:
+    """PRO27: 'COM¹.txt' is refused and stored as 'COM%C2%B9.txt', which is also a plain, allowed name. The
+    reader accepts the manifest the builder wrote, the comparison keeps both entries, and their findings have
+    different keys."""
+    root = tmp_path / "ds"
+    root.mkdir()
+    (root / "README").write_text("x", encoding="utf-8")
+    _put(root / "COM¹.txt", b"refused name")
+    (root / "COM%C2%B9.txt").write_bytes(b"plain name")
+    try:
+        built = build_manifest(root, _exclusions())
+        assert built.manifest is not None
+        assert [item.path for item in built.manifest.files] == ["COM%C2%B9.txt", "README"]
+        assert _unsafe(built.manifest) == {"COM%C2%B9.txt"}
+        manifest = parse_manifest(manifest_bytes(built.manifest)).manifest
+        assert compare(root, manifest, _exclusions()).deviations == ()
+        _native(root / "COM¹.txt").unlink()
+        gone = compare(root, manifest, _exclusions()).deviations
+        assert [(d.path, d.kind, d.before) for d in gone] == [("COM%C2%B9.txt", "missing", "unsafe_name")]
+        _put(root / "COM¹.txt", b"refused name")
+        (root / "COM%C2%B9.txt").unlink()
+        gone = compare(root, manifest, _exclusions()).deviations
+        assert [(d.path, d.kind, d.before) for d in gone] == [("COM%C2%B9.txt", "missing", "file")]
+        _native(root / "COM¹.txt").unlink()
+        both = compare(root, manifest, _exclusions()).deviations
+        assert [(d.kind, d.unsafe) for d in both] == [("missing", False), ("missing", True)]
+        shown = [show(d.path, plain=True, kind="unsafe_name" if d.unsafe else None) for d in both]
+        assert shown[0].identity[0] != shown[1].identity[0]  # distinct finding keys (A-68)
+        assert shown[1].identity[0] == io_provenance.UNSAFE_IDENTITY + "COM%C2%B9.txt"
+        assert {"COM%C2%B9.txt"} <= set(shown[1].identity)  # exception patterns still match the stored path
+    finally:
+        _remove(root)
+    # the same name listed twice, in any spelling, is still refused
+    data = _valid(tmp_path)
+    data["skipped"] = [{"kind": "unsafe_name", "path": "a%2Etxt"}]
+    with pytest.raises(ManifestError) as info:
+        parse_manifest(_rehashed(data))
+    assert info.value.message_key == "manifest.duplicate_path"
+
+
+def test_more_entries_than_a_manifest_holds_give_no_manifest_but_no_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Dataset data (C2): more files or more skipped entries than MAX_MANIFEST_ENTRIES are a result without a
+    manifest (``too_many``, the limit; exit 1 in ``manifest``), never a ManifestError; nothing is hashed then.
+    Up to the limit the manifest is built."""
+    root = tmp_path / "ds"
+    root.mkdir()
+    (root / "a.txt").write_text("a", encoding="utf-8")
+    (root / "b.txt").write_text("b", encoding="utf-8")
+    monkeypatch.setattr(kp, "MAX_MANIFEST_ENTRIES", 2)
+    at_limit = build_manifest(root, _exclusions())
+    assert at_limit.manifest is not None and at_limit.too_many is None
+    monkeypatch.setattr(kp, "MAX_MANIFEST_ENTRIES", 1)
+
+    def no_hashing(*_args: object) -> None:
+        raise AssertionError("hashed although no manifest can be written")
+
+    monkeypatch.setattr(kp, "hash_files", no_hashing)
+    assert build_manifest(root, _exclusions()) == kp.BuildResult(None, (), (), 0, too_many=1)
+    (root / "b.txt").unlink()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    dir_link(root / "one", elsewhere)
+    dir_link(root / "two", elsewhere)  # one file, two skipped links
+    assert build_manifest(root, _exclusions()) == kp.BuildResult(None, (), (), 0, too_many=1)
+    monkeypatch.undo()  # hashing again
+    monkeypatch.setattr(kp, "MAX_MANIFEST_ENTRIES", 2)
+    with_links = build_manifest(root, _exclusions())
+    assert with_links.manifest is not None and len(with_links.manifest.skipped) == 2
+
+
 def test_escaped_names_round_trip() -> None:
     for name in ("a:b.edf", "名字.txt", "100%.txt", "x\\y"):
         escaped = escape_name(name)
@@ -512,6 +764,67 @@ def test_manifest_that_is_no_clean_json_is_refused(raw: bytes) -> None:
     assert info.value.message_key == "manifest.invalid"
 
 
+def _nested_json(levels: int, kind: str = "dict") -> str:
+    """JSON text nested ``levels`` levels deep, written as text: json.dumps itself recurses."""
+    if kind == "dict":
+        return '{"a":' * (levels - 1) + '{"a":1' + "}" * levels
+    return "[" * levels + "]" * levels
+
+
+def _nested(levels: int) -> dict[str, object]:
+    value: dict[str, object] = {"a": 1}
+    for _ in range(levels - 1):
+        value = {"a": value}
+    return value
+
+
+def _with_parameters(tmp_path: Path, parameters: str) -> bytes:
+    data = _valid(tmp_path)
+    data["processing_steps"] = [{"step": "s", "tool": "t", "version": "1", "parameters": "PARAMETERS"}]
+    return json.dumps(data).replace('"PARAMETERS"', parameters).encode("utf-8")
+
+
+@pytest.mark.parametrize(
+    ("levels", "kind"),
+    [(kp.MAX_PARAMETER_DEPTH + 1, "dict"), (990, "dict"), (1200, "list"), (2900, "dict")],
+)
+def test_deeply_nested_manifests_are_invalid_not_a_crash(tmp_path: Path, levels: int, kind: str) -> None:
+    """PRO21 (A-53, C2): a manifest nested deeper than the builder ever writes is manifest.invalid (too_deep),
+    before the schema, canonical JSON or the hash recurse (RecursionError at about 1000 levels before)."""
+    parameters = '{"p":' + _nested_json(levels - 1, kind) + "}"
+    with pytest.raises(ManifestError) as info:
+        parse_manifest(_with_parameters(tmp_path, parameters))
+    assert info.value.message_key == "manifest.invalid"
+    assert info.value.params == {"field": "-", "problem": "too_deep"}
+
+
+def test_the_reader_accepts_the_deepest_parameters_the_builder_writes(tmp_path: Path) -> None:
+    """PRO21/PRO25: parameters nest at most MAX_PARAMETER_DEPTH levels; such a step is written and read
+    again, one level more is refused where a step is made."""
+    assert kp.nesting_within(_nested(kp.MAX_PARAMETER_DEPTH), kp.MAX_PARAMETER_DEPTH)
+    assert not kp.nesting_within(_nested(kp.MAX_PARAMETER_DEPTH + 1), kp.MAX_PARAMETER_DEPTH)
+    assert kp.nesting_within(1, 0) and not kp.nesting_within([], 0) and kp.nesting_within([[1], (2,)], 2)
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    step = ProcessingStep(step="s", tool="t", version="1", parameters=_nested(kp.MAX_PARAMETER_DEPTH))
+    built = build_manifest(tmp_path, _exclusions(), processing_steps=[step])
+    assert built.manifest is not None
+    assert parse_manifest(manifest_bytes(built.manifest)).hash_ok
+    with pytest.raises(ValidationError):
+        ProcessingStep(step="s", tool="t", version="1", parameters=_nested(kp.MAX_PARAMETER_DEPTH + 1))
+    parameters = '{"p":' + _nested_json(kp.MAX_PARAMETER_DEPTH - 1) + "}"
+    assert not parse_manifest(_with_parameters(tmp_path, parameters)).hash_ok  # read, hash not recomputed
+
+
+def test_steps_that_canonical_json_cannot_hold_are_a_clean_error(tmp_path: Path) -> None:
+    """PRO25 backstop: the step readers refuse such values; a step made in code gives steps_invalid, never a
+    bare ValueError."""
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    step = ProcessingStep(step="s", tool="t", version="1", parameters={"x": object()})  # no JSON value
+    with pytest.raises(ManifestError) as info:
+        build_manifest(tmp_path, _exclusions(), processing_steps=[step])
+    assert info.value.message_key == "manifest.steps_invalid" and info.value.params == {"problem": "value"}
+
+
 def test_encoding_size_limit_and_byte_order_mark(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = _rehashed(_valid(tmp_path))
     assert parse_manifest(b"\xef\xbb\xbf" + data).hash_ok
@@ -652,6 +965,23 @@ def test_processing_steps_json_problems_are_reported(tmp_path: Path, monkeypatch
     assert load_processing_steps(ds) == ([], "link")
 
 
+@pytest.mark.parametrize("levels", [kp.MAX_PARAMETER_DEPTH + 1, 120, 990, 1100])
+def test_deeply_nested_processing_steps_are_too_deep(tmp_path: Path, levels: int) -> None:
+    """PRO25: parameters deeper than a manifest can hold make processing_steps.json unusable ("too_deep"):
+    manifest ends with steps_invalid naming the file, check reports it, the two agree."""
+    path = tmp_path / ".neurogrid" / "processing_steps.json"
+    path.parent.mkdir()
+    step = '[{"step":"convert","tool":"neurogrid","version":"0.1.0","parameters":PARAMETERS}]'
+    path.write_text(step.replace("PARAMETERS", _nested_json(levels)), encoding="utf-8")
+    assert load_processing_steps(tmp_path) == ([], "too_deep")
+    path.write_text(step.replace("PARAMETERS", _nested_json(kp.MAX_PARAMETER_DEPTH)), encoding="utf-8")
+    steps, problem = load_processing_steps(tmp_path)
+    assert problem is None and len(steps) == 1
+    (tmp_path / "a.txt").write_text("a", encoding="utf-8")
+    built = build_manifest(tmp_path, _exclusions(), processing_steps=steps)  # written and read again
+    assert built.manifest is not None and parse_manifest(manifest_bytes(built.manifest)).hash_ok
+
+
 def test_generated_by_needs_name_and_version(tmp_path: Path) -> None:
     description = {
         "Name": "x",
@@ -704,6 +1034,120 @@ def test_display_follows_a51_and_x14() -> None:
         show("notes.张三", plain=False).file == show("notes.张三", plain=False).object
     )  # odd suffix left out
     assert raw.object == pseudonym(PurePosixPath("Zhang_San/rec 1.EDF"))  # the same ID as in M01 findings
+
+
+def test_the_written_manifest_is_named_as_a51_allows() -> None:
+    """INT45: inside a raw folder the console names the manifest file by the pseudonymous file name verify
+    shows, except the default location and NeuroGrid's fixed names; in clear in BIDS or with --show-paths."""
+    assert shown_target(".neurogrid/manifest.json", plain=False) == ".neurogrid/manifest.json"
+    assert shown_target(".neurogrid/provenance.yaml", plain=False) == ".neurogrid/provenance.yaml"
+    named = "Zh" + "ang_San/m.json"
+    hidden = shown_target(named, plain=False)
+    assert hidden == "…/" + show(named, plain=False).file and "ang_San" not in hidden
+    assert hidden.startswith("…/rec-") and hidden.endswith(".json")
+    at_root = "Zh" + "ang_San.json"
+    assert shown_target(at_root, plain=False) == show(at_root, plain=False).file
+    assert shown_target(".neurogrid/copy.json", plain=False).startswith("…/rec-")
+    assert shown_target(named, plain=True) == named
+
+
+@pytest.mark.parametrize(
+    ("own", "bidsignore", "expected"),
+    [
+        ("manifest.json", None, "listed"),
+        ("sub-01/manifest.json", None, "listed"),
+        ("sub-01/derivatives/manifest.json", None, "listed"),  # only top-level folders are ignored
+        (".neurogrid/copy.json", None, None),
+        ("sub-01/.cache/m.json", None, None),
+        ("sourcedata/manifest.json", None, None),
+        ("derivatives/manifest.json", None, None),
+        ("code/manifest.json", None, None),
+        ("stimuli/manifest.json", None, None),
+        ("log/manifest.json", None, None),
+        ("doc/manifest.json", None, None),
+        ("Code/manifest.json", None, None),  # without case
+        ("SourceData/manifest.json", None, None),
+        ("manifest.json", "manifest.json\n", None),
+        ("sub-01/manifest.json", "manifest.json\n", None),  # no slash: a name anywhere
+        ("sub-01/manifest.json", "sub-01\n", None),  # also a folder name
+        ("manifest.json", "/manifest.json\n", None),
+        ("sub-01/manifest.json", "/manifest.json\n", "listed"),  # a slash anchors at the root
+        ("sub-01/manifest.json", "sub-01/manifest.json\n", None),
+        ("a/b/manifest.json", "b/manifest.json\n", "listed"),  # a slash in the middle anchors as well
+        ("extra/manifest.json", "extra/\n", None),
+        ("extra/manifest.json", "Extra/\n", None),
+        ("sub-01/eeg/manifest.json", "eeg/\n", None),
+        ("sub-01/eeg/manifest.json", "sub-01/eeg/\n", None),
+        ("manifest.json", "manifest.json/\n", "listed"),  # a trailing slash names folders only
+        ("manifest.json", "MANIFEST.json\r\n", None),  # without case, CR and trailing spaces dropped
+        ("manifest.json", "\ufeffmanifest.json   \n", None),
+        ("manifest.json", "# manifest.json\n", "listed"),
+        ("manifest.json", "  manifest.json\n", "listed"),  # leading spaces are part of the pattern
+        ("manifest.json", "*.json\n", "maybe"),
+        ("manifest.json", "manifest.json\n!manifest.json\n", "maybe"),
+        ("manifest.json", "other.txt\n!x\n", "listed"),
+        # only CRs, then spaces are dropped at the end of a line: other whitespace stays part of the name
+        ("manifest.json", "manifest.json\t\n", "listed"),
+        ("manifest.json", "manifest.json　\n", "listed"),  # ideographic space (Chinese input methods)
+        ("manifest.json", "manifest.json \n", "listed"),
+        ("manifest.json", "manifest.json\x0b\n", "listed"),
+        ("manifest.json", "manifest.json\x0c\n", "listed"),
+        ("manifest.json", "manifest.json \t \n", "listed"),
+        ("sub-01/manifest.json", "sub-01\t\n", "listed"),
+        ("manifest.json", "manifest.json   \r\n", None),
+        ("manifest.json", "manifest.json\r\r\n", None),
+        ("manifest.json", "manifest.json\r   \n", "listed"),  # spaces after a CR: the CR stays
+        ("manifest.json", "manifest.json  \r  \n", "listed"),
+        # a line that is empty only after that matches every path; one of spaces only is skipped
+        ("manifest.json", "other.txt\r\n\r\nzzz\r\n", None),  # an empty line of a CRLF file
+        ("manifest.json", " \r\n", None),
+        ("manifest.json", "other.txt\n﻿\n", None),
+        ("manifest.json", "   \n", "listed"),
+        ("manifest.json", "\t\n", "listed"),
+        ("manifest.json", "manifest.json\n!\r\n", "maybe"),
+        # the reader drops the file's byte order mark; a later one hides '!' and '#' and is then dropped
+        ("manifest.json", "﻿\nother.txt\n", "listed"),
+        ("manifest.json", "﻿!manifest.json\n", "listed"),
+        ("manifest.json", "manifest.json\n﻿!manifest.json\n", None),
+        ("manifest.json", "﻿﻿manifest.json\n", None),
+        ("manifest.json", "﻿#x\nmanifest.json\n", None),
+        ("#manifest.json", "﻿#manifest.json\n", "listed"),
+        ("#manifest.json", "x\n﻿#manifest.json\n", None),
+        ("manifest.json", "!﻿manifest.json\nmanifest.json\n", "maybe"),
+        # text starting with a replacement character is taken for UTF-16: the whole file is not used
+        ("manifest.json", b"\xff\nmanifest.json\n", "listed"),
+        ("manifest.json", b"\xef\xbb\xbf\xff\nmanifest.json\n", "listed"),
+        ("manifest.json", "�\nmanifest.json\n", "listed"),
+        ("manifest.json", b"x\n\xff\nmanifest.json\n", None),
+        # case as a JavaScript regular expression without the u flag compares it
+        ("k.json", "K.json\n", "listed"),  # Kelvin sign
+        ("K.json", "k.json\n", "listed"),
+        ("K.json", "K.json\n", None),
+        ("σ.json", "ς.json\n", None),  # sigma and final sigma
+        ("\U00010428.json", "\U00010400.json\n", "listed"),  # outside the BMP: no case
+        ("\U00010428.json", "\U00010428.json\n", None),
+        ("é.json", "É.JSON\n", None),
+        ("i.json", "İ.json\n", "listed"),
+        ("straße.json", "STRASSE.json\n", "listed"),
+    ],
+)
+def test_validator_listing_follows_the_bundled_validator(
+    tmp_path: Path, own: str, bidsignore: str | bytes | None, expected: str | None
+) -> None:
+    """PRO23: where the bundled validator 3.0.2 lists a file (each case measured with validator.run: hidden
+    entries, the top-level folders of VALIDATOR_IGNORED_FOLDERS and .bidsignore with the gitignore rules of
+    its ignore package, without case); patterns NeuroGrid does not evaluate give "maybe" (conditional
+    hint)."""
+    if bidsignore is not None:
+        data = bidsignore if isinstance(bidsignore, bytes) else bidsignore.encode("utf-8")
+        (tmp_path / ".bidsignore").write_bytes(data)
+    assert io_provenance.validator_listing(tmp_path, own) == expected
+
+
+def test_validator_listing_with_an_unusable_bidsignore(tmp_path: Path) -> None:
+    (tmp_path / ".bidsignore").mkdir()
+    assert io_provenance.validator_listing(tmp_path, "manifest.json") == "maybe"
+    assert io_provenance.validator_listing(tmp_path, "code/manifest.json") is None
 
 
 def test_state_reports_status_without_comparing(tmp_path: Path) -> None:
@@ -805,6 +1249,9 @@ def test_every_provenance_key_exists_in_every_language() -> None:
         )
     }
     keys |= {
+        "cli.manifest.too_many_entries",
+        "cli.manifest.bids_hint",
+        "cli.manifest.bids_hint_bidsignore",
         "notice.output_inside_dataset",
         "report.label.manifest_status",
         "reason.provenance.single_file",

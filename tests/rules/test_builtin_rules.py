@@ -408,6 +408,16 @@ CASES = [
     Case("CORE-M13-03", "bids_ok", Status.FAILED),  # GeneratedBy without Version, no processing steps
     Case("CORE-M13-03", "provenance_incomplete", Status.FAILED),  # a step without version
     Case("CORE-M13-03", "provenance_steps_invalid", Status.FAILED),  # processing_steps.json not usable
+    # P4 review R12: deep manifests and steps (A-53), refused names (critic X8)
+    Case("CORE-M13-01", "edf_ok", Status.FAILED, setup="manifest_deep"),  # a finding, no RecursionError
+    Case("CORE-M13-02", "edf_ok", Status.NOT_CHECKABLE, setup="manifest_deep"),
+    Case("CORE-M13-02", "edf_ok", Status.PASSED, setup="refused_folder"),
+    Case("CORE-M13-02", "edf_ok", Status.FAILED, setup="refused_folder_changed"),  # walked below it
+    Case("CORE-M13-01", "edf_ok", Status.PASSED, setup="names_alike"),  # the reader takes its own manifest
+    Case("CORE-M13-02", "edf_ok", Status.PASSED, setup="names_alike"),
+    Case("CORE-M13-02", "edf_ok", Status.FAILED, setup="names_alike_missing"),
+    Case("CORE-M13-03", "edf_ok", Status.PASSED, setup="steps_deepest"),
+    Case("CORE-M13-03", "edf_ok", Status.FAILED, setup="steps_too_deep"),  # not counted as documented
     # --- P4 annotation (M10, A-80): fixtures of tools/gen_fixtures.py ---
     Case("CORE-M10-01", "annotation_continuous_ok", Status.PASSED, CONTINUOUS),  # mean kappa 0.667
     Case("CORE-M10-01", "annotation_continuous_issues", Status.FAILED, CONTINUOUS),  # mean kappa 0.024

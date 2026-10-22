@@ -101,7 +101,7 @@
           "type": "string"
         },
         "path": {
-          "maxLength": 3072,
+          "maxLength": 294903,
           "minLength": 1,
           "title": "Path",
           "type": "string"

@@ -46,12 +46,14 @@ cli:
     library: "提示：某个库发出了警告（{type}）；结果不受影响。"
   manifest:
     summary: "清单：{files} 个文件，{size} MB"
-    skipped: "未计算哈希值：{links} 个链接或目录联接（未跟随），{special} 个特殊文件，{unsafe} 个未通过路径检查的名称"
+    skipped: "未计算哈希值：{links} 个链接或目录联接（未跟随），{special} 个特殊文件，{unsafe} 个未通过路径检查的名称，包括此类文件夹中的全部内容（仅比较是否存在）"
     hash: "清单哈希值：{hash}"
     written: "清单已写入 {path}"
     unreadable: "{count} 个文件或文件夹无法读取："
     not_written: "未写入清单：不完整的清单无法显示这些文件此后的变化。"
+    too_many_entries: "数据集中的文件或未计算哈希值的条目超过清单可列出的数量（上限 {limit}）；未写入清单。"
     bids_hint: "提示：BIDS 验证器会列出 BIDS 未定义的文件，此处即清单文件。不使用 --out 时，清单写入 .neurogrid/manifest.json，验证器不会进入该文件夹；也可以将清单写到数据集之外，或将其列入 .bidsignore。"
+    bids_hint_bidsignore: "提示：BIDS 验证器会列出 BIDS 未定义的文件（.bidsignore 涵盖的文件除外），因此可能会列出清单文件。不使用 --out 时，清单写入 .neurogrid/manifest.json，验证器不会进入该文件夹；也可以将清单写到数据集之外，或将其列入 .bidsignore。"
     more: "……另有 {count} 项"
   verify:
     hash_ok: "清单哈希值 {hash} 与清单内容一致。"
