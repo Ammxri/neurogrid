@@ -392,3 +392,49 @@ def test_bids_annotator_settings_follow_the_display_rule(tmp_path: Path) -> None
     assert clear["annotators"] == ["Zhang Wei", "A2", "张*", "scorer*"]
     assert clear["files"][0]["annotator"] == "Zhang_Wei"
     assert shown.config.canonical_sha256 == results.config.canonical_sha256  # over the real configuration
+
+
+# A wildcard inside a name does not make it displayable (INT42 follow-up, A-51, C5): each value the fixed text
+# spells with a wildcard filled in (nothing, a separator, a letter, a digit) must pass display_text.
+HIDDEN_PATTERNS = (
+    "Zh?ng San",  # a letter: Zhang San
+    "Zh*ng San",
+    "Wang W?i",  # a letter: Wang Wei
+    "Zhang S*",  # a letter: Zhang Sa...
+    "Zhang?San",  # a separator: Zhang San
+    "Zh?ng?San",  # a letter and a separator together
+    "?ei ?hang",  # capitals: Wei Zhang
+    "ID12345?",  # a digit: a long number
+    "Zh[a]ng San",  # glob syntax outside A-17
+    "a?b?c?d?",  # more wildcards than MAX_SHOWN_PATTERN_WILDCARDS
+)
+SHOWN_PATTERNS = ("scorer*", "*scorer*", "rater-??", "site?-rater-??", "A?", "*")
+
+
+def test_bids_annotator_patterns_with_wildcards_in_a_name_are_hidden(tmp_path: Path) -> None:
+    """ENTSCHEIDUNGEN 'Freitext in Ausgaben' (C5): 'Zh?ng San' is not shown in clear because its wildcard is
+    no word separator; in BIDS without --show-paths such patterns appear as pattern-<sha8> in
+    effective_settings and in the report appendix, wildcard patterns over codes stay readable, and
+    --show-paths shows every pattern as configured."""
+    assert pipeline.MAX_SHOWN_PATTERN_WILDCARDS == 3
+    root = _bids_with_named_annotators(tmp_path)
+    (tmp_path / "overlaps.yaml").write_text(OVERLAPS_PACK, encoding="utf-8")
+    patterns = [*HIDDEN_PATTERNS, *SHOWN_PATTERNS]
+    config = _config(
+        tmp_path,
+        '[check]\nrulepacks = ["overlaps.yaml"]\n[annotation]\nannotators = ' + json.dumps(patterns) + "\n",
+    )
+    results = _check(root, config)
+    annotators = results.config.effective_settings["annotation"]["annotators"]
+    assert annotators == [*(_pattern_pseudonym(p) for p in HIDDEN_PATTERNS), *SHOWN_PATTERNS]
+    texts = [*_texts(results), render_report(results, "de")]
+    for text in texts:
+        for pattern in HIDDEN_PATTERNS:
+            assert pattern not in text
+    for lang in LANGUAGES:  # the report appendix lists the readable patterns and the pseudonyms
+        html = render_report(results, lang)
+        assert str(escape(json.dumps("site?-rater-??"))) in html and _pattern_pseudonym("Zh?ng San") in html
+    shown = _check(root, config, show_paths=True)
+    assert shown.config.effective_settings["annotation"]["annotators"] == patterns
+    assert str(escape(json.dumps("Zh?ng San"))) in render_report(shown, "en")
+    assert shown.config.canonical_sha256 == results.config.canonical_sha256

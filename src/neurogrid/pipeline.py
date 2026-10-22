@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import itertools
 import math
 import os
 import platform
@@ -522,18 +523,41 @@ _ANNOTATOR_SETTINGS: tuple[tuple[str, str, str | None, str], ...] = (
 )
 
 
+# What a wildcard of an annotator pattern stands for next to the pattern's fixed text (kernel.glob): '?' one
+# character (a separator, a letter in either case or a digit), '*' also nothing. A pattern with more wildcards
+# than MAX_SHOWN_PATTERN_WILDCARDS is not shown (at most 5**3 = 125 values to test per pattern, A-53).
+_WILDCARD_FILLS = {"?": (" ", "a", "A", "0"), "*": ("", " ", "a", "A", "0")}
+_WILDCARD = re.compile(r"([*?])")
+MAX_SHOWN_PATTERN_WILDCARDS = 3
+
+
+def _pattern_displayable(pattern: str) -> bool:
+    """A pattern is shown only if display_text (C5) shows every value its fixed text spells with each
+    wildcard filled in independently (_WILDCARD_FILLS). Thus 'Zhang*San' (a separator), 'Zh?ng San' (a
+    letter), 'Wang W?i' and 'Zhang S*' are hidden like the names they spell, while 'scorer*' stays. Other
+    glob syntax ('[...]') is no A-17 character, so such a pattern is hidden."""
+    pieces = _WILDCARD.split(pattern)  # fixed text and wildcards alternate: text, wildcard, text, ...
+    texts, wildcards = pieces[::2], pieces[1::2]
+    if len(wildcards) > MAX_SHOWN_PATTERN_WILDCARDS:
+        return False
+    values = {
+        texts[0] + "".join(fill + text for fill, text in zip(fills, texts[1:], strict=True))
+        for fills in itertools.product(*(_WILDCARD_FILLS[wildcard] for wildcard in wildcards))
+    }
+    values.discard("")  # '*' alone as nothing spells nothing
+    return all(display_text(value).shown is not None for value in sorted(values))
+
+
 def _displayed_annotator(value: Any, kind: str) -> Any:
     """An annotator ID ("annotator") or pattern ("pattern") of the configuration as BIDS datasets show it
-    without --show-paths: as configured if display_text shows it, else as in raw folders. The wildcards of a
-    pattern count as word separators, so 'Zhang*San' is hidden like 'Zhang San'."""
+    without --show-paths: as configured if display_text shows it (a pattern: _pattern_displayable), else as
+    in raw folders."""
     if isinstance(value, list):
         return [_displayed_annotator(item, kind) for item in value]
     if not isinstance(value, str):
         return value
-    literal = value.replace("*", " ").replace("?", " ") if kind == "pattern" else value
-    if display_text(literal).shown is not None:
-        return value
-    return _shown_setting(value, kind)
+    shown = _pattern_displayable(value) if kind == "pattern" else display_text(value).shown is not None
+    return value if shown else _shown_setting(value, kind)
 
 
 def _replace_settings(
