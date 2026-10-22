@@ -149,6 +149,28 @@ def test_record_per_evidence_rule_also_without_entry() -> None:
     assert finding.reason == "evidence.partial" and finding.details["document_check"] == "ok"
 
 
+@pytest.mark.parametrize(("strict", "severity"), [(False, Severity.WARNING), (True, Severity.ERROR)])
+def test_record_carries_the_effective_severity(strict: bool, severity: Severity) -> None:
+    """strict_severity (A-82) applies to the evidence record as to the rule's findings and results rules[]:
+    a manual warning with strict_severity error is an error record in strict mode."""
+    stricter = "    severity: warning\n    strict_severity: error\n"
+    strict_rule = MANUAL_WARNING.replace("    severity: warning\n", stricter)
+    result = run(
+        [pack(strict_rule + SEMI_ERROR)],
+        evidence={"DEMO-STO-009": provided()},
+        document_check=checker(DocumentCheck.OK),
+        strict=strict,
+    )
+    records = {record.rule_id: (record.outcome, record.severity) for record in result.evidence}
+    assert records == {
+        "DEMO-ACC-001": (Status.EVIDENCE_OPEN, severity),
+        "DEMO-STO-009": (Status.PASSED, Severity.ERROR),  # no strict_severity: the base severity
+    }
+    (finding,) = result.findings
+    assert (finding.rule_id, finding.severity) == ("DEMO-ACC-001", severity)
+    assert result.exit_code == (1 if strict else 0)
+
+
 def test_excepted_evidence_is_recorded_as_excepted() -> None:
     exception = engine.ExceptionEntry(rule="DEMO-ACC-002", reason="covered by the hospital SOP")
     result = run([pack(MANUAL_ERROR)], exceptions=[exception])

@@ -101,24 +101,28 @@ def _unlock(path: Path, lock: tuple[int, int]) -> None:
 def test_uf05_manifest_handover_and_verify(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     ds = _copy(tmp_path, "bids_ok")
     code, out, _ = run(["manifest", str(ds)], capsys)
+    default = ds / ".neurogrid" / "manifest.json"  # KONZEPT 2.5, A-82: .neurogrid/ is created if missing
     assert code == 0 and "<dataset>" in out and str(tmp_path) not in out
-    assert (ds / "manifest.json").is_file() and "Manifest hash:" in out
-    assert "BIDS validator" in out  # the manifest at the BIDS root is listed by the validator (hint)
-    manifest = json.loads((ds / "manifest.json").read_text(encoding="utf-8"))
-    first = (ds / "manifest.json").read_bytes()
+    assert default.is_file() and not (ds / "manifest.json").exists() and "Manifest hash:" in out
+    assert f"Manifest written to {Path('<dataset>', '.neurogrid', 'manifest.json')}" in out
+    assert "BIDS validator" not in out  # the validator does not enter .neurogrid/: no hint needed
+    manifest = json.loads(default.read_text(encoding="utf-8"))
+    assert ".neurogrid/manifest.json" not in {item["path"] for item in manifest["files"]}
+    first = default.read_bytes()
     code, _, _ = run(["manifest", str(ds)], capsys)
-    assert code == 0 and (ds / "manifest.json").read_bytes() == first  # deterministic; itself left out
+    assert code == 0 and default.read_bytes() == first  # deterministic; itself left out
     handover = tmp_path / "handover"
-    shutil.copytree(ds, handover)  # handover: another folder, the same content
-    code, out, _ = run(["verify", str(handover), "--manifest", str(handover / "manifest.json")], capsys)
+    shutil.copytree(ds, handover)  # handover: another folder, the same content, the manifest inside
+    handed = handover / ".neurogrid" / "manifest.json"
+    code, out, _ = run(["verify", str(handover), "--manifest", str(handed)], capsys)
     assert code == 0 and "matches the manifest" in out and manifest["manifest_hash"] in out
     sidecar = handover / "sub-01" / "eeg" / "sub-01_task-rest_eeg.json"
     sidecar.write_text(sidecar.read_text(encoding="utf-8") + " ", encoding="utf-8")
     (handover / "sub-02" / "eeg" / "notes.txt").write_text("added", encoding="utf-8")
     (handover / "README").unlink()
-    code, out, _ = run(["verify", str(handover), "--manifest", str(handover / "manifest.json")], capsys)
+    code, out, _ = run(["verify", str(handover), "--manifest", str(handed)], capsys)
     assert code == 1 and "differs from the manifest" in out
-    result = pipeline.run_verify(handover, handover / "manifest.json")
+    result = pipeline.run_verify(handover, handed)
     assert result.deviations == {
         "changed": ["sub-01/eeg/sub-01_task-rest_eeg.json"],
         "new": ["sub-02/eeg/notes.txt"],
@@ -127,6 +131,30 @@ def test_uf05_manifest_handover_and_verify(tmp_path: Path, capsys: pytest.Captur
         "unreadable": [],
     }
     assert "  - sub-02/eeg/notes.txt" in out and "Changed: 1" in out and "Missing: 1" in out
+
+
+def test_bids_validator_and_the_manifest_location(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A-82 (KONZEPT 2.5, A-22): the validator does not enter .neurogrid/, so the default location leaves
+    BIDS-STO-001 green. A manifest written with --out into the BIDS dataset outside a hidden folder is listed
+    (NOT_INCLUDED, SIDECAR_WITHOUT_DATAFILE with the bundled validator): manifest prints the hint."""
+    ds = _copy(tmp_path, "bids_ok")
+    code, out, _ = run(["manifest", str(ds)], capsys)
+    assert code == 0 and "BIDS validator" not in out
+    default = _check(ds, rulepacks=("bids",))
+    assert [f for f in default.findings if f.rule_id == "BIDS-STO-001"] == []
+    assert any(p.rule_id == "BIDS-STO-001" for p in default.passed)
+    assert _m13(default)["CORE-M13-02"] == {(Status.PASSED, None)}
+    (ds / ".neurogrid" / "manifest.json").unlink()
+    code, out, _ = run(["manifest", str(ds), "--out", str(ds / "manifest.json")], capsys)
+    assert code == 0 and "BIDS validator" in out and ".neurogrid/manifest.json" in out  # the hint
+    at_root = _check(ds, rulepacks=("bids",), manifest_path=ds / "manifest.json")
+    listed = {(f.object, f.subkey) for f in at_root.findings if f.rule_id == "BIDS-STO-001"}
+    assert listed == {("manifest.json", "NOT_INCLUDED"), ("manifest.json", "SIDECAR_WITHOUT_DATAFILE")}
+    assert _m13(at_root)["CORE-M13-02"] == {(Status.PASSED, None)}  # the manifest read is left out
+    code, out, _ = run(["manifest", str(ds), "--out", str(ds / ".neurogrid" / "copy.json")], capsys)
+    assert code == 0 and "BIDS validator" not in out  # inside a hidden folder: not listed
+    code, out, _ = run(["manifest", str(ds), "--out", str(tmp_path / "outside.json")], capsys)
+    assert code == 0 and "BIDS validator" not in out
 
 
 @pytest.mark.parametrize("name", ["splits.tsv", "neurogrid.toml"])
@@ -239,6 +267,13 @@ def test_results_manifest_block_for_every_status(tmp_path: Path) -> None:
     missing = _check(ds)
     assert missing.manifest is not None and missing.manifest.status is ManifestStatus.MISSING
     assert missing.dataset.manifest_hash is None
+    # nothing to compare: CORE-M13-02 not applicable, the missing manifest is CORE-M13-01's finding (A-82)
+    m13 = {(f.rule_id, f.status, f.reason) for f in missing.findings if f.rule_id in M13[:2]}
+    assert m13 == {
+        ("CORE-M13-01", Status.FAILED, "provenance.manifest_missing"),
+        ("CORE-M13-02", Status.NOT_APPLICABLE, "provenance.manifest_missing"),
+    }
+    assert missing.summary.phases[Phase.STORAGE].errors == 0
     path = _manifest(ds)
     stored = json.loads(path.read_text(encoding="utf-8"))
     matches = _check(ds)
@@ -272,6 +307,8 @@ def test_results_manifest_block_for_every_status(tmp_path: Path) -> None:
     assert (
         finding.reason == "provenance.manifest_invalid" and finding.details["problem"] == "manifest.invalid"
     )
+    unusable = next(f for f in invalid.findings if f.rule_id == "CORE-M13-02")
+    assert (unusable.status, unusable.reason) == (Status.NOT_CHECKABLE, "provenance.manifest_invalid")
     single = _check(FIX / "edf_ok" / "rec_a.edf", strict=True)
     assert single.manifest is not None and single.manifest.status is ManifestStatus.NOT_APPLICABLE
     assert {status for found in _m13(single).values() for status, _ in found} == {Status.NOT_APPLICABLE}
@@ -437,6 +474,40 @@ def test_gx05_check_passes_only_with_a_matching_manifest(tmp_path: Path) -> None
     assert outcome(FIX / "edf_ok" / "rec_a.edf") == (Status.NOT_APPLICABLE, "provenance.single_file")
 
 
+def test_gxdsl008_gx05_uses_the_default_manifest(tmp_path: Path) -> None:
+    """GX-05 (GXDSL008-STO-002) in the built-in pack: semi-automatic warning with clause 'unknown' on
+    provenance.manifest_matches (A-15, A-82, A-83); <dataset>/.neurogrid/manifest.json is read by default."""
+    ds = _copy(tmp_path, "bids_ok")
+    config = documented_config(tmp_path, '[check]\nrulepacks = ["gxdsl008"]\n', name="gx.toml")
+
+    def gx05(results: Results) -> list[tuple[Status, Severity, str | None]]:
+        found = [
+            (f.status, f.severity, f.reason) for f in results.findings if f.rule_id == "GXDSL008-STO-002"
+        ]
+        passed = [
+            (Status.PASSED, Severity.WARNING, None) for p in results.passed if p.rule_id == "GXDSL008-STO-002"
+        ]
+        return found + passed
+
+    missing = _check(ds, config_path=config)
+    rule = next(r for r in missing.rules if r.id == "GXDSL008-STO-002")
+    assert (rule.severity, rule.verification.value, rule.phase, rule.strict_severity) == (
+        Severity.WARNING,
+        "semi_automatic",
+        Phase.STORAGE,
+        None,
+    )
+    assert gx05(missing) == [(Status.FAILED, Severity.WARNING, "provenance.manifest_missing")]
+    assert missing.summary.exit_code == 0 and missing.summary.coverage == {"gxdsl008": "n/a"}
+    _manifest(ds)
+    assert gx05(_check(ds, config_path=config)) == [(Status.PASSED, Severity.WARNING, None)]
+    assert gx05(_check(ds, config_path=config, strict=True)) == [(Status.PASSED, Severity.WARNING, None)]
+    (ds / "README").write_text("changed\n", encoding="utf-8")
+    changed = _check(ds, config_path=config, strict=True)  # a warning also in strict mode
+    assert gx05(changed) == [(Status.FAILED, Severity.WARNING, "provenance.files_differ")]
+    assert changed.summary.exit_code == 0
+
+
 # --- exceptions, show-paths, privacy ------------------------------------------------------------------
 
 
@@ -494,12 +565,13 @@ def test_planted_names_never_leave_the_manifest(tmp_path: Path, capsys: pytest.C
     planted = ("ZhangSan", "19800101", "张三", "LiSi", "WangWu")
     code, out, err = run(["manifest", str(ds)], capsys)
     assert code == 0 and not any(name in out + err for name in planted)
-    manifest_text = (ds / "manifest.json").read_text(encoding="utf-8")
+    written = ds / ".neurogrid" / "manifest.json"
+    manifest_text = written.read_text(encoding="utf-8")
     assert "ZhangSan_19800101.edf" in manifest_text and "张三.edf" in manifest_text
     (ds / "ZhangSan_19800101.edf").write_bytes(edf + b"\0")
     (ds / "WangWu_19900101.txt").write_text("x", encoding="utf-8")
     (ds / "LiSi" / "rec.edf").unlink()
-    code, out, err = run(["verify", str(ds), "--manifest", str(ds / "manifest.json")], capsys)
+    code, out, err = run(["verify", str(ds), "--manifest", str(written)], capsys)
     assert code == 1 and not any(name in out + err for name in planted) and "rec-" in out
     results_file = tmp_path / "r.json"
     # metadata only: a mapping pattern would turn the planted names into BIDS labels (A-05, not M13)
@@ -513,7 +585,7 @@ def test_planted_names_never_leave_the_manifest(tmp_path: Path, capsys: pytest.C
     for lang in ("zh", "en"):
         html = render_report(results, lang)
         assert not any(name in html for name in planted)
-    code, out, _ = run(["verify", str(ds), "--manifest", str(ds / "manifest.json"), "--show-paths"], capsys)
+    code, out, _ = run(["verify", str(ds), "--manifest", str(written), "--show-paths"], capsys)
     assert "ZhangSan_19800101.edf" in out and "WangWu_19900101.txt" in out  # only on request (D-10 f)
 
 
@@ -554,7 +626,7 @@ def test_unreadable_files_write_no_manifest(tmp_path: Path, capsys: pytest.Captu
     finally:
         _unlock(ds / "rec_a.edf", lock)
     assert code == 1 and "cannot be read" in out and "No manifest was written" in out
-    assert not (ds / "manifest.json").exists() and result.data is None
+    assert not (ds / ".neurogrid").exists() and result.data is None  # not even .neurogrid/ is created
     assert result.unreadable == [pseudonym(PurePosixPath("rec_a.edf")) + ".edf"]  # raw folder (A-51, A-70)
 
 
@@ -564,16 +636,19 @@ def test_manifest_command_refuses_links_folders_and_invalid_sources(
     ds = _copy(tmp_path)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    dir_link(ds / "manifest.json", elsewhere)  # a link at the default location is never written through
+    (ds / ".neurogrid").mkdir()
+    default = ds / ".neurogrid" / "manifest.json"
+    dir_link(default, elsewhere)  # a link at the default location is never written through
     code, _, err = run(["manifest", str(ds)], capsys)
     assert code == 2 and "not followed" in err
     if WINDOWS:
-        Path(ds / "manifest.json").rmdir()
+        Path(default).rmdir()
     else:
-        (ds / "manifest.json").unlink()
-    dir_link(ds / ".neurogrid", elsewhere)
+        default.unlink()
+    (ds / ".neurogrid").rmdir()
+    dir_link(ds / ".neurogrid", elsewhere)  # neither through a linked .neurogrid
     code, _, err = run(["manifest", str(ds)], capsys)
-    assert code == 2 and "not followed" in err
+    assert code == 2 and "not followed" in err and list(elsewhere.iterdir()) == []
     if WINDOWS:
         Path(ds / ".neurogrid").rmdir()
     else:
@@ -591,10 +666,10 @@ def test_manifest_command_refuses_links_folders_and_invalid_sources(
     (ds / ".neurogrid" / "provenance.yaml").unlink()
     (ds / ".neurogrid" / "processing_steps.json").write_text("{", encoding="utf-8")
     code, _, err = run(["manifest", str(ds)], capsys)
-    assert code == 2 and "processing_steps.json" in err and not (ds / "manifest.json").exists()
+    assert code == 2 and "processing_steps.json" in err and not default.exists()
     code, _, _ = run(["check", str(ds), "--out", str(tmp_path / "r.json")], capsys)
     assert code == 1  # an integrity artefact: a finding in check (raw folder: M02-01 decides the exit)
-    assert not list(ds.glob(".manifest.json.*.tmp"))
+    assert not list(ds.rglob(".manifest.json.*.tmp"))
 
 
 def test_verify_refuses_unusable_manifests(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -650,10 +725,11 @@ def test_chinese_messages_and_vault_log(tmp_path: Path, capsys: pytest.CaptureFi
     assert code == 0 and "清单已写入" in out
     (vault / "access.jsonl").write_text('{"event": 1}\n', encoding="utf-8")  # hash-chained separately (A-22)
     (vault / "access.jsonl.lock").write_text("", encoding="utf-8")
-    code, out, _ = run(["--lang", "zh", "verify", str(ds), "--manifest", str(ds / "manifest.json")], capsys)
+    written = ds / ".neurogrid" / "manifest.json"  # next to the vault, itself left out (KONZEPT 2.5)
+    code, out, _ = run(["--lang", "zh", "verify", str(ds), "--manifest", str(written)], capsys)
     assert code == 0 and "数据集与清单一致" in out
     (vault / "roles.yaml").write_text("roles: [x]\n", encoding="utf-8")
-    code, out, _ = run(["verify", str(ds), "--manifest", str(ds / "manifest.json")], capsys)
+    code, out, _ = run(["verify", str(ds), "--manifest", str(written)], capsys)
     assert code == 1 and ".neurogrid/vault/roles.yaml" in out
 
 

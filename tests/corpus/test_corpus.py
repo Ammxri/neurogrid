@@ -216,7 +216,7 @@ def test_calibration_protocol_is_reproducible_from_the_corpus() -> None:
         assert float(f"{np.percentile(data, 95.0):.6g}") == entry["value"], rule
 
 
-# --- P4 evidence area: gxdsl008 on the corpus (GX-00..GX-04, A-40, A-83) ------------------------------------
+# --- P4 evidence area: gxdsl008 on the corpus (GX-00..GX-05, A-40, A-82, A-83) ------------------------------
 
 # GX-03 per data set: EDF passes; BDF, FIF, BrainVision and EEGLAB MAT v5 (ds004504) warn. The 75 PSG-IPA
 # hypnograms are annotation-only files, not recordings (not_applicable).
@@ -233,7 +233,8 @@ GX03 = {
 @pytest.mark.parametrize("name", sorted(DATASETS))
 def test_gxdsl008_runs_on_every_dataset_and_only_warns(name: str, tmp_path: Path) -> None:
     """gxdsl008 alone (no core, so no signal sample): never exit 2, only warnings with the clause 'unknown',
-    coverage n/a, GX-04 open without evidence.yaml, and GX-01 never silent (Q16)."""
+    coverage n/a, GX-04 open without evidence.yaml, GX-01 never silent (Q16), and GX-05 a warning, because no
+    corpus data set has a manifest (A-82)."""
     config = tmp_path / "neurogrid.toml"
     config.write_text('[check]\nrulepacks = ["gxdsl008"]\n', encoding="utf-8")
     results = pipeline.run_check(CORPUS / name, pipeline.CheckOptions(config_path=config, as_of=AS_OF))
@@ -244,6 +245,8 @@ def test_gxdsl008_runs_on_every_dataset_and_only_warns(name: str, tmp_path: Path
     gx03 |= {Status.PASSED} if any(p.rule_id == "GXDSL008-STO-001" for p in results.passed) else set()
     assert gx03 - {Status.NOT_APPLICABLE} == GX03[name]
     assert [f.status for f in results.findings if f.rule_id == "GXDSL008-ACC-001"] == [Status.EVIDENCE_OPEN]
+    gx05 = [(f.object, f.status, f.reason) for f in results.findings if f.rule_id == "GXDSL008-STO-002"]
+    assert gx05 == [("dataset", Status.FAILED, "provenance.manifest_missing")]
     signal = [r for r in results.recordings if r.n_eeg_channels]
     gx01 = [
         f for f in results.findings if f.rule_id == "GXDSL008-ACQ-001" and f.status is Status.NOT_CHECKABLE
@@ -332,8 +335,9 @@ def test_manifest_lists_the_locked_files_and_verify_finds_no_change(name: str, t
 
 @pytest.mark.parametrize("name", sorted(DATASETS))
 def test_corpus_datasets_have_no_manifest_and_no_provenance_documentation(name: str) -> None:
-    """M13 without a manifest (A-82): CORE-M13-01 a warning, CORE-M13-02 not checkable; none of the six data
-    sets documents processing steps or software versions (no provenance.yaml, no GeneratedBy)."""
+    """M13 without a manifest (A-82): CORE-M13-01 a warning, CORE-M13-02 not applicable (nothing to compare);
+    none of the six data sets documents processing steps or software versions (no provenance.yaml, no
+    GeneratedBy)."""
     results = _check(name)
     m13 = {
         (f.rule_id, f.status, f.subkey, f.reason)
@@ -342,7 +346,7 @@ def test_corpus_datasets_have_no_manifest_and_no_provenance_documentation(name: 
     }
     assert m13 == {
         ("CORE-M13-01", Status.FAILED, None, "provenance.manifest_missing"),
-        ("CORE-M13-02", Status.NOT_CHECKABLE, None, "provenance.manifest_missing"),
+        ("CORE-M13-02", Status.NOT_APPLICABLE, None, "provenance.manifest_missing"),
         ("CORE-M13-03", Status.FAILED, "processing_steps", "provenance.steps_missing"),
         ("CORE-M13-03", Status.FAILED, "software", "provenance.software_missing"),
     }

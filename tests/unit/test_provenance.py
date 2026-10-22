@@ -68,7 +68,8 @@ def _tree(root: Path) -> dict[str, bytes]:
         ".neurogrid/processing_steps.json": b"[]\n",
         ".neurogrid/vault/access.jsonl": b'{"x": 1}\n',
         ".neurogrid/vault/access.jsonl.lock": b"",
-        "manifest.json": b"old manifest",
+        ".neurogrid/manifest.json": b"old manifest",  # the default location (A-82): left out
+        "manifest.json": b"a file of the dataset",  # at the root it is an ordinary file: covered
         "张三/记录.edf": b"chinese name",
     }
     for relative, data in files.items():
@@ -89,11 +90,13 @@ VAULT = [".neurogrid/vault/access.jsonl", ".neurogrid/vault/access.jsonl.lock"]
 
 
 def test_build_covers_everything_but_the_manifest_and_the_vault_log(tmp_path: Path) -> None:
+    """KONZEPT 2.5: everything in .neurogrid/ is covered except manifest.json and vault/access.jsonl."""
     files = _tree(tmp_path)
+    assert DEFAULT_MANIFEST == PurePosixPath(".neurogrid", "manifest.json")
     built = build_manifest(tmp_path, _exclusions(*VAULT), excluded=VAULT)
     assert built.manifest is not None and not built.unreadable
     listed = {item.path: item for item in built.manifest.files}
-    expected = sorted(set(files) - {"manifest.json", *VAULT})
+    expected = sorted(set(files) - {".neurogrid/manifest.json", *VAULT})
     assert [item.path for item in built.manifest.files] == expected  # code-point order of POSIX paths
     for path in expected:
         assert listed[path].sha256 == hashlib.sha256(files[path]).hexdigest()
@@ -103,8 +106,11 @@ def test_build_covers_everything_but_the_manifest_and_the_vault_log(tmp_path: Pa
     for name in (
         ".neurogrid/neurogrid.toml",
         ".neurogrid/splits.tsv",
+        ".neurogrid/evidence.yaml",
+        ".neurogrid/processing_steps.json",
         ".bidsignore",
         "derivatives/x/out.txt",
+        "manifest.json",
     ):
         assert name in listed
 
@@ -413,12 +419,23 @@ def test_compare_marks_files_below_an_unlistable_folder_unreadable(
 def test_excluded_paths_are_not_compared(tmp_path: Path) -> None:
     (tmp_path / "a.txt").write_text("a", encoding="utf-8")
     manifest = _manifest(tmp_path)
-    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
+    (tmp_path / ".neurogrid").mkdir()
+    (tmp_path / ".neurogrid" / "manifest.json").write_text("{}", encoding="utf-8")  # the default location
     (tmp_path / "run-x").mkdir()
     (tmp_path / "run-x" / "tmp.json").write_text("{}", encoding="utf-8")
     exclusions = comparison_exclusions(tmp_path, manifest, None, tmp_path / "run-x")
     assert compare(tmp_path, manifest, exclusions).deviations == ()
     assert [d.path for d in compare(tmp_path, manifest, _exclusions()).deviations] == ["run-x/tmp.json"]
+    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")  # at the root: a file like any other
+    (tmp_path / ".neurogrid" / "splits.tsv").write_text("recording\tsplit\n", encoding="utf-8")
+    found = [(d.path, d.kind) for d in compare(tmp_path, manifest, exclusions).deviations]
+    assert found == [(".neurogrid/splits.tsv", "new"), ("manifest.json", "new")]
+    # a manifest read with --manifest from inside the dataset is left out as well
+    exclusions = comparison_exclusions(tmp_path, manifest, tmp_path / "manifest.json")
+    assert [d.path for d in compare(tmp_path, manifest, exclusions).deviations] == [
+        ".neurogrid/splits.tsv",
+        "run-x/tmp.json",
+    ]
 
 
 # --- read ----------------------------------------------------------------------------------------------
@@ -707,7 +724,14 @@ def test_state_reports_status_without_comparing(tmp_path: Path) -> None:
     built = build_manifest(tmp_path, _exclusions())
     assert built.manifest is not None
     (tmp_path / "manifest.json").write_bytes(manifest_bytes(built.manifest))
+    root_only = state()  # a manifest.json at the root is not the default location (A-82)
+    assert root_only.info().status is ManifestStatus.MISSING and root_only.read().problem == "missing"
+    (tmp_path / "manifest.json").unlink()
+    location = tmp_path / ".neurogrid" / "manifest.json"
+    location.parent.mkdir()
+    location.write_bytes(manifest_bytes(built.manifest))
     fresh = state()
+    assert fresh.read().location == location.resolve()
     info = fresh.info()
     assert info.status is ManifestStatus.NOT_VERIFIED and info.sha256 == built.manifest.manifest_hash
     assert fresh.comparison() is not None and fresh.info().status is ManifestStatus.MATCHES
@@ -715,13 +739,35 @@ def test_state_reports_status_without_comparing(tmp_path: Path) -> None:
     later = state()
     later.comparison()
     assert later.info().status is ManifestStatus.DIFFERS and later.info().new == 1
-    (tmp_path / "manifest.json").write_text("[]", encoding="utf-8")
+    location.write_text("[]", encoding="utf-8")
     broken = state()
     assert broken.info().status is ManifestStatus.INVALID and broken.read().problem == "manifest.invalid"
     data = json.loads(manifest_bytes(built.manifest))
     data["files"][0]["size"] = 5
-    (tmp_path / "manifest.json").write_text(json.dumps(data), encoding="utf-8")
+    location.write_text(json.dumps(data), encoding="utf-8")
     assert state().info().status is ManifestStatus.HASH_MISMATCH
+
+
+@pytest.mark.parametrize("linked", [".neurogrid", ".neurogrid/manifest.json"])
+def test_state_never_follows_a_link_at_the_default_location(tmp_path: Path, linked: str) -> None:
+    """A linked .neurogrid, or a link at .neurogrid/manifest.json, is not read (A-52, A-66): problem "link"
+    (CORE-M13-01 manifest_invalid), and nothing is compared."""
+    root = tmp_path / "ds"
+    (root / ".neurogrid").mkdir(parents=True)
+    (root / "a.txt").write_text("a", encoding="utf-8")
+    built = build_manifest(root, _exclusions())
+    assert built.manifest is not None
+    target = tmp_path / "elsewhere" / "manifest.json"  # a folder: links to folders are junctions on Windows
+    target.mkdir(parents=True)
+    (target / "manifest.json").write_bytes(manifest_bytes(built.manifest))
+    if linked == ".neurogrid":
+        (root / ".neurogrid").rmdir()
+    dir_link(root.joinpath(*PurePosixPath(linked).parts), target)
+    state = ProvenanceState(
+        root, single_file=False, is_bids=False, show_paths=False, manifest_path=None, work=None
+    )
+    assert state.read() == io_provenance.ManifestRead(None, "link", None)
+    assert state.info().status is ManifestStatus.INVALID and state.comparison() is None
 
 
 # --- texts ---------------------------------------------------------------------------------------------

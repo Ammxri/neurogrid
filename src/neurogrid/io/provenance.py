@@ -317,8 +317,9 @@ def vault_exclusions(root: Path, project_root: Path, vault_path: str) -> list[st
 def comparison_exclusions(
     root: Path, manifest: Manifest, location: Path | None, work: Path | None = None
 ) -> Exclusions:
-    """What a comparison leaves out: the default manifest, the manifest being read (if inside the dataset),
-    the paths the manifest recorded as excluded and the run's transient work folder (A-82)."""
+    """What a comparison leaves out: the default manifest .neurogrid/manifest.json, the manifest being read
+    (if inside the dataset), the paths the manifest recorded as excluded and the run's transient work folder
+    (A-82). Everything else in .neurogrid/ is compared."""
     files = [DEFAULT_MANIFEST.as_posix(), *manifest.excluded]
     own = inside(root, location)
     if own is not None:
@@ -359,8 +360,8 @@ def is_bids_folder(root: Path) -> bool:
 
 @dataclass(frozen=True)
 class ManifestRead:
-    """The manifest of a check run, or the problem: "missing", "link" (a link at the default location is not
-    followed, A-52) or the key of the ManifestError."""
+    """The manifest of a check run, or the problem: "missing", "link" (a link at the default location
+    .neurogrid/manifest.json, or a linked .neurogrid, is not followed, A-52) or the ManifestError key."""
 
     parsed: ParsedManifest | None
     problem: str | None
@@ -400,11 +401,12 @@ class ProvenanceState:
     def _load(self) -> ManifestRead:
         location = self.manifest_path
         if location is None:
-            location = self.root.joinpath(*DEFAULT_MANIFEST.parts)
+            try:  # a linked .neurogrid or manifest.json at the default location is not followed (A-52, A-66)
+                location = resolve_within(self.root, DEFAULT_MANIFEST, must_exist=False)
+            except UnsafePathError:
+                return ManifestRead(None, "link", None)
             if not os.path.lexists(location):
                 return ManifestRead(None, "missing", None)
-            if is_link(location):
-                return ManifestRead(None, "link", None)
         try:
             parsed = read_manifest(location)
         except ManifestError as exc:

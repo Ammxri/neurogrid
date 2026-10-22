@@ -4,18 +4,20 @@ every file matches it" for semi-automatic rules (gxdsl008 GX-05; A-15: document 
 
 All four are dataset-wide checks with ``is_true``; the severity, also the stricter one of CORE-M13-01 under
 --strict, is the engine's business (ARC-02). The manifest is read once per run (default
-<dataset>/manifest.json or --manifest); the dataset is walked and hashed only when a rule compares it and a
-usable manifest exists. Invalid manifest content is a finding, not a tool error (A-12, C2). A single file as
-target is no dataset: all four are not applicable (A-66).
+<dataset>/.neurogrid/manifest.json or --manifest); the dataset is walked and hashed only when a rule compares
+it and a usable manifest exists. Invalid manifest content is a finding, not a tool error (A-12, C2). A single
+file as target is no dataset: all four are not applicable (A-66).
 
 CORE-M13-02 reports one finding per deviating path (subkey changed, new, missing, skipped_changed, unreadable)
 plus ``manifest_hash`` when the stored hash does not match the content; without deviation one passed dataset
-measurement (A-59). Details carry sizes and kinds only, never per-file hashes (A-11, A-51).
+measurement (A-59). Details carry sizes and kinds only, never per-file hashes (A-11, A-51). Without a manifest
+there is nothing to compare: not applicable (provenance.manifest_missing; CORE-M13-01 reports the missing
+manifest); a manifest that cannot be used leaves the comparison not checkable (provenance.manifest_invalid).
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from neurogrid.checks.context import CheckContext
 from neurogrid.io.provenance import ManifestRead, show
@@ -43,18 +45,25 @@ def _single_file(check_id: str) -> list[Measurement]:
     ]
 
 
-def _no_manifest(
-    check_id: str, read: ManifestRead, *, state: Literal["measured", "not_checkable"] = "measured"
-) -> list[Measurement]:
-    """A missing manifest, or one that cannot be used (the problem key, never text from the file)."""
+def _no_manifest(check_id: str, read: ManifestRead, *, compares: bool = False) -> list[Measurement]:
+    """A missing manifest, or one that cannot be used (the problem key, never text from the file).
+
+    ``compares``: the check only compares the files with a manifest (CORE-M13-02). Without a manifest there is
+    nothing to compare (not applicable; the missing manifest is CORE-M13-01's finding); with a manifest that
+    cannot be used the comparison is not checkable (A-82). Otherwise a failed measurement."""
     if read.problem == "missing":
+        if compares:
+            return [
+                Measurement(
+                    check_id=check_id,
+                    object="dataset",
+                    state="not_applicable",
+                    reason="provenance.manifest_missing",
+                )
+            ]
         return [
             Measurement(
-                check_id=check_id,
-                object="dataset",
-                value=False,
-                state=state,
-                reason="provenance.manifest_missing",
+                check_id=check_id, object="dataset", value=False, reason="provenance.manifest_missing"
             )
         ]
     return [
@@ -62,7 +71,7 @@ def _no_manifest(
             check_id=check_id,
             object="dataset",
             value=False,
-            state=state,
+            state="not_checkable" if compares else "measured",
             reason="provenance.manifest_invalid",
             details={"problem": read.problem},
         )
@@ -109,7 +118,7 @@ def measure_files_match(ctx: CheckContext) -> list[Measurement]:
     read = state.read()
     comparison = state.comparison()
     if read.parsed is None or comparison is None:
-        return _no_manifest(FILES_MATCH, read, state="not_checkable")
+        return _no_manifest(FILES_MATCH, read, compares=True)
     out = []
     if not read.parsed.hash_ok:
         out.append(

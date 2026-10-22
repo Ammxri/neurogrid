@@ -219,7 +219,9 @@ def check(
     ] = None,
     manifest_file: Annotated[
         str | None,
-        typer.Option("--manifest", help="Manifest to compare with (default: manifest.json in the dataset)."),
+        typer.Option(
+            "--manifest", help="Manifest to compare with (default: .neurogrid/manifest.json in the dataset)."
+        ),
     ] = None,
 ) -> None:
     """Check a dataset against rule packs and write results.json."""
@@ -360,7 +362,9 @@ def manifest(
     path: Annotated[str, typer.Argument(help="Dataset folder.")],
     out: Annotated[
         str | None,
-        typer.Option("--out", help="Manifest file (default: manifest.json in the dataset folder)."),
+        typer.Option(
+            "--out", help="Manifest file (default: .neurogrid/manifest.json in the dataset folder)."
+        ),
     ] = None,
     show_paths: Annotated[
         bool, typer.Option("--show-paths", help="Show real paths instead of pseudonymous IDs.")

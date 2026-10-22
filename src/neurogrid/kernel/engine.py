@@ -247,12 +247,15 @@ def _evidence_record(
     item: EvidenceItem | None,
     document: DocumentResult | None,
     outcome: Status,
+    severity: Severity,
 ) -> EvidenceRecord:
+    """``severity`` is the effective severity of the run (strict_severity under --strict), as in the rule's
+    findings and results rules[] (A-82)."""
     return EvidenceRecord(
         rule_id=rule.id,
         rulepack=pack_name,
         phase=rule.phase,
-        severity=rule.severity,
+        severity=severity,
         verification=rule.verification,
         status=item.status if item is not None else None,
         outcome=outcome,
@@ -355,6 +358,7 @@ def run(inp: EngineInput) -> EngineResult:
         pack = loaded.pack
         for rule in pack.rules:
             spec = inp.registry[rule.check]
+            severity = rule.effective_severity(inp.strict)
             params = {name: p.value for name, p in effective[rule.id].items()}
             is_evidence = rule.check == EVIDENCE_CHECK
             item = inp.evidence.get(rule.id) if is_evidence else None
@@ -383,7 +387,7 @@ def run(inp: EngineInput) -> EngineResult:
                 ):
                     evaluated.add(rule.phase)
                 if is_evidence:
-                    records.append(_evidence_record(pack.rulepack, rule, item, document, status))
+                    records.append(_evidence_record(pack.rulepack, rule, item, document, status, severity))
                 if status is Status.PASSED:
                     passed[(rule.id, m.object)] += 1
                     continue
@@ -397,7 +401,7 @@ def run(inp: EngineInput) -> EngineResult:
                         source_status=pack.source_status,
                         clause=rule.clause,
                         phase=rule.phase,
-                        severity=rule.effective_severity(inp.strict),
+                        severity=severity,
                         status=status,
                         object=m.object,
                         subkey=m.subkey,
