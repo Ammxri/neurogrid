@@ -6,7 +6,19 @@
 <meta name="generator" content="NeuroGrid {{ results.tool.version }}">
 <title>{{ t('report.title') }}</title>
 <style>
-  body { font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", Arial, sans-serif; font-size: 10.5pt; color: #1b1b1b; margin: 24px; line-height: 1.45; }
+{{ font_css }}
+  @page {
+    size: A4;
+    margin: 16mm 12mm 20mm 12mm;
+    @top-left { content: {{ css_string(t('report.title') ~ ' · ' ~ results.config.as_of.isoformat()) }}; font-family: "NG Sans"; font-size: 7.5pt; color: #444; }
+    @bottom-left { content: {{ css_string(t('disclaimer')) }}; font-family: "NG Sans"; font-size: 7.5pt; width: 80%; }
+    @bottom-right { content: counter(page) " / " counter(pages); font-family: "NG Sans"; font-size: 7.5pt; }
+  }
+  *, *::before, *::after { font-family: "NG Sans" !important; }
+  html { font-synthesis: none; }
+  tr { break-inside: avoid; }
+  @media print { body { margin: 0; } }
+  body { font-family: "NG Sans"; font-size: 10.5pt; color: #1b1b1b; margin: 24px; line-height: 1.45; }
   h1 { font-size: 18pt; margin: 0 0 6px 0; }
   h2 { font-size: 13pt; border-bottom: 1px solid #999; padding-bottom: 3px; margin-top: 28px; }
   h3 { font-size: 11pt; margin-top: 18px; }
@@ -18,7 +30,7 @@
   .light { display: inline-block; padding: 1px 8px; border-radius: 8px; font-weight: 600; }
   .light-red { background: #f6c7c7; } .light-yellow { background: #f7e7a6; }
   .light-green { background: #c9ebc9; } .light-grey { background: #e3e3e3; }
-  .mono { font-family: Consolas, "Courier New", monospace; font-size: 9pt; word-break: break-all; }
+  .mono { font-size: 9pt; letter-spacing: 0.02em; word-break: break-all; }
   pre { white-space: pre-wrap; font-size: 8.5pt; background: #f7f7f7; padding: 6px; }
   footer { margin-top: 32px; font-size: 9pt; color: #444; }
 </style>

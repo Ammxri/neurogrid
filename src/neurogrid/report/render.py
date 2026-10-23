@@ -1,6 +1,7 @@
 """Build the report context from results.json and render HTML (NG-F13, PRD §14).
 
-The report reads only results.json (A-61). PDF output and charts follow in P5.
+The report reads only results.json (A-61). The files (HTML with embedded font subsets, PDF) are written by
+report/output.py.
 """
 
 from __future__ import annotations
@@ -8,6 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+
+from markupsafe import Markup
 
 from neurogrid.kernel.evidence import EvidenceRecord, EvidenceState
 from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
@@ -363,5 +366,29 @@ def build_context(results: Results, lang: str) -> dict[str, Any]:
     }
 
 
-def render_report(results: Results, lang: str) -> str:
-    return render_html(TEMPLATE_DIR, "report.html.j2", build_context(results, lang))
+def css_string(text: str) -> Markup:
+    """A CSS string literal for ``content:`` (backslash, quotes, line breaks and '<' escaped)."""
+    escaped = (
+        text.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\A ")
+        .replace("\r", "")
+        .replace("<", "\\3C ")
+    )
+    return Markup(f'"{escaped}"')
+
+
+def page_text(lang: str) -> str:
+    """Every text that appears only in the CSS (``content:`` of the @page margin boxes), so that the font
+    subset covers it: running head, fixed sentence, page counter separator."""
+    tr = translator(lang).t
+    return "\n".join((tr("report.title"), " · ", tr("disclaimer"), " / "))
+
+
+def render_report(results: Results, lang: str, *, font_css: str = "") -> str:
+    """The report as one HTML document; ``font_css`` (the @font-face rules of the embedded subsets) opens
+    the style sheet."""
+    context = build_context(results, lang)
+    context["font_css"] = Markup(font_css)
+    context["css_string"] = css_string
+    return render_html(TEMPLATE_DIR, "report.html.j2", context)

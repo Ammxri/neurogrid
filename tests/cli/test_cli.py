@@ -71,7 +71,9 @@ def test_chinese_messages(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     assert code == 0 and "通过了已加载规则包" in out and "符合性评价" in out
 
 
-def test_scan_and_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_scan_and_report(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     code, out, _ = run(["scan", str(FIX / "unsupported"), "--out", str(tmp_path / "scan.json")], capsys)
     assert code == 0 and "CNT" in out
     assert json.loads((tmp_path / "scan.json").read_text(encoding="utf-8"))["formats"] == {"EDF": 1}
@@ -87,8 +89,13 @@ def test_scan_and_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     )
     code, _, _ = run(["report", str(results), "--lang", "zh,en"], capsys)
     assert code == 0 and (tmp_path / "report.en.html").is_file()
+    # P5: pdf is available with the PDF browser; without it (an empty browser folder) exit 2 with the hint,
+    # and an unknown format stays exit 2 (A-26)
+    monkeypatch.setenv("NEUROGRID_PDF_BROWSER_DIR", str(tmp_path / "no-browser"))
     code, _, err = run(["report", str(results), "--format", "pdf"], capsys)
-    assert code == 2 and "pdf" in err
+    assert code == 2 and "PDF browser" in err and "install_pdf_browser.py" in err
+    code, _, err = run(["report", str(results), "--format", "docx"], capsys)
+    assert code == 2 and "docx" in err
     code, _, err = run(["report", str(results), "--lang", "fr"], capsys)
     assert code == 2
     (tmp_path / "broken.json").write_text("{}", encoding="utf-8")

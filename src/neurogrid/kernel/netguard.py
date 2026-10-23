@@ -4,8 +4,13 @@ An audit hook blocks socket connections, datagrams and every kind of name resolu
 gethostbyname[_ex], gethostbyaddr, getnameinfo) towards non-loopback addresses.
 
 Limits, stated openly: it only covers this Python process – subprocesses are restricted by their own
-flags – and asyncio's Windows proactor connects without an audit event. NeuroGrid uses no asyncio
-networking; a source test forbids network APIs (tests/unit/test_architecture.py).
+flags – and asyncio's Windows proactor connects without an audit event. NeuroGrid's own code uses no
+asyncio; a source test forbids network APIs (tests/unit/test_architecture.py).
+
+PDF printing (A-49 amendment, P5): Playwright's synchronous API runs an asyncio event loop in this process
+and talks to its driver through pipes. On Windows the proactor loop creates one socket pair for its wake-up
+channel, which binds and connects to 127.0.0.1 with audit events; loopback is allowed, so exactly this
+passes, and every other connection, datagram and name resolution is still blocked.
 """
 
 from __future__ import annotations

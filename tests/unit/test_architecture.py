@@ -11,7 +11,9 @@ import pytest
 
 ROOT = Path(__file__).parent.parent.parent
 SRC = ROOT / "src" / "neurogrid"
-KERNEL_ALLOWED_THIRD_PARTY = {"pydantic", "jinja2", "yaml"}
+# fontTools, playwright and pypdf: report fonts and PDF printing with its QA gate in kernel/fonts.py and
+# kernel/pdf.py (KONZEPT 1.2, P5 decision B2)
+KERNEL_ALLOWED_THIRD_PARTY = {"pydantic", "jinja2", "yaml", "fontTools", "playwright", "pypdf"}
 EEG_LIBRARIES = {"mne", "mne_bids", "edfio", "numpy", "scipy", "pyprep", "autoreject", "mne_icalabel"}
 # Modules that can talk to the network. Only the network guard itself may import socket (A-49).
 NETWORK_MODULES = {

@@ -1,7 +1,7 @@
 """HTML rendering with Jinja2 (TECH-07). Templates are passed in by the product (A-23).
 
 Autoescaping is always on: dataset-derived strings (labels, file names) are untrusted (A-53).
-PDF rendering via Playwright follows in P5.
+Fonts and their subsets: kernel/fonts.py; PDF printing and the PDF QA gate: kernel/pdf.py.
 """
 
 from __future__ import annotations

@@ -141,6 +141,24 @@ errors:
     empty: "No language given. Available: zh, en."
   report:
     format_unavailable: "Output format '{format}' is not available in this version."
+  pdf:
+    shell_missing: "The PDF browser (Chrome Headless Shell, revision {revision}) is not installed in {folder}. HTML reports work without it (--format html)."
+    shell_incomplete: "The PDF browser in {folder} is incomplete (its installation record or program file is missing). Please install it again."
+    shell_revision: "The PDF browser in NeuroGrid's folder is revision {found}; this version of NeuroGrid needs revision {required}. Please install it again."
+    platform_unsupported: "PDF reports are not available on this platform ({platform}); only Windows x86_64 and Linux x86_64 are supported. HTML reports work."
+    browser_dir_invalid: "{variable} must be an absolute folder on this computer (no network or device path)."
+    playwright_version: "PDF reports need Playwright {required}, but {found} is installed. Please reinstall NeuroGrid from its lock file."
+    linux_libraries: "The PDF browser needs system libraries that are missing: {libraries}."
+    glibc_too_old: "The PDF browser needs a newer C library (glibc {required} or later). Supported: Debian 12, Ubuntu 22.04 or later."
+    launch_failed: "The PDF browser could not be started ({type}). Check it with the --check option of the installer; HTML reports work without it."
+    print_failed: "The PDF browser could not print the report ({type}); no files were written."
+    timeout: "The PDF browser did not finish within {seconds} s; no files were written."
+    qa_failed: "The PDF did not pass NeuroGrid's PDF check ({checks}); no files were written."
+    install:
+      command: "Install it with: {command}   (offline: add --from-zip <zip file> --sha256 <SHA-256>; see the documentation)."
+      docs: "How to install it: documentation, installation page, section 'PDF browser'. The installer install_pdf_browser.py is attached to every NeuroGrid release (address and SHA-256 there); run it with Python 3.11 or later."
+      apt: "On {distribution}, install them with: apt-get install --no-install-recommends {packages}"
+      apt_other: "This Linux distribution is not verified; the packages for {distribution} are: apt-get install --no-install-recommends {packages}"
   output:
     is_directory: "The output path is a folder; please give a file name."
     not_writable: "The output cannot be written there (folder missing, a file in the way, or no permission)."
