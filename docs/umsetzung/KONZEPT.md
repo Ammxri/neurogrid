@@ -276,17 +276,33 @@ rules:
 ### 2.3 `results.json` (NG-F14, A-09, A-11, A-61)
 
 ```
-{ "schema_version", "disclaimer": {zh, en}, "tool": {name, version}, "environment": {libs, platform, blas_threads},
-  "dataset": {Dataset ohne Pfade}, "rulepacks": [{name, version, source, source_status, sha256}],
-  "rules": [{id, clause, title_zh, title_en, phase, severity, verification, source_status}],
-  "config": {canonical_sha256, as_of, seed, sampling, effective_params, effective_settings (bereinigt)},
-  "recordings": [{id (pseudonym), format, streamable, metrics, sample}],
-  "findings": [Finding …]  (verletzte und Sonderstatus einzeln; bestandene gezählt je Regel × Aufnahme),
-  "evidence": [EvidenceItem …], "exceptions": [ExceptionEntry … mit used],
-  "duplicates": [[recording_id …] …],
-  "summary": {phases: {phase: {light, errors, warnings, open_evidence}}, coverage: {pack: value|"n/a"}, exit_code},
-  "manifest": {sha256, status} }
+{ "schema_version", "disclaimer": {zh, en}, "tool": {name, version}, "environment": {python, platform, libraries, blas_threads},
+  "dataset": {Dataset ohne Pfade}, "rulepacks": [{name, version, source, source_status, norm, sha256}],
+  "rules": [{id, rulepack, clause, title_zh, title_en, phase, check, severity (wirksam), strict_severity,
+             verification, source_status}],
+  "config": {canonical_sha256, as_of, seed, strict, sampling, effective_params, effective_settings (bereinigt),
+             evidence_sha256},
+  "recordings": [{id (pseudonym), format, streamable, metrics (P4: metrics.annotation), sample}],
+  "findings": [Finding …] (verletzte und Sonderstatus einzeln),
+  "passed": [{rule_id, object, count} …] (bestandene gezählt je Regel × Objekt),
+  "notices": [{level, message_key, params} …],
+  "evidence": [EvidenceRecord {rule_id, rulepack, phase, severity, verification, status, outcome, document,
+               document_check, sha256 (berechnet), sha256_recorded (eingetragen), reviewer, date, comment,
+               justification} …],
+  "exceptions": [ExceptionEntry … mit used],
+  "duplicates": [[recording_id …] …] | null,
+  "ai": {labels: {source, column, unit, scopes: {scope: {total, classes | null}}} | null,
+         demographics: {subjects, age_documented, sex_documented, age_groups | null, sex | null} | null,
+         splits: {source, recordings, subjects, unassigned} | null} | null,
+         (ai null: keine der Prüfungen von CORE-M11-01, CORE-M11-02, CORE-M12-01 geladen;
+          classes, age_groups, sex null: zurückgehalten, A-81)
+  "summary": {phases: {phase: {light, errors, warnings, open_evidence}}, coverage: {pack: value|"n/a"},
+              errors, warnings, open_evidence, exit_code},
+  "manifest": {sha256, status, files, changed, new, missing, skipped_changed, unreadable} | null }
 ```
+
+Die Felder aus P4 (`evidence`, `duplicates`, `ai`, `manifest`, `strict_severity`, `evidence_sha256`, `summary.open_evidence`) sind optional;
+results.json früherer Stände bleibt lesbar (A-80 ff., Übergreifend).
 
 Nicht enthalten: Uhrzeit, Rechner- oder Benutzername, absolute Pfade, Vault-Kopf-Hash, Signal-Hashes, Rohalter, diagnosis_code.
 
@@ -326,10 +342,16 @@ pattern = '(?P<subject>[A-Za-z0-9]+)_(?P<task>rest|task)\.edf'
 [annotation]
 mode = "continuous"
 epoch_s = 30
-vocabulary = ["W", "N1", "N2", "N3", "R"]
+vocabulary = ["W", "N1", "N2", "N3", "R"]   # Beispiel; die Codes hängen vom Datensatz ab
+annotators = ["scorer*"]                    # optional, Muster (A-80)
+
+[[annotation.files]]                        # reine Annotationsdatei zuordnen (A-80)
+path = "raw/night1_scorer2.edf"
+recording = "raw/night1.edf"
+annotator = "scorer2"
 
 [ai]
-labels = "events:trial_type"
+labels = "events:trial_type"     # oder "participants:<Spalte>" oder "annotations" (A-81)
 splits = ".neurogrid/splits.tsv"
 
 [consent]
@@ -345,9 +367,10 @@ approval_ref = "EC-2026-17"
 
 ### 2.5 Weitere Dateien
 
-- **Ablageort** `.neurogrid/` im Datensatz (A-22, A-30, A-47). Der Validator betritt ihn nicht; außer `manifest.json` und `vault/access.jsonl` wird alles darin ins Manifest aufgenommen.
-- **`evidence.yaml`** (A-15): `status` open|provided|partial|not_applicable, `document`, `sha256`, `reviewer` (Rolle/Kürzel), `date`, `comment`, `justification`.
-- **`manifest.json`** (A-22): `format_version`, `files` [{path, sha256, size}], `processing_steps`, `software`, `manifest_hash`.
+- **Ablageort** `.neurogrid/` im Datensatz (A-22, A-30, A-47). Der Validator betritt ihn nicht; außer `manifest.json`, `vault/access.jsonl` und dessen Sperrdatei `vault/access.jsonl.lock` wird alles darin ins Manifest aufgenommen (A-82; `check` lässt zusätzlich seinen Arbeitsordner `run-*` außen vor).
+- **`evidence.yaml`** (A-15, A-83): Standardort `.neurogrid/evidence.yaml`; `format_version: 1`, `evidence: {Regel-ID: {…}}` mit `status` open|provided|partial|not_applicable, `document`, `sha256`, `reviewer` (Rolle/Kürzel), `date`, `comment`, `justification`.
+- **`manifest.json`** (A-22, A-82): Standardort `.neurogrid/manifest.json`; `format_version`, `files` [{path, sha256, size}], `skipped`, `excluded`, `processing_steps`, `software`, `manifest_hash`.
+- **`provenance.yaml`** (A-82): `.neurogrid/provenance.yaml` mit `processing_steps` und `software` (CORE-M13-03).
 - **Vault** (A-30): `consents.yaml`, `roles.yaml`, `risks.yaml` ({id, date, description, affected_uses, min_consent_version}), `retention.yaml`, `access.jsonl`, `pia/pia.zh.md`, `pia/pia.en.md`.
 - **`splits.tsv`:** `recording`, `split`. Alternativ eine Spalte `split` in `participants.tsv`.
 - **`index.json` im Export-ZIP:** SHA-256 je Bestandteil, Kopf-Hash, Werkzeugversion, fester Satz.
@@ -356,12 +379,12 @@ approval_ref = "EC-2026-17"
 
 | Befehl | Optionen | Ausgabe | IDs |
 |---|---|---|---|
-| `neurogrid scan PFAD` | `--out scan.json` | Formate, Probanden, Aufnahmen, Größen, nicht unterstützte Dateien | CLI-01 |
+| `neurogrid scan PFAD` | `--out scan.json`, [E3] `--show-paths` | Formate, Probanden, Aufnahmen, Größen, nicht unterstützte Dateien | CLI-01 |
 | `neurogrid convert PFAD --to bids --out ZIEL` | `--config`, `--to gbt47127` (v0.2), [E3] `--strip-identifying-headers` | BIDS-Datensatz + ProcessingSteps + Validatorlauf | CLI-02, NG-F02, NG-F03 |
 | `neurogrid check PFAD` | `--rulepack` (mehrfach), `--config`, `--out`, `--strict`, `--manifest`, `--evidence`, `--as-of`, `--role`, `--allow-draft-rulepacks`, [E3] `--jobs`, [E3] `--show-paths` | results.json, Kurzfassung, Exit 0/1/2 | CLI-03, CLI-04 |
 | `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf`, `--out`; v1.0 `--format dossier` | `report.<lang>.<html,pdf>` | CLI-05, REP-08 |
-| `neurogrid manifest PFAD` | [E3] `--out` | manifest.json | CLI-06 |
-| `neurogrid verify PFAD --manifest manifest.json` | – | geändert/neu/fehlend; Exit 0/1 | CLI-06 |
+| `neurogrid manifest PFAD` | [E3] `--out` (Standard `.neurogrid/manifest.json`), [E3] `--show-paths` | manifest.json | CLI-06 |
+| `neurogrid verify PFAD --manifest manifest.json` | [E3] `--show-paths` | geändert/neu/fehlend/Art geändert/unlesbar; Exit 0/1, 2 bei ungültigem Manifest (A-82) | CLI-06 |
 | `neurogrid diff alt.json neu.json` | `--format text,json` | neu/behoben/verändert; Exit 1 bei neuen Fehlern | CLI-07 |
 | `neurogrid vault init / consent add / log / verify / export` | `consent add --subject --version --date --uses --withdrawn --ethics-ref`, [E3] `--from consents.tsv`; `log --action --objects --purpose --approval-ref`, [E3] `--show`; `verify --expect-head`; `export --report --out` | Vault-Dateien, ZIP | CLI-08, CLI-09 |
 | global | `--lang`, `--debug` | – | NG-N06, A-51 |

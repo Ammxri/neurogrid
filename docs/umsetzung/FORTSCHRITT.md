@@ -6,13 +6,55 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P3 abgeschlossen, P4 als Nächstes.** STOPP R4 ist entschieden (D-14: Parallelisierung einer Aufnahme
-mit `--jobs`, 300 s für 256 Kanäle) und umgesetzt. Konzept freigegeben (D-08 bis D-14), Freigabemodus A bis zum
-STOPP nach P5. Git: `main` (Doku-Commit), Arbeitszweig `dev` (lokal; Push erst mit Repo-URL, D-09).
+**Phase P4 abgeschlossen, P5 als Nächstes, danach STOPP G1.** Freigabemodus A bis STOPP G1. Git: `main` (Doku-Commit), Arbeitszweig `dev` (lokal; Push erst mit Repo-URL, D-09).
 Offen beim Nutzer: GitHub-Repo-URL (TECH-05/TECH-11, Linux-Lauf), GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
 ISO-TS vor P10, muttersprachliche zh-Prüfung vor v0.1, Docker Desktop bei Gelegenheit.
 
 ## Verlauf
+
+### 2026-10-23 – P4 Annotation, KI-Struktur, Provenienz, Nachweise, gxdsl008
+- **Abgeschlossen:** NG-F08, NG-F09, NG-F10, NG-F12, M10, M11, M12, M13, MET-02, CLI-03, CLI-04, CLI-06, GX-00, GX-01, GX-02, GX-03, GX-04, GX-05, UF-04, UF-05, RP-05.
+- **Beigetragen zu:** NG-F11, NG-F18, RP-07, REP-05, UF-01, UF-07, REP-01, DM-05, DM-06, NG-N02, NG-N03, NG-N05, NG-N08.
+- **Gebaut:**
+  - M10 Annotation (`io/annotations.py`, `checks/annotation.py`): Leser für EDF+/BDF+-TAL (auch reine Annotationsdateien), BrainVision `.vmrk`, EEGLAB (MAT v5/v7.3), FIF und BIDS `events.tsv`; Zuordnung von Hypnogrammen; Cohens κ, Codes, Lücken, Überlappungen (CORE-M10-01..04).
+  - M11/M12 KI-Struktur (`checks/ai_dataset.py`, `io/participants.py`, `io/splits.py`, `io/events.py`): Klassenanteile aus events, participants oder Annotationen; Demografie; Split-Integrität; Duplikate über den Signal-Hash.
+  - M13 Provenienz: `neurogrid manifest` und `neurogrid verify` (`kernel/provenance.py`, `io/provenance.py`), Standardort `.neurogrid/manifest.json`; CORE-M13-01..03; `--strict` über das neue Regelfeld `strict_severity`.
+  - Nachweise: Auswertung von `.neurogrid/evidence.yaml` mit Dokument-Hash (`kernel/evidence.py`, `checks/evidence.py`); halbautomatische Regeln; Ausnahmen vollständig; Ampel nach A-16, präzisiert unter „Übergreifend“ in A-80 ff.
+  - Paket `gxdsl008` mit GX-01 bis GX-05 (Klausel „unknown“ bis zum Normtext, D-02).
+  - results.json: optionale Blöcke `evidence`, `duplicates`, `ai`, `manifest`; Bericht mit den neuen Abschnitten; alle Texte zh/en/de.
+  - Annahmen A-80 (Annotation), A-81 (KI-Struktur), A-82 (Provenienz), A-83 (Nachweise, Ausnahmen, gxdsl008) und übergreifende Regeln.
+- **Vorgehen:** vier Bereiche parallel nach verbindlichen Vorgaben (ENTSCHEIDUNGEN: „Übergreifend“ und A-80 bis A-83), zusammengeführt und integriert (Manifest unter `.neurogrid/`, Labelquelle `annotations`, Verdeckung von `ai.splits`).
+- **Review:** sechs Prüfrichtungen (Annotation, KI-Struktur, Provenienz, Nachweise/gxdsl008, Integration/Datenschutz, Abgleich mit PRD und DoD), jeder Befund unabhängig gegengeprüft, schwere doppelt.
+  - 57 Befunde: 46 bestätigt, 2 strittig, 8 beabsichtigt, 1 widerlegt. Alle bestätigten und die strittigen behoben, je mit Regressionstest, unabhängig nachgeprüft und in einer Reparaturrunde nachgebessert.
+  - Wichtigste Befunde:
+    - Die Mitunterdrückung kleiner Zellen war über Summen, Split-Zahlen, Nullzellen und Statusangaben zurückzurechnen. Ersetzt durch die Tabellenregel (A-81); eine Auszählung über alle Belegungen findet keine herleitbare Zelle mehr.
+    - `participants:age` gab Rohalter aus; Datum und Uhrzeit in Annotationstexten erschienen im Klartext.
+    - Exit 2 durch Datensatzdaten: Überlauf bei großen Annotationszeiten, negatives Kopfgrößenfeld in EDF+, lange kodierte Dateinamen, tief verschachteltes Manifest.
+    - `verify` übersah Änderungen unter abgelehnten Ordnernamen; GX-03 bewertete nicht unterstützte Formate nicht.
+    - κ wuchs quadratisch mit der Zahl der Annotatoren; jetzt auf 100 Annotatoren begrenzt und über Klassenabschnitte berechnet (Beispiel: rund 290 s → 4 s für den ganzen Lauf, gleiche Ergebnisse).
+  - Gegenprüfung des gemergten Stands: keiner der 44 behobenen Code-Befunde tritt mehr auf (die übrigen 4 betrafen nur die Dokumentation). Sechs neue kleinere Fehler aus dem Zusammenspiel der Fixes und zwei eigene Restpunkte in einer zweiten Runde behoben und nachgeprüft (u. a. Datumsteile als Dateiendung, Uhrzeit-Muster, „N/A“ als Klasse, Konsolenpfad von `check --out`).
+- **Ergebnisse (lokal, Windows 11):**
+  - pytest Python 3.11, 3.12 und 3.13: je 2705 bestanden, 11 übersprungen (Datei-Symlinks und POSIX-Zweige unter Windows).
+  - Acht Fixtures mit core+bids+gxdsl008 und allen P4-Funktionen unter 3.11/3.12/3.13 gleich bis auf `environment`.
+  - Korpus: 62 bestanden, darunter κ auf PSG-IPA wie nachgerechnet (±0,001).
+  - Abdeckung Kern 97,1 %, Prüfer 97,2 %; ruff und mypy (src, tools) sauber.
+  - Lizenz-Gate grün (keine neuen Abhängigkeiten); Schemas, Fixtures, Matrix und `calibrate.py --check` grün.
+  - NG-N02 mit allen Regeln von `core` und `--jobs 4`:
+
+    | Kanäle | Laufzeit | Spitzenspeicher | Grenze (D-14) |
+    |---|---|---|---|
+    | 64 | 69,6 s | 1,8 GB | 150 s |
+    | 128 | 118,6 s | 2,6 GB | 150 s |
+    | 256 | 241,7 s | 3,6 GB | 300 s |
+    | 256, Datensatz mit Manifest | 239,1 s | 3,7 GB | 300 s |
+
+- **Nicht verifiziert:**
+  - Linux- und CI-Lauf (TECH-05, TECH-11, D-09), damit auch die POSIX-Zweige der Provenienz.
+  - NG-N02 auf einem Runner mit 4 vCPU/16 GB.
+- **Für STOPP G1 vorgemerkt:**
+  - Annahmen A-80 bis A-83, besonders die Tabellenregel für kleine Zellen und ihr Preis (eine in einem Split fehlende Klasse wird bei zurückgehaltener Labelquelle nicht als verletzt gemeldet) und die Lesart von DM-02 für diagnoseähnliche Labelspalten.
+  - Alterspalten mit anderen Einheiten als Monate, Wochen, Tage gelten als Jahre; `report --out` nennt seinen Pfad auf der Konsole nicht pseudonym.
+  - Aus früheren Phasen: Restpunkte A-78, Zeitangaben ab 27,8 h nur auf 1 s genau (A-61, A-79), loky „resource tracker“ ohne Netzwerkschutz (A-79).
 
 ### 2026-10-21 – D-14 (STOPP R4) umgesetzt
 - **Entscheidung D-14:** Optionen 1 und 2 der P3-Meldung (Parallelisierung einer Aufnahme mit `--jobs`; A-50: 150 s bis 128 Kanäle, 300 s darüber).

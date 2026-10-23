@@ -279,7 +279,7 @@ dazu Anzahl und Gesamtdauer.
 
 **A-22 Manifest.**
 - **Inhalt:** Versionsnummer, sortierte Dateiliste (Pfad, SHA-256, Größe), Verarbeitungsschritte, Softwareversionen; Manifest-Hash über die kanonischen JSON-Bytes.
-- **Erfasste Dateien:** alles im Datensatz einschließlich `.neurogrid/` (splits.tsv, neurogrid.toml, consents.yaml, roles.yaml, risks.yaml, evidence.yaml, retention.yaml). Ausgenommen sind nur `manifest.json` selbst und das eigenständig hashverkettete `vault/access.jsonl`.
+- **Erfasste Dateien:** alles im Datensatz einschließlich `.neurogrid/` (splits.tsv, neurogrid.toml, consents.yaml, roles.yaml, risks.yaml, evidence.yaml, retention.yaml). Ausgenommen sind `manifest.json` selbst und das eigenständig hashverkettete `vault/access.jsonl` mit seiner Sperrdatei (präzisiert durch A-82).
 - **Symlinks und Junctions** werden nicht verfolgt, sondern gemeldet.
 - **`verify`** meldet geänderte, neue und fehlende Dateien.
 - **Fehlendes Manifest:** ohne `--strict` eine Warnung (Annahme; die PRD regelt nur den strict-Fall).
@@ -848,3 +848,140 @@ Rohordnern steht „unbekannt“, bis die Zuordnung aus der toml (A-05, P2) vorl
 - **Benchmark NG-N02** (A-50): `tools/gen_large_edf.py` erzeugt EEG-ähnliche Daten aus Dipolquellen, damit pyprep, autoreject und ICA realistisch viel Arbeit haben. Mit unstrukturierter Mischung galten 56–89 % der Kanäle als schlecht, und die Laufzeit wurde unterschätzt.
 - **Abdeckung** (A-23): `neurogrid/quality/` gehört zur Gruppe „Prüfer“.
 - **Lizenz-Gate** (A-56): pyprep 0.9.0 trägt im Metadatenfeld den vollen MIT-Text. Es steht deshalb als versionsgebundene, von Hand geprüfte Ausnahme in `licenses/exceptions.txt`.
+
+
+## Annahmen aus der Umsetzung von P4
+
+Die folgenden Annahmen schließen Lücken, die PRD, Konzept und frühere Annahmen offenlassen (Freigabemodus A). Sie
+sind für STOPP G1 vorgemerkt.
+
+**Übergreifend (gilt für A-80 bis A-83).**
+- **results.json:** `schema_version` bleibt bis zur ersten Veröffentlichung „1.0“. Alle neuen Felder sind optional; results.json früherer Stände wird weiter gelesen und dargestellt.
+- **Steuerdateien:**
+  - Vom Nutzer geschriebene Konfiguration (`neurogrid.toml`, `.neurogrid/evidence.yaml`, `.neurogrid/splits.tsv`, `.neurogrid/provenance.yaml`) ergibt bei Fehlern Exit 2, mit Feld oder Zeile (ein Syntaxfehler der neurogrid.toml nur mit der Fehlerart, ohne Zeile) und ohne Zellinhalt.
+  - Integritätsdateien (`manifest.json`, `.neurogrid/processing_steps.json`) ergeben in `check` einen Befund und erst in `verify`/`manifest` Exit 2.
+  - Datensatzdaten (events.tsv, participants.tsv) ergeben nie Exit 2.
+- **Freitext in Ausgaben** (präzisiert A-17, A-51): Codes, Klassenbezeichnungen und Annotator-IDs erscheinen nur, wenn sie im Vokabular stehen oder dem Muster aus A-17 folgen und nicht nach Personendaten aussehen (Name, lange Zahl, absoluter Pfad, Datum auch mit Monatsnamen oder Unterstrichen, freistehende Jahreszahl 1900–2099, Uhrzeit wie „22.31“, „22h31“ oder „10 pm“; eine Zahl mit einstelliger Vorkommastelle wie „0.25“ bleibt lesbar); sonst „Freitext (n Zeichen)“ mit dem Unterschlüssel `text-<sha8>`. Annotatoren heißen in Unterschlüsseln immer `ann-<sha8>`. Unterschlüssel hängen nicht von `--show-paths` ab (A-68).
+- **Ampel** (präzisiert A-16):
+  - Eine Phase ist grau, wenn keine ihrer Regeln ein Ergebnis „bestanden“, „verletzt“, „ausgenommen“ oder „Nachweis offen“ liefert.
+  - Jedes Ergebnis einer Nachweisregel zählt als bewertet, auch ein begründetes not_applicable.
+- **Wirksame Konfiguration:** In Rohordnern erscheinen Pfadwerte (`convert.files`, `convert.pattern`, `annotation.files`, `annotation.annotators`, `ai.splits`) ohne `--show-paths` nur pseudonym (A-51). Ausnahme: `ai.splits` bleibt lesbar, wenn es einer der festen Steuerdateinamen in `.neurogrid/` ist (z. B. `.neurogrid/splits.tsv`); ein selbst gewählter Name in `.neurogrid/` wird ebenfalls pseudonym. Eine Dateiendung erscheint neben einem Pseudonym nur, wenn NeuroGrid sie als Format- oder Steuerdateiendung kennt oder jeder Teil mit einem Buchstaben beginnt, kurz ist und nach der Freitextregel lesbar ist; Ziffernteile, Daten, Jahre und Uhrzeiten nie (eine Regel für Manifest, `verify`, Befunde, Bericht, Konsole und wirksame Konfiguration). In BIDS ohne `--show-paths` folgen `annotation.annotators` und `annotation.files[].annotator` der Freitextregel: Ein Muster bleibt lesbar, wenn jeder Wert lesbar wäre, den es mit einzeln gefüllten Platzhaltern ergibt (Füllungen: Leerzeichen, Buchstabe, Ziffer, die Datums- und Zeittrenner `.` `:` `-` `/` `h`, bei `*` auch nichts); sonst `pattern-<sha8>` bzw. `ann-<sha8>` (mehr als 3 Platzhalter oder andere Glob-Zeichen: immer pseudonym). Muster wie `*.<Endung>` und `rec-<sha8>.<Endung>` folgen der Endungsregel; sonst `pattern-<sha8>`. Der Konfigurations-Hash bleibt über die echte Konfiguration.
+- **Konsole:** Jeder Hinweis der Stufe Warnung wird ausgegeben, mit bereinigten und gekürzten Parametern.
+- **Reine Annotationsdateien** sind für M11/M12 keine Aufnahmen; ein zugeordnetes Hypnogramm gehört zu Proband und Split seiner Signalaufnahme.
+- **Ohne Annotationen, Labels oder Splits:** je Regel ein datensatzweiter Befund not_applicable statt einer Zeile je Aufnahme (A-59). Ausnahme: Im kontinuierlichen Modus bewertet CORE-M10-03 jede Signalaufnahme einzeln, auch wenn der Datensatz keine Annotation enthält (Abdeckung 0).
+
+**A-80 Annotation M10** (präzisiert A-17).
+- **Quellen:** EDF+/BDF+-TAL (auch reine Annotationsdateien; MNE-Kanalverweise `@@Kanal` werden abgeschnitten), BrainVision `.vmrk`, EEGLAB-Ereignisse (MAT v5 und v7.3), FIF-Annotationen und BIDS `events.tsv` (UTF-8 mit oder ohne BOM).
+  - In BIDS ersetzt eine zutreffende `events.tsv` die Annotationen der Datei.
+  - Strukturmarken bleiben außen vor, je Format: EDF+-Zeitstempel, in vmrk jede Marke vom Typ „New Segment“, in EEGLAB „boundary“, in FIF „BAD_ACQ_SKIP“ und „EDGE boundary“; in events.tsv wird keine Zeile als Strukturmarke ausgelassen.
+  - Zeitgrenzen (A-53): Beginn ≥ −10⁹ s, Ende ≤ 10⁹ s (rund 31,7 Jahre), alle Werte endlich. In events.tsv zählt eine Zeile außerhalb als ungültig (`notice.events_rows_invalid`); in EDF-TAL, vmrk, EEGLAB und FIF macht sie die Quelle unlesbar (`annotation.unreadable`). In EEGLAB wird ein Ereignis mit leerer oder NaN-Latenz nicht still verworfen, sondern als ungültig gezählt und im selben Hinweis gemeldet wie ungültige events.tsv-Zeilen (`notice.events_rows_invalid`, Stufe Info; ebenso FIF-Annotationen, die MNE verwirft, weil sie ganz außerhalb der Daten liegen); eine leere oder NaN-Dauer gilt als 0 (EEGLAB-Konvention für fehlende Dauer). Kein Leser verwirft eine Annotation ohne Spur: vmrk liest Markernummern beliebiger Länge und jeden Abschnitt „[Marker Infos]“ unabhängig von der Schreibweise.
+  - „n/a“ gilt in events.tsv ohne Groß-/Kleinschreibung und nach Entfernen äußerer Leerzeichen als kein Wert, für M10 und M11 gleich (wie in participants.tsv).
+  - Eine EDF-Kopfgröße unter 256 · (Signale + 1) macht Annotationen und Signal unlesbar (not_checkable), nie Exit 2; CORE-M01-02 meldet das Kopffeld.
+- **Annotatoren:** Spalte `annotator` in events.tsv oder je Annotator eine Datei.
+  - Reine Annotationsdateien werden über `[[annotation.files]]` (path und recording relativ zum Datensatz, annotator optional) oder über den gemeinsamen Dateinamensanfang zugeordnet.
+  - `[annotation] annotators` grenzt mit Mustern (`*`, `?`, Groß-/Kleinschreibung beachtet) ein, welche Annotatoren zählen. Verglichen wird mit der Annotator-ID, nicht mit dem Dateinamen: Spalte `annotator`, `[[annotation.files]].annotator` oder der Rest des Dateinamens nach „<Aufnahmename>_“ (z. B. `night_scorer2.edf` → `scorer2`). Schließen die Muster alle aus, nennen die Befunde den Grund `annotation.all_excluded`.
+  - Ein Pfad darf in `[[annotation.files]]` nur einmal stehen, nach Vereinheitlichung (`\` → `/`, `./` entfällt), auch bei gleichen Angaben (sonst Exit 2 mit dem Feld `annotation.files.<n>.path`, n = Position des Eintrags ab 0, nie mit dem Pfad).
+  - Nicht zuordenbare oder mehrdeutige Dateien werden eigene Objekte und erhalten einen Hinweis.
+- **Codes:** code = Spalte trial_type, falls vorhanden, sonst value; Bezeichnung aus den `Levels` der events.json.
+  - Vokabular: toml vor `Levels`; exakter Vergleich; HED wird nicht genutzt.
+  - Eine Bezeichnung mit verschiedenen Codes ist uneinheitlich.
+- **κ (CORE-M10-01):** paarweises, ungewichtetes Cohens κ auf einem Raster ab t = 0 bis zum Aufnahmeende (Standard 30 s kontinuierlich, 1 s ereignisbasiert).
+  - Belegung nach Epochenmitte, nur Annotationen mit Dauer > 0; „kein Ereignis“ ist eine Klasse.
+  - Verglichen wird der **Mittelwert** mit `min_kappa` = 0,6; Minimum, Paare und das schwächste Paar stehen in den Details.
+  - Ein Objekt mit einer unlesbaren Quelle ist ganz not_checkable (kein κ über eine Teilmenge).
+  - Grenzen (A-53): höchstens 5 Mio. Epochen und höchstens 100 Annotatoren mit bewerteter Annotation (4950 Paare) je Objekt; darüber not_checkable (`annotation.too_many_epochs` bzw. `annotation.too_many_annotators`). κ wird je Objekt einmal berechnet, über Klassenabschnitte statt Epoche für Epoche, mit höchstens 25 Mio. gleichzeitig gehaltenen Klassenwerten; die Details nennen die schwächsten Paare und die Zahl aller Paare.
+  - An κ, Lücken und Überlappungen nimmt ein Annotator nur teil, wenn er mindestens eine Annotation mit Dauer > 0 hat. Eine Spur nur aus Marken zählt für das Vokabular und für `[ai] labels = "annotations"`; gibt es nur Marken, nennen CORE-M10-01/04 den Grund `annotation.markers_only`, und CORE-M10-03 verletzt mit Abdeckung 0.
+  - Eine zugeordnete reine Annotationsdatei ohne Annotation bleibt ein Annotator: Abdeckung 0, CORE-M10-03 verletzt.
+- **Referenz PSG-IPA** (präzisiert die DoD von P4): die nachgerechneten Werte mit vier Stellen, Toleranz ±0,001. KONZEPT 8.5 nennt deren Rundung.
+  - Scorer 1 gegen 2: 0,7902 / 0,6905 / 0,8104.
+  - Mittel über die 66 Paare der 12 manuellen Scorer: 0,7253 / 0,6598 / 0,7656.
+- **Lücken (CORE-M10-03)** nur im kontinuierlichen Modus. Abdeckung = belegter Anteil der ganzen Aufnahme; eine Signalaufnahme ohne Annotation hat dort Abdeckung 0.
+- **Überlappungen (CORE-M10-04):** kontinuierlich jede Überlappung je Annotator, ereignisbasiert nur gleiche Codes. Marken der Dauer 0 zählen nur für das Vokabular. 1 ms ist ein numerisches Epsilon, keine Schwelle.
+- **Ausweis:** κ (Mittel, Minimum, Paare), Abdeckung, Modus, Raster und Quellen stehen in `recordings[].metrics["annotation"]`.
+
+**A-81 KI-Struktur M11/M12** (präzisiert A-21).
+- **Labels:** `[ai] labels` = `events:<Spalte>`, `participants:<Spalte>` oder `annotations` (Codes der M10-Annotationen).
+  - Ohne Angabe ist CORE-M11-01 not_applicable.
+  - Zähleinheit: Ereignisse bzw. Probanden. Parameter `min_share` = 0,05 (Startwert der PRD, nicht kalibriert).
+  - `annotations`: Jede Annotation jedes beteiligten Annotators (`[annotation] annotators`) zählt als ein Ereignis, auch Marken der Dauer 0. Zugeordnete Hypnogramme zählen im Split ihrer Signalaufnahme; nicht zuordenbare reine Annotationsdateien zählen nicht.
+  - `events:<Spalte>` liest events.tsv mit demselben Leser und derselben Kopfregel wie M10 (erste von doppelten Spalten; kein Label sind nur „“ und „n/a“).
+  - Aufnahmen, deren Annotationen oder events.tsv nicht lesbar sind, bleiben ganz außen vor und werden in einem Warnhinweis gezählt; ist keine lesbar, ist CORE-M11-01 not_checkable (`ai.labels_unreadable`), für beide Quellen.
+  - Jede Spalte, deren Name ein Alter bezeichnet (`age`, `age_years`, `AgeAtScan` …), zählt in den 10-Jahres-Stufen der Demografie; nennt der Name eine Einheit (Monate, Wochen, Tage; als eigenes Wort oder zusammengeschrieben wie `AgeMonths`, `AgeInDays`, `GestationalAgeWeeks`), wird vorher in Jahre umgerechnet; andere Einheiten (z. B. Stunden) gelten als Jahre und ergeben dann eine falsche Stufe, aber nie einen Rohwert (für G1 vorgemerkt); ein Wert, der kein Alter ist, ist kein Label; das Rohalter erscheint nie. Erkannt wird am Spaltennamen.
+  - In einer Spalte `sex` oder `gender` sind die Platzhalter der Demografie kein Label.
+  - Die Labels werden nur gezählt, wenn CORE-M11-01 (bzw. dessen Prüfung) geladen ist; nur dann enthält results.json den Block `ai.labels`.
+- **Demografie (CORE-M11-02):** `participants.tsv` im Datensatz, auch für Rohordner (participant_id = Proband der Zuordnung, mit oder ohne `sub-`).
+  - Spalte `sex` vor `gender`. Platzhalter (unknown, unk, u, nan, na, n/a, none, null, missing, not reported, not available, ?, -; ohne Groß-/Kleinschreibung) gelten als nicht dokumentiert.
+  - Alter in 10-Jahres-Stufen, „90+“ als oberste. „N+“ zählt zur Stufe von N; ein Bereich „a-b“ zur Stufe von a; Nicht-Zahlen gelten als fehlend.
+  - Das Rohalter wird nie ausgegeben.
+- **Kleine Zellen** (A-51; Tabellenregel nach dem Review von P4):
+  - Eine Tabelle auf Probandenebene ist eine Verteilung von Probanden auf Kategorien: jeder Bereich (all, train, val, test) einer Labelquelle aus participants.tsv sowie die Demografie-Tabellen Altersstufen und Geschlecht.
+  - Als öffentlich gilt jede Probandenzahl, die NeuroGrid an anderer Stelle ausgibt: Probanden je Bereich und Split, Probanden mit dokumentiertem Wert, die Einzelergebnisse von CORE-M11-02. Diese Zahlen schützen nichts und werden deshalb nicht verdeckt.
+  - Kategorien und Zahlen einer Tabelle erscheinen nur, wenn **jede** besetzte Zelle mindestens 5 zählt; Nullzellen erscheinen dann auch. Sonst wird die Tabelle **zurückgehalten**: keine Kategorien, keine Zahlen, nur ihre Summe. Die frühere Mitunterdrückung einzelner Zellen entfällt; sie war über Summen, Split-Zahlen, Nullzellen und Statusangaben zurückzurechnen.
+  - Die Bereiche einer Labelquelle hängen über Summen zusammen: Wird einer zurückgehalten, werden alle zurückgehalten.
+  - CORE-M11-01 bei zurückgehaltener Labelquelle: ein Ergebnis je Bereich ohne Klasse, Bezeichnung, Anteil und Zahl (Details: Bereich, Einheit, Summe, `withheld`; zusätzlich `small_cell`, wenn die Probandenzahlen allein zeigen, dass der Bereich eine Zelle 1–4 enthält). Der Status folgt nur aus den Probandenzahlen und `min_share`: bestanden, wenn 1/N ≥ `min_share`; verletzt, wenn die Zahlen allein zeigen, dass der Bereich die Zelle 1–4 enthält (N ≤ 4, oder alle Bereiche mit Probanden haben dieselbe Summe, z. B. ohne Splits), und 4/N < `min_share`; sonst not_checkable (`ai.small_cell`). Darüber hinaus wird nicht ausgegeben, ob ein Bereich eine Zelle 1–4 hat oder einem Split eine Klasse fehlt. Die erste Fassung (genaues Ergebnis für nur mitgehaltene Bereiche, Kennzeichen je Bereich) war nachweislich zurückzurechnen; eine Auszählung über alle Belegungen zeigt mit dieser Fassung keine herleitbare Zelle mehr.
+  - Preis der Regel (für G1 vorgemerkt): Bei zurückgehaltener Labelquelle mit Splits meldet CORE-M11-01 eine in einem Split fehlende Klasse oder ein deutliches Ungleichgewicht nicht als verletzt, sondern als bestanden (1/N ≥ `min_share`) oder not_checkable.
+  - Ereigniszahlen (Quellen `events:` und `annotations`) und Split-Zahlen werden nicht zurückgehalten.
+  - Diagnoseähnliche Spalten dürfen Labelquelle sein, nur aggregiert und unterdrückt. Für G1 vorgemerkt: Lesart von DM-02.
+- **Splits:** `.neurogrid/splits.tsv` (recording, split) hat Vorrang vor einer Spalte `split` in participants.tsv; sind beide vorhanden, gibt es einen Hinweis.
+  - Erlaubte Werte: train, val, test.
+  - `recording` ist der relative Pfad oder die pseudonyme ID.
+  - Ein Proband in mehr als einem Split ist in jeder Kombination ein Fehler.
+  - `[ai] splits` außerhalb des Datensatzes ist erlaubt, mit Hinweis.
+  - Ordnet die Split-Quelle keine Aufnahme zu, ist CORE-M12-01 datensatzweit not_applicable (`ai.splits_unassigned`).
+- **Duplikate (CORE-M12-02):** über den Signal-Hash `NG-SIGHASH-v1` (die Prüfung gehört zum Stream).
+  - Jedes Mitglied einer Duplikatgruppe erhält einen Fehler; Unterschlüssel ist die Gruppennummer, die Details nennen die angezeigten Aufnahme-IDs (in Rohordnern ohne `--show-paths` pseudonym).
+  - Hashes werden nie ausgegeben. Identische flache Aufnahmen sind Duplikate.
+- **Modul:** `checks/ai_dataset.py` (Name aus TECH-01/KONZEPT 1.2).
+
+**A-82 Provenienz M13, `manifest`/`verify`** (präzisiert A-22).
+- **Manifest:**
+  - Standardort `<Datensatz>/.neurogrid/manifest.json` (KONZEPT 2.5); der BIDS-Validator betritt `.neurogrid/` nicht. Eine `manifest.json` in der Datensatzwurzel ist eine gewöhnliche Datei. Liegt `--out` in einem BIDS-Datensatz außerhalb versteckter Ordner, gibt `manifest` einen Hinweis auf den Validator.
+  - Ein Link an `.neurogrid` oder an der Manifestdatei wird nicht verfolgt (A-52, A-66).
+  - Der Hinweis auf den Validator erscheint nur an einer Stelle, die der gebündelte Validator 3.0.2 prüft: nicht in versteckten Teilen, nicht in den obersten Ordnern sourcedata, derivatives, code, stimuli, log und doc (ohne Groß-/Kleinschreibung) und nicht unter einer wörtlichen Zeile der `.bidsignore` (nachgemessene Regeln des Validators). Bei Platzhaltern oder Maskierungen (wenn keine wörtliche Zeile die Datei erfasst), bei einer Verneinung (wenn eine wörtliche Zeile sie erfasst) oder bei unlesbarer `.bidsignore` lautet der Hinweis, die Manifest-Datei „kann daher gemeldet werden“.
+  - Format nach A-22, zusätzlich `skipped` und `excluded`:
+    - `skipped`: Links, Junctions, Sonderdateien und Namen, die die Pfadprüfung ablehnt, prozentkodiert. Damit bemerkt `verify` auch neue Links. Unter einem abgelehnten Ordnernamen wird weiter aufgelistet (Windows über das Präfix `\\?\`, Links nie): Was darunter liegt, steht ebenfalls in `skipped` und wird nur auf Vorhandensein verglichen, nie auf Inhalt. Ist ein solcher Ordner nicht auflistbar, schreibt `manifest` nichts (Exit 1); `verify` und `check` melden ihn als unlesbar. Kodierte und gewöhnliche Namen bilden getrennte Namensräume (Vergleich über die ursprünglichen Namensbytes).
+    - `excluded`: Vault-Protokoll `access.jsonl` und dessen Sperrdatei `access.jsonl.lock` (der Name der Sperrdatei wird mit dem Vault in P6 bestätigt). `check` lässt zusätzlich seinen Arbeitsordner `run-*` außen vor.
+  - Grenzen (A-53): Verschachtelungstiefe von manifest.json höchstens 35, von `processing_steps.json` höchstens 34 (Parameter eines Schritts höchstens 32 Ebenen); tiefer ist ungültig (`too_deep`; Befund in `check`, Exit 2 in `verify` bei manifest.json bzw. in `manifest` bei `processing_steps.json`). Höchstens 2 Mio. Dateien und übersprungene Einträge; darüber schreibt `manifest` nichts und endet mit Exit 1 (Datensatzdaten ergeben nie Exit 2, C2). Kodierte Pfade dürfen bis 294 903 Zeichen lang sein (Schreiber und Leser gleich).
+  - Betriebssystemdateien (.DS_Store, Thumbs.db) gehören dazu.
+  - Ist beim Erstellen eine Datei unlesbar, wird nichts geschrieben (Exit 1).
+  - Gehasht wird in min(4, Kerne) Threads.
+- **`verify`:**
+  - `--manifest` ist Pflicht; Exit 0 bei Gleichheit, 1 bei Abweichung, 2 bei ungültigem Manifest.
+  - Abweichungsarten: geändert, neu, fehlend, Art geändert, unlesbar.
+  - Bekannte Steuerdateien in `.neurogrid/` werden im Klartext genannt, andere Dateien in Rohordnern pseudonym, außer mit `--show-paths` (D-10 f).
+- **CORE-M13-01:** Warnung, mit `--strict` oder `[check] strict` ein Fehler. Dafür erhält das Regelpaketformat das optionale Feld `strict_severity` (wie A-62):
+  - Das Feld kann den Schweregrad auch senken.
+  - Das Abdeckungsmaß nutzt weiter den Grundschweregrad.
+  - Die Bedingung „[consent] konfiguriert“ von M14 folgt in P6.
+- **CORE-M13-02:**
+  - Fehler je abweichender Datei, auch ohne `--strict`.
+  - Ohne Manifest not_applicable (CORE-M13-01 meldet das Fehlen); mit unbrauchbarem Manifest not_checkable.
+- **CORE-M13-03:** Quellen sind `.neurogrid/provenance.yaml`, die Verarbeitungsschritte von `convert` und `GeneratedBy` der dataset_description.json.
+  - `provenance.yaml` enthält `processing_steps` und `software`. Eine leere Liste `processing_steps: []` dokumentiert „keine Verarbeitung“, aber keine Software.
+  - `GeneratedBy` (Name und Version) zählt nur als Software.
+- **Ausgaben im Datensatz:** Liegt `--out` im Datensatz, gibt es einen Hinweis; ein späterer Lauf meldet die frühere results.json als neue Datei. Bei einer einzelnen Datei als Ziel gibt es keinen Datensatz und keinen Hinweis. Die Konsole nennt ein Ziel in einem Rohordner nur pseudonym (außer BIDS, `--show-paths` oder ein fester Steuerdateiname); das gilt für `manifest --out`, `check --out` und `scan --out`. `report --out` kennt den Datensatz nicht; dort wird nur der Benutzerordner verdeckt (bekannte Grenze).
+- **Leere Optionswerte** (`--manifest ""`, `--evidence ""`, `--config ""`, `--out ""`) ergeben in check, convert, manifest, scan und report Exit 2 statt des Standardorts.
+- **`.neurogrid/provenance.yaml`** wird als Steuerdatei vor der Signalqualität geprüft (Exit 2 vor der langen Rechnung).
+
+**A-83 Nachweise, Ausnahmen, gxdsl008** (präzisiert A-14, A-15, A-40).
+- **evidence.yaml:**
+  - `--evidence DATEI`; ohne die Option der Standardort `<Datensatz>/.neurogrid/evidence.yaml`.
+  - Format `format_version: 1` mit `evidence: {Regel-ID: {…}}`. `sha256` darf groß geschrieben sein (gespeichert klein); `date` als YAML-Datum oder als Text `JJJJ-MM-TT` (anderer Text, unmögliche Daten und Zeitstempel werden abgelehnt); `format_version: true` wird abgelehnt. Schema und Leser stimmen überein, bis auf die Pfadprüfung von `document`, die nur der Leser vornimmt. Ein Regel-ID-Schlüssel mit Zeilenumbruch wird wie jeder ungültige Schlüssel nur mit seiner Position genannt (`evidence.#<n>`), ein Feldname mit Zeilenumbruch als `?`.
+  - Status „provided“ ohne Dokument ist ein Werkzeugfehler.
+  - NeuroGrid berechnet den Hash jedes genannten Dokuments und vergleicht ihn, wenn einer eingetragen ist.
+  - Bei einer manuellen Regel bleibt „provided“ bei fehlendem, verlinktem oder geändertem Dokument die Angabe des Nutzers und erhält einen Warnhinweis; eine halbautomatische Nachweisregel ist dann verletzt (Grund `evidence.<Dokumentprüfung>`, z. B. `evidence.document_missing`).
+  - Weitere Hinweise: Prüfdatum nach dem Stichtag, Einträge für nicht geladene Regeln, Einträge zu Regeln, die keine Nachweisregeln sind.
+  - Anzeige: `document` (relativer Pfad), `reviewer`, `comment` und `justification` stehen in results.json und im Berichtsabschnitt 5 im Klartext, auch in Rohordnern ohne `--show-paths` (der Bericht braucht einen lesbaren Dokumentverweis, REP-05); die Konsole gibt sie nie aus. Der Info-Hinweis `notice.evidence_looks_identifying` zählt Einträge, deren `reviewer` oder `document` nach Personendaten aussieht. `comment` und `justification` verantwortet der Nutzer (Rolle oder Kürzel nach A-15).
+  - In results.json stehen je Nachweis der von NeuroGrid berechnete Hash (`sha256`) und der eingetragene (`sha256_recorded`).
+  - `summary.open_evidence` zählt nur offene Nachweise von Fehler- und Warnregeln (wirksamer Schweregrad, A-16).
+- **Ausnahmen:** Jeder passende aktive Eintrag gilt als verwendet. Einträge für Regeln, die in keinem geladenen Paket stehen, erhalten einen eigenen Warnhinweis. Das Format der Regel-ID wird nur beim Lesen der neurogrid.toml geprüft; results.json früherer Stände bleibt lesbar.
+- **gxdsl008:**
+  - Klausel „unknown“ im Paket, im Bericht übersetzt (D-03).
+  - GX-03 prüft das Speicherformat:
+    - EDF, EDF+C und EDF+D bestehen, ebenso HDF5-Container (EEGLAB MAT v7.3).
+    - BDF, BrainVision, EEGLAB MAT v5 und FIF ergeben die Warnung, auch für BrainVision-Umwandlungen durch NeuroGrid.
+    - Auch nicht unterstützte Aufnahmeformate und verwaiste Begleitdateien (z. B. `.cnt`, `.mff`, `.eeg` ohne Kopf) werden bewertet; der Wert ist das Format aus der Endung, nie der Dateiname. NWB gilt als HDF5, wenn die Datei HDF5 ist, sonst als NWB (Warnung). Das Paket wird für sich bewertet, auch ohne core.
+- **Bericht:** Ein Befund mit Datei, aber ohne Zeitbereich, auf einer Datei, die keine Aufnahme ist (Steuerdatei, geänderte oder neue Datei des Manifestvergleichs, nicht unterstützte Datei), zeigt „gesamte Datei“ statt „gesamte Aufnahme“. Die Legende der Ampel folgt der Regel aus „Übergreifend“.
+  - GX-05 besteht, wenn das Manifest vorhanden ist und stimmt.
+- **Impedanz:** Aufnahmen ohne dokumentierte Impedanzen ergeben für die Impedanzschwelle not_checkable (`impedance.not_documented`) statt keinen Befund.
+- **CLI-03** schließt in P4 für die Kommandozeile der PRD; `--role` folgt mit dem Vault in P6.
