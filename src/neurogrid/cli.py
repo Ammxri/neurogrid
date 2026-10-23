@@ -21,6 +21,7 @@ import typer
 from typer.exceptions import TyperException
 
 from neurogrid import pipeline
+from neurogrid.io.provenance import inside, shown_target
 from neurogrid.kernel import canonical, netguard
 from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError
 from neurogrid.kernel.findings import Severity
@@ -72,6 +73,23 @@ def _redact(text: str) -> str:
 
 def _display_path(path: Path) -> str:
     return _redact(str(path.absolute()))
+
+
+def _in_dataset(shown: str) -> str:
+    """A name inside the dataset (relative POSIX path or pseudonymous file name) as the console prints it."""
+    return _clean(str(Path("<dataset>", *PurePosixPath(shown).parts)))
+
+
+def _written_path(target: Path, *, plain: bool) -> str:
+    """An output file the operator chose (--out), as the console names it (A-51): inside the dataset like
+    the manifest target (shown_target: in raw folders by the pseudonymous file name verify would show, after
+    '…' for its folder; in clear in BIDS datasets (``plain``), with --show-paths (``plain``) and for
+    NeuroGrid's fixed names in .neurogrid/), outside it with the dataset root and the home folder redacted."""
+    root = _state["dataset_root"]
+    own = inside(root, target) if isinstance(root, Path) else None
+    if own is None:
+        return _display_path(target)
+    return _in_dataset(shown_target(own, plain=plain))
 
 
 def _output_file(raw: str) -> Path:
@@ -184,7 +202,7 @@ def scan(
     typer.echo(tr("disclaimer"))
     if target is not None:
         _write_atomic(target, canonical.dumps(result))
-        _say("cli.scan.written", path=_display_path(target))
+        _say("cli.scan.written", path=_written_path(target, plain=result.is_bids or show_paths))
 
 
 @app.command()
@@ -268,7 +286,7 @@ def check(
                 name: _redact(_clean(str(value)))[:MAX_PARAM_CHARS] for name, value in notice.params.items()
             }
             _say(notice.message_key, **params)
-    _say("cli.check.written", path=_display_path(target))
+    _say("cli.check.written", path=_written_path(target, plain=results.dataset.is_bids or show_paths))
     _say("disclaimer")
     raise typer.Exit(code=results.summary.exit_code)
 
@@ -398,8 +416,7 @@ def manifest(
             )
         _say("cli.manifest.hash", hash=run.manifest.manifest_hash)
         if run.shown_target is not None:  # inside the dataset: real names only where A-51 allows them
-            shown = str(Path("<dataset>", *PurePosixPath(run.shown_target).parts))
-            _say("cli.manifest.written", path=_clean(shown))
+            _say("cli.manifest.written", path=_in_dataset(run.shown_target))
         else:
             _say("cli.manifest.written", path=_display_path(run.target))
         if run.validator_listing == "listed":

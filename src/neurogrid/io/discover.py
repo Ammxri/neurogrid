@@ -29,6 +29,7 @@ from pathlib import Path, PurePosixPath
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED, KNOWN_UNSUPPORTED_DIRS, ORPHAN_SUFFIXES
 from neurogrid.io.brainvision import BrainVisionAdapter
 from neurogrid.io.eeglab import referenced_fdt
+from neurogrid.io.identifying import display_text
 from neurogrid.kernel.safety import is_link
 
 BIDS_SKIP_DIRS = frozenset({"derivatives", "sourcedata", "code", "stimuli"})
@@ -41,6 +42,16 @@ _FIF_SPLIT = re.compile(r"^(?P<base>.+)-(?P<part>[1-9]\d*)\.fif$", re.IGNORECASE
 _BIDS_SPLIT = re.compile(r"_split-(?P<part>\d+)_", re.IGNORECASE)
 _BIDS_MEG_CALIBRATION = re.compile(r"_acq-(crosstalk|calibration)_meg\.(fif|dat)$", re.IGNORECASE)
 _COMPOUND_SUFFIXES = tuple(sorted(s for s in KNOWN_UNSUPPORTED if s.count(".") > 1))  # e.g. .fif.gz
+# Extensions NeuroGrid classifies (A-70, A-74): its formats, the ones it knows but cannot read, the orphan
+# companions, the text and document files of datasets and of its own outputs, and their gzip parts.
+_DOCUMENT_SUFFIXES = frozenset(
+    {".tsv", ".json", ".txt", ".yaml", ".toml", ".md", ".pdf", ".html", ".csv", ".zip", ".gz"}
+)
+_CLASSIFIED = frozenset(
+    {*ADAPTERS, *KNOWN_UNSUPPORTED, *ORPHAN_SUFFIXES, *KNOWN_UNSUPPORTED_DIRS, *_DOCUMENT_SUFFIXES}
+)
+SHOWN_EXTENSIONS = _CLASSIFIED | {s + ".gz" for s in _CLASSIFIED if s.count(".") == 1 and s != ".gz"}
+_SHOWN_PART = re.compile(r"[A-Za-z][A-Za-z0-9]{0,9}")
 
 
 def _suffix(name: str) -> str:
@@ -50,6 +61,23 @@ def _suffix(name: str) -> str:
         if lower.endswith(compound) and len(lower) > len(compound):
             return compound
     return PurePosixPath(lower).suffix
+
+
+def shown_extension(suffix: str) -> str:
+    """The classifying extension ``suffix`` (``_suffix``) as it may appear next to a pseudonym, else '' (A-51,
+    A-70): one NeuroGrid classifies (SHOWN_EXTENSIONS), or one whose every dot-part is a short ASCII word
+    (a letter, then at most nine letters or digits) that the display rule shows (display_text, C5). Digit
+    runs, dates, years and clock times written as an extension ('born.19610312', 'born 12.03.1961', 'lights
+    off 22.31') and letters outside ASCII never appear. The one rule of every pseudonymous file name
+    (io.provenance.shown_suffix)."""
+    if suffix in SHOWN_EXTENSIONS:
+        return suffix
+    head, *parts = suffix.split(".")
+    if head or not parts:
+        return ""
+    if all(_SHOWN_PART.fullmatch(part) and display_text(part).shown is not None for part in parts):
+        return suffix
+    return ""
 
 
 def _claimable(name: str) -> bool:
@@ -79,9 +107,10 @@ class FoundFile:
 
     @property
     def display_file(self) -> str:
-        """Pseudonymous IDs get the extension (A-70); real names are shown exactly as stored."""
+        """Pseudonymous IDs get the extension as shown_extension allows it (A-51, A-70); real names are shown
+        exactly as stored."""
         if self.display_id == pseudonym(self.relative):
-            return f"{self.display_id}{self.suffix}"
+            return f"{self.display_id}{shown_extension(self.suffix)}"
         return self.display_id
 
     @property
@@ -92,7 +121,7 @@ class FoundFile:
         folders); A-09, A-14, A-68.
         """
         pseudo = pseudonym(self.relative)
-        return (_printable(self.relative.as_posix()), pseudo, f"{pseudo}{self.suffix}")
+        return (_printable(self.relative.as_posix()), pseudo, f"{pseudo}{shown_extension(self.suffix)}")
 
     def entity(self, name: str) -> str | None:
         return dict(self.entities).get(name)

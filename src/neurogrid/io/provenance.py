@@ -15,9 +15,10 @@ Documentation sources (CORE-M13-03):
   results.json.
 
 Display (A-51, A-70, critic X14): in BIDS datasets and with --show-paths a deviating path is shown as stored;
-in raw folders as its pseudonymous ID (rec-<sha256(path)[:8]> plus extension, as M01 shows recordings), except
-NeuroGrid's own control files in .neurogrid/, whose fixed names identify nobody. Finding keys and exceptions
-use the stored path, the pseudonym and the pseudonymous file name, independent of --show-paths (A-68).
+in raw folders as its pseudonymous ID (rec-<sha256(path)[:8]> plus the extension shown_suffix allows, as M01
+shows recordings), except NeuroGrid's own control files in .neurogrid/, whose fixed names identify nobody.
+Finding keys and exceptions use the stored path, the pseudonym and the pseudonymous file name, independent of
+--show-paths (A-68).
 """
 
 from __future__ import annotations
@@ -26,7 +27,6 @@ import hashlib
 import json
 import math
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -34,6 +34,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from neurogrid.io.discover import _suffix as classify_suffix  # the extension rule of M01 displays (A-70)
+from neurogrid.io.discover import shown_extension
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.provenance import (
     DEFAULT_MANIFEST,
@@ -90,19 +91,18 @@ KNOWN_CONTROL_FILES = frozenset(
         "vault/pia/pia.en.md",
     )
 )
-# Extensions shown next to a pseudonym; others (letters outside ASCII, odd characters) are left out (A-51).
-_SHOWN_SUFFIX = re.compile(r"^(?:\.[a-z0-9]{1,10}){1,2}$")
 # Marks the stable name of a refused name (show); no stored path contains a colon.
 UNSAFE_IDENTITY = "unsafe_name:"
 MAX_BIDSIGNORE_BYTES = 1_000_000
 
 
 def shown_suffix(name: str) -> str:
-    """The extension shown next to the pseudonym of a file called ``name`` (A-70), by the rule of show(): its
-    classifying extension (lower case) if _SHOWN_SUFFIX allows it, else none, so that a name written as an
-    extension never appears (A-51). Also used for the path values of the effective configuration (C4)."""
-    suffix = classify_suffix(name)
-    return suffix if _SHOWN_SUFFIX.match(suffix) else ""
+    """The extension shown next to the pseudonym of a file called ``name`` (A-70): its classifying extension
+    (lower case) if discover.shown_extension allows it, else none, so that a name, a date, a year or a clock
+    time written as an extension never appears (A-51, C5). The one rule of show(), shown_target, verify, the
+    console names of --out files inside the dataset, the path values of the effective configuration (C4)
+    and the M01/M10 file names and identities (FoundFile.display_file, FoundFile.identity)."""
+    return shown_extension(classify_suffix(name))
 
 
 # --- documentation sources ------------------------------------------------------------------------------
@@ -364,9 +364,7 @@ def show(path: str, *, plain: bool, kind: str | None = None) -> Shown:
     stored path, the pseudonym and the pseudonymous file name."""
     unsafe = kind == "unsafe_name"
     pseudo = "rec-" + hashlib.sha256(name_bytes(path, kind)).hexdigest()[:8]
-    suffix = classify_suffix(path.rsplit("/", 1)[-1])
-    if not _SHOWN_SUFFIX.match(suffix):
-        suffix = ""
+    suffix = shown_suffix(path.rsplit("/", 1)[-1])
     names = (path, pseudo, pseudo + suffix)
     identity = (UNSAFE_IDENTITY + path, *names) if unsafe else names
     if plain or (not unsafe and path in KNOWN_CONTROL_FILES):

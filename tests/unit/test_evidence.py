@@ -139,6 +139,23 @@ def test_value_text_is_never_echoed() -> None:
     assert "张三" not in str(info.value.params)
 
 
+def test_a_trailing_newline_never_lets_a_key_through() -> None:
+    """L2 (C2): '$' also matches before a trailing newline, so the key checks use fullmatch. A rule-ID key
+    with a trailing newline (the YAML escape \\n) is named by its position like any malformed key, never by
+    its text; a field name with one appears as '?'. Without it the key is accepted and the field named."""
+    with pytest.raises(ConfigError) as info:
+        parse_evidence(b'format_version: 1\nevidence:\n  "ZHANG-SAN\\n": {status: open}\n')
+    assert info.value.params == {"field": "evidence.#1", "problem": "rule_id"}
+    with pytest.raises(ConfigError) as info:
+        parse_evidence(b'format_version: 1\nevidence:\n  X-1: {status: open, "owner\\n": me}\n')
+    assert info.value.params == {"field": "evidence.X-1.?", "problem": "extra_forbidden"}
+    accepted = _parse("format_version: 1\nevidence:\n  ZHANG-SAN: {status: open}\n")
+    assert accepted["ZHANG-SAN"].status is EvidenceState.OPEN
+    with pytest.raises(ConfigError) as info:
+        parse_evidence(b"format_version: 1\nevidence:\n  X-1: {status: open, owner: me}\n")
+    assert info.value.params == {"field": "evidence.X-1.owner", "problem": "extra_forbidden"}
+
+
 @pytest.mark.parametrize(
     "document", ["../outside.pdf", "C:/x.pdf", "\\\\\\\\srv\\\\x.pdf", "a:b.pdf", "https://x/y"]
 )

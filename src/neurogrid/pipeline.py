@@ -30,7 +30,7 @@ from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
 from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan
-from neurogrid.io.identifying import annotator_pseudonym, display_text
+from neurogrid.io.identifying import annotator_pseudonym, dates_or_times, display_text
 from neurogrid.io.provenance import (
     KNOWN_CONTROL_FILES,
     comparison_exclusions,
@@ -534,28 +534,40 @@ _ANNOTATOR_SETTINGS: tuple[tuple[str, str, str | None, str], ...] = (
 
 
 # What a wildcard of an annotator pattern stands for next to the pattern's fixed text (kernel.glob): '?' one
-# character (a separator, a letter in either case or a digit), '*' also nothing. A pattern with more wildcards
-# than MAX_SHOWN_PATTERN_WILDCARDS is not shown (at most 5**3 = 125 values to test per pattern, A-53).
-_WILDCARD_FILLS = {"?": (" ", "a", "A", "0"), "*": ("", " ", "a", "A", "0")}
+# character (a separator, a letter in either case, a digit, or a separator of dates and clock times as in
+# 12.03.1961, 12/03/1961, 1961-03-12, 22:31 and 22h31), '*' also nothing. A pattern with more wildcards than
+# MAX_SHOWN_PATTERN_WILDCARDS is not shown (at most 10**3 = 1000 values to test per pattern, A-53).
+_DATE_TIME_FILLS = (".", ":", "-", "/", "h")
+_WILDCARD_FILLS = {
+    "?": (" ", "a", "A", "0", *_DATE_TIME_FILLS),
+    "*": ("", " ", "a", "A", "0", *_DATE_TIME_FILLS),
+}
 _WILDCARD = re.compile(r"([*?])")
 MAX_SHOWN_PATTERN_WILDCARDS = 3
 
 
 def _pattern_displayable(pattern: str) -> bool:
-    """A pattern is shown only if display_text (C5) shows every value its fixed text spells with each
-    wildcard filled in independently (_WILDCARD_FILLS). Thus 'Zhang*San' (a separator), 'Zh?ng San' (a
-    letter), 'Wang W?i' and 'Zhang S*' are hidden like the names they spell, while 'scorer*' stays. Other
-    glob syntax ('[...]') is no A-17 character, so such a pattern is hidden."""
+    """A pattern is shown only if no value its fixed text spells, with each wildcard filled in independently
+    (_WILDCARD_FILLS), is one the display rule hides (C5): display_text must show every value filled with
+    separators, letters and digits only, and no value with a separator of dates and clock times
+    (_DATE_TIME_FILLS) may spell a date, a year or a clock time (dates_or_times, ':' read as the '.' of the
+    clock-time rule). Such a value is judged by its dates and clock times only, because '/' on both sides
+    of a word would read as a folder path and ':' is no A-17 character. Thus 'Zhang*San' (a separator),
+    'Zh?ng San' (a letter), 'Wang W?i' and 'Zhang S*' are hidden like the names they spell, 'night 22?31',
+    '10?30pm' and 'born 12?03?1961' like the clock times and dates, while 'scorer*' and '*scorer*' stay.
+    Other glob syntax ('[...]') is no A-17 character, so such a pattern is hidden."""
     pieces = _WILDCARD.split(pattern)  # fixed text and wildcards alternate: text, wildcard, text, ...
     texts, wildcards = pieces[::2], pieces[1::2]
     if len(wildcards) > MAX_SHOWN_PATTERN_WILDCARDS:
         return False
-    values = {
-        texts[0] + "".join(fill + text for fill, text in zip(fills, texts[1:], strict=True))
-        for fills in itertools.product(*(_WILDCARD_FILLS[wildcard] for wildcard in wildcards))
-    }
-    values.discard("")  # '*' alone as nothing spells nothing
-    return all(display_text(value).shown is not None for value in sorted(values))
+    for fills in itertools.product(*(_WILDCARD_FILLS[wildcard] for wildcard in wildcards)):
+        value = texts[0] + "".join(fill + text for fill, text in zip(fills, texts[1:], strict=True))
+        if any(fill in _DATE_TIME_FILLS for fill in fills):
+            if dates_or_times(value.replace(":", ".")):
+                return False
+        elif value and display_text(value).shown is None:  # '*' alone as nothing spells nothing
+            return False
+    return True
 
 
 def _displayed_annotator(value: Any, kind: str) -> Any:

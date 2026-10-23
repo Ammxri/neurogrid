@@ -199,7 +199,7 @@ class EvidenceFile(BaseModel):
 
 
 def _location(parts: tuple[int | str, ...]) -> str:
-    return ".".join(str(part) if _SHOWN_LOCATION.match(str(part)) else "?" for part in parts)
+    return ".".join(str(part) if _SHOWN_LOCATION.fullmatch(str(part)) else "?" for part in parts)
 
 
 def parse_evidence(data: bytes) -> EvidenceFile:
@@ -211,8 +211,9 @@ def parse_evidence(data: bytes) -> EvidenceFile:
     entries = raw.get("evidence")
     if isinstance(entries, dict):
         for index, key in enumerate(entries, start=1):
-            if not isinstance(key, str) or len(key) > MAX_RULE_ID_CHARS or not _RULE_ID.match(key):
-                # the position, not the key: a malformed key may be any text (C2)
+            if not isinstance(key, str) or len(key) > MAX_RULE_ID_CHARS or not _RULE_ID.fullmatch(key):
+                # the position, not the key: a malformed key may be any text (C2); fullmatch, since '$'
+                # also matches before a trailing newline
                 raise ConfigError("evidence.invalid", field=f"evidence.#{index}", problem="rule_id")
     try:
         return EvidenceFile.model_validate(raw)

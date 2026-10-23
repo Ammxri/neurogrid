@@ -407,6 +407,9 @@ HIDDEN_PATTERNS = (
     "ID12345?",  # a digit: a long number
     "Zh[a]ng San",  # glob syntax outside A-17
     "a?b?c?d?",  # more wildcards than MAX_SHOWN_PATTERN_WILDCARDS
+    "night 22?31",  # a clock-time separator: night 22.31, 22h31 (X-evidence-0)
+    "10?30pm",  # 10.30pm
+    "born 12?03?1961",  # a date: born 12.03.1961
 )
 SHOWN_PATTERNS = ("scorer*", "*scorer*", "rater-??", "site?-rater-??", "A?", "*")
 
