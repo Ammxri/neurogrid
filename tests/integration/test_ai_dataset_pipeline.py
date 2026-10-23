@@ -848,6 +848,45 @@ def test_age_columns_with_a_unit_count_in_year_groups(tmp_path: Path) -> None:
         assert all(cell not in dumped for cells in columns.values() for cell in cells)
 
 
+def test_compact_age_columns_count_in_year_groups(tmp_path: Path) -> None:
+    """X-ai-0 repair (A-81): with 5 subjects per value, AgeInMonths 18/30/48 gave the classes 18, 30 and 48
+    and SubjectAge 31/42/57 the classes 31, 42 and 57, the raw ages. Every column whose name says age counts
+    in the year groups, by the spelling of the setting or of the header; PageCount stays a column of its own
+    values. (The raw values are above 15: the subject labels 01 ... 15 are in the results.)"""
+    folder = _subjects_dataset(tmp_path / "compact", [(f"{n:02d}", "1", "F", "x") for n in range(1, 16)])
+    columns = {
+        "AgeInMonths": (("18", "30", "48"), {"0-9": 15}),
+        "SubjectAge": (("31", "42", "57"), {"30-39": 5, "40-49": 5, "50-59": 5}),
+        "PatientAge": (("33", "44", "55"), {"30-39": 5, "40-49": 5, "50-59": 5}),
+        "AgeInYears": (("32", "43", "58"), {"30-39": 5, "40-49": 5, "50-59": 5}),
+        "AgeInDays": (("401", "4001", "8001"), {"0-9": 5, "10-19": 5, "20-29": 5}),
+        "GestationalAgeWeeks": (("38", "39", "40"), {"0-9": 15}),
+        "DonorAge": (("34", "45", "56"), {"30-39": 5, "40-49": 5, "50-59": 5}),
+    }
+    pages = ("110", "220", "330")
+    lines = ["participant_id\t" + "\t".join(columns) + "\tPageCount"]
+    lines += [
+        f"sub-{n + 1:02d}\t"
+        + "\t".join(cells[n // 5] for cells, _groups in columns.values())
+        + f"\t{pages[n // 5]}"
+        for n in range(15)
+    ]
+    (folder / "participants.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    raw = [cell for cells, _groups in columns.values() for cell in cells]
+    for column, (_cells, groups) in columns.items():
+        for spelling in (column, column.casefold()):  # "donorage" is an age column by its header
+            config = ai_config(tmp_path, f'[ai]\nlabels = "participants:{spelling}"\n', rules=(CLASSES,))
+            results = run(folder, config)
+            assert results.ai is not None and results.ai.labels is not None
+            assert results.ai.labels.scopes["all"].classes == groups, spelling
+            dumped = canonical.dumps(results).decode("utf-8")
+            assert all(f'"{cell}"' not in dumped for cell in raw), spelling
+    config = ai_config(tmp_path, '[ai]\nlabels = "participants:PageCount"\n', rules=(CLASSES,))
+    page = run(folder, config)
+    assert page.ai is not None and page.ai.labels is not None
+    assert page.ai.labels.scopes["all"].classes == {"110": 5, "220": 5, "330": 5}
+
+
 def test_events_labels_n_a_in_any_case_is_no_class(tmp_path: Path) -> None:
     """X-interactions-1 (A-81): 'N/A' and 'n/A' cells of events.tsv took half of the class shares of
     events:trial_type; like n/a (and like participants:<column>) they are no label."""

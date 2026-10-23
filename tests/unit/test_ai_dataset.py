@@ -13,6 +13,7 @@ from typing import get_args
 import pytest
 
 import neurogrid.io.annotations as annotations_module
+import neurogrid.io.participants as participants_module
 from conftest import dir_link  # type: ignore[import-not-found]
 from neurogrid import config as config_module
 from neurogrid.checks import ai_dataset
@@ -679,6 +680,55 @@ def test_a_unit_word_alone_makes_no_age_column() -> None:
     assert not any(
         is_age_column(name) for name in ("duration_days", "weeks", "months_since_onset", "weekday")
     )
+
+
+@pytest.mark.parametrize(
+    ("name", "unit"),
+    [
+        ("SubjectAge", YEARS),
+        ("PatientAge", YEARS),
+        ("DonorAge", YEARS),  # camel case: any word in front
+        ("EEGAge", YEARS),
+        ("Age2", YEARS),
+        ("AgeInYears", YEARS),
+        ("AgeInMonths", MONTHS),
+        ("AgeInDays", DAYS),
+        ("GestationalAgeWeeks", WEEKS),
+        ("MRIAgeMonths", MONTHS),
+        ("ageinmonths", MONTHS),  # without capitals: the compact form with "in"
+        ("AGEINDAYS", DAYS),
+        ("subjectage", YEARS),  # without capitals: a closed list of words in front
+        ("gestationalageweeks", WEEKS),
+        ("SUBJECT_AGE", YEARS),
+    ],
+)
+def test_compact_age_names_with_a_word_in_front_or_in(name: str, unit: tuple[float, float]) -> None:
+    """X-ai-0 repair (A-81): SubjectAge, PatientAge, GestationalAgeWeeks, AgeInMonths, AgeInYears and
+    AgeInDays were no age columns, so 5 subjects of one raw age made the age a class key."""
+    assert is_age_column(name) and age_unit(name) == unit
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["PageCount", "UsageCount", "StageNumber", "voltage", "postage", "parentage", "percentage", "Average"],
+)
+def test_words_ending_in_age_stay_no_age_columns(name: str) -> None:
+    """X-ai-0 repair: camel case and the words in front of a compact form make no column an age column whose
+    words only end in the letters."""
+    assert not is_age_column(name)
+
+
+def test_an_age_column_by_the_setting_or_the_header() -> None:
+    """X-ai-0 repair: the setting and the header match without regard to case; only the capitals show the
+    words of "DonorAgeDays", so either spelling makes the column an age column and gives its unit."""
+    age_column = participants_module.age_column
+    assert age_column("donoragedays", "DonorAgeDays") == DAYS
+    assert age_column("DonorAgeDays", "donoragedays") == DAYS
+    assert age_column("donorage", "DonorAge") == YEARS
+    assert age_column("donorage", "donorage") is None
+    assert age_column("PageCount", "pagecount") is None
+    table = parse_participants("participant_id\t DonorAgeDays \tdonoragedays\nsub-01\t400\t9\n")
+    assert table.headers == {"participant_id": "participant_id", "donoragedays": "DonorAgeDays"}
 
 
 @pytest.mark.parametrize(

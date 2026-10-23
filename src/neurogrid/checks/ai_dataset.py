@@ -67,10 +67,9 @@ from neurogrid.io.participants import (
     SEX_COLUMNS,
     SPLIT_NAMES,
     ParticipantsTable,
+    age_column,
     age_group,
-    age_unit,
     canonical,
-    is_age_column,
     missing,
     read_participants,
     sex_category,
@@ -364,12 +363,11 @@ def _participant_labels(members: Sequence[Member], table: ParticipantsTable | No
     """``participants:<column>``: one unit per subject with recordings and a value. A column that holds ages
     (``age``, which CORE-M11-02 reads, or another name that says age) counts in the 10-year groups of the
     demography (the groups are its vocabulary), in years: an age in the months, weeks or days its name gives
-    is converted first (io.participants.age_unit); the raw age never becomes a class (A-21, A-81). In a sex
-    column a placeholder documents nothing, as for CORE-M11-02 and the demography (A-81)."""
+    is converted first (io.participants.age_column: the name in the settings or the header in participants.tsv
+    says age, ``SubjectAge`` or ``AgeInMonths`` as well); the raw age never becomes a class (A-21, A-81). In
+    a sex column a placeholder documents nothing, as for CORE-M11-02 and the demography (A-81)."""
     reason = _table_reason(table)
     wanted = canonical(column)
-    ages = is_age_column(wanted)
-    unit = age_unit(wanted)
     sexes = wanted in SEX_COLUMNS
     if reason is None and table is not None and wanted not in table.columns:
         reason = "ai.label_column_missing"
@@ -377,6 +375,7 @@ def _participant_labels(members: Sequence[Member], table: ParticipantsTable | No
         reason = "ai.subjects_unknown"
     if reason is not None or table is None:
         return Labels("participants", column, "subjects", reason=reason or "ai.no_participants_table")
+    unit = age_column(column, table.headers.get(wanted, column))  # the setting and the header (A-81)
     subject_splits: dict[str, set[str]] = {}
     for member in members:
         assert member.subject is not None
@@ -385,13 +384,13 @@ def _participant_labels(members: Sequence[Member], table: ParticipantsTable | No
     for label, splits in sorted(subject_splits.items()):
         participant = table.participants.get(label)
         value = participant.cells.get(wanted, "") if participant is not None else ""
-        if ages:
+        if unit is not None:
             value = age_group(value, unit) or ""  # in years (A-81); missing or no age: no label
         elif sexes and sex_category(value) is None:
             value = ""  # empty, n/a or a placeholder such as "unknown": no label
         if not missing(value):
             units.append((value, frozenset(splits)))
-    vocabulary = frozenset(AGE_GROUPS) if ages else table.vocabulary.get(wanted, frozenset())
+    vocabulary = frozenset(AGE_GROUPS) if unit is not None else table.vocabulary.get(wanted, frozenset())
     return _counted("participants", column, "subjects", members, units, vocabulary)
 
 

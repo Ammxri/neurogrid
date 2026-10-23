@@ -15,10 +15,12 @@ in raw folders ``participant_id`` is the subject label of the mapping, with or w
   decade; anything else is unparseable and counts as missing (``ai.age_unparseable``). The raw age stays
   inside :class:`Subject` (``exclude=True``) and is never serialised; cell text never leaves this module
   except through the checks' display rule (A-17, C5). Besides ``age``, a column whose name says age
-  (``age_years``, ``Age at scan``, ``AgeYears``; :func:`is_age_column`) holds ages as well: as a label
-  source it counts in the same groups (A-21). Its ages are in years unless its name gives a unit
-  (:func:`age_unit`: months, weeks or days, as in ``age_months``, ``AgeDays``, ``age_in_weeks``); they are
-  converted to years before they are grouped (months / 12, weeks · 7 / 365.25, days / 365.25; A-81).
+  (``age_years``, ``Age at scan``, ``AgeYears``, ``SubjectAge``, ``AgeInMonths``; :func:`is_age_column`)
+  holds ages as well: as a label source it counts in the same groups (A-21). Its ages are in years unless
+  its name gives a unit (:func:`age_unit`: months, weeks or days, as in ``age_months``, ``AgeDays``,
+  ``age_in_weeks``, ``GestationalAgeWeeks``); they are converted to years before they are grouped
+  (months / 12, weeks · 7 / 365.25, days / 365.25; A-81). The setting and the header may differ in case, so
+  both spellings count (:func:`age_column`).
 - Sex is normalised to female | male | other | given (documented, but in none of the three categories). A
   placeholder of :data:`SEX_PLACEHOLDERS` ("unknown", "U", "nan", "?", ...) documents no sex: it counts as
   missing like an empty cell (A-81), also in a sex column used as label source.
@@ -79,10 +81,48 @@ _UNIT_WORDS: dict[str, tuple[float, float]] = {
     **dict.fromkeys(("days", "day"), (1.0, 365.25)),
 }
 _UNITS = "|".join(sorted(_UNIT_WORDS, key=len, reverse=True))  # the longest first: "months" before "mo"
+# Words that qualify an age in a compact name without capitals or separators ("subjectage",
+# "gestationalageweeks"). The list is closed because many words end in "age" ("stage", "voltage", "postage",
+# "parentage", "percentage"); with capitals or separators any word in front counts ("DonorAge", "donor_age").
+_AGE_QUALIFIERS = (
+    "subject",
+    "participant",
+    "patient",
+    "child",
+    "infant",
+    "mother",
+    "father",
+    "maternal",
+    "paternal",
+    "gestational",
+    "chronological",
+    "corrected",
+    "postmenstrual",
+    "postconceptional",
+    "conceptional",
+    "postnatal",
+    "biological",
+    "developmental",
+    "mental",
+    "brain",
+    "bone",
+    "onset",
+    "scan",
+    "visit",
+    "baseline",
+    "current",
+)
+_QUALIFIERS = "|".join(sorted(_AGE_QUALIFIERS, key=len, reverse=True))
 # A word of a column name that says the column holds ages: "age", "ages" or a compact form ("ageyears",
-# "ageatscan", "agemonths", "ageatscandays"); the group "unit" is the unit the compact form names
-_AGE_WORD = re.compile(rf"ages?(?:at[a-z]*?)?(?:(?P<unit>{_UNITS})|group|grp)?")
+# "ageatscan", "agemonths", "ageinmonths", "ageatscandays", "subjectage"); the group "unit" is the unit the
+# compact form names
+_AGE_WORD = re.compile(rf"(?:{_QUALIFIERS})?ages?(?:at[a-z]*?)?(?:(?:in)?(?P<unit>{_UNITS})|group|grp)?")
 _NAME_WORDS = re.compile(r"[^0-9a-z]+")
+# Where camel case starts a new word: a capital after a small letter ("Subject|Age", "Age|In|Months"), the
+# last capital of an acronym before a small letter ("EEG|Age"), and letters next to digits ("Age|2")
+_CAMEL_WORDS = re.compile(
+    r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|(?<=[A-Za-z])(?=[0-9])|(?<=[0-9])(?=[A-Za-z])"
+)
 SEX_COLUMNS = ("sex", "gender")  # in this order (A-04)
 # Sex cells that say the sex is not known, compared after strip and casefold: no documentation (A-81)
 SEX_PLACEHOLDERS = frozenset(
@@ -131,23 +171,45 @@ def missing(value: str) -> bool:
     return no_value(value)
 
 
+def _name_words(name: str) -> tuple[list[str], list[str]]:
+    """The words of a column name in two readings, without regard to case: split at every character that is
+    neither a letter nor a digit (``age_years``, ``Age at scan``; compact forms stay whole: ``ageinmonths``),
+    and also where camel case or digits start a new word (``SubjectAge``, ``AgeInMonths``, ``EEGAge``,
+    ``Age2``)."""
+    camel = [word for part in _CAMEL_WORDS.split(name.strip()) for word in _NAME_WORDS.split(canonical(part))]
+    return _NAME_WORDS.split(canonical(name)), camel
+
+
 def is_age_column(name: str) -> bool:
     """Whether a column holds ages by its name: a word "age" (``age``, ``age_years``, ``Age at scan``,
-    ``subject_age``) or a compact form (``AgeYears``, ``AgeAtScan``, ``AgeMonths``), but not a word that only
-    contains the letters (``language``, ``stage``). Raw ages never leave the process (A-21)."""
-    return any(_AGE_WORD.fullmatch(word) for word in _NAME_WORDS.split(canonical(name)))
+    ``subject_age``, ``SubjectAge``, ``AgeInMonths``) or a compact form (``AgeYears``, ``ageatscan``,
+    ``agemonths``, ``ageinmonths``, ``patientage``), but not a word that only contains the letters
+    (``language``, ``stage``, ``PageCount``). Raw ages never leave the process (A-21, A-81)."""
+    return any(_AGE_WORD.fullmatch(word) for words in _name_words(name) for word in words)
 
 
 def age_unit(name: str) -> tuple[float, float]:
     """Years per unit, as (numerator, denominator), of the ages in a column that holds ages: the first unit
-    its name gives, in a compact age word (``AgeMonths``, ``AgeAtScanDays``) or as a word of its own
-    (``age_in_weeks``, ``Age (days)``): months, weeks or days (A-81); a name without a unit gives years."""
-    for word in _NAME_WORDS.split(canonical(name)):
-        compact = _AGE_WORD.fullmatch(word)
-        unit = compact.group("unit") if compact is not None else word
-        if unit in _UNIT_WORDS:
-            return _UNIT_WORDS[unit]
+    its name gives, in a compact age word (``agemonths``, ``ageatscandays``, ``ageinweeks``) or as a word of
+    its own (``age_in_weeks``, ``Age (days)``, ``AgeInMonths``, ``GestationalAgeWeeks``): months, weeks or
+    days (A-81); a name without a unit gives years."""
+    for words in _name_words(name):
+        for word in words:
+            compact = _AGE_WORD.fullmatch(word)
+            unit = compact.group("unit") if compact is not None else word
+            if unit in _UNIT_WORDS:
+                return _UNIT_WORDS[unit]
     return YEARS
+
+
+def age_column(*names: str) -> tuple[float, float] | None:
+    """Years per unit of a column that holds ages by one of its spellings, or None if no spelling says age.
+    The name in the settings and the header in participants.tsv match without regard to case, but only the
+    capitals show the words of ``SubjectAge`` or ``DonorAgeDays``: a column holds ages if one spelling says
+    so, and its unit is the first unit a spelling gives (:func:`age_unit`), else years (A-81)."""
+    if not any(is_age_column(name) for name in names):
+        return None
+    return next((unit for unit in map(age_unit, names) if unit != YEARS), YEARS)
 
 
 def subject_label(participant_id: str) -> str:
@@ -223,6 +285,7 @@ class ParticipantsTable:
 
     usable: bool
     columns: frozenset[str] = frozenset()  # canonical names
+    headers: Mapping[str, str] = field(default_factory=dict)  # the header text by canonical name (the first)
     sex_column: str | None = None  # "sex" or "gender" (A-04)
     participants: Mapping[str, Participant] = field(default_factory=dict)  # by subject label
     vocabulary: Mapping[str, frozenset[str]] = field(default_factory=dict)  # participants.json Levels
@@ -269,8 +332,10 @@ def parse_participants(
     if not lines:
         return ParticipantsTable(usable=False)
     header: list[str] = []
+    headers: dict[str, str] = {}
     for name in lines[0].split("\t"):
         header.append(canonical(name))
+        headers.setdefault(canonical(name), name.strip())  # duplicate columns: the first one counts
     if "participant_id" not in header:
         return ParticipantsTable(usable=False)
     position = {name: header.index(name) for name in header}  # duplicate columns: the first one counts
@@ -315,6 +380,7 @@ def parse_participants(
     return ParticipantsTable(
         usable=True,
         columns=columns,
+        headers=headers,
         sex_column=sex_column,
         participants=participants,
         vocabulary=dict(vocabulary or {}),
