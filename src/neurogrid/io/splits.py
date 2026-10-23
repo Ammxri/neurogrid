@@ -23,7 +23,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from neurogrid.io.discover import FoundFile, pseudonym
+from neurogrid.io.discover import FoundFile
 from neurogrid.io.participants import SPLIT_NAMES, canonical
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.safety import check_relative, is_link, read_limited, resolve_within
@@ -138,8 +138,8 @@ def assign(rows: Iterable[SplitRow], found: Iterable[FoundFile]) -> tuple[dict[s
     names: dict[str, str] = {}
     for item in found:
         relative = item.relative.as_posix()
-        pseudo = pseudonym(item.relative)
-        for name in (relative, pseudo, f"{pseudo}{item.suffix}"):
+        # the pseudonymous ID and file name as findings show them (FoundFile.identity: one suffix rule, A-70)
+        for name in (relative, *item.identity[1:]):
             names.setdefault(name, relative)
     assigned: dict[str, set[str]] = {}
     unknown = 0

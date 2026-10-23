@@ -29,8 +29,8 @@ from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
-from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan
-from neurogrid.io.identifying import annotator_pseudonym, display_text
+from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan, shown_extension
+from neurogrid.io.identifying import annotator_pseudonym, dates_or_times, display_text
 from neurogrid.io.provenance import (
     KNOWN_CONTROL_FILES,
     comparison_exclusions,
@@ -98,8 +98,13 @@ RESULT_LIBRARIES = (
     "pymatreader",
     "scipy",
 )
-# Exception patterns made only of wildcards, extensions and pseudonymous IDs reveal no names (A-51).
-_SAFE_PATTERN_PART = re.compile(r"^(\*\*|\*|\*\.[A-Za-z0-9]+|rec-[0-9a-f]{8}(\.[A-Za-z0-9]+)?)$")
+# Exception and annotator patterns made only of wildcards and pseudonymous IDs, each with at most one
+# extension that the one suffix rule of file names shows (discover.shown_extension, A-70), reveal no names,
+# dates or clock times (A-51); _shown_pattern shows any other pattern as pattern-<sha8> (A-69).
+_SAFE_PATTERN_PART = re.compile(
+    r"\*\*|\*|\*(?P<wildcard_extension>\.[A-Za-z0-9]+)"
+    r"|rec-[0-9a-f]{8}(?P<pseudonym_extension>\.[A-Za-z0-9]+)?"
+)
 
 
 @dataclass(frozen=True)
@@ -480,11 +485,24 @@ def _explicit_manifest(raw: Path | None) -> Path | None:
     return path
 
 
+def _safe_pattern_part(part: str) -> bool:
+    """A part between '/' of a pattern that reveals nothing (_SAFE_PATTERN_PART): '**', '*', '*.<ext>' or
+    'rec-<sha8>' with an optional '.<ext>', where the extension, in lower case as file names are classified,
+    is one that discover.shown_extension shows next to a pseudonym. A digit run, a date, a year or a clock
+    time written as the extension ('*.19610312', 'rec-<sha8>.1961', '*.10pm') is not."""
+    match = _SAFE_PATTERN_PART.fullmatch(part)
+    if match is None:
+        return False
+    extension = match.group("wildcard_extension") or match.group("pseudonym_extension")
+    return extension is None or shown_extension(extension.lower()) != ""
+
+
 def _shown_pattern(pattern: str | None, plain_names: bool) -> str | None:
-    """In raw folders without --show-paths an exception pattern may contain real folder names (A-51)."""
+    """In raw folders without --show-paths an exception pattern may contain real folder names, and its
+    extension a date or a clock time (A-51): it is shown only if every part is _safe_pattern_part."""
     if pattern is None or plain_names:
         return pattern
-    if all(_SAFE_PATTERN_PART.match(part) for part in pattern.split("/")):
+    if all(_safe_pattern_part(part) for part in pattern.split("/")):
         return pattern
     return "pattern-" + hashlib.sha256(pattern.encode("utf-8")).hexdigest()[:8]
 
@@ -534,28 +552,40 @@ _ANNOTATOR_SETTINGS: tuple[tuple[str, str, str | None, str], ...] = (
 
 
 # What a wildcard of an annotator pattern stands for next to the pattern's fixed text (kernel.glob): '?' one
-# character (a separator, a letter in either case or a digit), '*' also nothing. A pattern with more wildcards
-# than MAX_SHOWN_PATTERN_WILDCARDS is not shown (at most 5**3 = 125 values to test per pattern, A-53).
-_WILDCARD_FILLS = {"?": (" ", "a", "A", "0"), "*": ("", " ", "a", "A", "0")}
+# character (a separator, a letter in either case, a digit, or a separator of dates and clock times as in
+# 12.03.1961, 12/03/1961, 1961-03-12, 22:31 and 22h31), '*' also nothing. A pattern with more wildcards than
+# MAX_SHOWN_PATTERN_WILDCARDS is not shown (at most 10**3 = 1000 values to test per pattern, A-53).
+_DATE_TIME_FILLS = (".", ":", "-", "/", "h")
+_WILDCARD_FILLS = {
+    "?": (" ", "a", "A", "0", *_DATE_TIME_FILLS),
+    "*": ("", " ", "a", "A", "0", *_DATE_TIME_FILLS),
+}
 _WILDCARD = re.compile(r"([*?])")
 MAX_SHOWN_PATTERN_WILDCARDS = 3
 
 
 def _pattern_displayable(pattern: str) -> bool:
-    """A pattern is shown only if display_text (C5) shows every value its fixed text spells with each
-    wildcard filled in independently (_WILDCARD_FILLS). Thus 'Zhang*San' (a separator), 'Zh?ng San' (a
-    letter), 'Wang W?i' and 'Zhang S*' are hidden like the names they spell, while 'scorer*' stays. Other
-    glob syntax ('[...]') is no A-17 character, so such a pattern is hidden."""
+    """A pattern is shown only if no value its fixed text spells, with each wildcard filled in independently
+    (_WILDCARD_FILLS), is one the display rule hides (C5): display_text must show every value filled with
+    separators, letters and digits only, and no value with a separator of dates and clock times
+    (_DATE_TIME_FILLS) may spell a date, a year or a clock time (dates_or_times, ':' read as the '.' of the
+    clock-time rule). Such a value is judged by its dates and clock times only, because '/' on both sides
+    of a word would read as a folder path and ':' is no A-17 character. Thus 'Zhang*San' (a separator),
+    'Zh?ng San' (a letter), 'Wang W?i' and 'Zhang S*' are hidden like the names they spell, 'night 22?31',
+    '10?30pm' and 'born 12?03?1961' like the clock times and dates, while 'scorer*' and '*scorer*' stay.
+    Other glob syntax ('[...]') is no A-17 character, so such a pattern is hidden."""
     pieces = _WILDCARD.split(pattern)  # fixed text and wildcards alternate: text, wildcard, text, ...
     texts, wildcards = pieces[::2], pieces[1::2]
     if len(wildcards) > MAX_SHOWN_PATTERN_WILDCARDS:
         return False
-    values = {
-        texts[0] + "".join(fill + text for fill, text in zip(fills, texts[1:], strict=True))
-        for fills in itertools.product(*(_WILDCARD_FILLS[wildcard] for wildcard in wildcards))
-    }
-    values.discard("")  # '*' alone as nothing spells nothing
-    return all(display_text(value).shown is not None for value in sorted(values))
+    for fills in itertools.product(*(_WILDCARD_FILLS[wildcard] for wildcard in wildcards)):
+        value = texts[0] + "".join(fill + text for fill, text in zip(fills, texts[1:], strict=True))
+        if any(fill in _DATE_TIME_FILLS for fill in fills):
+            if dates_or_times(value.replace(":", ".")):
+                return False
+        elif value and display_text(value).shown is None:  # '*' alone as nothing spells nothing
+            return False
+    return True
 
 
 def _displayed_annotator(value: Any, kind: str) -> Any:
