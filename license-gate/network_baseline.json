@@ -1,0 +1,824 @@
+{
+ "format_version": 1,
+ "note": "Reviewed hits of tools/scan_runtime_network.py (A-49). Each entry names the version it was reviewed for; an upgrade needs a new review. Entries of distributions not installed on one platform are kept. playwright 1.63.0 was reviewed from its wheel (runtime dependency of the PDF pipeline).",
+ "entries": [
+  {
+   "distribution": "joblib",
+   "version": "1.6.0",
+   "file": "joblib/externals/loky/backend/_posix_reduction.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "registers pickling of socket objects for worker processes; opens no connection (loky talks to its workers over pipes)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); the network guard is also installed in NeuroGrid's worker processes; OS-level evidence without network under strace and the WFP audit (offline.yml)"
+  },
+  {
+   "distribution": "joblib",
+   "version": "1.6.0",
+   "file": "joblib/externals/loky/backend/_win_reduction.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "registers pickling of socket objects for worker processes; opens no connection (loky talks to its workers over pipes)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); the network guard is also installed in NeuroGrid's worker processes; OS-level evidence without network under strace and the WFP audit (offline.yml)"
+  },
+  {
+   "distribution": "joblib",
+   "version": "1.6.0",
+   "file": "joblib/test/test_numpy_pickle.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "matplotlib",
+   "version": "3.11.2",
+   "file": "matplotlib/__init__.py",
+   "hits": [
+    "import:ssl",
+    "import:urllib.request"
+   ],
+   "reason": "_open_file_or_url reads style sheets from http(s)/ftp URLs; NeuroGrid passes no URL to matplotlib (the report draws its own SVG)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "matplotlib",
+   "version": "3.11.2",
+   "file": "matplotlib/backend_bases.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "socket.socketpair as local signal wake-up of interactive GUI backends; no network; NeuroGrid uses no GUI backend",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "matplotlib",
+   "version": "3.11.2",
+   "file": "matplotlib/backends/backend_webagg.py",
+   "hits": [
+    "import:webbrowser"
+   ],
+   "reason": "WebAgg backend (local web server plus browser); never selected by NeuroGrid",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "matplotlib",
+   "version": "3.11.2",
+   "file": "matplotlib/tests/test_backends_interactive.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "matplotlib",
+   "version": "3.11.2",
+   "file": "matplotlib/tests/test_image.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/conftest.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/datasets/_fetch.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetcher (pooch downloads); never called by NeuroGrid",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/datasets/eegbci/eegbci.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetcher (pooch downloads); never called by NeuroGrid",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/datasets/erp_core/erp_core.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetcher (pooch downloads); never called by NeuroGrid",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/datasets/limo/limo.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetcher (pooch downloads); never called by NeuroGrid",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/datasets/sleep_physionet/_utils.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetcher (pooch downloads); never called by NeuroGrid",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/datasets/sleep_physionet/temazepam.py",
+   "hits": [
+    "marker:telemetry"
+   ],
+   "reason": "the word is part of the URL of the PhysioNet dataset 'sleep-telemetry' inside a dataset fetcher; no telemetry code",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/datasets/utils.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetcher (pooch downloads); never called by NeuroGrid",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/report/report.py",
+   "hits": [
+    "import:webbrowser"
+   ],
+   "reason": "mne.Report opens a web browser on request; NeuroGrid renders its own report and never uses it",
+   "control": "A-49 code ban of mne.Report and mne.report (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py))"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/utils/config.py",
+   "hits": [
+    "import:urllib.request",
+    "marker:api.github.com"
+   ],
+   "reason": "sys_info(check_version=True) asks api.github.com for the latest MNE release",
+   "control": "source test allows sys_info only with check_version=False; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/utils/docs.py",
+   "hits": [
+    "import:webbrowser"
+   ],
+   "reason": "open_docs() opens the online documentation in a browser; never called by NeuroGrid",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/utils/fetching.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "_url_to_local_path of the dataset downloads (mne.datasets.eegbci); urllib.request is used only for url2pathname",
+   "control": "A-49 code ban of mne.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/viz/backends/_utils.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "socket.socketpair as local signal wake-up of the Qt event loop of interactive plots; no network; NeuroGrid draws no interactive plots",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne",
+   "version": "1.13.2",
+   "file": "mne/viz/utils.py",
+   "hits": [
+    "import:webbrowser"
+   ],
+   "reason": "opens plots in a web browser on request in interactive use; never called by NeuroGrid",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "mne-icalabel",
+   "version": "0.10.0",
+   "file": "mne_icalabel/datasets/icalabel/icalabel.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "fetcher of ICLabel test data (pooch); never called by NeuroGrid, which uses the ONNX weights inside the wheel",
+   "control": "A-49 code ban of mne_icalabel.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "numpy",
+   "version": "2.4.6",
+   "file": "numpy/lib/_datasource.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "DataSource opens URLs passed as file names (np.load/np.loadtxt with a URL); NeuroGrid passes only checked local paths (A-52)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "numpy",
+   "version": "2.4.6",
+   "file": "numpy/lib/tests/test__datasource.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "onnxruntime",
+   "version": "1.31.0",
+   "file": "onnxruntime/__init__.py",
+   "hits": [
+    "marker:telemetry"
+   ],
+   "reason": "native telemetry of onnxruntime (enable_/disable_telemetry_events)",
+   "control": "NeuroGrid calls onnxruntime.disable_telemetry_events() before the first session (A-49, unit test); OS-level evidence without network under strace and the WFP audit (offline.yml)"
+  },
+  {
+   "distribution": "onnxruntime",
+   "version": "1.31.0",
+   "file": "onnxruntime/transformers/convert_tf_models_to_pytorch.py",
+   "hits": [
+    "import:requests"
+   ],
+   "reason": "conversion script of the optional transformers tools; imported neither by onnxruntime nor by NeuroGrid",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "playwright",
+   "version": "1.63.0",
+   "file": "playwright/_impl/_waiter.py",
+   "hits": [
+    "marker:telemetry"
+   ],
+   "reason": "a comment: wait information goes to the Playwright driver over its local pipe ('fire-and-forget telemetry' of the protocol), not to a service",
+   "control": "the driver is a subprocess connected by pipes; Chromium flags, request route and request counter of kernel/pdf.py (A-49); OS-level evidence without network under strace and the WFP audit (offline.yml)"
+  },
+  {
+   "distribution": "pooch",
+   "version": "1.9.0",
+   "file": "pooch/core.py",
+   "hits": [
+    "import:requests"
+   ],
+   "reason": "downloader used only by the dataset fetchers of mne, mne-icalabel and scipy; never called by NeuroGrid",
+   "control": "A-49 code ban of pooch, mne.datasets and mne_icalabel.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pooch",
+   "version": "1.9.0",
+   "file": "pooch/downloaders.py",
+   "hits": [
+    "import:ftplib",
+    "import:requests"
+   ],
+   "reason": "downloader used only by the dataset fetchers of mne, mne-icalabel and scipy; never called by NeuroGrid",
+   "control": "A-49 code ban of pooch, mne.datasets and mne_icalabel.datasets (source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pooch",
+   "version": "1.9.0",
+   "file": "pooch/tests/test_downloaders.py",
+   "hits": [
+    "import:requests"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pooch",
+   "version": "1.9.0",
+   "file": "pooch/tests/test_version.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "psutil",
+   "version": "7.2.2",
+   "file": "psutil/__init__.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "socket constants (address families) for listing connections and interfaces; psutil opens no connection (dependency of pyprep and mne-icalabel)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "psutil",
+   "version": "7.2.2",
+   "file": "psutil/_common.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "socket constants (address families) for listing connections and interfaces; psutil opens no connection (dependency of pyprep and mne-icalabel)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "psutil",
+   "version": "7.2.2",
+   "file": "psutil/_pslinux.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "socket constants (address families) for listing connections and interfaces; psutil opens no connection (dependency of pyprep and mne-icalabel)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "psutil",
+   "version": "7.2.2",
+   "file": "psutil/_pssunos.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "socket constants (address families) for listing connections and interfaces; psutil opens no connection (dependency of pyprep and mne-icalabel)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pygments",
+   "version": "2.21.0",
+   "file": "pygments/lexers/_lua_builtins.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "urllib.request only in the `if __name__ == '__main__'` block that regenerates the keyword lists; never run on import",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pygments",
+   "version": "2.21.0",
+   "file": "pygments/lexers/_mysql_builtins.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "urllib.request only in the `if __name__ == '__main__'` block that regenerates the keyword lists; never run on import",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pygments",
+   "version": "2.21.0",
+   "file": "pygments/lexers/_php_builtins.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "urllib.request only in the `if __name__ == '__main__'` block that regenerates the keyword lists; never run on import",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pygments",
+   "version": "2.21.0",
+   "file": "pygments/lexers/_postgres_builtins.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "urllib.request only in the `if __name__ == '__main__'` block that regenerates the keyword lists; never run on import",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pygments",
+   "version": "2.21.0",
+   "file": "pygments/lexers/_sourcemod_builtins.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "urllib.request only in the `if __name__ == '__main__'` block that regenerates the keyword lists; never run on import",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "pygments",
+   "version": "2.21.0",
+   "file": "pygments/lexers/perl.py",
+   "hits": [
+    "marker:telemetry"
+   ],
+   "reason": "Raku class names (Telemetry::...) in a keyword list of the lexer; no telemetry code",
+   "control": "none needed (text only)"
+  },
+  {
+   "distribution": "requests",
+   "version": "2.34.2",
+   "file": "requests/__init__.py",
+   "hits": [
+    "import:ssl",
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of pooch (dataset downloads of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "requests",
+   "version": "2.34.2",
+   "file": "requests/adapters.py",
+   "hits": [
+    "import:socket",
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of pooch (dataset downloads of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "requests",
+   "version": "2.34.2",
+   "file": "requests/compat.py",
+   "hits": [
+    "import:urllib.request",
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of pooch (dataset downloads of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "requests",
+   "version": "2.34.2",
+   "file": "requests/exceptions.py",
+   "hits": [
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of pooch (dataset downloads of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "requests",
+   "version": "2.34.2",
+   "file": "requests/help.py",
+   "hits": [
+    "import:ssl",
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of pooch (dataset downloads of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "requests",
+   "version": "2.34.2",
+   "file": "requests/models.py",
+   "hits": [
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of pooch (dataset downloads of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "requests",
+   "version": "2.34.2",
+   "file": "requests/utils.py",
+   "hits": [
+    "import:socket",
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of pooch (dataset downloads of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "scikit-learn",
+   "version": "1.9.1",
+   "file": "sklearn/conftest.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "scikit-learn",
+   "version": "1.9.1",
+   "file": "sklearn/datasets/_base.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "dataset fetchers (OpenML and others); never called by NeuroGrid",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "scikit-learn",
+   "version": "1.9.1",
+   "file": "sklearn/datasets/_openml.py",
+   "hits": [
+    "import:urllib.request"
+   ],
+   "reason": "dataset fetchers (OpenML and others); never called by NeuroGrid",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "scikit-learn",
+   "version": "1.9.1",
+   "file": "sklearn/metrics/_classification.py",
+   "hits": [
+    "marker:analytics"
+   ],
+   "reason": "the word appears in a literature reference of a docstring",
+   "control": "none needed (text only)"
+  },
+  {
+   "distribution": "scikit-learn",
+   "version": "1.9.1",
+   "file": "sklearn/utils/_repr_html/tests/test_js.py",
+   "hits": [
+    "import:http.server",
+    "import:socket"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "scipy",
+   "version": "1.17.1",
+   "file": "scipy/datasets/_download_all.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetchers (pooch); never called by NeuroGrid",
+   "control": "source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "scipy",
+   "version": "1.17.1",
+   "file": "scipy/datasets/_fetchers.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "dataset fetchers (pooch); never called by NeuroGrid",
+   "control": "source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py); audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "scipy",
+   "version": "1.17.1",
+   "file": "scipy/datasets/tests/test_data.py",
+   "hits": [
+    "import:pooch"
+   ],
+   "reason": "test module of the package; never imported at run time",
+   "control": "NeuroGrid imports no test modules; audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "scipy",
+   "version": "1.17.1",
+   "file": "scipy/stats/_morestats.py",
+   "hits": [
+    "marker:analytics"
+   ],
+   "reason": "the word appears in a literature reference of a docstring",
+   "control": "none needed (text only)"
+  },
+  {
+   "distribution": "tqdm",
+   "version": "4.70.1",
+   "file": "tqdm/contrib/discord.py",
+   "hits": [
+    "import:requests"
+   ],
+   "reason": "progress bars that post to Discord or Telegram, only when this module is imported explicitly; NeuroGrid uses no tqdm.contrib (and switches MNE's progress bars off)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "tqdm",
+   "version": "4.70.1",
+   "file": "tqdm/contrib/telegram.py",
+   "hits": [
+    "import:requests"
+   ],
+   "reason": "progress bars that post to Discord or Telegram, only when this module is imported explicitly; NeuroGrid uses no tqdm.contrib (and switches MNE's progress bars off)",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "typer",
+   "version": "0.27.3",
+   "file": "typer/_click/_termui_impl.py",
+   "hits": [
+    "import:webbrowser"
+   ],
+   "reason": "typer.launch() opens a URL in the browser on request; NeuroGrid never calls it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "typer",
+   "version": "0.27.3",
+   "file": "typer/main.py",
+   "hits": [
+    "import:webbrowser"
+   ],
+   "reason": "typer.launch() opens a URL in the browser on request; NeuroGrid never calls it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/__init__.py",
+   "hits": [
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/_base_connection.py",
+   "hits": [
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/connection.py",
+   "hits": [
+    "import:http.client",
+    "import:socket",
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/connectionpool.py",
+   "hits": [
+    "import:socket",
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/contrib/emscripten/__init__.py",
+   "hits": [
+    "import:urllib3"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/contrib/emscripten/connection.py",
+   "hits": [
+    "import:http.client"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/contrib/emscripten/response.py",
+   "hits": [
+    "import:http.client"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/contrib/pyopenssl.py",
+   "hits": [
+    "import:socket",
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/contrib/socks.py",
+   "hits": [
+    "import:socket",
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/exceptions.py",
+   "hits": [
+    "import:http.client",
+    "import:socket"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/poolmanager.py",
+   "hits": [
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/response.py",
+   "hits": [
+    "import:http.client",
+    "import:socket"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/util/connection.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/util/response.py",
+   "hits": [
+    "import:http.client"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/util/ssl_.py",
+   "hits": [
+    "import:socket",
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/util/ssltransport.py",
+   "hits": [
+    "import:socket",
+    "import:ssl"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/util/timeout.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  },
+  {
+   "distribution": "urllib3",
+   "version": "2.8.0",
+   "file": "urllib3/util/wait.py",
+   "hits": [
+    "import:socket"
+   ],
+   "reason": "HTTP client library, installed only as a dependency of requests (pooch, the dataset downloader of mne and mne-icalabel); NeuroGrid never imports it",
+   "control": "audit hook of the NeuroGrid process blocks every non-loopback connection and name resolution (kernel/netguard.py); source test bans network modules, pooch and the dataset fetchers in NeuroGrid's code (tests/unit/test_architecture.py)"
+  }
+ ]
+}

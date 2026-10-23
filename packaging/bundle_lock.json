@@ -1,0 +1,44 @@
+{
+ "format_version": 1,
+ "python": {
+  "build": "20261009",
+  "flavor": "install_only_stripped",
+  "platforms": {
+   "linux_x86_64": {
+    "sha256": "ffa8f85f1b56e88b687f08d743d817015524b86a9365fd921243132b80f1a36d",
+    "size": 34304557,
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.12.15%2B20261009-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+   },
+   "win_amd64": {
+    "sha256": "11ed9f8a6ac64fb1b5a55e40e305a6744a3f77a70863c8f8197a6e4349abc64a",
+    "size": 22011208,
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.12.15%2B20261009-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+   }
+  },
+  "version": "3.12.15"
+ },
+ "remove": {
+  "linux_x86_64": [
+   {
+    "path": "python/lib/python3.12/lib-dynload/_dbm.cpython-312-x86_64-linux-gnu.so",
+    "reason": "links Berkeley DB 6.0.19 (licence Sleepycat, copyleft; python-build-standalone downloads.json at tag 20261009); outside D-05/NG-N07, D-08 covers only native libraries in wheels; dbm is used neither by NeuroGrid nor by its runtime dependencies"
+   }
+  ]
+ },
+ "uv": {
+  "platforms": {
+   "linux_x86_64": {
+    "sha256": "52c7da0fd9056d9551124777ec77de53f0df7017daf8f98a19e947b7837416ed",
+    "size": 17941073,
+    "url": "https://files.pythonhosted.org/packages/c3/75/1901383808ba0d421f32060ba0e9884169b685a722e1af5d87fdd4225ba6/uv-0.13.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
+   },
+   "win_amd64": {
+    "sha256": "0367b4e0ae4dcef32da4aa2ad2f3853b6ad81d50c187abe50d343d892b8fea21",
+    "size": 15819247,
+    "url": "https://files.pythonhosted.org/packages/b2/00/73abae6cafcdb868d42b2c71bf12c9c2eb06a8d229a09569760c41b7948d/uv-0.13.0-py3-none-win_amd64.whl"
+   }
+  },
+  "source": "PyPI wheel",
+  "version": "0.13.0"
+ }
+}

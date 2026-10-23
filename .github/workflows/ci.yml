@@ -1,4 +1,8 @@
-# NeuroGrid CI (TECH-05, NG-N04, NG-N07, NG-N08). Runs on push/PR; never uploads datasets.
+# NeuroGrid CI (TECH-05, NG-N04, NG-N07, NG-N08): lint, types and tests on Windows and Linux with Python 3.11-3.13,
+# PDF tests included (NEUROGRID_REQUIRE_PDF=1: a missing PDF browser fails instead of skipping), the command line
+# under Windows PowerShell 5.1 and PowerShell 7, coverage, licence and traceability gates. Runs on every push to dev
+# and main and on pull requests; never uploads datasets (CON-02). The offline bundles, the clean rooms and the
+# OS-level offline evidence run in offline.yml (push to main, tags, manual start).
 name: ci
 
 on:
@@ -9,27 +13,41 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   UV_VERSION: "0.13.0"
   PYTHONWARNDEFAULTENCODING: "1"
   UV_PYTHON_DOWNLOADS: automatic
+  NEUROGRID_REQUIRE_PDF: "1"
 
 jobs:
   test:
     name: test (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-24.04]
         python: ["3.11", "3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: ${{ env.UV_VERSION }}
       - name: Install (locked, no source builds)
         run: uv sync --locked --no-build --python ${{ matrix.python }}
+      - name: System libraries of the PDF browser (Linux, A-58; the list the start check uses)
+        if: runner.os == 'Linux'
+        run: |
+          packages="$(uv run --no-sync python tools/linux_pdf_packages.py ubuntu24.04)"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends $packages
+      - name: PDF browser (Chrome Headless Shell 1243 into NeuroGrid's folder, pinned SHA-256; D-08)
+        run: uv run --no-sync python tools/install_pdf_browser.py
       - name: Lint and format
         run: |
           uv run --no-sync ruff check .
@@ -45,17 +63,19 @@ jobs:
       - name: Determinism sample for cross-platform comparison
         run: uv run --no-sync neurogrid check tests/fixtures/synthetic/edf_mixed --config tests/fixtures/documented.toml --as-of 2026-10-11 --out results-${{ matrix.os }}-${{ matrix.python }}.json
         shell: bash
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: results-${{ matrix.os }}-${{ matrix.python }}
           path: results-${{ matrix.os }}-${{ matrix.python }}.json
+          retention-days: 14
 
   compare:
     name: cross-platform comparison (reported, not enforced)
     needs: test
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: results
           merge-multiple: true
@@ -74,95 +94,81 @@ jobs:
   traceability:
     name: requirement IDs in commits and progress entries (TECH-12, A-43)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - run: python3 tools/check_commit_ids.py
 
   licenses:
-    name: license gate (runtime and dev)
+    name: licence gate and scan of the installed runtime packages (NG-N07, A-49)
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: ${{ env.UV_VERSION }}
       - run: uv sync --locked --no-build --python 3.12
       - run: uv run --no-sync python tools/licenses.py
-
-  offline-strace:
-    # NG-N01, CON-04, ARC-06 (KONZEPT §6): check and convert, including the BIDS validator (deno), open no
-    # network connection. strace -f follows every child process; any AF_INET/AF_INET6 connect fails the job.
-    name: no network connection under strace (Linux)
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-        with:
-          version: ${{ env.UV_VERSION }}
-      - run: uv sync --locked --no-build --python 3.12
-      - name: Install strace
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y strace
-      - name: check under strace (validator included, exit 0 expected)
-        run: strace -f -e trace=connect -o trace.txt uv run --no-sync neurogrid check tests/fixtures/synthetic/bids_ok --rulepack bids --out r.json
-      - name: convert under strace (validator on the output, exit 0 expected)
-        run: |
-          work="$RUNNER_TEMP/convert"
-          mkdir -p "$work"
-          cp -r tests/fixtures/synthetic/edf_ok "$work/raw"
-          cat > "$work/neurogrid.toml" <<'EOF'
-          # metadata as in tests/fixtures/documented.toml; one mapping row per recording (A-05)
-          [metadata.defaults]
-          reference = "Cz"
-          line_frequency_hz = 50
-          software_filters = "n/a"
-
-          [[convert.files]]
-          path = "rec_a.edf"
-          subject = "01"
-          task = "rest"
-
-          [[convert.files]]
-          path = "rec_b.edf"
-          subject = "02"
-          task = "rest"
-          EOF
-          strace -A -f -e trace=connect -o trace.txt uv run --no-sync neurogrid convert "$work/raw" --to bids --out "$work/bids" --config "$work/neurogrid.toml"
-      - name: No AF_INET or AF_INET6 connect in the trace
-        run: |
-          grep -c connect trace.txt || true
-          if grep -E 'AF_INET6?' trace.txt; then
-            echo "network connection attempted (see the lines above)"
-            exit 1
-          fi
-      - if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: strace-connect
-          path: trace.txt
+      - name: Network and telemetry scan of the runtime packages against the reviewed baseline
+        run: uv run --no-sync python tools/scan_runtime_network.py
 
   powershell51:
     name: Windows PowerShell 5.1 command line
     runs-on: windows-latest
+    timeout-minutes: 30
     defaults:
       run:
         shell: powershell
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
         with:
           version: ${{ env.UV_VERSION }}
       - run: uv sync --locked --no-build --python 3.12
-      - name: check, report and exit codes
+      - run: uv run --no-sync python tools/install_pdf_browser.py
+      - name: check, report html and pdf, exit codes
         run: |
           .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\edf_ok --config tests\fixtures\documented.toml --out r.json
           if ($LASTEXITCODE -ne 0) { throw "expected exit 0, got $LASTEXITCODE" }
           .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\empty --out e.json
           if ($LASTEXITCODE -ne 1) { throw "expected exit 1, got $LASTEXITCODE" }
-          .\.venv\Scripts\neurogrid.exe report r.json --lang "zh,en" --format html
+          .\.venv\Scripts\neurogrid.exe report r.json --lang "zh,en" --format "html,pdf"
           if ($LASTEXITCODE -ne 0) { throw "report failed" }
-          if (-not (Test-Path report.zh.html)) { throw "report.zh.html missing" }
+          foreach ($f in 'report.zh.html', 'report.en.html', 'report.zh.pdf', 'report.en.pdf') {
+            if (-not (Test-Path $f)) { throw "$f missing" }
+          }
+          $global:LASTEXITCODE = 0
+
+  pwsh:
+    name: PowerShell 7 command line
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-build --python 3.12
+      - run: uv run --no-sync python tools/install_pdf_browser.py
+      - name: check, report html and pdf, exit codes, Chinese path with a space
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP '数据 集'
+          Copy-Item -Recurse tests\fixtures\synthetic\edf_ok $data
+          .\.venv\Scripts\neurogrid.exe check $data --config tests\fixtures\documented.toml --out r.json
+          if ($LASTEXITCODE -ne 0) { throw "expected exit 0, got $LASTEXITCODE" }
+          .\.venv\Scripts\neurogrid.exe check tests\fixtures\synthetic\empty --out e.json
+          if ($LASTEXITCODE -ne 1) { throw "expected exit 1, got $LASTEXITCODE" }
+          .\.venv\Scripts\neurogrid.exe report r.json --lang "zh,en" --format "html,pdf"
+          if ($LASTEXITCODE -ne 0) { throw "report failed" }
+          foreach ($f in 'report.zh.html', 'report.en.html', 'report.zh.pdf', 'report.en.pdf') {
+            if (-not (Test-Path $f)) { throw "$f missing" }
+          }
+          .\.venv\Scripts\neurogrid.exe check
+          if ($LASTEXITCODE -ne 2) { throw "expected exit 2 for a usage error, got $LASTEXITCODE" }
           $global:LASTEXITCODE = 0

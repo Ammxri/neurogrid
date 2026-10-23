@@ -1,0 +1,190 @@
+# Offline bundles, clean rooms and the OS-level offline evidence (UF-08, NG-N01, NG-N04, CON-02, CON-04, ARC-06,
+# A-26, A-49, A-58; D-09). Builds both bundles from uv.lock (or takes the signed ones of a release run), then:
+#   offline-strace     installed bundle, every v0.1 command under strace in a container with --network none
+#   cleanroom-linux    debian:12-slim, ubuntu:22.04, ubuntu:24.04: no network, no Python, uid 1000
+#   glibc-refusal      ubuntu:18.04 (glibc 2.27): the installer must refuse with exit 2
+#   pdf-debian12       PDF with the documented package list, no network, under strace
+#   cleanroom-windows  Windows PowerShell 5.1 and PowerShell 7, WFP audit of every connection, PDF included
+# Only synthetic fixtures are used; artifacts are bundles (1 day) and evidence (traces, logs), never datasets.
+# Runs on push to main, on tags and by hand ("Run workflow", also on dev); release.yml calls it with its bundles.
+name: offline
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      artifact:
+        description: "name of an uploaded artifact with ready-made bundles (release run); empty = build here"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.13.0"
+  BUNDLES: ${{ inputs.artifact || 'offline-bundles' }}
+
+jobs:
+  build:
+    name: both offline bundles from uv.lock (unsigned development bundles)
+    if: ${{ !inputs.artifact }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Wheel, sdist, documentation site and the two bundles (SOURCE_DATE_EPOCH = commit time)
+        run: |
+          export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          uv sync --locked --no-build --python 3.12
+          uv build --out-dir dist
+          uv run --no-sync python tools/build_docs.py --site-dir site
+          version="$(uv run --no-sync python -c 'import neurogrid; print(neurogrid.__version__)')"
+          for platform in win_amd64 linux_x86_64; do
+            uv run --no-sync python tools/bundle.py build --platform "$platform" \
+              --wheel "dist/neurogrid-${version}-py3-none-any.whl" --sdist "dist/neurogrid-${version}.tar.gz" \
+              --docs site --notices THIRD_PARTY_NOTICES.txt --out dist --cache "$RUNNER_TEMP/bundle-cache"
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-bundles
+          path: dist/neurogrid-*-offline-*
+          retention-days: 1
+
+  offline-strace:
+    name: every v0.1 command under strace, --network none (Linux)
+    needs: build
+    if: ${{ !cancelled() && needs.build.result != 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.BUNDLES }}
+          path: dist
+      - name: Installer and commands under strace -f -e trace=connect,sendto,sendmsg; no non-loopback address
+        run: bash packaging/ci/offline_strace_linux.sh dist/neurogrid-*-offline-linux_x86_64.tar.gz evidence
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-evidence-strace
+          path: evidence/
+          retention-days: 30
+
+  cleanroom-linux:
+    name: clean room ${{ matrix.image }} (--network none, no Python, uid 1000)
+    needs: build
+    if: ${{ !cancelled() && needs.build.result != 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: debian:12-slim
+            label: debian12
+          - image: ubuntu:22.04
+            label: ubuntu2204
+          - image: ubuntu:24.04
+            label: ubuntu2404
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.BUNDLES }}
+          path: dist
+      - name: Install from the bundle and run every v0.1 command
+        run: bash packaging/ci/cleanroom_linux.sh --image "${{ matrix.image }}" --evidence evidence dist/neurogrid-*-offline-linux_x86_64.tar.gz
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-evidence-linux-${{ matrix.label }}
+          path: evidence/
+          retention-days: 30
+
+  glibc-refusal:
+    name: glibc 2.27 is refused with exit 2 (ubuntu:18.04, A-58)
+    needs: build
+    if: ${{ !cancelled() && needs.build.result != 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.BUNDLES }}
+          path: dist
+      - run: bash packaging/ci/cleanroom_linux.sh --image ubuntu:18.04 --expect-refusal --evidence evidence dist/neurogrid-*-offline-linux_x86_64.tar.gz
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-evidence-glibc-refusal
+          path: evidence/
+          retention-days: 30
+
+  pdf-debian12:
+    name: PDF in debian:12-slim with the documented package list (--network none, strace)
+    needs: build
+    if: ${{ !cancelled() && needs.build.result != 'failure' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.BUNDLES }}
+          path: dist
+      - name: Fetch the pinned PDF browser zip on the host (checked against its SHA-256; D-08)
+        run: python3 tools/install_pdf_browser.py --download-only --platform linux64 --out shell
+      - run: bash packaging/ci/pdf_debian12.sh dist/neurogrid-*-offline-linux_x86_64.tar.gz shell/*.zip evidence
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-evidence-pdf-debian12
+          path: evidence/
+          retention-days: 30
+
+  cleanroom-windows:
+    name: clean room Windows (${{ matrix.shell }}, WFP audit, PDF)
+    needs: build
+    if: ${{ !cancelled() && needs.build.result != 'failure' }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shell: powershell
+            installer: cmd
+          - shell: pwsh
+            installer: pwsh
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ env.BUNDLES }}
+          path: dist
+      - name: Fetch the pinned PDF browser zip (checked against its SHA-256; D-08)
+        run: python tools/install_pdf_browser.py --download-only --platform win64 --out shell
+      - name: Install from the bundle, every v0.1 command, no connection of any bundle program (A-49)
+        run: |
+          $zip = (Get-ChildItem shell -Filter *.zip | Select-Object -First 1).FullName
+          $sha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $archive = (Get-Item dist/neurogrid-*-offline-win_amd64.zip).FullName
+          ./packaging/ci/cleanroom_windows.ps1 -Archive $archive -Evidence evidence -Installer ${{ matrix.installer }} -PdfBrowserZip $zip -PdfBrowserSha256 $sha
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: offline-evidence-windows-${{ matrix.shell }}
+          path: evidence/
+          retention-days: 30
