@@ -16,7 +16,9 @@ in raw folders ``participant_id`` is the subject label of the mapping, with or w
   inside :class:`Subject` (``exclude=True``) and is never serialised; cell text never leaves this module
   except through the checks' display rule (A-17, C5). Besides ``age``, a column whose name says age
   (``age_years``, ``Age at scan``, ``AgeYears``; :func:`is_age_column`) holds ages as well: as a label
-  source it counts in the same groups (A-21).
+  source it counts in the same groups (A-21). Its ages are in years unless its name gives a unit
+  (:func:`age_unit`: months, weeks or days, as in ``age_months``, ``AgeDays``, ``age_in_weeks``); they are
+  converted to years before they are grouped (months / 12, weeks · 7 / 365.25, days / 365.25; A-81).
 - Sex is normalised to female | male | other | given (documented, but in none of the three categories). A
   placeholder of :data:`SEX_PLACEHOLDERS` ("unknown", "U", "nan", "?", ...) documents no sex: it counts as
   missing like an empty cell (A-81), also in a sex column used as label source.
@@ -32,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-from neurogrid.io.bids import MAX_TSV_BYTES
+from neurogrid.io.bids import MAX_TSV_BYTES, no_value
 from neurogrid.kernel.errors import InputError
 from neurogrid.kernel.safety import is_link, read_limited
 from neurogrid.model.dataset import Subject
@@ -42,13 +44,44 @@ PARTICIPANTS_SIDECAR = "participants.json"
 MAX_SIDECAR_BYTES = 2_000_000
 SplitName = Literal["train", "val", "test"]
 SPLIT_NAMES: tuple[SplitName, ...] = ("train", "val", "test")  # DM-06; the fixed order of scopes and outputs
-AGE_LIMIT = 150.0  # a decimal age at or above this is no age
-_DECIMAL = re.compile(r"^\d{1,3}(?:\.\d+)?$")  # no sign, exponent, nan or inf (A-75)
-_TOP_CODED = re.compile(r"^(?P<age>\d{1,3}(?:\.\d+)?)\s*\+$")  # BIDS "89+"
-_RANGE = re.compile(r"^(?P<low>\d{1,3}(?:\.\d+)?)\s*-\s*(?P<high>\d{1,3}(?:\.\d+)?)$")
+AGE_LIMIT = 150.0  # a decimal age at or above this is no age (in years)
+
+
+@dataclass(frozen=True)
+class _AgeForms:
+    """The three forms of an age cell for one number of integer digits: no sign, exponent, nan or inf
+    (A-75), so every number converts to a finite float."""
+
+    decimal: re.Pattern[str]
+    top_coded: re.Pattern[str]  # BIDS "89+"
+    span: re.Pattern[str]  # "20-25"
+
+    @classmethod
+    def of(cls, digits: int) -> _AgeForms:
+        number = rf"\d{{1,{digits}}}(?:\.\d+)?"
+        return cls(
+            re.compile(rf"^{number}$"),
+            re.compile(rf"^(?P<age>{number})\s*\+$"),
+            re.compile(rf"^(?P<low>{number})\s*-\s*(?P<high>{number})$"),
+        )
+
+
+_YEAR_FORMS = _AgeForms.of(3)
+_UNIT_FORMS = _AgeForms.of(5)  # an age below AGE_LIMIT has at most 5 integer digits in days (54787)
 AGE_GROUPS: tuple[str, ...] = (*(f"{low}-{low + 9}" for low in range(0, 90, 10)), "90+")  # A-21
-# A word of a column name that says the column holds ages: "age", "ages" or a compact form ("ageyears")
-_AGE_WORD = re.compile(r"ages?(?:years?|yrs?|months?|days?|at[a-z]*|group|grp)?")
+# The unit a column name gives its ages in: years per unit as (numerator, denominator), so the conversion is
+# one multiplication and one division (months / 12, weeks * 7 / 365.25, days / 365.25; A-81)
+YEARS: tuple[float, float] = (1.0, 1.0)
+_UNIT_WORDS: dict[str, tuple[float, float]] = {
+    **dict.fromkeys(("years", "year", "yrs", "yr"), YEARS),
+    **dict.fromkeys(("months", "month", "mos", "mo"), (1.0, 12.0)),
+    **dict.fromkeys(("weeks", "week", "wks", "wk"), (7.0, 365.25)),
+    **dict.fromkeys(("days", "day"), (1.0, 365.25)),
+}
+_UNITS = "|".join(sorted(_UNIT_WORDS, key=len, reverse=True))  # the longest first: "months" before "mo"
+# A word of a column name that says the column holds ages: "age", "ages" or a compact form ("ageyears",
+# "ageatscan", "agemonths", "ageatscandays"); the group "unit" is the unit the compact form names
+_AGE_WORD = re.compile(rf"ages?(?:at[a-z]*?)?(?:(?P<unit>{_UNITS})|group|grp)?")
 _NAME_WORDS = re.compile(r"[^0-9a-z]+")
 SEX_COLUMNS = ("sex", "gender")  # in this order (A-04)
 # Sex cells that say the sex is not known, compared after strip and casefold: no documentation (A-81)
@@ -95,14 +128,26 @@ def canonical(name: str) -> str:
 
 
 def missing(value: str) -> bool:
-    return value.strip().casefold() in ("", "n/a")
+    return no_value(value)
 
 
 def is_age_column(name: str) -> bool:
     """Whether a column holds ages by its name: a word "age" (``age``, ``age_years``, ``Age at scan``,
-    ``subject_age``) or a compact form (``AgeYears``, ``AgeAtScan``), but not a word that only contains the
-    letters (``language``, ``stage``). Raw ages never leave the process (A-21)."""
+    ``subject_age``) or a compact form (``AgeYears``, ``AgeAtScan``, ``AgeMonths``), but not a word that only
+    contains the letters (``language``, ``stage``). Raw ages never leave the process (A-21)."""
     return any(_AGE_WORD.fullmatch(word) for word in _NAME_WORDS.split(canonical(name)))
+
+
+def age_unit(name: str) -> tuple[float, float]:
+    """Years per unit, as (numerator, denominator), of the ages in a column that holds ages: the first unit
+    its name gives, in a compact age word (``AgeMonths``, ``AgeAtScanDays``) or as a word of its own
+    (``age_in_weeks``, ``Age (days)``): months, weeks or days (A-81); a name without a unit gives years."""
+    for word in _NAME_WORDS.split(canonical(name)):
+        compact = _AGE_WORD.fullmatch(word)
+        unit = compact.group("unit") if compact is not None else word
+        if unit in _UNIT_WORDS:
+            return _UNIT_WORDS[unit]
+    return YEARS
 
 
 def subject_label(participant_id: str) -> str:
@@ -120,24 +165,32 @@ def _decade(age: float) -> str | None:
     return f"{low}-{low + 9}"
 
 
-def age_group(text: str) -> str | None:
-    """The 10-year group of an age cell, or None if the cell is not an age (A-21, A-81)."""
+def age_group(text: str, unit: tuple[float, float] = YEARS) -> str | None:
+    """The 10-year group of an age cell, or None if the cell is not an age (A-21, A-81). ``unit`` gives the
+    years per unit of the cell (:func:`age_unit`): an age in months, weeks or days is converted to years
+    first, so it counts in the same groups as the demography."""
     value = text.strip()
-    if _DECIMAL.fullmatch(value):
-        return _decade(float(value))
-    top = _TOP_CODED.fullmatch(value)
+    forms = _YEAR_FORMS if unit == YEARS else _UNIT_FORMS
+    numerator, denominator = unit
+
+    def years(number: str) -> float:
+        return float(number) * numerator / denominator
+
+    if forms.decimal.fullmatch(value):
+        return _decade(years(value))
+    top = forms.top_coded.fullmatch(value)
     if top:  # "N+" counts in the group of N (A-81)
-        return _decade(float(top.group("age")))
-    span = _RANGE.fullmatch(value)
+        return _decade(years(top.group("age")))
+    span = forms.span.fullmatch(value)
     if span and float(span.group("low")) <= float(span.group("high")):
-        return _decade(float(span.group("low")))
+        return _decade(years(span.group("low")))
     return None
 
 
 def _age(text: str) -> float | None:
     """The raw age, only for the internal data model (never serialised)."""
     value = text.strip()
-    if _DECIMAL.fullmatch(value) and float(value) < AGE_LIMIT:
+    if _YEAR_FORMS.decimal.fullmatch(value) and float(value) < AGE_LIMIT:
         return float(value)
     return None
 

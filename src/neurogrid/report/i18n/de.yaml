@@ -207,7 +207,7 @@ notice:
   annotations_unassigned: "{count} reine Annotationsdatei(en) (z. B. Hypnogramme) passen zu keiner Signalaufnahme; jede wird als eigene Aufnahme geprüft. Bitte mit [[annotation.files]] in neurogrid.toml zuordnen."
   annotations_ambiguous: "{count} reine Annotationsdatei(en) passen gleich gut zu mehreren Signalaufnahmen; jede wird als eigene Aufnahme geprüft. Bitte mit [[annotation.files]] in neurogrid.toml zuordnen."
   annotation_files_unmatched: "{count} Zeile(n) von [[annotation.files]] in neurogrid.toml nennen keine reine Annotationsdatei oder keine Signalaufnahme des Datensatzes."
-  events_rows_invalid: "{count} Zeile(n) von events.tsv-Dateien haben keinen gültigen Beginn oder keine gültige Dauer (endliche Zahlen, höchstens rund 31,7 Jahre vom Aufnahmebeginn entfernt) und wurden bei den Annotationsprüfungen ausgelassen."
+  events_rows_invalid: "{count} Annotation(en) aus events.tsv-Dateien, EEGLAB-Datensätzen oder FIF-Dateien haben keinen gültigen Beginn oder keine gültige Dauer (endliche Zahlen, höchstens rund 31,7 Jahre vom Aufnahmebeginn entfernt; in FIF-Dateien innerhalb der aufgezeichneten Daten, wie MNE sie liest) und wurden bei den Annotationsprüfungen ausgelassen."
 
 severity:
   error: "Fehler"

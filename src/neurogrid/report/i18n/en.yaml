@@ -207,7 +207,7 @@ notice:
   annotations_unassigned: "{count} annotation-only file(s) (e.g. hypnograms) match no signal recording; each is checked as a recording of its own. Assign them with [[annotation.files]] in neurogrid.toml."
   annotations_ambiguous: "{count} annotation-only file(s) match several signal recordings equally well; each is checked as a recording of its own. Assign them with [[annotation.files]] in neurogrid.toml."
   annotation_files_unmatched: "{count} row(s) of [[annotation.files]] in neurogrid.toml name no annotation-only file or no signal recording of the dataset."
-  events_rows_invalid: "{count} row(s) of events.tsv files have no valid onset or duration (finite numbers, within about 31.7 years of the recording start) and were left out of the annotation checks."
+  events_rows_invalid: "{count} annotation(s) of events.tsv files, EEGLAB data sets or FIF files have no valid onset or duration (finite numbers, within about 31.7 years of the recording start; in FIF files within the recorded data, as MNE reads them) and were left out of the annotation checks."
 
 severity:
   error: "Error"

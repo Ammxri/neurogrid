@@ -10,8 +10,10 @@ dataset and that is also its identity, so keys and exceptions do not depend on -
   present) and class; ``min_share`` 0.05 (PRD, not calibrated, A-20). Label source ``[ai] labels``:
   ``events:<column>`` counts the event rows of the BIDS events.tsv files (the one events.tsv reader of M10,
   io.annotations.read_events, critic G10), ``participants:<column>`` counts subjects (``participants:age``
-  and every other column whose name says age count the 10-year age groups, never the raw age; an age that
-  is no age is no label; a sex placeholder such as "unknown" is no label either), ``annotations``
+  and every other column whose name says age count the 10-year age groups in years, an age in months,
+  weeks or days by its column name converted first, never the raw age; an age that is no age is no label;
+  a sex placeholder such as "unknown" is no label either; empty and n/a in any case are no label in every
+  label source), ``annotations``
   counts the annotations of the M10 reader (CheckContext.annotations(), A-80): every annotation of an
   annotator that takes part (``[annotation] annotators``) is one event of the class of its code,
   zero-duration markers included. Annotations of an attached annotation-only file (hypnogram) count in the
@@ -66,6 +68,7 @@ from neurogrid.io.participants import (
     SPLIT_NAMES,
     ParticipantsTable,
     age_group,
+    age_unit,
     canonical,
     is_age_column,
     missing,
@@ -359,12 +362,14 @@ def _event_labels(ctx: CheckContext, members: Sequence[Member], column: str) -> 
 
 def _participant_labels(members: Sequence[Member], table: ParticipantsTable | None, column: str) -> Labels:
     """``participants:<column>``: one unit per subject with recordings and a value. A column that holds ages
-    (``age``, which CORE-M11-02 reads, or another name that says age) counts in 10-year groups (the groups
-    are its vocabulary): the raw age never becomes a class (A-21, A-81). In a sex column a placeholder
-    documents nothing, as for CORE-M11-02 and the demography (A-81)."""
+    (``age``, which CORE-M11-02 reads, or another name that says age) counts in the 10-year groups of the
+    demography (the groups are its vocabulary), in years: an age in the months, weeks or days its name gives
+    is converted first (io.participants.age_unit); the raw age never becomes a class (A-21, A-81). In a sex
+    column a placeholder documents nothing, as for CORE-M11-02 and the demography (A-81)."""
     reason = _table_reason(table)
     wanted = canonical(column)
     ages = is_age_column(wanted)
+    unit = age_unit(wanted)
     sexes = wanted in SEX_COLUMNS
     if reason is None and table is not None and wanted not in table.columns:
         reason = "ai.label_column_missing"
@@ -381,7 +386,7 @@ def _participant_labels(members: Sequence[Member], table: ParticipantsTable | No
         participant = table.participants.get(label)
         value = participant.cells.get(wanted, "") if participant is not None else ""
         if ages:
-            value = age_group(value) or ""  # missing or no age: no label
+            value = age_group(value, unit) or ""  # in years (A-81); missing or no age: no label
         elif sexes and sex_category(value) is None:
             value = ""  # empty, n/a or a placeholder such as "unknown": no label
         if not missing(value):

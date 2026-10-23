@@ -309,6 +309,7 @@ def test_fif_annotations_relative_to_the_first_sample(tmp_path: Path, meas_date:
         (1.0, 0.5, "stim"),
         (4.0, 0.0, "resp"),
     ]
+    assert listed.invalid == 0  # every stored annotation lies in the data; the markers are no annotation
 
 
 def test_fif_with_unsafe_split_is_not_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -990,17 +991,20 @@ def test_eeglab_infinite_times_make_the_events_unreadable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, latency: float, duration: float | str
 ) -> None:
     """R7: an infinite latency or duration is damage (formerly read as "no latency" or duration 0 without a
-    trace); a NaN latency stays an event EEGLAB ignores and MNE drops, a NaN duration is 0 as before."""
+    trace); a NaN latency is no annotation (EEGLAB ignores it, MNE drops it; counted as invalid since
+    X-annotation-1), a NaN duration is 0 as before."""
     rows = {"type": ["x", "y"], "latency": [21.0, latency], "duration": [0.0, duration]}
     events: dict[str, Any] = {"srate": 100.0, "event": rows}
     monkeypatch.setattr(reader, "load_events", lambda _path: events)
     with pytest.raises(AnnotationsUnreadable):
         reader.read_eeglab_events(tmp_path / "rec.set")
     rows.update(latency=[21.0, math.nan], duration=[math.nan, 5.0])
-    assert _codes(reader.read_eeglab_events(tmp_path / "rec.set")) == [(0.2, 0.0, "x")]
+    listed = reader.read_eeglab_events(tmp_path / "rec.set")
+    assert _codes(listed) == [(0.2, 0.0, "x")] and listed.invalid == 1  # y: no latency, counted
     rows["type"] = ["x", "boundary"]  # a structural marker is no annotation, whatever its times
     rows.update(latency=[21.0, math.inf])
-    assert _codes(reader.read_eeglab_events(tmp_path / "rec.set")) == [(0.2, 0.0, "x")]
+    listed = reader.read_eeglab_events(tmp_path / "rec.set")
+    assert _codes(listed) == [(0.2, 0.0, "x")] and listed.invalid == 0
 
 
 @pytest.mark.parametrize(
@@ -1466,6 +1470,197 @@ def test_class_runs_follow_overlapping_annotations_of_one_code() -> None:
     assert len(runs) == 10 and all(len(found) == 100 for _first, found in runs)
 
 
+# --- P4 cross-check: readers (X-annotation-0, X-annotation-1, X-interactions-1) -----------------------------
+
+
+def test_label_codes_are_shown_with_the_vocabulary_of_their_object(tmp_path: Path) -> None:
+    """X-annotation-0: the dataset-level label finding displayed its codes without the vocabulary, so codes
+    that look like years (2001, 2002) became text-<sha8> there while the per-code measurements and
+    results.ai.labels showed them; now each code is displayed with its object's vocabulary."""
+    events = "onset\tduration\ttrial_type\n1.2\t0.6\t2001\n3.2\t0.6\t2002\n5.2\t0.6\t11\n"
+    levels = {"2001": "Tone", "2002": "Tone", "11": "Button press"}
+    root = _bids(tmp_path / "ds", events, {"trial_type": {"Description": "Trigger code", "Levels": levels}})
+    by_subkey = {m.subkey: m for m in checks.measure_codes(_context(root))}
+    assert by_subkey["label:Tone"].value is False and by_subkey["label:Tone"].object == "dataset"
+    assert by_subkey["label:Tone"].details == {"n_codes": 2, "codes": ["2001", "2002"]}
+    assert by_subkey["label:Button press"].details == {"n_codes": 1, "codes": ["11"]}
+    assert by_subkey["2001"].value is True and by_subkey["2002"].value is True  # the same display
+    # the vocabulary of neurogrid.toml rules: a year-like code outside it stays hidden in both measurements
+    measured = checks.measure_codes(_context(root, '[annotation]\nvocabulary = ["2002", "11"]\n'))
+    by_subkey = {m.subkey: m for m in measured}
+    hidden = display_text("2001").subkey
+    assert hidden.startswith("text-") and by_subkey[hidden].value is False
+    assert by_subkey["label:Tone"].details == {"n_codes": 2, "codes": sorted(["2002", hidden])}
+    assert "2001" not in repr([(m.subkey, dict(m.details)) for m in measured])
+
+
+def test_eeglab_events_without_a_latency_are_counted_not_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """X-annotation-1 (R7, A-80): an event with an empty, NaN or missing latency is no annotation, but it is
+    counted as invalid instead of vanishing; an empty or NaN duration is 0 (EEGLAB's convention, no count).
+    Events without a code and structural markers are no annotation and are not counted either."""
+    rows = {
+        "type": ["a", "b", "c", "d", "boundary", "", "e"],
+        "latency": [11.0, math.nan, np.array([]), None, math.nan, math.nan, 21.0],
+        "duration": [math.nan, 5.0, 5.0, 5.0, 0.0, 0.0, np.array([])],
+    }
+    events: dict[str, Any] = {"srate": 100.0, "event": rows}
+    monkeypatch.setattr(reader, "load_events", lambda _path: events)
+    listed = reader.read_eeglab_events(tmp_path / "rec.set")
+    assert _codes(listed) == [(0.1, 0.0, "a"), (0.2, 0.0, "e")]
+    assert listed.invalid == 3  # b (NaN), c (empty), d (no value)
+    rows.update(latency=[11.0, 12.0, 13.0, 14.0, math.nan, math.nan, 21.0])
+    listed = reader.read_eeglab_events(tmp_path / "rec.set")
+    assert len(listed.annotations) == 5 and listed.invalid == 0
+
+
+def test_vmrk_markers_are_never_dropped_without_a_trace(tmp_path: Path) -> None:
+    """X-annotation-1 (A-80, other readers): a marker number of ten digits or more (MNE reads Mk<n>= with any
+    n) was taken for a comment line, and a second [Marker Infos] header in another case hid the markers of
+    the first one; both are markers now. Comments and lines that are no Mk<n>= line stay no marker."""
+    vhdr = tmp_path / "rec.vhdr"
+    write_brainvision(vhdr, sfreq=500, seconds=2, labels=("Fz",))
+    _vmrk(
+        vhdr,
+        "Mk1=Stimulus,S  1,11,1,0\n"
+        "Mk1234567890=Stimulus,S  2,21,1,0\n"
+        "Mk=Stimulus,S  9,31,1,0\n"  # no marker number: no marker (MNE alike)
+        "; Mk7=Stimulus,S  9,41,1,0\n"
+        "[marker infos]\n"
+        "Mk3=Response,R  1,51,5,0\n",
+    )
+    assert _codes(reader.read_vmrk(vhdr)) == [
+        (0.02, 0.002, "Stimulus/S  1"),
+        (0.04, 0.002, "Stimulus/S  2"),
+        (0.1, 0.01, "Response/R  1"),
+    ]
+
+
+def _fif_outside(path: Path, *, meas_date: bool) -> Path:
+    """A FIF file that stores annotations outside its 10 s of data (another writer than MNE's
+    set_annotations, which would cut them away before saving)."""
+    import mne
+
+    info = mne.create_info(["Fz", "Cz"], 100.0, "eeg")
+    raw = mne.io.RawArray(np.zeros((2, 1000)), info, first_samp=500, verbose="error")
+    raw.set_meas_date(1_600_000_000 if meas_date else None)
+    first = float(raw.first_time)  # MNE stores onsets with first_time included, with or without meas_date
+    raw._annotations = mne.Annotations(
+        onset=[first + t for t in (1.0, 9.5, 50.0, -5.0, 60.0, 70.0)],
+        duration=[1.0, 2.0, 1.0, 1.0, 1.0, 1.0],
+        description=["in", "cross", "beyond", "before", "BAD_ACQ_SKIP", ""],
+        orig_time=raw.info["meas_date"],
+    )
+    raw.save(path, overwrite=True, verbose="error")
+    return path
+
+
+@pytest.mark.parametrize("meas_date", [True, False])
+def test_fif_annotations_mne_leaves_out_are_counted(tmp_path: Path, meas_date: bool) -> None:
+    """X-annotation-1 (A-80, other readers): read_raw_fif leaves out every stored annotation wholly outside
+    the recorded data without a trace in NeuroGrid; such annotations are counted as invalid now. One that
+    reaches beyond the end is cut by MNE and stays; structural markers and empty texts are not counted."""
+    listed = reader.read_fif_annotations(_fif_outside(tmp_path / "rec_raw.fif", meas_date=meas_date))
+    assert [(round(a.onset_s, 6), round(a.duration_s, 6), a.code) for a in listed.annotations] == [
+        (1.0, 1.0, "in"),
+        (9.5, 0.5, "cross"),
+    ]
+    assert listed.invalid == 2  # beyond, before
+
+
+def test_fif_annotations_mne_leaves_out_reach_the_invalid_notice(tmp_path: Path) -> None:
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    _fif_outside(raw / "rec_raw.fif", meas_date=True)
+    ctx = _context(raw)
+    (obj,) = ctx.annotations().objects
+    assert [a.code for a in obj.annotations] == ["in", "cross"] and obj.invalid_rows == 2
+    assert {n.message_key: n.params for n in checks.notices(ctx)} == {
+        "notice.events_rows_invalid": {"count": 2}
+    }
+    assert checks.summaries(ctx)[PurePosixPath("rec_raw.fif")]["invalid_rows"] == 2
+    _fif(raw / "rec_raw.fif", meas_date=True)
+    assert checks.notices(_context(raw)) == []
+
+
+def test_eeglab_events_without_a_latency_reach_the_invalid_notice(tmp_path: Path) -> None:
+    """X-annotation-1: the count reaches the object, its summary and the notice of invalid events.tsv rows
+    (one notice for both sources). In BIDS an events.tsv replaces the events of the data file, and so do
+    its counts."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    events = (("a", 10.0, 5.0), ("b", math.nan, 5.0), ("a", 100.0, None))
+    write_eeglab(raw / "rec.set", sfreq=128, seconds=4, labels=("C3", "C4"), events=events)
+    ctx = _context(raw)
+    (obj,) = ctx.annotations().objects
+    assert [a.code for a in obj.annotations] == ["a", "a"] and obj.invalid_rows == 1
+    assert ctx.annotations().invalid_rows == 1
+    assert {n.message_key: n.params for n in checks.notices(ctx)} == {
+        "notice.events_rows_invalid": {"count": 1}
+    }
+    summary = checks.summaries(ctx)[PurePosixPath("rec.set")]
+    assert (summary["annotations"], summary["invalid_rows"]) == (2, 1)
+    write_eeglab(raw / "rec.set", sfreq=128, seconds=4, labels=("C3", "C4"), events=(events[0], events[2]))
+    ctx = _context(raw)
+    assert ctx.annotations().objects[0].invalid_rows == 0 and checks.notices(ctx) == []
+    bids = tmp_path / "bids"
+    (bids / "sub-01" / "eeg").mkdir(parents=True)
+    (bids / "dataset_description.json").write_text('{"Name": "t", "BIDSVersion": "1.9.0"}', encoding="utf-8")
+    data = bids / "sub-01" / "eeg" / "sub-01_task-x_eeg.set"
+    write_eeglab(data, sfreq=128, seconds=4, labels=("C3", "C4"), events=events)
+    (data.parent / "sub-01_task-x_events.tsv").write_text("onset\tduration\ttrial_type\n1\t1\ts\n", "utf-8")
+    ctx = _context(bids)
+    (obj,) = ctx.annotations().objects
+    assert [a.code for a in obj.annotations] == ["s"] and obj.invalid_rows == 0 and checks.notices(ctx) == []
+
+
+@pytest.mark.parametrize(
+    ("cell", "empty"),
+    [("", True), (" ", True), ("n/a", True), ("N/A", True), (" n/A ", True), ("N/a", True)]
+    + [("NA", False), ("na", False), ("n/a/b", False), ("0", False), ("none", False)],
+)
+def test_no_value_is_empty_or_n_a_in_any_case(cell: str, empty: bool) -> None:
+    """X-interactions-1: one rule for every events.tsv cell (M10 and M11) and participants.tsv."""
+    from neurogrid.io.bids import no_value
+    from neurogrid.io.participants import missing
+
+    assert no_value(cell) is empty and missing(cell) is empty
+
+
+def test_n_a_in_any_case_is_no_value_in_events_tsv(tmp_path: Path) -> None:
+    """X-interactions-1 (A-80): 'N/A' and 'n/A' are no code, no duration (0) and no annotator, as 'n/a'; an
+    onset 'N/A' makes the row invalid, as 'n/a'. 'NA' is a code: only n/a means no value."""
+    events = (
+        "onset\tduration\ttrial_type\tannotator\n"
+        "1\t0.5\tstim\tA1\n"
+        "2\tN/A\tstim\tN/A\n"  # duration 0, annotator "default"
+        "3\t0.5\tN/A\tA1\n"  # no code: no annotation, not invalid
+        "4\t0.5\t n/A \tA1\n"
+        "N/A\t0.5\tstim\tA1\n"  # no onset: invalid
+        "n/a\t0.5\tstim\tA1\n"
+        "5\tn/A\tNA\tA2\n"
+    )
+    root = _bids(tmp_path / "ds", events, {"trial_type": {"Levels": {"stim": "Stimulus", "NA": "Other"}}})
+    relative = PurePosixPath("sub-01/eeg/sub-01_task-x_eeg.edf")
+    table = reader.read_events(root, relative)
+    assert table is not None and table.values("trial_type") == ["stim", "stim", "stim", "stim", "NA"]
+    assert table.values("annotator") == ["A1", "A1", "A1", "A1", "A1", "A2"]
+    found = reader.events_annotations(root, relative, table)
+    assert [(a.onset_s, a.duration_s, a.code, a.annotator_id) for a in found.annotations] == [
+        (1.0, 0.5, "stim", "A1"),
+        (2.0, 0.0, "stim", "default"),
+        (5.0, 0.0, "NA", "A2"),
+    ]
+    assert found.invalid_rows == 2
+    ctx = _context(root)
+    codes = {m.subkey for m in checks.measure_codes(ctx)}
+    assert codes == {"stim", "NA", "label:Stimulus", "label:Other"}
+    assert {n.message_key: n.params["count"] for n in checks.notices(ctx)} == {
+        "notice.events_rows_invalid": 2
+    }
+
+
 # --- language tables (C7) -----------------------------------------------------------------------------------
 
 
@@ -1481,3 +1676,14 @@ def test_every_m10_text_exists_in_every_language() -> None:
     for lang in LANGUAGES:
         missing = [key for key in keys if key not in tables()[lang]]
         assert not missing, (lang, missing)
+
+
+def test_the_invalid_notice_names_every_source_in_every_language() -> None:
+    """X-annotation-1: one notice for invalid events.tsv rows, EEGLAB events without a latency and FIF
+    annotations MNE leaves out, so its text names every source in zh, en and de."""
+    from neurogrid.kernel.i18n import LANGUAGES
+    from neurogrid.report.texts import tables
+
+    for lang in LANGUAGES:
+        text = tables()[lang]["notice.events_rows_invalid"]
+        assert all(part in text for part in ("events.tsv", "EEGLAB", "FIF", "MNE", "{count}")), lang

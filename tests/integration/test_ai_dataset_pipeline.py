@@ -820,6 +820,51 @@ def test_every_column_that_holds_ages_counts_in_age_groups(tmp_path: Path) -> No
     assert stage.ai.labels.scopes["all"].classes == {"34.5": 6, "35.5": 5, "41.5": 5}
 
 
+def test_age_columns_with_a_unit_count_in_year_groups(tmp_path: Path) -> None:
+    """X-ai-0 (A-81): 15 children of 1, 10 and 20 years with their ages in months, days or weeks were put
+    into the year groups 10-19 ... 90+ (or no group) while the demography of the same subjects said 0-9;
+    the ages are converted to years first, the raw values never appear."""
+    folder = _subjects_dataset(tmp_path / "units", [(f"{n:02d}", "1", "F", "x") for n in range(1, 16)])
+    columns = {
+        "age_months": ("13.5", "131.5", "251.5"),
+        "AgeDays": ("401.25", "4001.25", "8001.25"),
+        "age_weeks": ("53.5", "601.5", "1101.5"),
+        "age": ("1.75", "12.75", "25.75"),  # no unit: years
+    }
+    lines = ["participant_id\t" + "\t".join(columns)]
+    lines += [
+        f"sub-{n + 1:02d}\t" + "\t".join(cells[n // 5] for cells in columns.values()) for n in range(15)
+    ]
+    (folder / "participants.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    for column in columns:
+        config = ai_config(tmp_path, f'[ai]\nlabels = "participants:{column}"\n', rules=(CLASSES, DEMOGRAPHY))
+        results = run(folder, config)
+        assert (
+            results.ai is not None and results.ai.labels is not None and results.ai.demographics is not None
+        )
+        assert results.ai.labels.scopes["all"].classes == {"0-9": 5, "10-19": 5, "20-29": 5}, column
+        assert results.ai.demographics.age_groups == {"0-9": 5, "10-19": 5, "20-29": 5}  # the age column
+        dumped = canonical.dumps(results).decode("utf-8")
+        assert all(cell not in dumped for cells in columns.values() for cell in cells)
+
+
+def test_events_labels_n_a_in_any_case_is_no_class(tmp_path: Path) -> None:
+    """X-interactions-1 (A-81): 'N/A' and 'n/A' cells of events.tsv took half of the class shares of
+    events:trial_type; like n/a (and like participants:<column>) they are no label."""
+    folder = _subjects_dataset(tmp_path / "na", [(f"{n:02d}", "30", "F", "N/A") for n in range(1, 7)])
+    for n in range(1, 7):
+        rows = [f"{k}\t1\t{('N/A', 'n/A')[k % 2] if k % 3 else 'go'}" for k in range(9)]
+        events = folder / run_path(f"{n:02d}").replace("_eeg.edf", "_events.tsv")
+        events.write_text("onset\tduration\ttrial_type\n" + "\n".join(rows) + "\n", encoding="utf-8")
+    results = run(folder, ai_config(tmp_path, LABELS, rules=(CLASSES,)))
+    assert results.ai is not None and results.ai.labels is not None
+    assert (
+        results.ai.labels.scopes["all"].classes == {"go": 18} and results.ai.labels.scopes["all"].total == 18
+    )
+    group = run(folder, ai_config(tmp_path, '[ai]\nlabels = "participants:group"\n', rules=(CLASSES,)))
+    assert [reason for *_key, reason in findings(group, CLASSES)] == ["ai.no_label_values"]  # 'N/A': no group
+
+
 @pytest.mark.parametrize("labels", [LABELS, '[ai]\nlabels = "participants:age"\n'])
 def test_raw_ages_never_leave_the_process(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], labels: str
