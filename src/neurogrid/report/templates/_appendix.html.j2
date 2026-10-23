@@ -6,7 +6,7 @@
     <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.pack') }}</th><th>{{ t('report.label.clause') }}</th><th>{{ t('report.label.title') }}</th><th>{{ t('report.label.phase') }}</th><th>{{ t('report.label.severity') }}</th><th>{{ t('report.label.verification') }}</th>{% for status in counted_statuses %}<th class="num">{{ t('status.' ~ status) }}</th>{% endfor %}</tr></thead>
     <tbody>
     {% for row in rule_overview %}
-    <tr data-rule="{{ row.id }}"><td class="mono">{{ row.id }}</td><td>{{ row.pack }}</td><td>{{ row.clause }}</td><td>{{ row.title }}</td><td>{{ row.phase }}</td><td>{{ row.severity }}</td><td>{{ row.verification }}</td>{% if row.placeholder %}<td colspan="{{ counted_statuses | length }}">{{ row.placeholder }}</td>{% else %}{% for count in row.counts %}<td class="num">{{ count }}</td>{% endfor %}{% endif %}</tr>
+    <tr data-rule="{{ row.id }}"><td class="mono nowrap">{{ row.id }}</td><td>{{ row.pack }}</td><td>{{ row.clause }}</td><td>{{ row.title }}</td><td>{{ row.phase }}</td><td>{{ row.severity }}</td><td>{{ row.verification }}</td>{% if row.placeholder %}<td colspan="{{ counted_statuses | length }}">{{ row.placeholder }}</td>{% else %}{% for count in row.counts %}<td class="num">{{ count }}</td>{% endfor %}{% endif %}</tr>
     {% endfor %}
     </tbody>
   </table>

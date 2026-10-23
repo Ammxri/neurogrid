@@ -4,7 +4,9 @@ The report reads only results.json (A-61). The HTML is print-ready (REP-00, A-84
 summary in portrait, sections 3-6 on landscape pages, the fixed sentence, a running head and the page counter
 on every page (CSS @page margin boxes), one font family ('NG Sans') whose @font-face rules the caller passes
 as ``font_css`` (the PDF pipeline subsets the report fonts for the text of the page, B1). Every value goes
-through glyph_safe, so no character falls back to a system font. The PDF is a print of exactly this HTML.
+through glyph_safe, so no character falls back to a system font and the rendered document needs no second
+glyph pass. The fonts are texts.FONT_FILES, the one font-path constant of the product. The PDF is a print of
+exactly this HTML.
 """
 
 from __future__ import annotations
@@ -22,19 +24,13 @@ from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, St
 from neurogrid.kernel.report import render_html
 from neurogrid.kernel.rules import EVIDENCE_CHECK
 from neurogrid.model.results import Results, RuleInfo, Summary
-from neurogrid.report import tables
+from neurogrid.report import tables, texts
 from neurogrid.report.charts import histogram_svg
 from neurogrid.report.glyphs import font_coverage, glyph_safe
 from neurogrid.report.texts import tables as language_tables
 from neurogrid.report.texts import translator, validator_text
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
-FONT_DIR = Path(__file__).parent / "fonts"
-# The static Noto Sans SC cuts (A-27), package data of the PDF pipeline; the HTML embeds subsets of them.
-REPORT_FONTS: dict[int, Path] = {
-    400: FONT_DIR / "NotoSansSC-Regular.ttf",
-    700: FONT_DIR / "NotoSansSC-Bold.ttf",
-}
 FONT_FAMILY = "NG Sans"
 MAX_TIME_RANGES_SHOWN = 20
 MAX_SUB_CODES_SHOWN = 100  # sub-codes are schema fields or table columns; a bound for odd tables
@@ -74,8 +70,24 @@ _COUNTER = re.compile(r"(\{page\}|\{pages\})")
 
 
 def report_coverage() -> frozenset[int] | None:
-    """The code points the report fonts can draw; None without the font files (no font is embedded then)."""
-    return font_coverage(REPORT_FONTS[weight] for weight in sorted(REPORT_FONTS))
+    """The code points the report fonts (texts.FONT_FILES, the static cuts of A-27 whose subsets the HTML
+    embeds) can draw; None without the font files (no font is embedded then)."""
+    fonts = texts.FONT_FILES
+    return font_coverage(fonts[weight] for weight in sorted(fonts))
+
+
+def has_value(value: Any) -> bool:
+    """Whether a measured value holds anything to show: None, blank text and lists or mappings whose elements
+    all hold nothing count as no value (A-09: such a cell is '–' with its reason, never a bare '–')."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, list):
+        return any(has_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(has_value(item) for item in value.values())
+    return True
 
 
 def _finalize(value: Any) -> Any:
@@ -102,7 +114,11 @@ class _Formatter:
         self.recordings = recordings
         self.evidence_rules = evidence_rules
 
-    def value(self, value: Any) -> str:
+    def value(self, value: Any, *, empty: str | None = None) -> str:
+        """A value from results.json as text. ``empty`` is the text key for an element without a value (None,
+        blank text, an empty list) inside a list or mapping; without it such an element is '–'."""
+        if empty is not None and not has_value(value):
+            return self.tr(empty)
         if value is None:
             return self.tr("report.value.none")
         if isinstance(value, bool):
@@ -110,14 +126,14 @@ class _Formatter:
         if isinstance(value, float):
             return format(value, ".6g")
         if isinstance(value, list):
-            return ", ".join(self.value(item) for item in value)
+            return ", ".join(self.value(item, empty=empty) for item in value)
         if isinstance(value, dict):
             # structured measurements: translated labels, values formatted like scalars
             parts = []
             for key in sorted(value):
                 label_key = f"report.measure.{key}"
                 label = self.tr(label_key) if self.has(label_key) else key
-                parts.append(f"{label}: {self.value(value[key])}")
+                parts.append(f"{label}: {self.value(value[key], empty=empty)}")
             return "; ".join(parts)
         return str(value)
 
@@ -128,12 +144,11 @@ class _Formatter:
         return self.tr(f"status.{finding.status.value}")
 
     def measured(self, finding: Finding) -> str:
-        """The measured value, or '–' with the reason why there is none (A-09); an empty value (an empty list
-        or text) counts as none."""
-        if finding.measured_value is not None:
-            text = self.value(finding.measured_value)
-            if text.strip():
-                return text
+        """The measured value, or '–' with the reason why there is none (A-09). A value without any element
+        that holds something (empty text, an empty list, a list of None) counts as none; an element without a
+        value inside a measured list or mapping is named as such, so the cell never shows a bare '–'."""
+        if has_value(finding.measured_value):
+            return self.value(finding.measured_value, empty="report.value.element_missing")
         if finding.rule_id in self.evidence_rules or finding.status in (Status.EVIDENCE_OPEN, Status.PASSED):
             return self.tr("report.value.not_applicable_value")
         if finding.status in (Status.NOT_CHECKABLE, Status.NOT_APPLICABLE):

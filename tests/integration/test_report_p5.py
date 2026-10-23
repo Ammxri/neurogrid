@@ -5,13 +5,17 @@ appendix (rules checked, configuration, environment), print CSS, glyph safety, w
 
 from __future__ import annotations
 
+import ast
+import base64
 import html as html_lib
 import json
+import math
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -23,11 +27,11 @@ from conftest import documented_config  # type: ignore[import-not-found]
 from gen_fixtures import scale_results  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.kernel import canonical
-from neurogrid.kernel.findings import Phase, Severity, SourceStatus, Status, TimeRange
+from neurogrid.kernel.findings import Phase, Severity, SourceStatus, Status, TimeRange, finding_key
 from neurogrid.kernel.i18n import LANGUAGES
 from neurogrid.kernel.safety import load_yaml
 from neurogrid.model.results import AILabelScope, Results
-from neurogrid.report import charts, render
+from neurogrid.report import charts, render, texts
 from neurogrid.report.render import (
     EXPLAINED_EMPTY,
     FINDING_CELLS,
@@ -41,7 +45,8 @@ from neurogrid.report.texts import disclaimer, translator
 from report_html import finding_rows, section, visible_text  # type: ignore[import-not-found]
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
-SRC = Path(__file__).parent.parent.parent / "src" / "neurogrid"
+ROOT = Path(__file__).parent.parent.parent
+SRC = ROOT / "src" / "neurogrid"
 AS_OF = date(2026, 10, 11)
 REPORT_LANGS = ("zh", "en")
 SOP = b"IT security SOP 12 (synthetic test document)\n"
@@ -179,6 +184,29 @@ def test_cover_names_reason_for_missing_manifest_hash(quality: Results, lang: st
     assert tr("report.value.manifest_block_missing") in visible_text(
         section(render_report(older, lang), "cover")
     )
+
+
+@pytest.mark.parametrize("lang", REPORT_LANGS)
+def test_core_clause_note_agrees_with_the_pack_source(rich: Results, lang: str) -> None:
+    """The note under the rule-pack table names the page of the core pack's source and restates no path, so it
+    agrees with the source the cover shows from results.json - today's 'docs/metrics.md' as well as the
+    language folder form 'docs/<lang>/metrics.md' the docs area gives the pack (B3)."""
+    note = _tr(lang)("report.text.core_clause_note")
+    pages = re.findall(r"[\w-]+\.md", note)
+    assert pages == ["metrics.md"] and "docs/" not in note
+    core = next(pack for pack in rich.rulepacks if pack.name == "core")
+    for source in (core.source, "NeuroGrid core metrics (docs/<lang>/metrics.md)"):
+        packs = [
+            pack.model_copy(update={"source": source}) if pack is core else pack for pack in rich.rulepacks
+        ]
+        cover = visible_text(
+            section(render_report(rich.model_copy(update={"rulepacks": packs}), lang), "cover")
+        )
+        assert f"core ({source})" in cover and note in cover
+        assert source.endswith(f"/{pages[0]})")
+    without_core = [pack for pack in rich.rulepacks if pack.name != "core"]
+    cover = section(render_report(rich.model_copy(update={"rulepacks": without_core}), lang), "cover")
+    assert "core-clause-note" not in cover
 
 
 # --- REP-02 summary ---------------------------------------------------------------------------------------
@@ -383,6 +411,43 @@ def test_failed_without_value_and_without_details_explain_themselves(quality: Re
 
 
 @pytest.mark.parametrize("lang", REPORT_LANGS)
+def test_measured_value_without_any_element_value_names_its_reason(quality: Results, lang: str) -> None:
+    """A-09/B1: a measured value whose elements all hold nothing (a list of None, a mapping of None, nested
+    empty lists, blank text) is '–' with its reason like a missing value; an element without a value inside a
+    measured list or mapping is named, so a measured cell never shows a bare '–' (results.json of another
+    version or edited by hand)."""
+    tr = _tr(lang)
+    template = next(f for f in quality.findings if f.status is Status.FAILED)
+    cases: list[tuple[object, Status, str | None]] = [
+        ([None, None], Status.FAILED, "report.value.measured_presence"),
+        ({"data_hz": None, "sidecar_hz": None}, Status.NOT_CHECKABLE, "report.value.measured_see_reason"),
+        ([[], [None], " "], Status.FAILED, "report.value.measured_presence"),
+        ([None], Status.EVIDENCE_OPEN, "report.value.not_applicable_value"),
+        ([None, 1.5], Status.FAILED, None),
+        ([2.0, None], Status.FAILED, None),
+        ({"data_hz": None, "sidecar_hz": 250.0}, Status.FAILED, None),
+        ([0.0, False], Status.FAILED, None),
+    ]
+    explained = _explained(lang)
+    missing = tr("report.value.element_missing")
+    assert not missing.startswith("–")
+    for value, status, expected in cases:
+        finding = template.model_copy(update={"measured_value": value, "status": status})
+        (row,) = finding_rows(render_report(quality.model_copy(update={"findings": [finding]}), lang))
+        if expected is not None:
+            assert row["measured"] == tr(expected), value
+            assert row["measured"] in explained
+        else:  # partly measured: shown, the missing element named, no dash at all
+            assert "–" not in row["measured"], (value, row["measured"])
+            assert (missing in row["measured"]) is (
+                None in (value.values() if isinstance(value, dict) else value)
+            )
+    fmt = render._Formatter(lang)
+    assert fmt.measured(template.model_copy(update={"measured_value": [None, 1.5]})) == f"{missing}, 1.5"
+    assert not render.has_value([[None], {"a": None}, ""]) and render.has_value([[None], 0])
+
+
+@pytest.mark.parametrize("lang", REPORT_LANGS)
 def test_threshold_shows_origin(rich: Results, quality: Results, lang: str) -> None:
     """A-13: the effective parameters with their origin, also when the value is missing."""
     tr = _tr(lang)
@@ -449,9 +514,40 @@ def _metric_rows(html: str) -> list[tuple[str, dict[str, str]]]:
     metrics = section(html, "metrics")
     out = []
     for rec, row in re.findall(r'<tr data-recording="([^"]+)">(.*?)</tr>', metrics, flags=re.S):
-        cells = dict(re.findall(r'<td class="num ([\w-]+)">(.*?)</td>', row, flags=re.S))
+        cells = dict(re.findall(r'<td class="(?:num )?([\w-]+)">(.*?)</td>', row, flags=re.S))
         out.append((html_lib.unescape(rec), {k: html_lib.unescape(v) for k, v in cells.items()}))
     return out
+
+
+# metrics-table column -> the checks whose failed findings set its ' *' (M08: flat / clipped, two parts)
+MARKED_COLUMNS: dict[str, tuple[str, ...]] = {
+    "m06": ("quality.bad_channels",),
+    "m07": ("quality.line_noise",),
+    "m08": ("quality.flatline", "quality.clipping"),
+    "m09a": ("quality.autoreject",),
+    "m09b": ("quality.non_brain_components",),
+    "kappa": ("annotation.kappa",),
+    "coverage": ("annotation.gaps",),
+    "line": ("quality.line_frequency",),
+}
+
+
+def _fail_on(results: Results, check: str, rec_id: str) -> Results:
+    """``results`` with one more failed finding of the rule using ``check`` on recording ``rec_id``."""
+    rule = next(r for r in results.rules if r.check == check)
+    extra = results.findings[0].model_copy(
+        update={
+            "key": finding_key(rule.id, rec_id, "injected"),
+            "rule_id": rule.id,
+            "rulepack": rule.rulepack,
+            "source_status": rule.source_status,
+            "clause": rule.clause,
+            "object": rec_id,
+            "subkey": "injected",
+            "status": Status.FAILED,
+        }
+    )
+    return results.model_copy(update={"findings": [*results.findings, extra]})
 
 
 @pytest.mark.parametrize("lang", REPORT_LANGS)
@@ -467,17 +563,55 @@ def test_metrics_table_has_one_row_per_recording(quality: Results, scaled: Resul
     assert cells["m07-failed"].endswith(f" / {len(ratios)}")
 
 
-def test_markers_follow_failed_findings(quality: Results, scaled: Results) -> None:
-    """' *' exactly where a non-placeholder rule using the metric's check has a failed finding (no second
-    judgement in the report, ARC-02)."""
-    checks = {"m06": "quality.bad_channels", "m07": "quality.line_noise", "m09a": "quality.autoreject"}
-    for results in (quality, scaled):
+def test_markers_follow_failed_findings(quality: Results, scaled: Results, annotated: Results) -> None:
+    """' *' exactly where a non-placeholder rule using the column's check has a failed finding on the
+    recording (no second judgement in the report, ARC-02): every marked column of the metrics table, both
+    parts of M08 (flat / clipped) and the line frequency; each of them is seen with and without the marker.
+    A failure the fixtures do not produce is added as a finding; a placeholder rule's failure sets none."""
+    line_rec = quality.recordings[0].id
+    # M10: the kappa failure without the coverage failure and the other way round (same recordings)
+    m10_variants = [
+        annotated.model_copy(
+            update={
+                "findings": [
+                    f
+                    for f in annotated.findings
+                    if f.rule_id not in {r.id for r in annotated.rules if r.check == check}
+                ]
+            }
+        )
+        for check in ("annotation.kappa", "annotation.gaps")
+    ]
+    placeholder = scaled.model_copy(deep=True)
+    for rule in placeholder.rules:
+        if rule.check == "quality.non_brain_components":
+            rule.source_status = SourceStatus.PLACEHOLDER
+    variants = [
+        quality,
+        scaled,
+        annotated,
+        *m10_variants,
+        scale_results(recordings=30, channels=8, worst_case=False),
+        _fail_on(quality, "quality.line_frequency", line_rec),
+        placeholder,
+    ]
+    seen: set[tuple[str, int, bool]] = set()
+    for results in variants:
         check_of = {r.id: r.check for r in results.rules if r.source_status is not SourceStatus.PLACEHOLDER}
         failed = {(check_of.get(f.rule_id), f.object) for f in results.findings if f.status is Status.FAILED}
         for rec, cells in _metric_rows(render_report(results, "en")):
-            for column, check in checks.items():
-                if not cells[column].startswith("–"):
-                    assert cells[column].endswith(" *") is ((check, rec) in failed), (rec, column)
+            for column, checks in MARKED_COLUMNS.items():
+                parts = cells[column].split(" / ") if len(checks) > 1 else [cells[column]]
+                if len(parts) != len(checks):  # M08 without any value: one '–' with its reason
+                    assert cells[column].startswith("–"), (rec, column, cells[column])
+                    continue
+                for index, (part, check) in enumerate(zip(parts, checks, strict=True)):
+                    if part.startswith("–"):  # no value: no marker either
+                        assert not part.endswith(" *"), (rec, column, part)
+                        continue
+                    marked = part.endswith(" *")
+                    assert marked is ((check, rec) in failed), (rec, column, check, part)
+                    seen.add((column, index, marked))
             if not cells["m07-failed"].startswith("–"):
                 count = len(
                     {
@@ -487,6 +621,13 @@ def test_markers_follow_failed_findings(quality: Results, scaled: Results) -> No
                     }
                 )
                 assert cells["m07-failed"].startswith(f"{count} / ")
+    expected = {
+        (column, index, marked)
+        for column, checks in MARKED_COLUMNS.items()
+        for index in range(len(checks))
+        for marked in (True, False)
+    }
+    assert seen == expected, sorted(expected - seen)
 
 
 @pytest.mark.parametrize("lang", REPORT_LANGS)
@@ -800,6 +941,20 @@ def test_scale_generator_command_line(tmp_path: Path) -> None:
     assert sum(1 for f in results.findings if f.rule_id == "CORE-M07-01") == 3 * 2
 
 
+def test_scaling_test_needs_no_undeclared_package_to_be_collected() -> None:
+    """The scaling test measures memory with psutil, a declared dev dependency (also used by
+    tools/benchmark.py), and imports it only when a perf test runs: collecting the default suite, which
+    deselects perf, imports nothing beyond the standard library, pytest and NeuroGrid's own modules."""
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    dev = {re.split(r"[=<>\[ ]", item, maxsplit=1)[0] for item in pyproject["dependency-groups"]["dev"]}
+    assert "psutil" in dev
+    tree = ast.parse((ROOT / "tests" / "perf" / "test_report_scaling.py").read_text(encoding="utf-8"))
+    names = {alias.name for node in tree.body if isinstance(node, ast.Import) for alias in node.names}
+    names |= {node.module for node in tree.body if isinstance(node, ast.ImportFrom) and node.module}
+    third_party = {name.split(".")[0] for name in names} - set(sys.stdlib_module_names)
+    assert third_party <= {"pytest", "neurogrid"}, third_party
+
+
 # --- REP-00 print layout, B1 contract, glyph safety, determinism, compatibility --------------------------
 
 
@@ -849,6 +1004,161 @@ def test_page_text_covers_css_only_strings(lang: str) -> None:
     assert set("0123456789-/ ") <= set(text)
 
 
+@pytest.mark.parametrize("lang", REPORT_LANGS)
+def test_page_text_covers_the_style_of_the_rendered_report(rich: Results, lang: str) -> None:
+    """B1: the delivered style element holds exactly the @page rules of page_css (one page rule and the
+    landscape page 'wide', no second @page block from another template), and page_text holds every character
+    of its string literals: the fixed sentence, the running head with its date wording and the words of the
+    page counter (zh 第 … 页 / 共 … 页), so the font subset covers the margin boxes."""
+    tr = _tr(lang)
+    html = render_report(rich, lang)
+    style = html[html.index("<style>") + len("<style>") : html.index("</style>")]
+    assert html.count("<style>") == 1
+    assert len(re.findall(r"@page\s*\{", style)) == 1 and len(re.findall(r"@page\s+wide\s*\{", style)) == 1
+    assert page_css(lang, rich.config.as_of.isoformat()) in style
+    strings = re.findall(r'"((?:[^"\\]|\\.)*)"', style)
+    assert strings and set("".join(strings)) <= set(page_text(lang))
+    words = [word for word in re.split(r"\{page\}|\{pages\}", tr("report.page.page_of")) if word.strip()]
+    head = tr("report.page.running_head", as_of="")
+    for text in (*words, head, disclaimer(lang)):
+        assert set(text) <= set(page_text(lang)), text
+    if lang == "zh":
+        assert set("第页共") <= set(page_text(lang)) and "基准日期" in head
+
+
+def test_one_font_path_constant_and_one_glyph_replacement() -> None:
+    """B1/B6 (merge with the PDF area): the product names the report font files in exactly one constant
+    (texts.FONT_FILES, used by render.py and the PDF pipeline) and replaces undrawable characters in exactly
+    one place; render_report's output needs no second pass (test_glyph_safe_replaces_...)."""
+    sources = {path: path.read_text(encoding="utf-8") for path in sorted(SRC.rglob("*.py"))}
+    assert [path for path, text in sources.items() if "NotoSansSC-" in text] == [SRC / "report" / "texts.py"]
+    assert set(texts.FONT_FILES) == {400, 700}
+    assert all(path.parent == SRC / "report" / "fonts" for path in texts.FONT_FILES.values())
+    replacing = [path for path, text in sources.items() if re.search(r"\[U\+\{", text)]
+    assert len(replacing) == 1, replacing
+    assert "FONT_FILES" not in vars(render) and "REPORT_FONTS" not in vars(render)
+
+
+def _style(html: str) -> str:
+    return html[html.index("<style>") + len("<style>") : html.index("</style>")]
+
+
+def test_cli_html_report_embeds_the_report_fonts(rich: Results, tmp_path: Path) -> None:
+    """B1: `neurogrid report --format html` writes report.<lang>.html with the @font-face rules of the font
+    subsets (data: URIs, weights 400 and 700) at the start of the style element, covering the visible text, so
+    a browser never falls back to its default font. The embedding is write_reports of the PDF area (B1/B6);
+    the test runs once the report fonts (tools/build_fonts.py) are part of the build."""
+    if not all(path.is_file() for path in texts.FONT_FILES.values()):
+        pytest.skip("the report fonts are not part of this build (src/neurogrid/report/fonts, PDF area B2)")
+    from fontTools.ttLib import TTFont
+
+    results_file = tmp_path / "results.json"
+    results_file.write_bytes(canonical.dumps(rich))
+    command = [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "zh,en"]
+    run = subprocess.run(
+        [*command, "--format", "html"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        check=False,
+    )
+    assert run.returncode == 0, run.stderr
+    for lang in REPORT_LANGS:
+        html = (tmp_path / f"report.{lang}.html").read_text(encoding="utf-8")
+        style = _style(html)
+        assert style.lstrip().startswith("@font-face")
+        faces = re.findall(r"@font-face\s*\{([^}]*)\}", style)
+        weights = {}
+        for face in faces:
+            assert re.search(r"font-family:\s*[\"']NG Sans[\"']", face), face[:120]
+            weight = re.search(r"font-weight:\s*(\d+)", face)
+            data = re.search(r"url\(data:font/ttf;base64,([A-Za-z0-9+/=]+)\)", face)
+            assert weight is not None and data is not None
+            weights[int(weight.group(1))] = base64.b64decode(data.group(1))
+        assert sorted(weights) == [400, 700]
+        path = tmp_path / f"subset-{lang}.ttf"
+        path.write_bytes(weights[400])
+        with TTFont(path) as font:
+            cmap = set(font.getBestCmap() or ())
+        visible = {ord(char) for char in visible_text(html) if not char.isspace()}
+        assert visible <= cmap, sorted(chr(code) for code in visible - cmap)[:20]
+
+
+def _col_shares() -> dict[str, float]:
+    css = (SRC / "report" / "templates" / "report.css").read_text(encoding="utf-8")
+    return {name: float(share) for name, share in re.findall(r"col\.([\w-]+) \{ width: ([\d.]+)%; \}", css)}
+
+
+def test_wide_tables_column_shares_sum_to_100(rich: Results, quality: Results) -> None:
+    """The fixed-layout tables of sections 3-6 give every column a share and the shares of a table sum to
+    100 %, so the browser never redistributes width; rule IDs and dates are not wrapped."""
+    shares = _col_shares()
+    seen = set()
+    for results in (rich, quality):
+        html = render_report(results, "en")
+        for name, colgroup in re.findall(
+            r'<table class="(\w+)">\s*<colgroup>(.*?)</colgroup>', html, flags=re.S
+        ):
+            columns = re.findall(r'<col class="([\w-]+)">', colgroup)
+            assert math.isclose(sum(shares[column] for column in columns), 100.0), (name, columns)
+            seen.add(name)
+        appendix = section(html, "appendix")
+        assert all(
+            cell.startswith('<td class="mono nowrap">')
+            for cell in re.findall(r'<tr data-rule="[^"]+">(<td[^>]*>)', appendix)
+        )
+        if results.evidence:  # the rule ID breaks only at the space before its pack (the column holds it)
+            evidence = section(html, "evidence")
+            assert evidence.count('<td class="nowrap">') == len(results.evidence)
+    assert seen == {"findings", "rules", "metrics", "evidence", "sample"}
+    css = (SRC / "report" / "templates" / "report.css").read_text(encoding="utf-8")
+    assert "table.findings td.c-rule, .nowrap { white-space: nowrap; }" in css
+
+
+def test_rule_ids_and_dates_fit_their_landscape_columns() -> None:
+    """The cosmetic G1 check made exact: the longest rule ID of the shipped packs (findings, rules checked,
+    evidence) and an ISO date (evidence) fit their columns on the landscape page in the report font at the
+    table size, so they never break across lines (A-84). Runs once the report fonts are part of the build."""
+    regular = texts.FONT_FILES[400]
+    if not regular.is_file():
+        pytest.skip("the report fonts are not part of this build (src/neurogrid/report/fonts, PDF area B2)")
+    from fontTools.ttLib import TTFont
+
+    css = (SRC / "report" / "templates" / "report.css").read_text(encoding="utf-8")
+    # the values of the CSS the measurement uses: table size, cell padding and border, mono letter spacing
+    assert "font-size: 8pt; }" in css[css.index("table { border-collapse") :][:120]
+    assert "th, td { border: 0.5pt solid #b8b8b8; padding: 2px 4px;" in css
+    assert ".mono { letter-spacing: 0.03em;" in css
+    margins = re.search(r"margin: (\d+)mm (\d+)mm (\d+)mm (\d+)mm", page_css("en", "2026-10-11"))
+    assert margins is not None
+    content_mm = 297.0 - float(margins.group(2)) - float(margins.group(4))  # A4 landscape
+    cell_mm = 8 * 25.4 / 96 + 0.5 * 25.4 / 72  # 4px padding on both sides, one 0.5pt border
+    ids = set()
+    for pack in sorted((SRC / "rulepacks").glob("*.yaml")):
+        data = load_yaml(pack.read_text(encoding="utf-8"))
+        assert isinstance(data, dict)
+        ids.update(str(rule["id"]) for rule in data["rules"])
+    with TTFont(regular, lazy=True) as font:
+        units = font["head"].unitsPerEm
+        cmap = font.getBestCmap()
+        advance = {char: font["hmtx"][cmap[ord(char)]][0] / units for char in "".join(ids) + "0123456789-"}
+
+    def width_mm(text: str, spacing_em: float) -> float:
+        return (sum(advance[char] for char in text) + spacing_em * len(text)) * 8 * 25.4 / 72 + cell_mm
+
+    widest_digit = max("0123456789", key=lambda digit: advance[digit])
+    date = f"{widest_digit * 4}-{widest_digit * 2}-{widest_digit * 2}"
+    shares = _col_shares()
+    longest = max(ids, key=lambda rule_id: width_mm(rule_id, 0.03))
+    for column, text, spacing in (
+        ("w-rule", longest, 0.03),
+        ("w-erule", longest, 0.03),
+        ("w-edate", date, 0.0),
+    ):
+        assert width_mm(text, spacing) <= shares[column] / 100 * content_mm, (column, text)
+
+
 def test_css_string_escapes_quotes_backslashes_and_markup() -> None:
     assert css_string('a"b') == '"a\\"b"' and css_string("a\\b") == '"a\\\\b"'
     assert css_string("</style>") == '"\\3C /style>"' and css_string("a\nb") == '"a\\A b"'
@@ -892,18 +1202,21 @@ def test_glyph_safe_replaces_uncovered_and_control_characters(
     hostile.exceptions[0].entry.reason = "Reason\x1b[31m"
     hostile.evidence[0].comment = "ok ✗"
     absent = {400: tmp_path / "absent-regular.ttf", 700: tmp_path / "absent-bold.ttf"}
-    monkeypatch.setattr(render, "REPORT_FONTS", absent)
+    monkeypatch.setattr(texts, "FONT_FILES", absent)
     plain = render_report(hostile, "en")  # without the report fonts: only controls are replaced
     assert "[U+0007]" in plain and "[U+001B]" in plain and "\x07" not in plain and "\x1b" not in plain
     assert "😀" in plain
-    covered = set(render_report(rich, "en") + page_text("en")) - set("😀𠀀✗")
+    covered = (set(render_report(rich, "en") + page_text("en")) | set("[]U+0123456789ABCDEF")) - set("😀𠀀✗")
     regular = _font(tmp_path / "Regular.ttf", "".join(sorted(covered)))
     bold = _font(tmp_path / "Bold.ttf", "".join(sorted(covered)))
-    monkeypatch.setattr(render, "REPORT_FONTS", {400: regular, 700: bold})
+    monkeypatch.setattr(texts, "FONT_FILES", {400: regular, 700: bold})
     html = render_report(hostile, "en")
     for code in ("[U+0007]", "[U+1F600]", "[U+20000]", "[U+001B]", "[U+2717]"):
         assert code in html, code
     assert not {"😀", "𠀀", "✗", "\x07", "\x1b"} & set(html)
+    # the whole document is drawable as rendered (markup, CSS, SVG and values): no caller needs a second
+    # glyph pass over it (B1; one glyph-safety path after the merge with the PDF area)
+    assert set(html) - set("\t\n\r") <= covered
 
 
 def test_html_is_byte_identical_over_two_renders(rich: Results, scaled: Results) -> None:

@@ -21,15 +21,17 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import psutil
 import pytest
 
 from neurogrid.kernel import canonical
 from neurogrid.model.results import Results
 from neurogrid.report.render import MAX_ROWS_PER_RULE
 from neurogrid.report.texts import translator
+
+if TYPE_CHECKING:
+    import psutil
 
 pytestmark = pytest.mark.perf
 
@@ -39,6 +41,8 @@ RECORDINGS, CHANNELS = 1000, 64
 
 
 def _tree_rss(process: psutil.Process) -> int:
+    import psutil  # dev dependency (pyproject), imported only when a perf test runs
+
     total = 0
     try:
         total += process.memory_info().rss
@@ -55,6 +59,8 @@ def _tree_rss(process: psutil.Process) -> int:
 def _report(results_file: Path, out: Path, formats: str) -> dict[str, Any]:
     command = [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "zh,en"]
     command += ["--format", formats, "--out", str(out)]
+    import psutil  # dev dependency (pyproject), imported only when a perf test runs
+
     start = time.perf_counter()
     process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     watched = psutil.Process(process.pid)

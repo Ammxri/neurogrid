@@ -34,19 +34,22 @@ tr.total th, tr.total td { font-weight: 700; background: #f4f4f4; }
 .rule-group > h4, .rule-group > .aggregate { break-after: avoid; }
 .aggregate { font-size: 8pt; color: #333; margin: 0 0 2px 0; }
 .more { font-size: 8pt; font-weight: 700; }
-/* Wide tables: fixed column shares, so that no column is squeezed to one character per line. */
+/* Wide tables: fixed column shares (each table's shares sum to 100 %), so that no column is squeezed to one
+   character per line. A rule ID and a date never break: their columns hold the longest rule ID of the shipped
+   packs and an ISO date in the report font on the landscape page (measured, A-84). */
 table.findings, table.rules, table.metrics, table.evidence, table.sample { table-layout: fixed; }
 table.findings td, table.rules td, table.metrics td, table.evidence td, table.sample td { overflow-wrap: anywhere; }
-col.w-rule { width: 8%; } col.w-clause { width: 5%; } col.w-title { width: 13%; } col.w-status { width: 7%; }
+table.findings td.c-rule, .nowrap { white-space: nowrap; }
+col.w-rule { width: 12%; } col.w-clause { width: 5%; } col.w-title { width: 12%; } col.w-status { width: 7%; }
 col.w-file { width: 11%; } col.w-channel { width: 6%; } col.w-measured { width: 7%; } col.w-threshold { width: 10%; }
-col.w-time { width: 14%; } col.w-reason { width: 19%; }
-col.w-pack { width: 6%; } col.w-rtitle { width: 19%; } col.w-phase { width: 6%; } col.w-severity { width: 10%; }
+col.w-time { width: 13%; } col.w-reason { width: 17%; }
+col.w-pack { width: 6%; } col.w-rtitle { width: 22%; } col.w-phase { width: 6%; } col.w-severity { width: 10%; }
 col.w-kind { width: 6%; } col.w-count { width: 5.5%; }
 col.w-recording { width: 13%; } col.w-format { width: 6%; } col.w-num { width: 5%; } col.w-line { width: 8%; }
 col.w-metric { width: 7%; } col.w-metric2 { width: 9%; }
-col.w-erule { width: 10%; } col.w-etitle { width: 12%; } col.w-ekind { width: 8%; } col.w-estatus { width: 9%; }
-col.w-ereason { width: 12%; } col.w-edoc { width: 10%; } col.w-echeck { width: 9%; } col.w-esha { width: 11%; }
-col.w-ereviewer { width: 6%; } col.w-edate { width: 6%; } col.w-ecomment { width: 7%; }
+col.w-erule { width: 12%; } col.w-etitle { width: 12%; } col.w-ekind { width: 8%; } col.w-estatus { width: 9%; }
+col.w-ereason { width: 11%; } col.w-edoc { width: 10%; } col.w-echeck { width: 9%; } col.w-esha { width: 10%; }
+col.w-ereviewer { width: 6%; } col.w-edate { width: 7%; } col.w-ecomment { width: 6%; }
 col.w-srec { width: 11%; } col.w-smode { width: 6%; } col.w-sseg { width: 50%; } col.w-sseed { width: 7%; }
 col.w-sch { width: 6%; } col.w-spos { width: 12%; } col.w-snotch { width: 8%; }
 table.metrics, table.sample { font-size: 7pt; }

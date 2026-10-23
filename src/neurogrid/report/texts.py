@@ -11,6 +11,9 @@ from neurogrid.kernel.safety import load_yaml
 I18N_DIR = Path(__file__).parent / "i18n"
 VALIDATOR_CODES = Path(__file__).parent / "validator_codes.yaml"
 REPORT_LANGUAGES = ("zh", "en")  # NG-F13; de exists as kernel table only (A-07, D-10 i)
+# static Noto Sans SC cuts made by tools/build_fonts.py (A-27), weight -> file; subset at run time
+FONT_DIR = Path(__file__).parent / "fonts"
+FONT_FILES = {400: FONT_DIR / "NotoSansSC-Regular.ttf", 700: FONT_DIR / "NotoSansSC-Bold.ttf"}
 
 
 @lru_cache(maxsize=1)
