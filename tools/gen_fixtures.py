@@ -3,6 +3,8 @@
 Usage:
     python tools/gen_fixtures.py           # (re)write tests/fixtures/synthetic
     python tools/gen_fixtures.py --check   # fail if the committed fixtures differ from a fresh generation
+    python tools/gen_fixtures.py --scale-results OUT.json [--recordings N] [--channels C] [--typical]
+                                           # synthetic results.json for the report scaling test (A-59)
 
 All signals are sine waves with noise or, in the signal quality fixtures (edf_quality_*), simulated dipole
 sources and artefacts with noise; no fixture contains data of a person. Metadata values in the BIDS
@@ -12,10 +14,13 @@ fixtures (authors, positions, head circumference) are synthetic test values and 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import random
 import sys
 import tempfile
 from collections.abc import Callable
+from datetime import date
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -1108,6 +1113,233 @@ FIXTURES: dict[str, Callable[[Path], None]] = {
 }
 
 
+# --- synthetic results.json for the report scaling test (A-59, KONZEPT 4 "Skalierung 1000 x 64") ----------
+
+SCALE_SEED = 20261023
+SCALE_AS_OF = date(2026, 10, 23)
+SCALE_SECONDS = 1200  # each synthetic recording: 20 min, one window per second (A-18)
+SCALE_LINE_THRESHOLD = 0.407669  # CORE-M07-01 max_ratio, rulepacks/core.yaml
+MAX_SCALE_RANGES = 100  # time ranges kept per channel, as neurogrid/quality/stream.py keeps them
+
+
+def _scale_ranges(flagged: int, count: int) -> tuple[list[tuple[float, float]], int]:
+    """``count`` equal runs of flagged 1-s windows spread over the recording, together ``flagged`` windows
+    (at most MAX_SCALE_RANGES listed, the number of runs counted)."""
+    count = min(count, flagged)
+    if not count:
+        return [], 0
+    step = SCALE_SECONDS // count
+    lengths = [flagged // count + (1 if i < flagged % count else 0) for i in range(count)]
+    ranges = [(float(i * step), float(i * step + length)) for i, length in enumerate(lengths)]
+    return ranges[:MAX_SCALE_RANGES], count
+
+
+def scale_results(recordings: int = 1000, channels: int = 64, worst_case: bool = True) -> Any:
+    """A results.json (as neurogrid.model.results.Results) for ``recordings`` recordings with ``channels``
+    EEG channels each, evaluated by NeuroGrid's own rule engine with the built-in core pack: the M06-M09
+    measurements are synthetic, the findings, passed counts, traffic lights and effective thresholds are the
+    engine's. Only the quality checks are measured; the other core rules give no finding.
+
+    ``worst_case``: every channel of every recording fails M07 (line-noise ratio above 0.407669) and M08-01
+    (flat share above 0.05 in 4 runs of flagged windows, a channel that goes flat a few times), the case A-59
+    targets: 2 x recordings x channels channel findings (128 000 for 1000 x 64) plus the M06/M09 findings.
+    Otherwise the values are drawn: log-normal line-noise ratios, 2 % flat channels (37 runs, so more than
+    the 20 time ranges a report row lists) and 1 % clipped channels (12 runs). All values come from
+    random.Random(SCALE_SEED), so the result is the same on every platform apart from the environment
+    block."""
+    from neurogrid import pipeline
+    from neurogrid.checks.registry import REGISTRY
+    from neurogrid.kernel import canonical, engine
+    from neurogrid.kernel.findings import TimeRange
+    from neurogrid.kernel.provenance import ManifestStatus
+    from neurogrid.kernel.rules import Measurement
+    from neurogrid.model.dataset import Dataset
+    from neurogrid.model.results import (
+        ConfigInfo,
+        ManifestInfo,
+        RecordingSummary,
+        Results,
+        RuleInfo,
+        RulepackInfo,
+        Summary,
+    )
+
+    rng = random.Random(SCALE_SEED)
+    core = pipeline.load_rulepack_ref("core")
+    names = [f"E{index:03d}" for index in range(1, channels + 1)]
+    measurements: dict[str, list[Measurement]] = {}
+    summaries = []
+
+    def measure(check: str, rec: str, file: str, **kwargs: Any) -> None:
+        measurements.setdefault(check, []).append(
+            Measurement(check_id=check, object=rec, file=file, identity=(file, rec), **kwargs)
+        )
+
+    for index in range(recordings):
+        rec = "rec-" + hashlib.sha256(f"rec_{index:04d}.edf".encode()).hexdigest()[:8]
+        file = f"{rec}.edf"
+        line_details = {"line_frequency_hz": 50.0, "line_frequency_source": "sidecar"}
+        m07: dict[str, Any] = {}
+        m08: dict[str, Any] = {}
+        for name in names:
+            if worst_case:
+                ratio = SCALE_LINE_THRESHOLD * (1.5 + rng.random())
+                flat = 0.06 + 0.2 * rng.random()
+                clipped = 0.0
+            else:
+                ratio = rng.lognormvariate(-2.3, 0.9)
+                flat = 0.0 if rng.random() > 0.02 else 0.3 * rng.random()
+                clipped = 0.0 if rng.random() > 0.01 else 0.2 * rng.random()
+            ratio = canonical.round_float(ratio)
+            m07[name] = {"ratio": ratio, "other_ratio": canonical.round_float(ratio / 5)}
+            measure(
+                "quality.line_noise", rec, file, subkey=name, channel=name, value=ratio, details=line_details
+            )
+            windows: dict[str, Any] = {"windows": SCALE_SECONDS}
+            for check, share, method, runs, field in (
+                ("quality.flatline", flat, "peak_to_peak", 4 if worst_case else 37, "flat_fraction"),
+                ("quality.clipping", clipped, "range", 12, "clipped_fraction"),
+            ):
+                flagged = round(share * SCALE_SECONDS)
+                ranges, total = _scale_ranges(flagged, runs)
+                measure(
+                    check,
+                    rec,
+                    file,
+                    subkey=name,
+                    channel=name,
+                    value=flagged / SCALE_SECONDS,
+                    time_ranges=tuple(TimeRange(start_s=a, end_s=b) for a, b in ranges),
+                    time_ranges_total=total,
+                    time_ranges_duration_s=float(flagged) if flagged else None,
+                    details={
+                        "windows": SCALE_SECONDS,
+                        "flagged_windows": flagged,
+                        "unusable_windows": 0,
+                        "method": method,
+                    },
+                )
+                windows[field] = flagged / SCALE_SECONDS
+            m08[name] = windows
+        values = {}
+        for key, check, upper in (
+            ("M06", "quality.bad_channels", 0.4),
+            ("M09a", "quality.autoreject", 0.4),
+            ("M09b", "quality.non_brain_components", 0.8),
+        ):
+            values[key] = canonical.round_float(upper * rng.random())
+            measure(check, rec, file, value=values[key])
+        summaries.append(
+            RecordingSummary(
+                id=rec,
+                format="EDF",
+                sampling_rate_hz=500.0,
+                duration_s=float(SCALE_SECONDS),
+                n_channels=channels,
+                n_eeg_channels=channels,
+                metadata_sources={"channels": "header", "duration_s": "header", "sampling_rate_hz": "header"},
+                metrics={
+                    "M06": {
+                        "state": "measured",
+                        "value": values["M06"],
+                        "channels": channels,
+                        "ransac": True,
+                    },
+                    "M07": {
+                        "line_frequency_hz": 50.0,
+                        "line_frequency_source": "sidecar",
+                        "other_frequency_hz": 60.0,
+                        "channels": m07,
+                    },
+                    "M08": {"window_s": 1.0, "clipping_method": "range", "channels": m08},
+                    "M09a": {"state": "measured", "value": values["M09a"]},
+                    "M09b": {"state": "measured", "value": values["M09b"]},
+                    "data_seconds": float(SCALE_SECONDS),
+                },
+                sample={
+                    "mode": "sample",
+                    # 10 x 60 s in the middle of 10 equal parts (KONZEPT 1.5)
+                    "segments": [{"start_s": 120.0 * i + 30.0, "duration_s": 60.0} for i in range(10)],
+                    "seed": 20261011,
+                    "channels": channels,
+                    "positions": "sidecar",
+                    "positions_unused": {},
+                    "excluded_channels": [],
+                    "notch_hz": [50.0, 100.0],
+                    "resample_hz": 250.0,
+                    "band_hz": [1.0, 100.0],
+                    "epoch_s": 2.0,
+                },
+            )
+        )
+    result = engine.run(
+        engine.EngineInput(packs=[core], registry=REGISTRY, measurements=measurements, as_of=SCALE_AS_OF)
+    )
+    pack = core.pack
+    return Results(
+        disclaimer=pipeline.disclaimer_block(),
+        tool=pipeline.tool_info(),
+        environment=pipeline.environment_info(),
+        dataset=Dataset(
+            id=f"scale-{recordings}x{channels}",
+            name="Synthetic scaling dataset (tools/gen_fixtures.py, no data of a person)",
+            version="1",
+            license="CC-BY-4.0",
+            rulepacks=[pack.rulepack],
+        ),
+        rulepacks=[
+            RulepackInfo(
+                name=pack.rulepack,
+                version=pack.version,
+                source=pack.source,
+                source_status=pack.source_status,
+                norm=pack.norm,
+                sha256=core.sha256,
+            )
+        ],
+        rules=[
+            RuleInfo(
+                id=rule.id,
+                rulepack=pack.rulepack,
+                clause=rule.clause,
+                title_zh=rule.title_zh,
+                title_en=rule.title_en,
+                phase=rule.phase,
+                check=rule.check,
+                severity=rule.effective_severity(False),
+                strict_severity=rule.strict_severity,
+                verification=rule.verification,
+                source_status=pack.source_status,
+            )
+            for rule in pack.rules
+        ],
+        config=ConfigInfo(
+            canonical_sha256=hashlib.sha256(b"synthetic scaling configuration").hexdigest(),
+            as_of=SCALE_AS_OF,
+            seed=20261011,
+            strict=False,
+            sampling={"mode": "sample", "segment_s": 60.0, "segments": 10},
+            effective_params=result.effective_params,
+            effective_settings={},
+        ),
+        recordings=summaries,
+        findings=result.findings,
+        passed=result.passed,
+        evidence=result.evidence,
+        exceptions=result.exceptions,
+        notices=result.notices,
+        summary=Summary(
+            phases=result.phases,
+            coverage=result.coverage,
+            errors=sum(p.errors for p in result.phases.values()),
+            warnings=sum(p.warnings for p in result.phases.values()),
+            exit_code=result.exit_code,
+            open_evidence=sum(p.open_evidence for p in result.phases.values()),
+        ),
+        manifest=ManifestInfo(status=ManifestStatus.MISSING),
+    )
+
+
 def generate(target: Path) -> None:
     for relative, make in FIXTURES.items():
         make(target / relative)
@@ -1122,7 +1354,20 @@ def _files(folder: Path) -> dict[str, bytes]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--scale-results", type=Path, help="write a synthetic results.json (A-59) to this file"
+    )
+    parser.add_argument("--recordings", type=int, default=1000)
+    parser.add_argument("--channels", type=int, default=64)
+    parser.add_argument("--typical", action="store_true", help="drawn values instead of the worst case")
     args = parser.parse_args()
+    if args.scale_results is not None:
+        from neurogrid.kernel import canonical
+
+        results = scale_results(args.recordings, args.channels, worst_case=not args.typical)
+        args.scale_results.write_bytes(canonical.dumps(results))
+        print(f"wrote {len(results.findings)} findings for {len(results.recordings)} recordings")
+        return 0
     if not args.check:
         generate(TARGET)
         print(f"wrote fixtures to {TARGET.relative_to(ROOT)} ({len(_files(TARGET))} files)")

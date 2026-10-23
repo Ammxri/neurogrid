@@ -1,0 +1,28 @@
+<section id="summary">
+  <h2>{{ t('report.section.summary') }}</h2>
+  <p class="overall">{{ overall }}</p>
+  <table class="phases">
+    <thead><tr><th>{{ t('report.label.phase') }}</th><th>{{ t('report.label.light') }}</th><th class="num">{{ t('report.label.errors') }}</th><th class="num">{{ t('report.label.warnings') }}</th><th class="num">{{ t('report.label.open_evidence') }}</th></tr></thead>
+    <tbody>
+    {% for phase, summary in phases %}
+    <tr data-phase="{{ phase.value }}">
+      <td>{{ t('phase.' ~ phase.value) }}</td>
+      <td><span class="light light-{{ summary.light.value }}">{{ t('light.' ~ summary.light.value) }}</span></td>
+      <td class="num">{{ summary.errors }}</td><td class="num">{{ summary.warnings }}</td><td class="num">{{ summary.open_evidence }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="total"><th colspan="2">{{ t('report.label.total') }}</th><td class="num">{{ results.summary.errors }}</td><td class="num">{{ results.summary.warnings }}</td><td class="num">{{ results.summary.open_evidence }}</td></tr>
+    </tbody>
+  </table>
+  <p class="legend">{{ t('light.legend') }}</p>
+  <table class="coverage">
+    <thead><tr><th>{{ t('report.label.rulepacks') }}</th><th>{{ t('report.label.coverage') }}</th></tr></thead>
+    <tbody>
+    {% for name, value in results.summary.coverage.items() %}
+    <tr><td>{{ name }}</td><td>{{ t('report.value.na') if value == 'n/a' else ('%.1f %%' % (value * 100)) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="coverage-note">{{ t('report.text.coverage_note') }}</p>
+  <p class="passed">{{ t('report.label.passed_checks') }}: {{ passed_total }}</p>
+</section>

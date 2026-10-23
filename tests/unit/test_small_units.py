@@ -170,8 +170,16 @@ def test_report_formatter() -> None:
     assert fmt.status(_finding()) == "not passed"
     ranges = [TimeRange(start_s=float(i), end_s=i + 0.5) for i in range(22)]
     text = fmt.time_range(_finding(time_ranges=ranges[:21], time_ranges_total=25))
-    assert text.endswith("(+5)") and "0.000–0.500 s" in text
-    assert fmt.time_range(_finding(file=None)) == "dataset"
+    # P5 (A-10): at most 20 ranges, then their number (and the total duration when results.json has it)
+    assert text.endswith("(20 of 25 ranges)") and "0.000–0.500 s" in text and "19.000–19.500 s" in text
+    assert "20.000–20.500 s" not in text
+    timed = fmt.time_range(
+        _finding(time_ranges=ranges[:21], time_ranges_total=25, time_ranges_duration_s=12.5)
+    )
+    assert timed.endswith("(20 of 25 ranges; total 12.5 s)")
+    both = fmt.time_range(_finding(time_ranges=ranges[:2], time_ranges_total=2, time_ranges_duration_s=1.0))
+    assert both == "0.000–0.500 s, 1.000–1.500 s (total 1 s)"
+    assert fmt.time_range(_finding(file=None)) == "– (dataset-wide check, no time range)"  # A-10
     assert fmt.time_range(_finding()) == "whole recording"  # rec-1 is a recording of the results
     # a file that is no recording: a control file or a new file in the manifest comparison (A-10, A-82)
     control = _finding(object=".neurogrid/neurogrid.toml", file=".neurogrid/neurogrid.toml")

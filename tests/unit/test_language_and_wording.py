@@ -174,3 +174,125 @@ def test_forbidden_list_catches_examples() -> None:
         "合格",
     ):
         assert any(p.search(example) for p in patterns), example
+
+
+# --- ARC-05: no statement about patients; A-57: findings name no law articles (P5) -------------------------
+
+USER_DOC_SUFFIXES = {".md", ".txt", ".ps1", ".sh", ".yml", ".yaml", ".html"}
+
+
+def _statements() -> dict[str, object]:
+    data = load_yaml((SRC / "report" / "wording" / "statements.yaml").read_text(encoding="utf-8"))
+    assert isinstance(data, dict)
+    return data
+
+
+def _statement_patterns(group: str) -> list[re.Pattern[str]]:
+    languages = _statements()[group]
+    assert isinstance(languages, dict) and set(languages) == set(LANGUAGES)
+    return [re.compile(pattern) for patterns in languages.values() for pattern in patterns]
+
+
+def _without_allowed(text: str) -> str:
+    allowed = _statements()["allowed"]
+    assert isinstance(allowed, list)
+    for phrase in allowed:
+        text = re.sub(re.escape(phrase), "", text, flags=re.IGNORECASE)
+    return text
+
+
+def _own_texts() -> list[tuple[str, str]]:
+    """NeuroGrid's own texts of the report and the console: language tables, rule packs (titles, sources),
+    validator texts and the report templates (A-57 scope; never dataset-derived strings)."""
+    from neurogrid.report.texts import validator_codes
+
+    texts = [(f"{lang}:{key}", value) for lang, table in tables().items() for key, value in table.items()]
+    for entry in resources.files("neurogrid.rulepacks").iterdir():
+        if entry.name.endswith(".yaml"):
+            pack = load_yaml(entry.read_text(encoding="utf-8"))
+            assert isinstance(pack, dict)
+            texts.append((f"{entry.name}:source", str(pack.get("source", ""))))
+            for rule in pack["rules"]:
+                texts += [(f"{entry.name}:{rule['id']}", str(rule[f"title_{lang}"])) for lang in ("zh", "en")]
+    for code, entry in validator_codes().items():
+        texts += [(f"validator:{code}:{lang}", entry[lang]) for lang in LANGUAGES]
+    for path in sorted((SRC / "report" / "templates").iterdir()):
+        texts.append((str(path.relative_to(ROOT)), path.read_text(encoding="utf-8")))
+    return texts
+
+
+def _user_texts() -> list[tuple[str, str]]:
+    """Every user-facing text (B1 wording test): NeuroGrid's own texts plus the user documentation (docs/
+    without the internal docs/umsetzung, which is not part of the site, A-28), the site configuration, the
+    README files and the messages of the install scripts, where they exist."""
+    internal = ROOT / "docs" / "umsetzung"
+    paths = [p for p in (ROOT / "README.md", ROOT / "mkdocs.yml") if p.is_file()]
+    for folder in (ROOT / "docs", ROOT / "packaging"):
+        paths += sorted(
+            p
+            for p in folder.rglob("*")
+            if p.is_file() and p.suffix in USER_DOC_SUFFIXES and not p.is_relative_to(internal)
+        )
+    paths += [p for p in (ROOT / "tools" / "install_pdf_browser.py",) if p.is_file()]
+    return _own_texts() + [(str(p.relative_to(ROOT)), p.read_text(encoding="utf-8")) for p in paths]
+
+
+def test_report_texts_make_no_patient_statements() -> None:
+    """ARC-05: no statement about patients, diagnoses or clinical matters in any user-facing text; the scope
+    note's negation is the only allowed phrase, header field names are excluded by the patterns."""
+    patterns = _statement_patterns("patient")
+    texts = [(name, _without_allowed(text)) for name, text in _user_texts()]
+    hits = [(name, p.pattern) for name, text in texts for p in patterns if p.search(text)]
+    assert not hits, hits
+
+
+def test_findings_name_no_law_articles() -> None:
+    """A-57: findings (rule titles, reasons, issue texts, validator texts, report texts) name no law
+    articles."""
+    patterns = _statement_patterns("law_article")
+    hits = [(name, p.pattern) for name, text in _own_texts() for p in patterns if p.search(text)]
+    assert not hits, hits
+
+
+@pytest.mark.parametrize(
+    ("group", "text", "caught"),
+    [
+        ("patient", "The patient shows artefacts.", True),
+        ("patient", "Patients with epilepsy", True),
+        ("patient", "the diagnosis of the subject", True),
+        ("patient", "clinical relevance", True),
+        ("patient", "患者的诊断", True),
+        ("patient", "临床意义", True),
+        ("patient", "Die Patientin", True),
+        ("patient", "Diagnose der Probanden", True),
+        ("patient", "klinisch relevant", True),
+        ("patient", "the EDF patient field", False),
+        ("patient", "Patientenfeld", False),
+        ("patient", "Patientendaten werden gelesen", True),
+        ("patient", "Patient 12", True),
+        ("patient", "diagnosis_code (never in output)", False),
+        ("patient", "diagnose_code", False),
+        ("patient", "This report makes no statement about patients.", False),
+        ("patient", "本报告不对患者作任何陈述。", False),
+        ("patient", "Der Bericht trifft keine Aussage über Patienten.", False),
+        ("law_article", "violates Art. 28 PIPL", True),
+        ("law_article", "see article 5", True),
+        ("law_article", "违反第二十八条", True),
+        ("law_article", "nach Artikel 28", True),
+        ("law_article", "BIDS 1.11.1", False),
+        ("law_article", "M07 line-noise ratio", False),
+    ],
+)
+def test_statement_lists_catch_examples(group: str, text: str, caught: bool) -> None:
+    patterns = _statement_patterns(group)
+    assert any(p.search(_without_allowed(text)) for p in patterns) is caught
+
+
+def test_scope_note_is_the_allowed_negation_in_every_language() -> None:
+    """The allowed phrases are exactly the negations in the scope note (ARC-05), so nothing else is exempt."""
+    allowed = _statements()["allowed"]
+    assert isinstance(allowed, list)
+    for lang in LANGUAGES:
+        note = tables()[lang]["report.text.scope_note"]
+        assert sum(phrase in note for phrase in allowed) == 1, lang
+        assert not any(p.search(_without_allowed(note)) for p in _statement_patterns("patient")), lang

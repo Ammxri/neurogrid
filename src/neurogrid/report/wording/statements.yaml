@@ -1,0 +1,37 @@
+# Statements NeuroGrid must never make in its own texts (ARC-05, A-57).
+# patient: NeuroGrid is a developer and compliance tool, not a medical device; it makes no statement about
+#   patients, diagnoses or clinical matters (PRD §2). Names of header fields are no statements and are
+#   excluded by the patterns (the EDF "patient field", "Patientenfeld", the identifiers diagnosis_code and
+#   diagnose_code). Every pattern is applied to every text, whatever its language.
+# law_article: findings name no law articles (A-57).
+# Patterns are Python regular expressions; 'allowed' entries are exact phrases (the scope note's negation)
+# removed before scanning. tests/unit/test_language_and_wording.py scans the language tables, the rule
+# packs, the validator texts, the report templates, the user documentation, the README files and the
+# messages of the install scripts.
+allowed:
+  - "makes no statement about patients"
+  - "不对患者作任何陈述"
+  - "trifft keine Aussage über Patienten"
+patient:
+  en:
+    - "(?i)\\bpatients?\\b(?! field)"
+    - "(?i)\\bdiagnos(e[sd]?|is|ing)\\b"
+    - "(?i)\\bclinical(ly)?\\b"
+  zh:
+    - "患者"
+    - "病人"
+    - "诊断"
+    - "临床"
+  de:
+    - "(?i)\\bPatient(?!enfeld|\\s+field)"
+    - "(?i)\\bdiagnose[n]?\\b"
+    - "(?i)\\bdiagnostizier"
+    - "(?i)\\bklinisch"
+law_article:
+  en:
+    - "(?i)\\bart(icle|\\.)\\s*\\d+"
+  zh:
+    - "第[0-9一二三四五六七八九十百千]+条"
+  de:
+    - "(?i)\\bart\\.\\s*\\d+"
+    - "(?i)\\bartikel\\s*\\d+"
