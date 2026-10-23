@@ -109,6 +109,12 @@ def read_json(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def no_value(cell: str) -> bool:
+    """A TSV cell without a value: empty or n/a, without surrounding space and in any case ("N/A"). One rule
+    for every reader of dataset tables: participants.tsv and events.tsv, M10 and M11 (A-80, A-81)."""
+    return cell.strip().casefold() in ("", "n/a")
+
+
 def read_tsv(path: Path) -> tuple[list[str], list[dict[str, str]]] | None:
     """Header and rows of a TSV file (column names exactly as written), or None if unreadable."""
     try:

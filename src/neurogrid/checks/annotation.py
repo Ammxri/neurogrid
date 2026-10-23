@@ -680,7 +680,7 @@ def measure_codes(ctx: CheckContext) -> list[Measurement]:
     out = [_not_checkable(obj, CODES, obj.issue) for obj in objects if obj.issue]
     readable = [obj for obj in objects if not obj.issue]
     judged = [obj for obj in readable if obj.annotations and (config.vocabulary or obj.vocabulary)]
-    labels = _label_measurements(readable)
+    labels = _label_measurements(readable, config.vocabulary)
     if not judged and not labels:  # nothing to compare anywhere (C11)
         has_codes = any(obj.annotations for obj in readable)
         reason = "annotation.no_vocabulary" if has_codes else _nothing_kept(readable)
@@ -715,20 +715,27 @@ def _code_measurements(obj: AnnotatedRecording, vocabulary: Sequence[str]) -> li
     return out
 
 
-def _label_measurements(objects: Sequence[AnnotatedRecording]) -> list[Measurement]:
+def _label_measurements(
+    objects: Sequence[AnnotatedRecording], configured: Sequence[str] | None
+) -> list[Measurement]:
     """One dataset-level measurement per label (events.json Levels description): it must not carry several
-    codes (A-17, A-80); only codes that occur count."""
-    codes_of: dict[str, set[str]] = {}
+    codes (A-17, A-80); only codes that occur count. Each code is displayed with the vocabulary of the object
+    it occurs in (``[annotation] vocabulary``, else that object's Levels), as in the per-code measurements: a
+    code one of them shows in clear is shown in clear here as well (C5)."""
+    codes_of: dict[str, dict[str, str]] = {}  # label -> code -> its subkey
     for obj in objects:
         label_of = dict(obj.labels)
+        known = set(configured or obj.vocabulary or ())
         for annotation in obj.annotations:
             label = label_of.get(annotation.code)
             if label:
-                codes_of.setdefault(label, set()).add(annotation.code)
+                subkeys = codes_of.setdefault(label, {})
+                if subkeys.get(annotation.code) != annotation.code:  # not yet shown in clear by an object
+                    subkeys[annotation.code] = display_text(annotation.code, known).subkey
     out = []
     for label in sorted(codes_of, key=lambda text: display_text(text).subkey):
         shown = display_text(label)
-        codes = sorted(display_text(code).subkey for code in codes_of[label])
+        codes = sorted(codes_of[label].values())
         details: dict[str, Any] = {"n_codes": len(codes), "codes": codes[:MAX_CODES_LISTED]}
         if shown.shown is None:
             details["chars"] = len(label)
@@ -860,8 +867,10 @@ def summaries(ctx: CheckContext) -> dict[PurePosixPath, dict[str, Any]]:
 
 
 def notices(ctx: CheckContext) -> list[Notice]:
-    """Annotation-only files that could not be attached, [[annotation.files]] rows that matched nothing and
-    events.tsv rows without a valid onset or duration (counts only, A-51)."""
+    """Annotation-only files that could not be attached, [[annotation.files]] rows that matched nothing, and
+    annotations without valid times: events.tsv rows, EEGLAB events without a latency and FIF annotations
+    MNE leaves out (one notice for all of them: no reader drops an annotation without a trace, A-80;
+    counts only, A-51)."""
     if not ctx.annotations_read:
         return []
     index = ctx.annotations()

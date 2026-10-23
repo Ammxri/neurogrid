@@ -4,9 +4,10 @@ One events.tsv reader for M10 and M11: io.annotations.read_events reads the near
 (inheritance principle, io/bids.py; links are not followed, sizes and rows are limited, utf-8-sig because
 ds000248 starts with a byte order mark). The label column is found by its header rule
 (:meth:`EventsTable.column`: without surrounding space and without regard to case, the first of duplicate
-columns, as M10), its cells by :meth:`EventsTable.values` (empty cells and ``n/a`` are no label). The
-documented values of the column are the "Levels" of the merged events.json sidecars for that column
-(io.annotations.events_levels; they decide which labels may be shown, A-17/C5).
+columns, as M10), its cells by :meth:`EventsTable.values` (empty cells and ``n/a`` in any case are no
+label: io.bids.no_value, the rule of M10 and participants.tsv). The documented values of the column are the
+"Levels" of the merged events.json sidecars for that column (io.annotations.events_levels; they decide which
+labels may be shown, A-17/C5).
 
 Events are dataset data (C2): a missing table is no error, only "no labels"; a table that cannot be read
 (not UTF-8, too large, too many rows) is marked ``unreadable``, so that M11 leaves its recording out as a

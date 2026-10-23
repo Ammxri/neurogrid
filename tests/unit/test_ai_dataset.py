@@ -13,6 +13,7 @@ from typing import get_args
 import pytest
 
 import neurogrid.io.annotations as annotations_module
+import neurogrid.io.participants as participants_module
 from conftest import dir_link  # type: ignore[import-not-found]
 from neurogrid import config as config_module
 from neurogrid.checks import ai_dataset
@@ -23,7 +24,9 @@ from neurogrid.io.events import event_labels
 from neurogrid.io.identifying import display_text
 from neurogrid.io.participants import (
     AGE_GROUPS,
+    YEARS,
     age_group,
+    age_unit,
     is_age_column,
     parse_participants,
     read_participants,
@@ -375,6 +378,22 @@ def test_event_labels_use_the_reader_and_header_rule_of_m10(tmp_path: Path) -> N
     assert table is not None and tuple(table.values("trial_type") or ()) == first.values  # M10's cells
 
 
+def test_event_labels_n_a_in_any_case_is_no_label(tmp_path: Path) -> None:
+    """X-interactions-1 (A-81): 'N/A' and 'n/A' cells became a class of events:<column>, while
+    participants:<column> treats n/a in any case as no value; one rule now for M10 and M11 (io.bids.no_value).
+    'NA' is a value, as in participants.tsv."""
+    data_file = PurePosixPath("sub-01/eeg/sub-01_task-rest_eeg.edf")
+    folder = tmp_path / "sub-01" / "eeg"
+    folder.mkdir(parents=True)
+    cells = ("go", "N/A", "n/A", " N/a ", "n/a", "NA", "go")
+    rows = "".join(f"{onset}\t1\t{cell}\n" for onset, cell in enumerate(cells))
+    (folder / "sub-01_task-rest_events.tsv").write_text(
+        "onset\tduration\ttrial_type\n" + rows, encoding="utf-8"
+    )
+    labels = event_labels(tmp_path, data_file, "trial_type")
+    assert (labels.table, labels.column, labels.values) == (True, True, ("go", "NA", "go"))
+
+
 def test_event_labels_of_an_oversized_events_tsv_are_unreadable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -625,6 +644,131 @@ def test_columns_that_hold_ages_by_their_name(name: str, ages: bool) -> None:
     """A-21 (P4 review repair): every column whose name says age counts in the 10-year groups as a label
     source, not only the column age."""
     assert is_age_column(name) is ages
+
+
+MONTHS, WEEKS, DAYS = (1.0, 12.0), (7.0, 365.25), (1.0, 365.25)
+
+
+@pytest.mark.parametrize(
+    ("name", "unit"),
+    [
+        ("age", YEARS),
+        ("Age at scan", YEARS),
+        ("age_years", YEARS),
+        ("AgeYears", YEARS),
+        ("age-group", YEARS),
+        ("age_months", MONTHS),
+        ("AgeMonths", MONTHS),
+        ("age_in_months", MONTHS),
+        ("age_mo", MONTHS),
+        ("age_weeks", WEEKS),
+        ("AgeWeeks", WEEKS),
+        ("gestational_age_wk", WEEKS),
+        ("AgeDays", DAYS),
+        ("age_days", DAYS),
+        ("Age (days)", DAYS),
+        ("AgeAtScanDays", DAYS),
+    ],
+)
+def test_age_columns_name_their_unit(name: str, unit: tuple[float, float]) -> None:
+    """X-ai-0 (A-81): a column that holds ages gives its unit by a word of its name or in the compact form;
+    without a unit word the ages are years."""
+    assert is_age_column(name) and age_unit(name) == unit
+
+
+def test_a_unit_word_alone_makes_no_age_column() -> None:
+    assert not any(
+        is_age_column(name) for name in ("duration_days", "weeks", "months_since_onset", "weekday")
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "unit"),
+    [
+        ("SubjectAge", YEARS),
+        ("PatientAge", YEARS),
+        ("DonorAge", YEARS),  # camel case: any word in front
+        ("EEGAge", YEARS),
+        ("Age2", YEARS),
+        ("AgeInYears", YEARS),
+        ("AgeInMonths", MONTHS),
+        ("AgeInDays", DAYS),
+        ("GestationalAgeWeeks", WEEKS),
+        ("MRIAgeMonths", MONTHS),
+        ("ageinmonths", MONTHS),  # without capitals: the compact form with "in"
+        ("AGEINDAYS", DAYS),
+        ("subjectage", YEARS),  # without capitals: a closed list of words in front
+        ("gestationalageweeks", WEEKS),
+        ("SUBJECT_AGE", YEARS),
+    ],
+)
+def test_compact_age_names_with_a_word_in_front_or_in(name: str, unit: tuple[float, float]) -> None:
+    """X-ai-0 repair (A-81): SubjectAge, PatientAge, GestationalAgeWeeks, AgeInMonths, AgeInYears and
+    AgeInDays were no age columns, so 5 subjects of one raw age made the age a class key."""
+    assert is_age_column(name) and age_unit(name) == unit
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["PageCount", "UsageCount", "StageNumber", "voltage", "postage", "parentage", "percentage", "Average"],
+)
+def test_words_ending_in_age_stay_no_age_columns(name: str) -> None:
+    """X-ai-0 repair: camel case and the words in front of a compact form make no column an age column whose
+    words only end in the letters."""
+    assert not is_age_column(name)
+
+
+def test_an_age_column_by_the_setting_or_the_header() -> None:
+    """X-ai-0 repair: the setting and the header match without regard to case; only the capitals show the
+    words of "DonorAgeDays", so either spelling makes the column an age column and gives its unit."""
+    age_column = participants_module.age_column
+    assert age_column("donoragedays", "DonorAgeDays") == DAYS
+    assert age_column("DonorAgeDays", "donoragedays") == DAYS
+    assert age_column("donorage", "DonorAge") == YEARS
+    assert age_column("donorage", "donorage") is None
+    assert age_column("PageCount", "pagecount") is None
+    table = parse_participants("participant_id\t DonorAgeDays \tdonoragedays\nsub-01\t400\t9\n")
+    assert table.headers == {"participant_id": "participant_id", "donoragedays": "DonorAgeDays"}
+
+
+@pytest.mark.parametrize(
+    ("column", "cells", "groups"),
+    [
+        (
+            "age_months",
+            ("12", "36", "130", "250", "1080+", "24-30"),
+            ("0-9", "0-9", "10-19", "20-29", "90+", "0-9"),
+        ),
+        ("AgeDays", ("100", "300", "4000", "8000", "3652.5"), ("0-9", "0-9", "10-19", "20-29", "10-19")),
+        ("age_weeks", ("52", "600", "1100"), ("0-9", "10-19", "20-29")),
+        ("age", ("12", "36", "1"), ("10-19", "30-39", "0-9")),
+    ],
+)
+def test_ages_in_months_weeks_or_days_count_in_year_groups(
+    column: str, cells: tuple[str, ...], groups: tuple[str, ...]
+) -> None:
+    """X-ai-0: 12/24/36 months were grouped as 10-19/20-29/30-39 years, 300 days were no age at all; the
+    groups are years, as in the demography (months / 12, weeks * 7 / 365.25, days / 365.25)."""
+    unit = age_unit(column)
+    assert tuple(age_group(cell, unit) for cell in cells) == groups
+    assert all(group in AGE_GROUPS for group in groups)
+
+
+@pytest.mark.parametrize(
+    ("column", "cell"),
+    [
+        ("age_months", "1800"),  # 150 years
+        ("AgeDays", "54787.5"),  # 150 years
+        ("AgeDays", "1234567"),
+        ("age_weeks", "-5"),
+        ("age_months", "1e3"),
+        ("age_months", "nan"),
+        ("age_months", "adult"),
+        ("age", "1000"),  # years keep their three digits
+    ],
+)
+def test_ages_with_a_unit_that_are_no_age(column: str, cell: str) -> None:
+    assert age_group(cell, age_unit(column)) is None
 
 
 # --- configuration and language keys ---------------------------------------------------------------------
