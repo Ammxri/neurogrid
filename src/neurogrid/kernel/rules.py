@@ -174,20 +174,26 @@ class CheckSpec:
     params: Mapping[str, ParamSpec] = field(default_factory=dict)
 
 
-def at_most(param: str) -> Evaluator:
-    def evaluate(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
-        limit = params[param]
-        return Evaluation(passed=measurement.value <= limit, threshold=limit)
+@dataclass(frozen=True)
+class Bound:
+    """A threshold comparison a check declares (A-13): the measured value must be ``op`` the parameter
+    ``param``. The registry documentation is generated from it (tools/gen_docs.py)."""
 
-    return evaluate
+    param: str
+    op: Literal["<=", ">="]
+
+    def __call__(self, measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
+        limit = params[self.param]
+        passed = measurement.value <= limit if self.op == "<=" else measurement.value >= limit
+        return Evaluation(passed=passed, threshold=limit)
 
 
-def at_least(param: str) -> Evaluator:
-    def evaluate(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:
-        limit = params[param]
-        return Evaluation(passed=measurement.value >= limit, threshold=limit)
+def at_most(param: str) -> Bound:
+    return Bound(param, "<=")
 
-    return evaluate
+
+def at_least(param: str) -> Bound:
+    return Bound(param, ">=")
 
 
 def is_true(measurement: Measurement, params: Mapping[str, ParamValue]) -> Evaluation:

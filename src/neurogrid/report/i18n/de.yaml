@@ -41,6 +41,16 @@ cli:
     prefix: "Fehler"
     internal: "Interner Fehler ({type}). Für Details erneut mit --debug ausführen."
     usage: "Ungültige Kommandozeile: {problem}"
+    missing_option: "die Option {name} ist Pflicht (siehe '{command} --help')."
+    missing_argument: "das Argument {name} fehlt (siehe '{command} --help')."
+    no_such_option: "unbekannte Option {name} (siehe '{command} --help')."
+    bad_parameter: "ungültiger Wert für {name} (siehe '{command} --help')."
+    option_needs_value: "die Option {name} braucht einen Wert (siehe '{command} --help')."
+    option_takes_no_value: "die Option {name} nimmt keinen Wert (siehe '{command} --help')."
+    no_such_command: "unbekannter Befehl '{name}' (siehe 'neurogrid --help')."
+    extra_arguments: "überzählige Argumente: {arguments}."
+    missing_command: "kein Befehl angegeben (siehe 'neurogrid --help')."
+    usage_generic: "die Kommandozeile ist nicht lesbar ({type}; siehe '{command} --help')."
   warning:
     library: "Hinweis: Eine Bibliothek hat eine Warnung gemeldet ({type}); die Ergebnisse sind davon nicht betroffen."
   manifest:
@@ -65,6 +75,66 @@ cli:
     unreadable: "Derzeit nicht lesbar: {count}"
     matches: "Der Datensatz entspricht dem Manifest."
     differs: "Der Datensatz weicht vom Manifest ab."
+  help:
+    app: "NeuroGrid – lokale Offline-Vorprüfung von EEG-Datensätzen (keine Bewertung im Sinne der NMPA-Vorschriften)."
+    heading:
+      usage: "Aufruf:"
+      arguments: "Argumente:"
+      options: "Optionen:"
+      commands: "Befehle:"
+    metavar:
+      options: "[OPTIONEN]"
+      command: "BEFEHL [ARGUMENTE]..."
+      value: "WERT"
+      number: "N"
+    option:
+      help: "Diese Hilfe zeigen und beenden."
+    default: "Standard: {value}"
+    required: "Pflicht"
+    global:
+      lang: "Sprache der Meldungen: zh oder en (sonst NEUROGRID_LANG, dann die Systemsprache)."
+      debug: "Bei internen Fehlern einen bereinigten Traceback zeigen."
+    scan:
+      about: "Bestandsaufnahme: Formate, Probanden, Aufnahmen, Größen, nicht unterstützte Dateien."
+      path: "Datensatzordner oder einzelne Datendatei."
+      out: "Die Bestandsaufnahme zusätzlich als JSON schreiben."
+      show_paths: "Echte Pfade statt pseudonymer IDs zeigen."
+    check:
+      about: "Einen Datensatz gegen Regelpakete prüfen und results.json schreiben."
+      path: "Datensatzordner oder einzelne Datendatei."
+      rulepack: "Name oder Pfad eines Regelpakets (wiederholbar)."
+      config: "Pfad zur neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Datensatz)."
+      out: "Ergebnisdatei."
+      strict: "Strenger Modus (fehlendes Manifest ist ein Fehler)."
+      as_of: "Stichtag JJJJ-MM-TT (Standard: heute)."
+      allow_draft_rulepacks: "Platzhalter-Regelpakete zulassen (nicht aus einem Normtext)."
+      show_paths: "Echte Pfade statt pseudonymer IDs zeigen."
+      jobs: "Prozesse für die Signalmetriken, 1 bis 64 (die Ergebnisse ändern sich nicht)."
+      evidence: "evidence.yaml mit den Nachweisen für manuelle Regeln (Standard: .neurogrid/evidence.yaml)."
+      manifest: "Manifest für den Vergleich (Standard: .neurogrid/manifest.json im Datensatz)."
+    convert:
+      about: "Einen Rohordner nach EEG-BIDS umwandeln und das Ergebnis validieren."
+      path: "Rohdatenordner oder einzelne Datendatei."
+      to: "Zielstruktur: bids."
+      out: "Ausgabeordner (muss leer sein oder fehlen)."
+      config: "Pfad zur neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Rohordner)."
+      strip_identifying_headers: "Identifizierende Kopffelder durch Platzhalter ersetzen."
+    report:
+      about: "Den Bericht je Sprache und Format erzeugen."
+      results_file: "Von 'check' geschriebene results.json."
+      lang: "Berichtssprachen, z. B. zh,en (Standard: zh,en)."
+      format: "Ausgabeformate, z. B. html,pdf (Standard: html)."
+      out: "Ausgabeordner (Standard: neben results.json)."
+    manifest:
+      about: "Das Provenienz-Manifest schreiben: SHA-256 und Größe jeder Datei, Verarbeitungsschritte, Softwareversionen."
+      path: "Datensatzordner."
+      out: "Manifestdatei (Standard: .neurogrid/manifest.json im Datensatzordner)."
+      show_paths: "Echte Pfade statt pseudonymer IDs zeigen."
+    verify:
+      about: "Einen Datensatz mit seinem Manifest vergleichen: geänderte, neue und fehlende Dateien (Exit 0 gleich, 1 Abweichung)."
+      path: "Datensatzordner."
+      manifest: "Von 'manifest' geschriebene manifest.json."
+      show_paths: "Echte Pfade statt pseudonymer IDs zeigen."
 
 errors:
   splits:

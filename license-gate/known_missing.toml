@@ -1,0 +1,28 @@
+# Licence texts or licences that are known to be missing (TECH-10, A-56, A-86). Each entry needs a download that
+# D-06 does not cover, so it waits for the owner's decision at STOPP G1. The release workflow fails while this
+# list is not empty (tools/licenses.py --release). The notices and the REUSE test name each entry.
+# component: "<dist>:<pattern>" of license-gate/components.toml, or a name for texts outside the wheels.
+
+[[missing]]
+component = "CC-BY-4.0"
+what = "The legal code of CC BY 4.0 (LICENSES/CC-BY-4.0.txt) is absent; the documentation, the sample data and the HED schemas inside the BIDS validator are CC BY 4.0 and reference the licence by name and URI."
+
+[[missing]]
+component = "bids-validator-deno:bids_validator_deno/bids-validator.js"
+what = "The licence files of the npm and jsr packages compiled into the BIDS validator 3.0.2 bundle are not in its wheel (names and versions in section 3 of the notices)."
+
+[[missing]]
+component = "bids-validator-deno:bids_validator_deno/*.js*"
+what = "The BIDS schema 1.2.7 inside the validator bundle states no licence in the wheel; licence and text are to be taken from upstream."
+
+[[missing]]
+component = "h5py:h5py.libs/libaec-*.so*"
+what = "libaec 1.1.4 in the Linux h5py wheel: the wheel states neither its licence nor its text."
+
+[[missing]]
+component = "h5py:h5py.libs/libsz-*.so*"
+what = "libsz (part of libaec 1.1.4) in the Linux h5py wheel: the wheel states neither its licence nor its text."
+
+[[missing]]
+component = "python-build-standalone:3.12.15+20261009"
+what = "The licence texts of the libraries inside the python-build-standalone archive other than CPython (e.g. OpenSSL, libffi, SQLite, XZ, zlib) are not in the distributed install_only archive."

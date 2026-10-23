@@ -7,8 +7,9 @@ name = "neurogrid"
 dynamic = ["version"]
 description = "Local, offline pre-check of EEG datasets for AI-based BCI devices: format checks, EEG-BIDS conversion, quality metrics and zh/en reports. A pre-check, not a conformity assessment."
 readme = "README.md"
-license = "Apache-2.0"
-license-files = ["LICENSE", "NOTICE"]
+# The report fonts (src/neurogrid/report/fonts/*.ttf, static cuts of Noto Sans SC) are OFL-1.1 (A-27).
+license = "Apache-2.0 AND OFL-1.1"
+license-files = ["LICENSE", "NOTICE", "src/neurogrid/report/fonts/OFL.txt"]
 authors = [{ name = "Ammar Ahad" }]
 requires-python = ">=3.11,<3.14"
 classifiers = [
@@ -62,6 +63,13 @@ dev = [
     "ruff==0.17.0",
     "types-PyYAML==6.0.12.20260906",
 ]
+# User documentation zh/en (TECH-06, A-28). Exact pins: MkDocs 2.0 pre-releases drop the plugin system.
+docs = [
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.7.7",
+    "mkdocs-static-i18n==1.3.1",
+    "pymdown-extensions==12.3",
+]
 
 [tool.hatch.version]
 path = "src/neurogrid/__init__.py"
@@ -70,12 +78,25 @@ path = "src/neurogrid/__init__.py"
 packages = ["src/neurogrid"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/neurogrid", "LICENSE", "NOTICE", "README.md", "pyproject.toml"]
+# The source release carries its complete licence information (TECH-10, CON-05).
+include = [
+    "src/neurogrid",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "pyproject.toml",
+    "LICENSES",
+    "REUSE.toml",
+    "THIRD_PARTY_NOTICES.txt",
+    "DATA_SOURCES.md",
+]
 
 [tool.uv]
 # Supply chain (A-48): dependencies are installed from wheels only, never built from source distributions.
 # The project itself is still built (editable) by its own backend.
 no-build = true
+# Every runtime export uses `uv export --no-default-groups` so neither group leaks into the runtime set.
+default-groups = ["dev", "docs"]
 required-environments = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -107,6 +128,7 @@ addopts = ["--strict-markers", "-m", "not corpus and not perf", "-p", "no:cachep
 markers = [
     "corpus: needs the public test corpus in .local/corpus (tools/corpus.py)",
     "perf: performance measurements (NG-N02)",
+    "browser: drives the Chrome Headless Shell (located by kernel.pdf.locate_shell) against the built docs site",
 ]
 filterwarnings = ["error::EncodingWarning:neurogrid"]
 

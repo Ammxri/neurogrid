@@ -107,8 +107,17 @@ Supplement: `recording_id`.
 | belege | details |
 
 Supplements: `key`, `rulepack`, `rulepack_version`, `source_status`, `phase`, `subkey`, `file`, `channel`,
-`params` (effective thresholds with their origin), `time_ranges`, `message_key`, `reason`.
+`params` (effective thresholds with their origin), `time_ranges`, `time_ranges_total`, `time_ranges_duration_s`,
+`message_key`, `reason`.
 
 ## ConsentScope and AccessEvent
 
 Both objects belong to NeuroVault and are added in version 0.2.
+
+## Results
+
+`results.json` carries the objects above together with the run's context: the rule packs and rules, the
+effective configuration, the recordings with their metrics and sample, the findings and the counted passed
+checks, notices, the evidence records, the exceptions, the duplicate groups, the aggregated AI structure
+(`ai`) and the manifest comparison. The fields are listed on [Output files](reference/outputs.md#results-json);
+the JSON schema is [`results.schema.json`](../schemas/results.schema.json).

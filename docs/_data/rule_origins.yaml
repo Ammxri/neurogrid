@@ -1,0 +1,40 @@
+# Origin of the threshold and severity of each core rule (KONZEPT 2.2 column "Herkunft"; tools/gen_docs.py,
+# metrics.md). origin: spec (start value of the product specification), spec_second_hand (the product
+# specification quotes T/GXDSL 008-2025), assumption (decision log docs/umsetzung/ENTSCHEIDUNGEN.md) or calibrated
+# (src/neurogrid/rulepacks/calibration/core.json). ref: the assumption that fixes or reads it. The product
+# specification itself is not public (A-01, A-02) and is never cited.
+CORE-M01-01: {origin: spec, ref: "A-65"}
+CORE-M01-02: {origin: spec, ref: "A-46"}
+CORE-M01-03: {origin: assumption, ref: "A-46"}
+CORE-M01-04: {origin: assumption, ref: "A-12"}
+CORE-M01-05: {origin: assumption, ref: "A-64"}
+CORE-M02-01: {origin: spec, ref: "A-03"}
+CORE-M02-02: {origin: assumption, ref: "A-46"}
+CORE-M03-01: {origin: spec_second_hand, ref: "A-40"}
+CORE-M03-02: {origin: spec, ref: "A-18"}
+CORE-M03-03: {origin: assumption, ref: "A-46"}
+CORE-M04-01: {origin: spec, ref: "A-18"}
+CORE-M04-02: {origin: assumption, ref: "A-18"}
+CORE-M04-03: {origin: assumption, ref: "A-18"}
+CORE-M04-04: {origin: assumption, ref: "A-46"}
+CORE-M04-05: {origin: assumption, ref: "A-18"}
+CORE-M05-01: {origin: spec, ref: "A-83"}
+CORE-M05-02: {origin: spec_second_hand, ref: "A-40"}
+CORE-M06-01: {origin: calibrated, ref: "A-20, A-44"}
+CORE-M07-01: {origin: calibrated, ref: "A-20, A-44"}
+CORE-M07-02: {origin: assumption, ref: "A-47, A-79"}
+CORE-M08-01: {origin: spec, ref: "A-18"}
+CORE-M08-02: {origin: spec, ref: "A-18"}
+CORE-M09-01: {origin: calibrated, ref: "A-20, A-44"}
+CORE-M09-02: {origin: calibrated, ref: "A-20, A-44"}
+CORE-M10-01: {origin: spec, ref: "A-80"}
+CORE-M10-02: {origin: assumption, ref: "A-17"}
+CORE-M10-03: {origin: assumption, ref: "A-17"}
+CORE-M10-04: {origin: assumption, ref: "A-17"}
+CORE-M11-01: {origin: spec, ref: "A-81"}
+CORE-M11-02: {origin: spec, ref: "A-81"}
+CORE-M12-01: {origin: spec, ref: "A-81"}
+CORE-M12-02: {origin: spec, ref: "A-21"}
+CORE-M13-01: {origin: spec, ref: "A-22, A-82"}
+CORE-M13-02: {origin: spec, ref: "A-82"}
+CORE-M13-03: {origin: assumption, ref: "A-22"}

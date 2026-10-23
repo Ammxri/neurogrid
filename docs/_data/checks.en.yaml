@@ -1,0 +1,99 @@
+# What each registered check measures and, for checks with an own comparison, when it passes (tools/gen_docs.py,
+# reference/checks.md). Keys = the check IDs of the registry; a test keeps both in sync. English.
+ai.class_balance:
+  object: "each scope of the label source (all, train, val, test) and class"
+  passes: "the class reaches at least `min_share` of its scope; for a withheld label source (cells below 5 subjects) only what the subject numbers alone show (A-81)"
+ai.demographics_complete:
+  object: "the dataset (participants.tsv): age and sex of every subject"
+ai.duplicate_recordings:
+  object: "each recording (signal hash NG-SIGHASH-v1, never output)"
+  passes: "no other recording of the dataset has the same signal hash"
+ai.split_integrity:
+  object: "each subject"
+  passes: "the subject belongs to at most one split"
+annotation.codes:
+  object: "each code or label of the annotations"
+annotation.gaps:
+  object: "each recording with annotations (continuous mode)"
+  passes: "the annotations leave no gap"
+annotation.kappa:
+  object: "each recording with at least two annotators"
+annotation.overlaps:
+  object: "each recording and annotator"
+  passes: "the annotations of the annotator do not overlap"
+bids.hed_schema_available:
+  object: "each file the BIDS validator reports, per validator code"
+bids.validator_errors:
+  object: "each file the BIDS validator reports, per validator code"
+bids.validator_warnings:
+  object: "each file the BIDS validator reports, per validator code"
+channels.count_consistent:
+  object: "each recording"
+  passes: "the EEG channel count agrees between sidecar, channels.tsv and data file, and so does the total count between channels.tsv and data file"
+channels.only_1005:
+  object: "each EEG channel of a recording"
+channels.positions:
+  object: "each recording"
+  passes: "every EEG channel has an electrode position"
+channels.same_set_per_task:
+  object: "each task of the dataset"
+channels.standard_names:
+  object: "each EEG channel of a recording"
+evidence.document:
+  object: "the rule itself (manual or semi-automatic evidence from evidence.yaml)"
+impedance.documented:
+  object: "each recording"
+  passes: "every EEG channel has an impedance value"
+impedance.max:
+  object: "each EEG channel of a recording with wet electrodes"
+metadata.consistent:
+  object: "the dataset: TaskName, BIDSVersion and Name"
+metadata.required_fields:
+  object: "each recording and required field"
+provenance.documented:
+  object: "the dataset: processing steps and software versions"
+provenance.files_match:
+  object: "the dataset and each file that differs from the manifest"
+provenance.manifest_matches:
+  object: "the dataset (manifest present and matching)"
+provenance.manifest_present:
+  object: "the dataset"
+quality.autoreject:
+  object: "each recording (sample)"
+quality.bad_channels:
+  object: "each recording (sample)"
+quality.clipping:
+  object: "each EEG channel of a recording (full length)"
+quality.flatline:
+  object: "each EEG channel of a recording (full length)"
+quality.line_frequency:
+  object: "each recording"
+  passes: "the median ratio at the other line frequency is not more than `min_factor` times the median ratio at the documented one"
+quality.line_noise:
+  object: "each EEG channel of a recording (full length)"
+quality.non_brain_components:
+  object: "each recording (sample)"
+signal.sampling_rate_consistency:
+  object: "each recording"
+  passes: "the rate is at least `min_hz` and the rates are uniform or their mix is documented"
+signal.sampling_rate_min:
+  object: "each recording (lowest EEG rate)"
+signal.sampling_rate_uniform:
+  object: "the dataset"
+  passes: "all recordings share one rate, or the mix is documented in [metadata] mixed_sampling_rates_reason"
+signal.sidecar_rate:
+  object: "each recording with a sidecar"
+  passes: "the sampling rate in the sidecar equals the rate of the data (relative tolerance 1e-6)"
+structure.companions_present:
+  object: "each recording"
+structure.header_consistent:
+  object: "each recording"
+structure.identifying_header:
+  object: "each recording, per header field (field names only, never values)"
+structure.readable:
+  object: "each recording and the dataset (at least one readable recording)"
+structure.storage_format:
+  object: "each recording"
+  passes: "the storage format is one of `formats` (comma-separated list, case-insensitive)"
+structure.supported_format:
+  object: "each data file"

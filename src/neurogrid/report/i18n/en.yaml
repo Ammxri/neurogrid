@@ -41,6 +41,16 @@ cli:
     prefix: "Error"
     internal: "Internal error ({type}). Run again with --debug for details."
     usage: "Invalid command line: {problem}"
+    missing_option: "the option {name} is required (see '{command} --help')."
+    missing_argument: "the argument {name} is missing (see '{command} --help')."
+    no_such_option: "unknown option {name} (see '{command} --help')."
+    bad_parameter: "invalid value for {name} (see '{command} --help')."
+    option_needs_value: "the option {name} needs a value (see '{command} --help')."
+    option_takes_no_value: "the option {name} takes no value (see '{command} --help')."
+    no_such_command: "unknown command '{name}' (see 'neurogrid --help')."
+    extra_arguments: "unexpected extra arguments: {arguments}."
+    missing_command: "no command given (see 'neurogrid --help')."
+    usage_generic: "the command line cannot be read ({type}; see '{command} --help')."
   warning:
     library: "Note: a library reported a warning ({type}); results are not affected."
   manifest:
@@ -65,6 +75,66 @@ cli:
     unreadable: "Cannot be read now: {count}"
     matches: "The dataset matches the manifest."
     differs: "The dataset differs from the manifest."
+  help:
+    app: "NeuroGrid – local, offline pre-check of EEG datasets. Not a conformity assessment."
+    heading:
+      usage: "Usage:"
+      arguments: "Arguments:"
+      options: "Options:"
+      commands: "Commands:"
+    metavar:
+      options: "[OPTIONS]"
+      command: "COMMAND [ARGS]..."
+      value: "VALUE"
+      number: "N"
+    option:
+      help: "Show this message and exit."
+    default: "default: {value}"
+    required: "required"
+    global:
+      lang: "Language of messages: zh or en (otherwise NEUROGRID_LANG, then the system language)."
+      debug: "Show a sanitized traceback on internal errors."
+    scan:
+      about: "Inventory: formats, subjects, recordings, sizes, unsupported files."
+      path: "Dataset folder or single data file."
+      out: "Also write the inventory as JSON."
+      show_paths: "Show real paths instead of pseudonymous IDs."
+    check:
+      about: "Check a dataset against rule packs and write results.json."
+      path: "Dataset folder or single data file."
+      rulepack: "Rule pack name or path (repeatable)."
+      config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset)."
+      out: "Results file."
+      strict: "Strict mode (missing manifest is an error)."
+      as_of: "Reference date YYYY-MM-DD (default: today)."
+      allow_draft_rulepacks: "Allow placeholder rule packs (not based on a norm text)."
+      show_paths: "Show real paths instead of pseudonymous IDs."
+      jobs: "Processes for the signal metrics, 1 to 64 (results do not change)."
+      evidence: "evidence.yaml with the evidence for manual rules (default: .neurogrid/evidence.yaml)."
+      manifest: "Manifest to compare with (default: .neurogrid/manifest.json in the dataset)."
+    convert:
+      about: "Convert a raw folder to EEG-BIDS and validate the result."
+      path: "Raw data folder or single data file."
+      to: "Target structure: bids."
+      out: "Output folder (must be empty or missing)."
+      config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the raw folder)."
+      strip_identifying_headers: "Replace identifying header fields by placeholders."
+    report:
+      about: "Render the report for each language and format."
+      results_file: "results.json written by 'check'."
+      lang: "Report languages, e.g. zh,en (default: zh,en)."
+      format: "Output formats, e.g. html,pdf (default: html)."
+      out: "Output folder (default: next to results.json)."
+    manifest:
+      about: "Write the provenance manifest: SHA-256 and size of every file, processing steps, software versions."
+      path: "Dataset folder."
+      out: "Manifest file (default: .neurogrid/manifest.json in the dataset folder)."
+      show_paths: "Show real paths instead of pseudonymous IDs."
+    verify:
+      about: "Compare a dataset with its manifest: changed, new and missing files (exit 0 equal, 1 deviation)."
+      path: "Dataset folder."
+      manifest: "manifest.json written by 'manifest'."
+      show_paths: "Show real paths instead of pseudonymous IDs."
 
 errors:
   splits:

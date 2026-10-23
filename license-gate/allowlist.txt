@@ -29,6 +29,6 @@ CC0-1.0
 MIT-0
 Python-2.0
 # MPL-2.0 for unmodified dependencies (D-05): certifi (via requests <- pooch <- mne), tqdm (via mne),
-# pathspec (dev only)
+# pathspec (dev and docs)
 Mozilla Public License 2.0 (MPL 2.0)
 MPL-2.0 AND MIT

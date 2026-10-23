@@ -1,0 +1,62 @@
+# 生成的文档页面所用的标签（tools/gen_docs.py），中文。不属于网站内容。中文待母语人士审校（A-07）。
+checks:
+  title: "检查项注册表"
+  intro: >-
+    规则包可在 `check` 中引用的全部检查项，由本版本 NeuroGrid 的注册表（`neurogrid.checks.registry`）生成。
+    规则包只能使用已注册的检查项及其声明的参数（A-13）；参数值依次取自 `neurogrid.toml`
+    （`[rules."ID".params]`）、规则包，最后为下表中的默认值。
+  title_row: "名称"
+  params: "参数"
+  passes: "通过条件"
+  object: "测量对象"
+  rules: "内置规则"
+  none: "–"
+  kind: "{name}（{kind}，默认 {default}）"
+  bound_max: "测量值 ≤ `{param}`"
+  bound_min: "测量值 ≥ `{param}`"
+  is_true: "未发现偏差"
+  evidence: "evidence.yaml 中的证明材料已提供（状态 provided，或已说明理由的 not_applicable）"
+rules:
+  title: "内置规则"
+  intro: >-
+    本版本 NeuroGrid 内置规则包中的规则，由规则包本身生成。SHA-256 按文件字节计算，与 results.json
+    （`rulepacks[].sha256`）一致。
+  pack: "规则包"
+  version: "版本"
+  source: "来源"
+  source_status: "来源状态"
+  norm: "对应标准（计算覆盖率）"
+  sha256: "SHA-256"
+  title_row: "名称"
+  clause: "条款"
+  phase: "阶段"
+  check: "检查项"
+  params: "参数"
+  severity: "严重程度"
+  strict_severity: "使用 --strict 时的严重程度"
+  verification: "核验方式"
+  "yes": "是"
+  "no": "否"
+  none: "–"
+  default_param: "{name} = {value}（检查项默认值）"
+  pack_param: "{name} = {value}（规则包）"
+thresholds:
+  rule: "规则"
+  severity: "严重程度"
+  params: "参数"
+  origin: "来源"
+  none: "–"
+  origin_spec: "产品规格书中的起始值"
+  origin_spec_second_hand: "产品规格书中的起始值，转引自 T/GXDSL 008-2025（二手来源）"
+  origin_with_ref: "{origin}（{ref}）"
+  origin_assumption: "假设 {ref}（决策记录）"
+  origin_calibrated: "已校准：公开语料库中 {n} 个{over}的第 95 百分位数（{ref}）"
+  over_recordings: "记录"
+  over_channels: "通道"
+calibration:
+  dataset: "数据集"
+  version: "版本"
+  doi: "DOI"
+  format: "格式"
+  recordings: "记录数"
+  channels: "通道数（M07）"

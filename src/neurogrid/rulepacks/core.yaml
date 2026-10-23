@@ -2,8 +2,8 @@
 # (docs/<lang>/metrics.md). Rule IDs follow CORE-Mxx-NN by design (documented exception to PACK-PHASE-NNN).
 # Further metrics are added phase by phase (KONZEPT.md §2.2).
 rulepack: core
-version: "0.1.0"
-source: "NeuroGrid core metrics (docs/metrics.md)"
+version: "0.1.1"
+source: "NeuroGrid core metrics (docs/<lang>/metrics.md)"
 source_status: final
 norm: false
 rules:
