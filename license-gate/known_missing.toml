@@ -1,6 +1,7 @@
 # Licence texts or licences that are known to be missing (TECH-10, A-56, A-86). Each entry needs a download that
 # D-06 does not cover, so it waits for the owner's decision at STOPP G1. The release workflow fails while this
-# list is not empty (tools/licenses.py --release). The notices and the REUSE test name each entry.
+# list is not empty: it runs `tools/notices.py --download --check`, and --check exits 1 for each entry. The
+# notices and the REUSE test name each entry.
 # component: "<dist>:<pattern>" of license-gate/components.toml, or a name for texts outside the wheels.
 
 [[missing]]

@@ -1,6 +1,9 @@
 """The built site in the Chrome Headless Shell: search works offline over 127.0.0.1, file:// pages need no
-network (TECH-06, A-28). The browser is located like for the PDF (kernel.pdf.locate_shell, D-08): without it
-the tests are skipped with the reason, unless NEUROGRID_REQUIRE_PDF=1 (CI), then they fail."""
+network (TECH-06, A-28). The browser is located and started like for the PDF (kernel.pdf: locate_shell, the
+launch arguments with the GPU inside the browser process, the browser and driver environments, D-08, A-54);
+a debug.log that a child process of the shell appends next to its executable is undone afterwards (A-51).
+Without the shell the tests are skipped with the reason, unless NEUROGRID_REQUIRE_PDF=1 (CI), then they
+fail."""
 
 from __future__ import annotations
 
@@ -14,8 +17,6 @@ from typing import Any
 
 import docs_site  # type: ignore[import-not-found]
 import pytest
-
-pytestmark = pytest.mark.browser
 
 QUERIES = (
     ("zh/index.html", "采样率"),
@@ -37,42 +38,86 @@ def _unavailable(reason: str) -> None:
     pytest.skip(reason)
 
 
-def _browser_args(work: Path) -> tuple[str, list[str]]:
-    """The executable of the NeuroGrid PDF browser and the fixed Chromium flags of kernel.pdf; the shell's log
-    goes to the work folder, not next to the executable (A-54)."""
+def _pdf_module() -> Any:
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
 
         from neurogrid.kernel import pdf
-        from neurogrid.kernel.errors import NeuroGridError
     except ImportError as exc:
         _unavailable(f"PDF browser support not importable ({type(exc).__name__}: {exc.name})")
         raise
+    return pdf
+
+
+def _shell(pdf: Any) -> Any:
+    from neurogrid.kernel.errors import NeuroGridError
+
     try:
-        shell = pdf.locate_shell(os.environ)
+        return pdf.locate_shell(os.environ)
     except NeuroGridError as exc:
         _unavailable(f"PDF browser not installed ({exc.message_key}); see tools/install_pdf_browser.py")
         raise
-    # the PDF flags map every host name to "not found"; the docs server on 127.0.0.1 must stay reachable
-    flags = [
+
+
+def launch_flags(arguments: list[str]) -> list[str]:
+    """The PDF printer's launch arguments with one change: they map every host name to "not found", the docs
+    server on 127.0.0.1 must stay reachable."""
+    return [
         f"{flag}, EXCLUDE 127.0.0.1" if flag.startswith("--host-resolver-rules=") else flag
-        for flag in pdf.CHROMIUM_FLAGS
+        for flag in arguments
     ]
-    return str(shell.executable), [*flags, f"--log-file={work / 'chromium.log'}"]
+
+
+class ChildLog:
+    """debug.log next to the shell's executable as the tests found it: absent or with its size. On Windows a
+    child process of the shell appends to it instead of the --log-file; restore() removes a file the tests
+    created or cuts what they appended (A-51, A-54: nothing of a run stays in NeuroGrid's browser folder)."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self.size = path.stat().st_size if path.is_file() else None
+
+    def restore(self) -> None:
+        if self.size is None:
+            self.path.unlink(missing_ok=True)
+        elif self.path.stat().st_size > self.size:
+            with self.path.open("r+b") as handle:
+                handle.truncate(self.size)
+
+    def unchanged(self) -> bool:
+        return (self.path.stat().st_size if self.path.is_file() else None) == self.size
 
 
 @pytest.fixture(scope="module")
 def browser(built_site: Any, tmp_path_factory: pytest.TempPathFactory) -> Iterator[Any]:
     assert built_site.returncode == 0, built_site.output[-2000:]
-    executable, flags = _browser_args(tmp_path_factory.mktemp("browser"))
+    pdf = _pdf_module()
+    shell = _shell(pdf)
+    work = tmp_path_factory.mktemp("browser")
     from playwright.sync_api import sync_playwright
 
-    with sync_playwright() as playwright:
-        instance = playwright.chromium.launch(executable_path=executable, headless=True, args=flags)
+    child_log = ChildLog(shell.executable.parent / pdf.CHILD_LOG)
+    try:
+        with pdf.driver_environment(work):
+            playwright = sync_playwright().start()
         try:
-            yield instance
+            flags = launch_flags(pdf.launch_arguments(work))
+            assert pdf.IN_PROCESS_GPU in flags and f"--log-file={work / 'chromium.log'}" in flags
+            instance = playwright.chromium.launch(
+                executable_path=str(shell.executable),
+                headless=True,
+                args=flags,
+                env=pdf.browser_environment(work),
+            )
+            try:
+                yield instance
+            finally:
+                instance.close()
         finally:
-            instance.close()
+            playwright.stop()
+    finally:
+        child_log.restore()  # after the last browser process has ended
+    assert child_log.unchanged(), child_log.path
 
 
 @pytest.fixture(scope="module")
@@ -93,6 +138,7 @@ class _QuietHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+@pytest.mark.browser
 def test_search_finds_zh_and_en_offline(browser: Any, server: str) -> None:
     context = browser.new_context()
     blocked: list[str] = []
@@ -120,6 +166,7 @@ def test_search_finds_zh_and_en_offline(browser: Any, server: str) -> None:
     assert blocked == []
 
 
+@pytest.mark.browser
 def test_file_url_pages_work_without_network(browser: Any, built_site: Any) -> None:
     context = browser.new_context(offline=True)
     page = context.new_page()
@@ -135,3 +182,38 @@ def test_file_url_pages_work_without_network(browser: Any, built_site: Any) -> N
     assert links and all(not link.startswith(("/", "http")) for link in links), links
     context.close()
     assert [url for url in requests if not url.startswith(("file:", "data:"))] == []
+
+
+# --- the launch helpers (no browser needed) -----------------------------------------------------------------
+
+
+def test_launch_flags_keep_the_pdf_arguments_and_reach_the_local_server() -> None:
+    arguments = [
+        "--disable-sync",
+        "--host-resolver-rules=MAP * ~NOTFOUND",
+        "--in-process-gpu",
+        "--log-file=x",
+    ]
+    assert launch_flags(arguments) == [
+        "--disable-sync",
+        "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1",
+        "--in-process-gpu",
+        "--log-file=x",
+    ]
+
+
+def test_child_log_is_removed_or_cut_back(tmp_path: Path) -> None:
+    log = tmp_path / "debug.log"
+    absent = ChildLog(log)
+    log.write_bytes(b"[1024/120000.000:ERROR:gpu] message\n")
+    assert not absent.unchanged()
+    absent.restore()
+    assert not log.exists() and absent.unchanged()
+    log.write_bytes(b"older lines\n")
+    present = ChildLog(log)
+    present.restore()  # nothing appended: left alone
+    with log.open("ab") as handle:
+        handle.write(b"appended by a run\n")
+    assert not present.unchanged()
+    present.restore()
+    assert log.read_bytes() == b"older lines\n" and present.unchanged()

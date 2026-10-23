@@ -176,8 +176,8 @@ Review notes:
 
 3. Packages compiled into the BIDS validator bundle (bids-validator-deno 3.0.2)
 
-Taken from bids-validator.js.map. The wheel carries only the validator's own MIT licence; the licence
-files of these packages are not in the wheel. Text pending owner approval (G1).
+Taken from bids-validator.js.map. The wheel carries only the validator's own MIT licence; the licence files of
+these packages are not in the wheel. Text pending owner approval (G1).
 
 Registry  Package                          Version      Licence stated in the bundled source
 --------  -------------------------------  -----------  ------------------------------------

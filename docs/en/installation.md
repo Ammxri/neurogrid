@@ -180,3 +180,7 @@ read it. The search needs the pages to be served; start a local web server that 
     ```
 
 Then open `http://127.0.0.1:8000/`. Opened directly from the disk, the search field is disabled and says so.
+
+The pages load nothing from other computers; the documentation build checks every page, stylesheet and script
+for that. One case lies outside the documentation: in a browser without the ResizeObserver interface, the
+theme's script tries to load a replacement from `unpkg.com`.

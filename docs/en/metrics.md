@@ -106,9 +106,10 @@ it is not applicable, because the start value applies to wet electrodes.
 
 **Measured.** The share of bad EEG channels found by pyprep `NoisyChannels` (the criteria of `find_all_bads`,
 RANSAC last and only with electrode positions) on the sample: 10 segments of 60 s in the middle of 10 equal parts,
-recordings up to 10 minutes whole. Each segment is notch-filtered at the line frequency and its harmonic,
-band-pass filtered 1–100 Hz, resampled to 250 Hz and referenced to the average. The sample is documented in
-`results.json` and in the report.
+recordings up to 10 minutes whole. Each segment is first resampled to 250 Hz; the segments are joined at
+boundaries that the filters respect, then filtered with a notch at the line frequency and its harmonic below
+125 Hz and a 1–100 Hz band-pass. M06 measures on this data; M09 afterwards uses the average reference without the
+bad channels of M06. The sample is documented in `results.json` and in the report.
 
 **Preconditions.** At least 60 s of data, at least 200 Hz and at least 16 EEG channels (`[quality]`
 `min_seconds`, `min_channels`); otherwise not checkable.

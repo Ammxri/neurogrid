@@ -133,6 +133,49 @@ def test_site_loads_no_external_resource(built_site: Any, tmp_path: Path) -> Non
     assert len(found) == 3, found
 
 
+def test_scripts_hold_only_the_reviewed_loaders(built_site: Any, tmp_path: Path) -> None:
+    """The theme's JavaScript keeps loaders for unpkg.com and the GitHub/GitLab APIs; each runs only under its
+    condition, and no page meets the ones the site decides (diagram, repository facts). Any other script URL
+    of another host, and a page that would start a loader, fail the build check."""
+    assert built_site.returncode == 0
+    scripts = "".join(p.read_text(encoding="utf-8", errors="replace") for p in built_site.site.rglob("*.js"))
+    found = set(build_docs.SCRIPT_URL.findall(scripts))
+    for prefix in build_docs.SCRIPT_LOADERS:  # every reviewed entry is still in the theme (no stale review)
+        assert any(url.startswith(prefix) for url in found), prefix
+    assert not [p for p in build_docs.check_site(built_site.site) if "loader" in p or ".js:" in p]
+    for lang in LANGUAGES:  # the one condition the site cannot rule out is stated where the site is opened
+        install = (DOCS / lang / "installation.md").read_text(encoding="utf-8")
+        assert "ResizeObserver" in install and "`unpkg.com`" in install, lang
+    assert set(build_docs.SCRIPT_LOADERS.values()) == {"mermaid", "repository", "browser"}
+    assert build_docs.SCRIPT_URL.findall('a="x"//nbsp and emsp\n/* see https://lunrjs.com */') == []
+    copy = tmp_path / "site"
+    shutil.copytree(built_site.site, copy)
+    (copy / "assets" / "javascripts" / "extra.js").write_text(
+        'fetch("https://cdn.example.org/x.json");load(`//cdn.example.org/${name}.js`)', encoding="utf-8"
+    )
+    page = copy / "zh" / "metrics.html"
+    page.write_text(
+        page.read_text(encoding="utf-8").replace(
+            "</article>",
+            '<pre class="mermaid">graph</pre><div data-md-component="source"></div></article>',
+            1,
+        ),
+        encoding="utf-8",
+    )
+    problems = build_docs.check_site(copy)
+    assert "assets/javascripts/extra.js: external url https://cdn.example.org/x.json" in problems
+    assert "assets/javascripts/extra.js: external url //cdn.example.org/${name}.js" in problems
+    mermaid = "https://unpkg.com/mermaid@11/dist/mermaid.min.js"
+    assert f"zh/metrics.html: external loader of the theme runs (mermaid: {mermaid})" in problems
+    repository = [
+        p for p in problems if p.startswith("zh/metrics.html: external loader of the theme runs (rep")
+    ]
+    assert repository == [
+        "zh/metrics.html: external loader of the theme runs "
+        "(repository: https://api.github.com/, https://${e}/api/v4/projects/)"
+    ]
+
+
 def test_mkdocs_config_is_offline() -> None:
     config = _mkdocs()
     assert config["theme"]["font"] is False

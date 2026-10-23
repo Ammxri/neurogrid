@@ -66,6 +66,139 @@ def test_notices_name_every_known_gap_and_the_validator_packages() -> None:
     assert len(texts) == len(set(texts)) > 50  # every licence text once
 
 
+# Tables whose rows come from the contents of the wheels and bundle files; their rows are tied to uv.lock and
+# packaging/bundle_lock.json by the tests above and below, the frame test compares only their column names.
+WHEEL_TABLES = {
+    ("Package", "Version", "Licence (metadata)", "Targets"),
+    ("Target", "Package", "File", "Licence"),
+    ("Registry", "Package", "Version", "Licence stated in the bundled source"),
+    ("Target", "Component", "Version", "File", "Licence"),
+}
+TABLE_RULE = re.compile(r"-+(?:  -+)*")
+BUNDLE_HEADING = "Offline bundle parts as pinned in packaging/bundle_lock.json:"
+
+
+def _frame(text: str) -> list[str]:
+    """A notices text without what the wheel contents contribute: the header, every heading and paragraph,
+    the review notes, the components outside the wheels, the removals and the gaps; of the tables built from
+    the wheel contents only the column names. Section 6 (the licence texts) is compared separately."""
+    lines = text.split("\n" + "=" * 78 + "\n", 1)[0].splitlines()
+    frame: list[str] = []
+    skipping = False
+    for index, line in enumerate(lines):
+        if index + 1 < len(lines) and TABLE_RULE.fullmatch(lines[index + 1]):
+            columns = tuple(re.split(r"\s{2,}", line.strip()))
+            frame.append("| " + " | ".join(columns))
+            skipping = columns in WHEEL_TABLES
+        elif TABLE_RULE.fullmatch(line):
+            continue  # the rule under a header: its widths follow the rows
+        elif skipping and line.strip() and not line.startswith("- "):
+            continue  # a row of a wheel table (a list item after a table is no row)
+        else:
+            skipping = False
+            frame.append(line)
+    return frame
+
+
+def _without_wheel_contents() -> str:
+    """The generator's output for the current repository with wheels and bundle files that carry nothing:
+    one validator wheel with one bundled package (so that section 3 is written) and, when
+    packaging/bundle_lock.json exists, its pinned parts with their recorded removals."""
+    locked = next(
+        p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
+    )
+    validator = notices.WheelInfo(
+        name=locked.name,
+        version=locked.version,
+        target="linux_x86_64",
+        filename="validator.whl",
+        sha256="0" * 64,
+        license_expression="MIT",
+        license_texts={},
+        native=[],
+        paths=[],
+        sources=[("npm", "example", "1.0.0")],
+    )
+    pins, removed = notices.bundle_pins()
+    parts = []
+    for pin in pins:
+        removals = removed.get(pin.target, []) if pin.name == notices.PBS else []
+        parts.append(notices.BundleInfo(pin.name, pin.version, pin.target, pin.filename, "X", {}, removals))
+    components, _allowed = notices.load_components()
+    return notices.render([validator], components, notices.load_known_missing(), parts)
+
+
+def test_committed_notices_have_the_generators_frame() -> None:
+    """The committed file is what tools/notices.py writes today: its prose, section structure, review notes,
+    components outside the wheels and gaps equal a fresh generation (a re-wrapped source string, an edited
+    components.toml or known_missing.toml without a new generation fails here, not first in the release)."""
+    committed, fresh = _committed(), _without_wheel_contents()
+    assert _frame(committed) == _frame(fresh), "run tools/notices.py --out THIRD_PARTY_NOTICES.txt"
+    kept_here = set(notices.iter_texts(fresh))  # the licence texts kept in this repository (OFL.txt)
+    assert kept_here and kept_here <= set(notices.iter_texts(committed))
+
+
+def test_frame_finds_changed_prose_and_component_lists() -> None:
+    committed = _committed()
+    assert any(line.startswith("NeuroGrid itself is licensed") for line in _frame(committed))
+    assert "| Kind | Component | Part | Platform | Licence | Text" in _frame(committed)
+    rewrapped = committed.replace("sample data are\nlicensed under", "sample data\nare licensed under")
+    assert rewrapped != committed and _frame(rewrapped) != _frame(committed)
+    gap = committed.replace("- CC-BY-4.0: ", "- CC-BY-4.0 (changed): ")
+    assert gap != committed and _frame(gap) != _frame(committed)
+    # a different wheel content does not change the frame
+    row = next(line for line in committed.splitlines() if line.startswith("annotated-doc "))
+    assert _frame(committed.replace(row, row.replace("MIT", "BSD-3-Clause", 1))) == _frame(committed)
+
+
+def test_committed_notices_list_exactly_the_pinned_bundle_parts() -> None:
+    """packaging/bundle_lock.json (bundle area) adds the offline bundle parts to the notices: the committed
+    file names exactly the pinned parts and removals, or none while the bundle data is absent."""
+    committed = _committed()
+    pins, removed = notices.bundle_pins()
+    if not pins:
+        assert BUNDLE_HEADING not in committed and "removed from the bundle" not in committed
+        return
+    section = committed.split(BUNDLE_HEADING, 1)[1].split("\n5. ", 1)[0]
+    rows = {tuple(line.split()[:4]) for line in section.strip().splitlines()[2:] if not line.startswith("- ")}
+    assert rows == {(p.target, p.name, p.version, p.filename) for p in pins}
+    for target, items in removed.items():
+        for path, reason in items:
+            assert f"- removed from the bundle ({target}): {path} - {reason}" in section
+
+
+def test_committed_notices_equal_a_generation_from_the_cached_wheels() -> None:
+    """With every pinned file in .local/notices-wheels (filled by `tools/notices.py --download`) the whole
+    file is compared with a fresh generation; without them the frame test above still runs."""
+    folders = [notices.DEFAULT_CACHE]
+    wheels, missing = notices.collect(folders, fetch=False, cache=notices.DEFAULT_CACHE)
+    bundle, missing_parts = notices.collect_bundle(folders, fetch=False, cache=notices.DEFAULT_CACHE)
+    if missing or missing_parts:
+        pytest.skip(
+            f"{len(missing) + len(missing_parts)} pinned files are not in .local/notices-wheels "
+            "(python tools/notices.py --download --check fills it)"
+        )
+    components, _allowed = notices.load_components()
+    fresh = notices.render(wheels, components, notices.load_known_missing(), bundle)
+    committed = _committed()
+    assert committed == fresh, f"first difference in line {notices.first_difference(committed, fresh)}"
+
+
+def test_first_difference_names_the_line() -> None:
+    assert notices.first_difference("a\nb\nc\n", "a\nx\nc\n") == 2
+    assert notices.first_difference("a\nb\n", "a\nb\nc\n") == 3
+    assert notices.first_difference("a\n", "a\n") == 2
+
+
+def test_paragraphs_do_not_depend_on_how_the_source_is_broken() -> None:
+    one = notices.paragraph("NeuroGrid itself is licensed under Apache-2.0.   Its documentation\n  follows.")
+    assert one == notices.paragraph(
+        "NeuroGrid itself is licensed under Apache-2.0. Its documentation follows."
+    )
+    lines = notices.paragraph(notices.INTRO + " " + notices.VALIDATOR_INTRO)
+    assert len(lines) > 1 and all(len(line) <= notices.WIDTH for line in lines)
+
+
 def test_runtime_closure_excludes_the_dependency_groups() -> None:
     lock = tomllib.loads(notices.LOCK.read_text(encoding="utf-8"))
     locked = {canonicalize_name(p["name"]) for p in lock["package"]}
@@ -388,6 +521,47 @@ def test_component_list_is_reviewed_and_consistent() -> None:
     unknown = [f"{c.dist}:{c.pattern}" for c in components if c.spdx == "NOASSERTION"]
     assert set(unknown) <= {item["component"] for item in notices.load_known_missing()}
     assert "GPL-3.0-or-later WITH GCC-exception-3.1" in allowed and "GPL-3.0-or-later" not in allowed
+
+
+TOOL_CALL = re.compile(r"tools/(notices|licenses|build_docs|gen_docs)\.py([^`'\"\n]*)")
+OPTION = re.compile(r"(?<![\w-])--[a-z][a-z0-9-]*")
+
+
+def _tool_calls() -> list[tuple[str, str, str]]:
+    """(file, tool, option) for every option named after one of the documentation area's tools in the gate
+    files, the workflows, the documentation, the README, the tools and the tests."""
+    files = [
+        *(ROOT / "license-gate").glob("*.toml"),
+        *(ROOT / ".github" / "workflows").glob("*.yml"),
+        ROOT / "README.md",
+        ROOT / "mkdocs.yml",
+        *(ROOT / "docs" / "en").rglob("*.md"),
+        *(ROOT / "docs" / "zh").rglob("*.md"),
+        *(ROOT / "tools").glob("*.py"),
+        *(ROOT / "tests").rglob("*.py"),
+    ]
+    calls = []
+    for path in files:
+        for match in TOOL_CALL.finditer(path.read_text(encoding="utf-8")):
+            for option in OPTION.findall(match.group(2)):
+                calls.append((path.relative_to(ROOT).as_posix(), match.group(1), option))
+    return calls
+
+
+def _unknown_options(calls: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
+    sources = {tool: (ROOT / "tools" / f"{tool}.py").read_text(encoding="utf-8") for _p, tool, _o in calls}
+    return [(path, tool, option) for path, tool, option in calls if f'"{option}"' not in sources[tool]]
+
+
+def test_every_named_option_of_the_gate_tools_exists() -> None:
+    """A command line named in a gate file, workflow or page runs; the gate for missing texts is
+    `tools/notices.py --check` (the release runs it with --download), not an option of tools/licenses.py."""
+    calls = _tool_calls()
+    assert ("license-gate/known_missing.toml", "notices", "--check") in calls
+    assert _unknown_options(calls) == []
+    line = "list is not empty (tools/" + "licenses.py --release). The notices and the REUSE test name it."
+    found = [("x", m.group(1), o) for m in TOOL_CALL.finditer(line) for o in OPTION.findall(m.group(2))]
+    assert _unknown_options(found) == [("x", "licenses", "--release")]  # the comment this test replaced
 
 
 def test_check_fails_while_texts_are_missing(tmp_path: Path, monkeypatch: Any, capsys: Any) -> None:

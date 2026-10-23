@@ -104,6 +104,40 @@ def test_bounded_checks_declare_their_direction() -> None:
     assert all(bound.param in REGISTRY[check_id].params for check_id, bound in bounds.items())
 
 
+# The preparation of the M06/M09 sample in the order of neurogrid.quality.sample: a marker of each step in the
+# code, and the words of the metrics page that describe it.
+PREPARATION = (
+    ("_resampled(", {"en": "resampled to 250 Hz", "zh": "重采样到 250 Hz"}),
+    ("notch_filter(", {"en": "a notch at the line frequency", "zh": "陷波滤波"}),
+    ("raw.filter(BAND_HZ[0], BAND_HZ[1]", {"en": "a 1–100 Hz band-pass", "zh": "1–100 Hz 带通滤波"}),
+)
+REFERENCE = {"en": "average reference without the bad channels of M06", "zh": "去除 M06 坏通道后的平均参考"}
+
+
+def _in_order(text: str, needles: list[str]) -> bool:
+    positions = [text.find(needle) for needle in needles]
+    return -1 not in positions and positions == sorted(positions)
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_sample_preparation_is_described_in_the_order_of_the_code(lang: str) -> None:
+    """M06: resampling, notch and band-pass in the order of quality.sample._prepared, the average reference
+    without the bad channels only after M06 (prepare_sample), with the code's frequencies."""
+    import inspect
+
+    from neurogrid.quality import sample
+
+    prepared = inspect.getsource(sample._prepared)
+    assert _in_order(prepared, [marker for marker, _words in PREPARATION])
+    flow = inspect.getsource(sample.prepare_sample)
+    assert _in_order(flow, ["_prepared(", "_bad_channels(", 'set_eeg_reference("average"'])
+    text = " ".join(_anchored(_page(lang, "metrics.md"))["M06"].split())
+    assert _in_order(text, [words[lang] for _marker, words in PREPARATION] + [REFERENCE[lang]]), text
+    assert f"{sample.TARGET_HZ:g} Hz" in text and f"{sample.TARGET_HZ / 2:g} Hz" in text  # notch below 125 Hz
+    assert f"{sample.BAND_HZ[0]:g}–{sample.BAND_HZ[1]:g} Hz" in text
+    assert not _in_order(text, [PREPARATION[1][1][lang], PREPARATION[0][1][lang]])  # the old order fails
+
+
 def test_every_rule_has_an_origin() -> None:
     origins = load_yaml((DATA / "rule_origins.yaml").read_text(encoding="utf-8"))
     assert isinstance(origins, dict)
@@ -271,6 +305,36 @@ def test_report_page_names_every_section(lang: str) -> None:
     text = _page(lang, "report.md")
     assert tables()[lang]["disclaimer"] in text
     assert "50" in text and "results.json" in text  # overflow beyond 50 rows per rule (A-59, B1)
+
+
+FIXED_TITLE = {"en": "Fixed sentence", "zh": "固定声明"}
+FIXED_PAGES = {"index.md", "limitations.md", "report.md"}
+
+
+def _fixed_sentence_notes(text: str, lang: str) -> list[str]:
+    """The body of every '!!! <type> "<fixed sentence title>"' note of a page, as one line."""
+    notes = re.findall(rf'^!!! \w+ "{FIXED_TITLE[lang]}"\n((?:    .*\n)+)', text + "\n", flags=re.M)
+    return [" ".join(note.split()) for note in notes]
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_every_copy_of_the_fixed_sentence_equals_the_table(lang: str) -> None:
+    """B4, A-07: the fixed sentence is copied into the notes of the start page, the limitations and the report
+    page and into the README; each copy equals report/i18n 'disclaimer' of its language, so a reviewed zh
+    sentence cannot leave a stale copy behind."""
+    sentence = tables()[lang]["disclaimer"]
+    found = {}
+    for page in sorted((DOCS / lang).rglob("*.md")):
+        notes = _fixed_sentence_notes(page.read_text(encoding="utf-8"), lang)
+        if notes:
+            found[page.relative_to(DOCS / lang).as_posix()] = notes
+    assert set(found) >= FIXED_PAGES, sorted(found)
+    assert all(notes == [sentence] for notes in found.values()), found
+    readme = re.findall(r"^> \*\*(.+)\*\*$", (ROOT / "README.md").read_text(encoding="utf-8"), flags=re.M)
+    assert sentence in readme, readme
+    assert set(readme) == {tables()[code]["disclaimer"] for code in LANGUAGES}  # the README's two copies
+    stale = f'!!! note "{FIXED_TITLE[lang]}"\n    {sentence[:-1]}\n'
+    assert _fixed_sentence_notes(stale, lang) != [sentence]
 
 
 # --- references, terms, placeholders ------------------------------------------------------------------------

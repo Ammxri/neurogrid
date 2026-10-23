@@ -15,8 +15,8 @@ Usage:
     python tools/notices.py --list                                    # runtime packages per target (offline)
     python tools/notices.py --wheelhouse DIR [--wheelhouse DIR] --out THIRD_PARTY_NOTICES.txt
     python tools/notices.py --download [--cache DIR] --out THIRD_PARTY_NOTICES.txt
-    python tools/notices.py --wheelhouse DIR --check                  # the committed file is current and
-    complete python tools/notices.py --wheelhouse DIR --components             # static component check only
+    python tools/notices.py --wheelhouse DIR --check         # the committed file is current and complete
+    python tools/notices.py --wheelhouse DIR --components    # static component check only
 
 Files come from --wheelhouse folders (file name as in uv.lock or the bundle data, SHA-256 checked), from the
 bundle cache of tools/bundle.py (NEUROGRID_BUNDLE_CACHE or .local/bundle-cache, files named by their SHA-256)
@@ -25,7 +25,8 @@ or, with --download, from their pinned URLs (PyPI and the python-build-standalon
 is not part of the NeuroGrid package.
 
 --check fails while license-gate/known_missing.toml lists a gap: the notices are then incomplete, and the
-release workflow, which runs `--download --check`, stops (STOPP G1).
+release workflow, which runs `--download --check`, stops (STOPP G1). The prose of the file is wrapped here
+(WIDTH), so how a source string is broken never changes the output.
 
 Exit codes: 0 fine, 1 outdated or incomplete notices or a component problem, 2 usage, a missing file or a
 download error.
@@ -42,6 +43,7 @@ import os
 import re
 import sys
 import tarfile
+import textwrap
 import tomllib
 import urllib.parse
 import urllib.request
@@ -119,6 +121,17 @@ PBS_PACKAGE_LICENSE = re.compile(
 )
 UV = "uv"
 PENDING = "Text pending owner approval (G1)"
+WIDTH = 110  # line width of the generated prose (tables and licence texts keep their own lines)
+INTRO = (
+    "NeuroGrid itself is licensed under Apache-2.0 (LICENSE, NOTICE). Its documentation and sample data are "
+    "licensed under CC BY 4.0; the bundled report fonts under the SIL Open Font License 1.1 (REUSE.toml)."
+)
+TERMS = "Every text below keeps its own terms."
+VALIDATOR_INTRO = (
+    "Taken from bids-validator.js.map. The wheel carries only the validator's own MIT licence; the licence "
+    f"files of these packages are not in the wheel. {PENDING}."
+)
+TEXTS_INTRO = "Each text once (SHA-256 of the LF-normalized text), with the files that carry it."
 
 
 class NoticeError(Exception):
@@ -641,6 +654,11 @@ def collect_bundle(
     return parts, missing
 
 
+def paragraph(text: str) -> list[str]:
+    """One paragraph of the notices, wrapped at WIDTH; runs of white space count as one space."""
+    return textwrap.wrap(" ".join(text.split()), width=WIDTH, break_long_words=False, break_on_hyphens=False)
+
+
 def _lock_digest(lock: Path = LOCK) -> str:
     return hashlib.sha256(lock.read_bytes()).hexdigest()
 
@@ -674,10 +692,8 @@ def render(
         f"uv.lock SHA-256: {_lock_digest(lock)}",
         f"Targets: {', '.join(TARGETS)} (CPython 3.12)",
         "",
-        "NeuroGrid itself is licensed under Apache-2.0 (LICENSE, NOTICE). Its documentation and sample data",
-        "are licensed under CC BY 4.0; the bundled report fonts under the SIL Open Font License 1.1",
-        "(REUSE.toml).",
-        "Every text below keeps its own terms.",
+        *paragraph(INTRO),
+        *paragraph(TERMS),
         "",
     ]
     by_package: dict[tuple[str, str], dict[str, WheelInfo]] = {}
@@ -717,8 +733,7 @@ def render(
             "",
             f"3. Packages compiled into the BIDS validator bundle ({wheel.name} {wheel.version})",
             "",
-            "Taken from bids-validator.js.map. The wheel carries only the validator's own MIT licence; the",
-            f"licence files of these packages are not in the wheel. {PENDING}.",
+            *paragraph(VALIDATOR_INTRO),
             "",
         ]
         rows = [
@@ -749,7 +764,7 @@ def render(
         "",
         "6. Licence texts",
         "",
-        "Each text once (SHA-256 of the LF-normalized text), with the files that carry it.",
+        *paragraph(TEXTS_INTRO),
     ]
     texts: dict[str, tuple[str, set[str]]] = {}
 
@@ -836,7 +851,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.check:
         current = NOTICES.read_text(encoding="utf-8") if NOTICES.is_file() else ""
         if current != text:
-            print(f"{NOTICES.name} is outdated - run python tools/notices.py --out {NOTICES.name} ...")
+            line = first_difference(current, text)
+            print(
+                f"{NOTICES.name} is outdated (first difference in line {line}) - run "
+                f"python tools/notices.py --out {NOTICES.name} ..."
+            )
             return 1
         print(f"{NOTICES.name} up to date")
         for item in known:
@@ -845,6 +864,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     args.out.write_text(text, encoding="utf-8", newline="\n")
     print(f"wrote {args.out} ({len(wheels)} wheels, {len(bundle)} bundle parts)")
     return 1 if problems else 0
+
+
+def first_difference(old: str, new: str) -> int:
+    """The 1-based number of the first line in which two texts differ (one past the shorter if one ends)."""
+    old_lines, new_lines = old.splitlines(), new.splitlines()
+    for number, (a, b) in enumerate(zip(old_lines, new_lines, strict=False), start=1):
+        if a != b:
+            return number
+    return min(len(old_lines), len(new_lines)) + 1
 
 
 def iter_texts(text: str) -> Iterator[str]:

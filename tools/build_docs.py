@@ -6,9 +6,10 @@ environment, else the commit time of HEAD, so that two builds are byte-identical
 in-process under an audit hook that refuses every network operation; (4) the Chinese font subset: the Han
 characters of all built pages, cut from the report font Noto Sans SC (A-27) into assets/fonts/*.woff; (5)
 checks of the built site: both languages have the same pages, every page carries the fixed sentence of its
-language (report/i18n), no page or stylesheet loads an external resource, the search index is configured for
-offline use and its Chinese entries are segmented, docs/umsetzung and docs/_data are not published, the fonts
-cover every character they are meant for.
+language (report/i18n), no page or stylesheet loads an external resource, no script holds a URL of another
+host except the theme's reviewed loaders (SCRIPT_LOADERS) and no page meets the condition of one, the search
+index is configured for offline use and its Chinese entries are segmented, docs/umsetzung and docs/_data are
+not published, the fonts cover every character they are meant for.
 
 Usage: python tools/build_docs.py [--site-dir site]
 Exit codes: 0 built and checked, 1 a check failed, 2 the build failed (generation, fonts, network, mkdocs).
@@ -73,6 +74,18 @@ LINK_RELS = {
     "manifest",
 }
 CSS_URL = re.compile(r"url\(\s*['\"]?([^'\")]+)['\"]?\s*\)|@import\s+['\"]([^'\"]+)['\"]", re.I)
+# A URL of another host that starts a string literal in a script (comments and messages are no loaders).
+SCRIPT_URL = re.compile(r"[\"'`]((?:https?:)?//(?:\$\{|[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)[^\"'`\s]*)", re.I)
+# The loaders in the theme's JavaScript (mkdocs-material 9.7.7), reviewed: each runs only under its condition.
+# "mermaid": a diagram (an element of class mermaid); "repository": the repository facts of repo_url (an
+# element data-md-component="source"). check_site() fails for a page that meets one of them. "browser": a
+# browser without the ResizeObserver interface - not decided by the site, stated in installation.md.
+SCRIPT_LOADERS = {
+    "https://unpkg.com/mermaid@11/dist/mermaid.min.js": "mermaid",
+    "https://unpkg.com/resize-observer-polyfill": "browser",
+    "https://api.github.com/": "repository",
+    "https://${e}/api/v4/projects/": "repository",
+}
 
 
 class BuildError(Exception):
@@ -195,11 +208,16 @@ class _Resources(html.parser.HTMLParser):
         super().__init__(convert_charrefs=True)
         self.found: list[str] = []
         self.lang = ""
+        self.loaders: set[str] = set()  # conditions of SCRIPT_LOADERS the page meets
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {k: v or "" for k, v in attrs}
         if tag == "html":
             self.lang = values.get("lang", "")
+        if "mermaid" in values.get("class", "").split():
+            self.loaders.add("mermaid")
+        if values.get("data-md-component") == "source":
+            self.loaders.add("repository")
         names = RESOURCE_ATTRS.get(tag, ())
         if tag == "link" and set(values.get("rel", "").lower().split()) & LINK_RELS:
             names = ("href",)
@@ -239,6 +257,12 @@ def _external_in_css(text: str) -> list[str]:
     return hits
 
 
+def _external_in_script(text: str) -> list[str]:
+    """URLs of other hosts a script could load that are not one of the theme's reviewed loaders."""
+    found = {url for url in SCRIPT_URL.findall(text) if not url.startswith(tuple(SCRIPT_LOADERS))}
+    return sorted(found)
+
+
 def _han_runs_joined(text: str) -> list[str]:
     """Places where two Han characters follow each other without the U+200B segmentation."""
     return re.findall(f"[{HAN}][{HAN}]", text)
@@ -261,6 +285,9 @@ def check_site(site: Path) -> list[str]:
             if parser.lang.split("-")[0] != lang:
                 problems.append(f"{lang}/{name}: html lang is {parser.lang!r}")
             problems += [f"{lang}/{name}: external resource {hit}" for hit in parser.found]
+            for condition in sorted(parser.loaders):
+                urls = ", ".join(url for url, need in SCRIPT_LOADERS.items() if need == condition)
+                problems.append(f"{lang}/{name}: external loader of the theme runs ({condition}: {urls})")
     not_found = site / NOT_FOUND  # one 404 page, in the default language (tools/mkdocs_hooks.py)
     if not not_found.is_file() or sentences["en"] not in not_found.read_text(encoding="utf-8"):
         problems.append(f"{NOT_FOUND}: missing or without the English fixed sentence")
@@ -268,6 +295,11 @@ def check_site(site: Path) -> list[str]:
         problems += [
             f"{css.relative_to(site).as_posix()}: external url {u}"
             for u in _external_in_css(css.read_text(encoding="utf-8"))
+        ]
+    for script in sorted(site.rglob("*.js")):
+        problems += [
+            f"{script.relative_to(site).as_posix()}: external url {u}"
+            for u in _external_in_script(script.read_text(encoding="utf-8", errors="replace"))
         ]
     for forbidden in ("umsetzung", "_data"):
         if any(part == forbidden for path in site.rglob("*") for part in path.relative_to(site).parts):
