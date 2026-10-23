@@ -98,10 +98,13 @@ MAX_BIDSIGNORE_BYTES = 1_000_000
 
 def shown_suffix(name: str) -> str:
     """The extension shown next to the pseudonym of a file called ``name`` (A-70): its classifying extension
-    (lower case) if discover.shown_extension allows it, else none, so that a name, a date, a year or a clock
-    time written as an extension never appears (A-51, C5). The one rule of show(), shown_target, verify, the
-    console names of --out files inside the dataset, the path values of the effective configuration (C4)
-    and the M01/M10 file names and identities (FoundFile.display_file, FoundFile.identity)."""
+    (lower case) if discover.shown_extension allows it, else none, so that a digit run, a date, a year or a
+    clock time written as an extension never appears (A-51, C5). A short ASCII word that the display rule
+    shows does appear, as display_text shows a single word, also one that is a name ('Wang Wu.Zhang' gives
+    rec-<sha8>.zhang). The one rule of show(), shown_target, verify, the console names of --out files inside
+    the dataset, the path values of the effective configuration (C4), the extension of exception and
+    annotator patterns (pipeline._shown_pattern) and the M01/M10 file names and identities
+    (FoundFile.display_file, FoundFile.identity)."""
     return shown_extension(classify_suffix(name))
 
 

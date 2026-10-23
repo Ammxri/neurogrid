@@ -29,7 +29,7 @@ from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
-from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan
+from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan, shown_extension
 from neurogrid.io.identifying import annotator_pseudonym, dates_or_times, display_text
 from neurogrid.io.provenance import (
     KNOWN_CONTROL_FILES,
@@ -98,8 +98,13 @@ RESULT_LIBRARIES = (
     "pymatreader",
     "scipy",
 )
-# Exception patterns made only of wildcards, extensions and pseudonymous IDs reveal no names (A-51).
-_SAFE_PATTERN_PART = re.compile(r"^(\*\*|\*|\*\.[A-Za-z0-9]+|rec-[0-9a-f]{8}(\.[A-Za-z0-9]+)?)$")
+# Exception and annotator patterns made only of wildcards and pseudonymous IDs, each with at most one
+# extension that the one suffix rule of file names shows (discover.shown_extension, A-70), reveal no names,
+# dates or clock times (A-51); _shown_pattern shows any other pattern as pattern-<sha8> (A-69).
+_SAFE_PATTERN_PART = re.compile(
+    r"\*\*|\*|\*(?P<wildcard_extension>\.[A-Za-z0-9]+)"
+    r"|rec-[0-9a-f]{8}(?P<pseudonym_extension>\.[A-Za-z0-9]+)?"
+)
 
 
 @dataclass(frozen=True)
@@ -480,11 +485,24 @@ def _explicit_manifest(raw: Path | None) -> Path | None:
     return path
 
 
+def _safe_pattern_part(part: str) -> bool:
+    """A part between '/' of a pattern that reveals nothing (_SAFE_PATTERN_PART): '**', '*', '*.<ext>' or
+    'rec-<sha8>' with an optional '.<ext>', where the extension, in lower case as file names are classified,
+    is one that discover.shown_extension shows next to a pseudonym. A digit run, a date, a year or a clock
+    time written as the extension ('*.19610312', 'rec-<sha8>.1961', '*.10pm') is not."""
+    match = _SAFE_PATTERN_PART.fullmatch(part)
+    if match is None:
+        return False
+    extension = match.group("wildcard_extension") or match.group("pseudonym_extension")
+    return extension is None or shown_extension(extension.lower()) != ""
+
+
 def _shown_pattern(pattern: str | None, plain_names: bool) -> str | None:
-    """In raw folders without --show-paths an exception pattern may contain real folder names (A-51)."""
+    """In raw folders without --show-paths an exception pattern may contain real folder names, and its
+    extension a date or a clock time (A-51): it is shown only if every part is _safe_pattern_part."""
     if pattern is None or plain_names:
         return pattern
-    if all(_SAFE_PATTERN_PART.match(part) for part in pattern.split("/")):
+    if all(_safe_pattern_part(part) for part in pattern.split("/")):
         return pattern
     return "pattern-" + hashlib.sha256(pattern.encode("utf-8")).hexdigest()[:8]
 

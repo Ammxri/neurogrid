@@ -68,8 +68,9 @@ def shown_extension(suffix: str) -> str:
     A-70): one NeuroGrid classifies (SHOWN_EXTENSIONS), or one whose every dot-part is a short ASCII word
     (a letter, then at most nine letters or digits) that the display rule shows (display_text, C5). Digit
     runs, dates, years and clock times written as an extension ('born.19610312', 'born 12.03.1961', 'lights
-    off 22.31') and letters outside ASCII never appear. The one rule of every pseudonymous file name
-    (io.provenance.shown_suffix)."""
+    off 22.31') and letters outside ASCII never appear; a single word does, also a name ('.zhang'). The one
+    rule of every pseudonymous file name (io.provenance.shown_suffix) and of the extension in exception and
+    annotator patterns (pipeline._shown_pattern)."""
     if suffix in SHOWN_EXTENSIONS:
         return suffix
     head, *parts = suffix.split(".")

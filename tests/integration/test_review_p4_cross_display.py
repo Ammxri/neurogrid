@@ -1,12 +1,14 @@
 """Cross-check of P4, display and privacy (A-51, A-70, C5): a date, a year or a clock time written as the
 "extension" of a file name never appears next to its pseudonym (X-interactions-0: one suffix rule,
 io.provenance.shown_suffix, for verify, M13 findings, reports, the manifest target and the effective
-configuration), annotator patterns whose wildcard stands for a date or time separator are hidden like the
-dates and clock times they spell (X-evidence-0), and an output file inside a raw folder is named on the
-console like the manifest target (L3)."""
+configuration; the same rule for the extension of exception and annotator patterns), annotator patterns whose
+wildcard stands for a date or time separator are hidden like the dates and clock times they spell
+(X-evidence-0), and an output file inside a raw folder is named on the console like the manifest target
+(L3)."""
 
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 from datetime import date
@@ -67,6 +69,8 @@ def _pseudonymous(name: str) -> str:
         ("results.json", ".json"),
         ("hyp.scoring", ".scoring"),  # a short ASCII word the display rule shows
         ("scores.v2", ".v2"),
+        ("Wang Wu.Zhang", ".zhang"),  # a single word is shown, also a name (the word rule)
+        ("a.zhangsan", ".zhangsan"),
         ("x born.19610312", ""),  # a compact date of birth
         ("Zhang San born 12.03.1961", ""),  # a birth year
         ("Li Si born 03.04.1972", ""),
@@ -269,3 +273,73 @@ def test_an_inventory_inside_a_raw_folder_is_named_like_the_manifest(
     target = folder / SECRET / "inventory.json"
     code, out, _ = run(["scan", str(folder), "--out", str(target), "--show-paths"], capsys)
     assert code == 0 and f"Inventory written to {Path('<dataset>', SECRET, 'inventory.json')}\n" in out
+
+
+# --- X-interactions-0, repair: the extension of an exception or annotator pattern ------------------------
+
+PATTERN_ID = pseudonym(PurePosixPath("x born.19610312"))
+
+
+def _hashed(pattern: str) -> str:
+    return "pattern-" + hashlib.sha256(pattern.encode("utf-8")).hexdigest()[:8]
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        "*.19610312",  # a compact date of birth
+        f"{PATTERN_ID}.19610312",
+        "*.1961",  # a birth year
+        f"{PATTERN_ID}.31",  # the minutes of a clock time
+        "**/*.001",  # digits only
+        "*.10pm",  # a clock time
+        "*.Mar1961",  # a date with a month name
+        f"{PATTERN_ID}.d120361",  # a long number
+        "*/*.12031961",
+        "*.edf\n",  # a trailing newline is no part of an extension (fullmatch, as L2)
+    ],
+)
+def test_patterns_never_show_a_date_written_as_an_extension(pattern: str) -> None:
+    """X-interactions-0 (A-51, A-69): the extension part of a pattern of wildcards and pseudonymous IDs
+    follows the one suffix rule of file names (discover.shown_extension); a date, a year, a clock time or a
+    digit run there makes the whole pattern pattern-<sha8> in raw folders without --show-paths."""
+    assert pipeline._shown_pattern(pattern, plain_names=False) == _hashed(pattern)
+    assert pipeline._shown_pattern(pattern, plain_names=True) == pattern
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    ["*", "**", "*.edf", "*.EDF", "**/*.cnt", "*.ns5", "*.scoring", "*.v2", PATTERN_ID, f"{PATTERN_ID}.edf"],
+)
+def test_patterns_with_a_shown_extension_stay_readable(pattern: str) -> None:
+    """Extensions NeuroGrid classifies (any case, as file names are classified) and short ASCII words that the
+    display rule shows stay readable next to wildcards and pseudonymous IDs."""
+    assert pipeline._shown_pattern(pattern, plain_names=False) == pattern
+
+
+def test_exceptions_and_annotators_never_show_a_date_written_as_an_extension(tmp_path: Path) -> None:
+    """X-interactions-0 (verifier sweep): [[exceptions]] objects '*.19610312' and 'rec-<sha8>.19610312' and an
+    annotator pattern '*.19610312' appear in a raw folder without --show-paths as pattern-<sha8> in
+    effective_settings, in results.exceptions and in the exceptions table and settings appendix of the
+    reports (zh, en, de); '*.edf' stays as written, and --show-paths shows every pattern as configured."""
+    folder = _raw(tmp_path)
+    dated = ("*.19610312", f"{PATTERN_ID}.19610312")
+    rows = "".join(
+        f'[[exceptions]]\nrule = "CORE-M13-02"\nobject = "{pattern}"\nreason = "planted pattern"\n'
+        for pattern in (*dated, "*.edf")
+    )
+    config = documented_config(tmp_path, '[annotation]\nannotators = ["*.19610312", "*"]\n' + rows)
+    results = pipeline.run_check(folder, pipeline.CheckOptions(config_path=config, as_of=AS_OF))
+    settings = results.config.effective_settings
+    expected = [*(_hashed(pattern) for pattern in dated), "*.edf"]
+    assert [entry["object"] for entry in settings["exceptions"]] == expected
+    assert [use.entry.object for use in results.exceptions] == expected
+    assert settings["annotation"]["annotators"] == [_hashed("*.19610312"), "*"]
+    texts = [canonical.dumps(results).decode("utf-8"), *(render_report(results, lang) for lang in LANGUAGES)]
+    for text in texts:
+        assert "1961" not in text and not DATED_PSEUDONYM.search(text) and "*.edf" in text
+    shown = pipeline.run_check(
+        folder, pipeline.CheckOptions(config_path=config, as_of=AS_OF, show_paths=True)
+    )
+    assert [use.entry.object for use in shown.exceptions] == [*dated, "*.edf"]
+    assert shown.config.effective_settings["annotation"]["annotators"] == ["*.19610312", "*"]
