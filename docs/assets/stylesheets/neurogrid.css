@@ -1,0 +1,27 @@
+/* NeuroGrid documentation (A-28): no external resource. Chinese text uses a subset of the report font Noto Sans
+   SC (OFL-1.1, A-27) that tools/build_docs.py writes to assets/fonts/ for the characters of the built pages;
+   the unicode-range keeps Latin text on the system font stack of the theme. */
+@font-face {
+  font-family: "NeuroGrid Docs SC";
+  font-style: normal;
+  font-weight: 400;
+  src: url("../fonts/neurogrid-sc-400.woff") format("woff");
+  unicode-range: U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+FE30-FE4F, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: "NeuroGrid Docs SC";
+  font-style: normal;
+  font-weight: 700;
+  src: url("../fonts/neurogrid-sc-700.woff") format("woff");
+  unicode-range: U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+FE30-FE4F, U+FF00-FFEF;
+}
+
+:root {
+  --md-text-font: "NeuroGrid Docs SC";
+}
+
+/* Generated reference tables: the first column holds labels. */
+.md-typeset table:not([class]) td:first-child {
+  white-space: nowrap;
+}

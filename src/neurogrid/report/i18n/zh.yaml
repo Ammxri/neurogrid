@@ -42,6 +42,16 @@ cli:
     prefix: "错误"
     internal: "内部错误（{type}）。请加 --debug 重新运行以查看详情。"
     usage: "命令行无效：{problem}"
+    missing_option: "缺少必填选项 {name}（见 '{command} --help'）。"
+    missing_argument: "缺少参数 {name}（见 '{command} --help'）。"
+    no_such_option: "未知选项 {name}（见 '{command} --help'）。"
+    bad_parameter: "{name} 的值无效（见 '{command} --help'）。"
+    option_needs_value: "选项 {name} 需要一个值（见 '{command} --help'）。"
+    option_takes_no_value: "选项 {name} 不接受值（见 '{command} --help'）。"
+    no_such_command: "未知命令 '{name}'（见 'neurogrid --help'）。"
+    extra_arguments: "多余的参数：{arguments}。"
+    missing_command: "未指定命令（见 'neurogrid --help'）。"
+    usage_generic: "无法解析命令行（{type}；见 '{command} --help'）。"
   warning:
     library: "提示：某个库发出了警告（{type}）；结果不受影响。"
   manifest:
@@ -66,6 +76,66 @@ cli:
     unreadable: "当前无法读取：{count}"
     matches: "数据集与清单一致。"
     differs: "数据集与清单不一致。"
+  help:
+    app: "NeuroGrid – 在本地离线运行的脑电数据集预检工具。不构成符合性评价。"
+    heading:
+      usage: "用法："
+      arguments: "参数："
+      options: "选项："
+      commands: "命令："
+    metavar:
+      options: "[选项]"
+      command: "命令 [参数]..."
+      value: "值"
+      number: "N"
+    option:
+      help: "显示本帮助并退出。"
+    default: "默认：{value}"
+    required: "必填"
+    global:
+      lang: "消息语言：zh 或 en（未指定时依次使用 NEUROGRID_LANG 和系统语言）。"
+      debug: "发生内部错误时显示已清理的回溯信息。"
+    scan:
+      about: "数据清点：格式、受试者、记录、大小、不支持的文件。"
+      path: "数据集文件夹或单个数据文件。"
+      out: "另将清点结果写为 JSON。"
+      show_paths: "显示真实路径，而非假名 ID。"
+    check:
+      about: "按规则包检查数据集，并写入 results.json。"
+      path: "数据集文件夹或单个数据文件。"
+      rulepack: "规则包名称或路径（可重复指定）。"
+      config: "neurogrid.toml 的路径（默认：数据集中的 .neurogrid/neurogrid.toml）。"
+      out: "结果文件。"
+      strict: "严格模式（缺少清单即为错误）。"
+      as_of: "基准日期 YYYY-MM-DD（默认：今天）。"
+      allow_draft_rulepacks: "允许加载占位规则包（并非依据标准原文）。"
+      show_paths: "显示真实路径，而非假名 ID。"
+      jobs: "计算信号指标所用的进程数，1 至 64（结果不变）。"
+      evidence: "记录人工规则证明材料的 evidence.yaml（默认：.neurogrid/evidence.yaml）。"
+      manifest: "用于比对的清单（默认：数据集中的 .neurogrid/manifest.json）。"
+    convert:
+      about: "将原始数据文件夹转换为 EEG-BIDS，并验证结果。"
+      path: "原始数据文件夹或单个数据文件。"
+      to: "目标结构：bids。"
+      out: "输出文件夹（必须为空或尚不存在）。"
+      config: "neurogrid.toml 的路径（默认：原始数据文件夹中的 .neurogrid/neurogrid.toml）。"
+      strip_identifying_headers: "将可识别身份的文件头字段替换为占位值。"
+    report:
+      about: "按每种语言和格式生成报告。"
+      results_file: "由 'check' 写入的 results.json。"
+      lang: "报告语言，例如 zh,en（默认：zh,en）。"
+      format: "输出格式，例如 html,pdf（默认：html）。"
+      out: "输出文件夹（默认：results.json 所在的文件夹）。"
+    manifest:
+      about: "写入溯源清单：每个文件的 SHA-256 和大小、处理步骤、软件版本。"
+      path: "数据集文件夹。"
+      out: "清单文件（默认：数据集文件夹中的 .neurogrid/manifest.json）。"
+      show_paths: "显示真实路径，而非假名 ID。"
+    verify:
+      about: "将数据集与其清单比对：已更改、新增和缺失的文件（一致时退出码 0，有差异时为 1）。"
+      path: "数据集文件夹。"
+      manifest: "由 'manifest' 写入的 manifest.json。"
+      show_paths: "显示真实路径，而非假名 ID。"
 
 errors:
   splits:

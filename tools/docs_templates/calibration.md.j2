@@ -1,0 +1,4 @@
+| {{ L.dataset }} | {{ L.version }} | {{ L.doi }} | {{ L.format }} | {{ L.recordings }} | {{ L.channels }} |
+|---|---|---|---|---|---|
+{% for row in rows %}| {{ row.dataset }} | {{ row.version }} | {{ row.doi }} | {{ row.format }} | {{ row.recordings }} | {{ row.channels }} |
+{% endfor %}

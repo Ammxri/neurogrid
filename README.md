@@ -17,7 +17,7 @@ NeuroGrid 是一个开源、本地、离线运行的工具，用于检查面向�
 ## Usage (development version)
 
 ```bash
-uv sync
+uv sync --locked --no-build
 uv run neurogrid scan path/to/dataset
 uv run neurogrid check path/to/dataset --out results.json
 uv run neurogrid report results.json --lang zh,en --format html
@@ -29,6 +29,14 @@ Exit codes of `check`: `0` no failed error rule, `1` at least one, `2` tool erro
 
 NeuroGrid never sends data anywhere; it works fully offline.
 
+## Documentation
+
+User documentation in Chinese and English: `docs/zh/` and `docs/en/` (installation, quick start, commands,
+configuration, rule packs, metrics, reading the report, privacy, limitations). The website is built offline with
+`uv run python tools/build_docs.py --site-dir site`; the offline bundle carries it in `docs/`.
+
 ## License
 
-Code: Apache-2.0 (see `LICENSE`, `NOTICE`). Documentation and sample data: CC BY 4.0. See `REUSE.toml`.
+Code: Apache-2.0 (see `LICENSE`, `NOTICE`). Documentation and sample data: CC BY 4.0. Report fonts: SIL Open
+Font License 1.1. The licence of every file is listed in `REUSE.toml`, the texts are in `LICENSES/`; third-party
+components are listed in `THIRD_PARTY_NOTICES.txt`.

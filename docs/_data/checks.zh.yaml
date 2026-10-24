@@ -1,0 +1,99 @@
+# 每个已注册检查项的测量对象；对自带比较规则的检查项另给出通过条件（tools/gen_docs.py，reference/checks.md）。
+# 键 = 注册表中的检查项 ID；测试保证两者一致。中文，待母语人士审校（A-07）。
+ai.class_balance:
+  object: "标签来源的每个范围（all、train、val、test）及每个类别"
+  passes: "该类别在其范围内的占比不低于 `min_share`；对于被扣留的标签来源（单元格少于 5 名受试者），只依据受试者人数本身可得出的信息判断（A-81）"
+ai.demographics_complete:
+  object: "数据集（participants.tsv）：每名受试者的年龄和性别"
+ai.duplicate_recordings:
+  object: "每条记录（信号哈希 NG-SIGHASH-v1，从不输出）"
+  passes: "数据集中没有其他记录具有相同的信号哈希"
+ai.split_integrity:
+  object: "每名受试者"
+  passes: "该受试者至多属于一个数据划分"
+annotation.codes:
+  object: "标注中的每个代码或标签"
+annotation.gaps:
+  object: "每条带标注的记录（连续模式）"
+  passes: "标注之间没有空隙"
+annotation.kappa:
+  object: "每条至少有两名标注者的记录"
+annotation.overlaps:
+  object: "每条记录及每名标注者"
+  passes: "该标注者的标注互不重叠"
+bids.hed_schema_available:
+  object: "BIDS 验证器报告的每个文件，按验证器代码"
+bids.validator_errors:
+  object: "BIDS 验证器报告的每个文件，按验证器代码"
+bids.validator_warnings:
+  object: "BIDS 验证器报告的每个文件，按验证器代码"
+channels.count_consistent:
+  object: "每条记录"
+  passes: "附带文件、channels.tsv 和数据文件中的 EEG 通道数一致，channels.tsv 与数据文件中的通道总数也一致"
+channels.only_1005:
+  object: "记录中的每个 EEG 通道"
+channels.positions:
+  object: "每条记录"
+  passes: "每个 EEG 通道都有电极位置"
+channels.same_set_per_task:
+  object: "数据集中的每个任务"
+channels.standard_names:
+  object: "记录中的每个 EEG 通道"
+evidence.document:
+  object: "规则本身（来自 evidence.yaml 的人工或半自动证明材料）"
+impedance.documented:
+  object: "每条记录"
+  passes: "每个 EEG 通道都有阻抗值"
+impedance.max:
+  object: "使用湿电极的记录中的每个 EEG 通道"
+metadata.consistent:
+  object: "数据集：TaskName、BIDSVersion 和 Name"
+metadata.required_fields:
+  object: "每条记录及每个必填字段"
+provenance.documented:
+  object: "数据集：处理步骤和软件版本"
+provenance.files_match:
+  object: "数据集以及与清单不一致的每个文件"
+provenance.manifest_matches:
+  object: "数据集（清单存在且一致）"
+provenance.manifest_present:
+  object: "数据集"
+quality.autoreject:
+  object: "每条记录（抽样）"
+quality.bad_channels:
+  object: "每条记录（抽样）"
+quality.clipping:
+  object: "记录中的每个 EEG 通道（全长）"
+quality.flatline:
+  object: "记录中的每个 EEG 通道（全长）"
+quality.line_frequency:
+  object: "每条记录"
+  passes: "另一工频处比值的中位数不超过所记录工频处比值中位数的 `min_factor` 倍"
+quality.line_noise:
+  object: "记录中的每个 EEG 通道（全长）"
+quality.non_brain_components:
+  object: "每条记录（抽样）"
+signal.sampling_rate_consistency:
+  object: "每条记录"
+  passes: "采样率不低于 `min_hz`，且各采样率一致或混合采样率已有记录"
+signal.sampling_rate_min:
+  object: "每条记录（最低的 EEG 采样率）"
+signal.sampling_rate_uniform:
+  object: "数据集"
+  passes: "所有记录采样率相同，或混合采样率已在 [metadata] mixed_sampling_rates_reason 中说明"
+signal.sidecar_rate:
+  object: "每条带附带文件的记录"
+  passes: "附带文件中的采样率与数据的采样率相同（相对容差 1e-6）"
+structure.companions_present:
+  object: "每条记录"
+structure.header_consistent:
+  object: "每条记录"
+structure.identifying_header:
+  object: "每条记录，按文件头字段（只列字段名，从不输出字段值）"
+structure.readable:
+  object: "每条记录以及数据集（至少一条可读取的记录）"
+structure.storage_format:
+  object: "每条记录"
+  passes: "存储格式属于 `formats`（逗号分隔的列表，不区分大小写）"
+structure.supported_format:
+  object: "每个数据文件"

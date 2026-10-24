@@ -1,0 +1,4 @@
+| {{ L.rule }} | {{ L.severity }} | {{ L.params }} | {{ L.origin }} |
+|---|---|---|---|
+{% for row in rows %}| {{ row.rule }} | {{ row.severity }} | {{ row.params }} | {{ row.origin }} |
+{% endfor %}

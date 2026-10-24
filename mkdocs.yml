@@ -1,0 +1,119 @@
+# NeuroGrid user documentation zh/en (TECH-06, A-28). Built only with tools/build_docs.py: generation check,
+# offline build under an audit hook, checks of the built site. No external resource: no Google font
+# (theme.font false), no repo_url (Material would query api.github.com), no offline/privacy/social plugin, no
+# mermaid or math (loaded from a CDN on demand). docs/umsetzung is not part of the site (A-28).
+site_name: NeuroGrid
+docs_dir: docs
+site_dir: site
+use_directory_urls: false  # pages link to .html files, so the site also reads from file://
+strict: true
+exclude_docs: |
+  umsetzung/
+  _data/
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: warn
+    unrecognized_links: warn
+
+theme:
+  name: material
+  language: en
+  font: false
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.tabs.link
+    - search.highlight
+    - toc.follow
+
+extra:
+  generator: false
+extra_css:
+  - assets/stylesheets/neurogrid.css
+extra_javascript:
+  - assets/javascripts/file-search-hint.js
+
+markdown_extensions:
+  - attr_list
+  - toc:
+      permalink: false
+  - tables
+  - admonition
+  - def_list
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  # One search index for both languages, tokenized for English; Chinese is split into single Han characters
+  # by tools/mkdocs_hooks.py (U+200B), the separator below splits on it. lunr.zh needs jieba (no wheel).
+  - search:
+      lang: en
+      separator: "[\\s\u200b\u3000\\-\u3001\u3002\uff0c\uff0e\uff1f\uff01\uff1b]+"
+  - i18n:
+      docs_structure: folder
+      fallback_to_default: false
+      reconfigure_search: false
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+          copyright: "Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations. · Code: Apache-2.0 · Documentation: CC BY 4.0"
+        - locale: zh
+          name: 中文
+          build: true
+          site_name: NeuroGrid
+          copyright: "使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。 · 代码：Apache-2.0 · 文档：CC BY 4.0"
+          nav_translations:
+            Home: 首页
+            Getting started: 入门
+            Installation: 安装
+            Quick start: 快速开始
+            Use: 使用
+            Commands: 命令
+            Configuration: 配置
+            Rule packs: 规则包
+            Metrics: 指标
+            Reading the report: 阅读报告
+            Background: 背景
+            Privacy and offline operation: 隐私与离线运行
+            Limitations: 局限
+            Terms: 术语对照
+            Data model: 数据模型
+            Reference: 参考
+            Check registry: 检查项注册表
+            Built-in rules: 内置规则
+            Output files: 输出文件
+            Licences: 许可证
+
+hooks:
+  - tools/mkdocs_hooks.py
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: installation.md
+      - Quick start: quickstart.md
+  - Use:
+      - Commands: commands.md
+      - Configuration: configuration.md
+      - Rule packs: rulepacks.md
+      - Metrics: metrics.md
+      - Reading the report: report.md
+  - Background:
+      - Privacy and offline operation: privacy.md
+      - Limitations: limitations.md
+      - Terms: terms.md
+      - Data model: data-model.md
+  - Reference:
+      - Check registry: reference/checks.md
+      - Built-in rules: reference/rules.md
+      - Output files: reference/outputs.md
+  - Licences: license.md

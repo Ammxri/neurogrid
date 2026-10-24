@@ -1,0 +1,57 @@
+{
+  "family": "Noto Sans SC",
+  "files": {
+    "NotoSansSC-Bold.ttf": {
+      "bytes": 10578868,
+      "removed_codepoints": 453,
+      "sha256": "2dc3346b660b6740b9c2832f430f0cdc061bc7fc6637498ac82cde49deb7105f",
+      "weight": 700
+    },
+    "NotoSansSC-Regular.ttf": {
+      "bytes": 10589344,
+      "removed_codepoints": 453,
+      "sha256": "df909d5171e793a8f49bfb01b6a853bff79e5b6415ef41372f85ba3e189e66c9",
+      "weight": 400
+    }
+  },
+  "format_version": 1,
+  "license": "OFL-1.1",
+  "license_file": {
+    "name": "OFL.txt",
+    "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9",
+    "url": "https://raw.githubusercontent.com/google/fonts/a85815a42757630ce188fdad368c2dfc444d4773/ofl/notosanssc/OFL.txt"
+  },
+  "removed_ranges": [
+    [
+      "U+2E80",
+      "U+2EFF"
+    ],
+    [
+      "U+2F00",
+      "U+2FDF"
+    ],
+    [
+      "U+F900",
+      "U+FAFF"
+    ],
+    [
+      "U+2F800",
+      "U+2FA1F"
+    ]
+  ],
+  "source": {
+    "bytes": 17772300,
+    "commit": "a85815a42757630ce188fdad368c2dfc444d4773",
+    "font_version": "2.004",
+    "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+    "upstream": {
+      "commit": "523d033d6cb47f4a80c58a35753646f5c3608a78",
+      "repository": "https://github.com/notofonts/noto-cjk"
+    },
+    "url": "https://raw.githubusercontent.com/google/fonts/a85815a42757630ce188fdad368c2dfc444d4773/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf"
+  },
+  "tool": {
+    "fonttools": "4.66.1",
+    "script": "tools/build_fonts.py"
+  }
+}

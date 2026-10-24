@@ -1,19 +1,59 @@
 version = 1
 
-[[annotations]]
-path = ["src/**", "tests/**/*.py", "tests/fixtures/*.toml", "tools/**", ".github/**", "pyproject.toml", "uv.lock", ".gitattributes", ".gitignore", "REUSE.toml", "NOTICE", "licenses/**"]
-precedence = "aggregate"
-SPDX-FileCopyrightText = "2026 Ammar Ahad"
-SPDX-License-Identifier = "Apache-2.0"
+# Licence of every path (TECH-10, A-27, A-86). When several tables match a file, the last one wins; the test
+# tests/docs/test_licensing.py applies the same rule to every tracked file. Licence texts are in LICENSES/.
+# LICENSES/CC-BY-4.0.txt is not yet present: the CC BY 4.0 legal code is a download outside D-06 and waits for
+# the owner's decision (license-gate/known_missing.toml, STOPP G1); the documents name the licence and its URI
+# https://creativecommons.org/licenses/by/4.0/ meanwhile.
 
+# Documentation (CC BY 4.0)
 [[annotations]]
-path = ["docs/**", "README.md", "DATA_SOURCES.md"]
+path = ["docs/**", "README.md", "DATA_SOURCES.md", "THIRD_PARTY_NOTICES.txt"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"
 SPDX-License-Identifier = "CC-BY-4.0"
 
+# Code, tooling and configuration (Apache-2.0); the site's CSS and JavaScript are code as well
+[[annotations]]
+path = [
+    "src/**",
+    "tests/*.py",
+    "tests/**/*.py",
+    "tests/fixtures/*.toml",
+    "tools/**",
+    ".github/**",
+    "pyproject.toml",
+    "uv.lock",
+    ".gitattributes",
+    ".gitignore",
+    ".python-version",
+    "REUSE.toml",
+    "NOTICE",
+    "license-gate/**",
+    "mkdocs.yml",
+    "docs/assets/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ammar Ahad"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Sample data (CC BY 4.0)
 [[annotations]]
 path = ["tests/fixtures/synthetic/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"
 SPDX-License-Identifier = "CC-BY-4.0"
+
+# Report fonts: Noto Sans SC static cuts and their licence (OFL-1.1, A-27)
+[[annotations]]
+path = ["src/neurogrid/report/fonts/*.ttf", "src/neurogrid/report/fonts/OFL.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'"
+SPDX-License-Identifier = "OFL-1.1"
+
+# The provenance record of the fonts is NeuroGrid's own data (Apache-2.0)
+[[annotations]]
+path = ["src/neurogrid/report/fonts/fonts.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ammar Ahad"
+SPDX-License-Identifier = "Apache-2.0"

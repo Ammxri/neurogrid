@@ -1,0 +1,63 @@
+# Labels of the generated documentation pages (tools/gen_docs.py), English. Not part of the site.
+checks:
+  title: "Check registry"
+  intro: >-
+    Every check a rule pack may name in `check`, generated from the registry of this NeuroGrid version
+    (`neurogrid.checks.registry`). A rule pack uses only registered checks and only their declared parameters
+    (A-13); a parameter value comes from `neurogrid.toml` (`[rules."ID".params]`), else from the rule pack, else
+    from the default below.
+  title_row: "Title"
+  params: "Parameters"
+  passes: "Passes when"
+  object: "Measured on"
+  rules: "Built-in rules"
+  none: "–"
+  kind: "{name} ({kind}, default {default})"
+  bound_max: "measured value ≤ `{param}`"
+  bound_min: "measured value ≥ `{param}`"
+  is_true: "no deviation found"
+  evidence: "the evidence in evidence.yaml is filed (status provided or a justified not_applicable)"
+rules:
+  title: "Built-in rules"
+  intro: >-
+    The rules of the built-in rule packs of this NeuroGrid version, generated from the packs themselves. The
+    SHA-256 is taken over the file bytes, as in results.json (`rulepacks[].sha256`).
+  pack: "Rule pack"
+  version: "Version"
+  source: "Source"
+  source_status: "Source status"
+  norm: "Maps a norm (coverage measure)"
+  sha256: "SHA-256"
+  title_row: "Title"
+  clause: "Clause"
+  phase: "Phase"
+  check: "Check"
+  params: "Parameters"
+  severity: "Severity"
+  strict_severity: "Severity with --strict"
+  verification: "Verification"
+  "yes": "yes"
+  "no": "no"
+  none: "–"
+  default_param: "{name} = {value} (check default)"
+  pack_param: "{name} = {value} (rule pack)"
+thresholds:
+  rule: "Rule"
+  severity: "Severity"
+  params: "Parameter"
+  origin: "Origin"
+  none: "–"
+  origin_spec: "start value of the product specification"
+  origin_spec_second_hand: "start value of the product specification, which quotes T/GXDSL 008-2025 (second-hand)"
+  origin_with_ref: "{origin} ({ref})"
+  origin_assumption: "assumption {ref} (decision log)"
+  origin_calibrated: "calibrated: 95th percentile over {n} {over} of the public corpus ({ref})"
+  over_recordings: "recordings"
+  over_channels: "channels"
+calibration:
+  dataset: "Data set"
+  version: "Version"
+  doi: "DOI"
+  format: "Format"
+  recordings: "Recordings"
+  channels: "Channels (M07)"
