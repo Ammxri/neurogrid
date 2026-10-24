@@ -13,3 +13,9 @@ tests/fixtures/** -text
 *.woff2 binary
 *.png binary
 *.pdf binary
+
+# Install scripts of the offline bundle: cmd.exe needs CRLF, bash needs LF; install.ps1 keeps LF and its UTF-8 BOM
+# (Windows PowerShell 5.1 reads BOM-less scripts in the ANSI code page).
+*.cmd text eol=crlf
+*.sh text eol=lf
+*.ps1 text eol=lf

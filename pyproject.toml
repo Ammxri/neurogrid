@@ -128,8 +128,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["--strict-markers", "-m", "not corpus and not perf", "-p", "no:cacheprovider"]
+addopts = ["--strict-markers", "-m", "not corpus and not perf and not bundle", "-p", "no:cacheprovider"]
 markers = [
+    "bundle: real offline bundles from uv.lock (downloads into the bundle cache) and the Windows clean room",
     "corpus: needs the public test corpus in .local/corpus (tools/corpus.py)",
     "perf: performance measurements (NG-N02)",
     "browser: drives the Chrome Headless Shell (located by kernel.pdf.locate_shell) against the built docs site",

@@ -395,18 +395,25 @@ def test_data_sources_says_only_what_the_fixtures_say() -> None:
 
 
 def test_ci_traces_check_and_convert_for_network_connections() -> None:
-    """KONZEPT: Linux job under strace -f -e trace=connect; any AF_INET/AF_INET6 connect fails it (D-09:
-    runs on push)."""
-    workflow = load_yaml((ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8"))
+    """KONZEPT: Linux job under strace -f; any AF_INET/AF_INET6 connection to a non-loopback address fails it
+    (D-09: runs on push). Since P5 (B4) the job lives in offline.yml and traces the installed offline bundle
+    in a container without network: check with the validator (rule pack bids) and convert run under strace."""
+    workflow = load_yaml((ROOT / ".github" / "workflows" / "offline.yml").read_text(encoding="utf-8"))
+    assert workflow[True]["push"]["branches"] == ["main"]  # YAML 1.1 reads the key `on` as true
     job = workflow["jobs"]["offline-strace"]
     assert job["runs-on"] == "ubuntu-24.04"
     script = "\n".join(str(step.get("run", "")) for step in job["steps"])
-    assert "uv sync --locked --no-build --python 3.12" in script and "apt-get install -y strace" in script
-    assert (
-        "strace -f -e trace=connect -o trace.txt uv run --no-sync neurogrid check "
-        "tests/fixtures/synthetic/bids_ok --rulepack bids --out r.json"
-    ) in script
-    assert "strace -A -f -e trace=connect -o trace.txt uv run --no-sync neurogrid convert" in script
-    assert "cp -r tests/fixtures/synthetic/edf_ok" in script and "[[convert.files]]" in script
-    assert 'path = "rec_a.edf"' in script and 'path = "rec_b.edf"' in script
-    assert "grep -E 'AF_INET6?' trace.txt" in script and "exit 1" in script
+    assert "bash packaging/ci/offline_strace_linux.sh dist/neurogrid-*-offline-linux_x86_64.tar.gz" in script
+    ci = ROOT / "packaging" / "ci"
+    strace = (ci / "offline_strace_linux.sh").read_text(encoding="utf-8")
+    assert "apt-get install -y --no-install-recommends strace" in strace and "--trace" in strace
+    assert 'python3 "$root/tools/strace_check.py" "$evidence"' in strace
+    room = (ci / "cleanroom_linux.sh").read_text(encoding="utf-8")
+    assert "docker run --rm --network none --user 1000:1000" in room
+    inside = (ci / "cleanroom_inside.sh").read_text(encoding="utf-8")
+    assert 'strace -f -qq -e trace=connect,sendto,sendmsg -o "$out/strace-$name.txt"' in inside
+    assert 'step check-bids "0 1" "$ng" check "$work/bids_ok" --rulepack bids --rulepack gxdsl008' in inside
+    assert 'step convert 0 "$ng" convert edf_ok --to bids --out converted --config convert.toml' in inside
+    assert "[[convert.files]]" in inside and 'path = "rec_a.edf"' in inside and 'path = "rec_b.edf"' in inside
+    check = (ROOT / "tools" / "strace_check.py").read_text(encoding="utf-8")
+    assert '("AF_INET", "AF_INET6")' in check and "return 1 if attempts else 0" in check

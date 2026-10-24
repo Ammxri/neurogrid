@@ -30,6 +30,8 @@ path = [
     "REUSE.toml",
     "NOTICE",
     "license-gate/**",
+    "packaging/**",
+    ".env.example",
     "mkdocs.yml",
     "docs/assets/**",
 ]

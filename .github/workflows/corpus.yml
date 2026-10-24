@@ -1,0 +1,63 @@
+# Acceptance on the public test corpus (G1 criterion, LIB-09, A-29): the six pinned public datasets (OpenNeuro CC0,
+# PhysioNet PSG-IPA) are fetched with tools/corpus.py and checked against tools/corpus_lock.json, then
+# tools/acceptance_g1.py runs check and report on them. The public corpus is cached under a key derived from the
+# lock file; only the summary (summary.json, summary.md) is uploaded - never corpus files, reports or anything else
+# below .local/ (CON-02, A-55). Runs by hand and on push to main.
+name: corpus
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.13.0"
+  NEUROGRID_REQUIRE_PDF: "1"
+
+jobs:
+  g1:
+    name: acceptance G1 on the corpus (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-build --python 3.12
+      - name: System libraries of the PDF browser (Linux, A-58)
+        if: runner.os == 'Linux'
+        run: |
+          packages="$(uv run --no-sync python tools/linux_pdf_packages.py ubuntu24.04)"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends $packages
+      - run: uv run --no-sync python tools/install_pdf_browser.py
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .local/corpus
+          key: corpus-${{ hashFiles('tools/corpus_lock.json') }}
+      - name: Public corpus (pinned by SHA-256)
+        run: |
+          uv run --no-sync python tools/corpus.py fetch
+          uv run --no-sync python tools/corpus.py verify
+      - name: Acceptance run (check and report on every dataset)
+        run: uv run --no-sync python tools/acceptance_g1.py --corpus .local/corpus --out .local/acceptance/g1
+      - name: Only the summary leaves the runner
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p acceptance-summary
+          cp .local/acceptance/g1/summary.json .local/acceptance/g1/summary.md acceptance-summary/ || true
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: acceptance-summary-${{ matrix.os }}
+          path: acceptance-summary/
+          retention-days: 30

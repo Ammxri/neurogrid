@@ -1,0 +1,61 @@
+# Documentation site zh/en (TECH-06, A-28): built with tools/build_docs.py (generated pages checked, network audit
+# hook, post-build checks, SOURCE_DATE_EPOCH) and uploaded as an artifact; the browser tests of the site (search
+# offline, file:// pages without network) run with the Chrome Headless Shell on Linux and Windows. No deployment:
+# where the site is hosted is the owner's decision. Runs on push to main, on pull requests and by hand.
+name: docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.13.0"
+  NEUROGRID_REQUIRE_PDF: "1"
+
+jobs:
+  build:
+    name: build the documentation site
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-build --python 3.12
+      - run: uv run --no-sync python tools/build_docs.py --site-dir site
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: docs-site
+          path: site/
+          retention-days: 14
+
+  browser:
+    name: browser tests of the site (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - run: uv sync --locked --no-build --python 3.12
+      - name: System libraries of the PDF browser (Linux, A-58; the list the start check uses)
+        if: runner.os == 'Linux'
+        run: |
+          packages="$(uv run --no-sync python tools/linux_pdf_packages.py ubuntu24.04)"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends $packages
+      - name: PDF browser (Chrome Headless Shell 1243 into NeuroGrid's folder, pinned SHA-256; D-08)
+        run: uv run --no-sync python tools/install_pdf_browser.py
+      - run: uv run --no-sync python tools/build_docs.py --site-dir site
+      - run: uv run --no-sync pytest -m browser tests/docs

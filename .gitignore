@@ -21,6 +21,9 @@ htmlcov/
 # Docs build output
 site/
 
+# Local environment variables (see .env.example)
+.env
+
 # OS
 .DS_Store
 Thumbs.db

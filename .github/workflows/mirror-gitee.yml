@@ -1,0 +1,43 @@
+# Gitee mirror for China (TECH-08; D-07: the owner's Gitee account). Does nothing until the owner sets the
+# repository variable GITEE_MIRROR=true, the variables GITEE_REPOSITORY (owner/repo on Gitee) and GITEE_KNOWN_HOSTS
+# (Gitee's SSH host key, checked by the owner) and the secret GITEE_SSH_KEY (a key used only for this mirror).
+# Runs by hand or after a published release; pushes main and the v* tags only - never dev, never --force/--mirror.
+name: mirror-gitee
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    name: push main and v* tags to Gitee
+    if: vars.GITEE_MIRROR == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: gitee
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Push over SSH with the pinned host key
+        env:
+          GITEE_SSH_KEY: ${{ secrets.GITEE_SSH_KEY }}
+          GITEE_KNOWN_HOSTS: ${{ vars.GITEE_KNOWN_HOSTS }}
+          GITEE_REPOSITORY: ${{ vars.GITEE_REPOSITORY }}
+        run: |
+          case "$GITEE_REPOSITORY" in
+            */*) ;;
+            *) echo "GITEE_REPOSITORY must be owner/repo"; exit 1 ;;
+          esac
+          test -n "$GITEE_KNOWN_HOSTS" || { echo "GITEE_KNOWN_HOSTS is empty"; exit 1; }
+          key="$RUNNER_TEMP/gitee-key"
+          trap 'rm -f "$key"' EXIT
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$GITEE_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          (umask 077 && printf '%s\n' "$GITEE_SSH_KEY" > "$key")
+          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
+          git push "git@gitee.com:${GITEE_REPOSITORY}.git" "refs/remotes/origin/main:refs/heads/main" "refs/tags/v*:refs/tags/v*"
