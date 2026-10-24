@@ -1,0 +1,77 @@
+/* NeuroGrid report (REP-00, A-84). One font family only: the embedded 'NG Sans' subsets (400/700). No
+   other family anywhere, no synthetic bold or italics (they would make Chromium embed Type3 or system fonts);
+   a monospace look comes from letter spacing. The @page rules with the margin boxes follow (render.py). */
+*, *::before, *::after { font-family: 'NG Sans' !important; font-synthesis: none; font-style: normal; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-size: 9pt; color: #1b1b1b; margin: 24px; line-height: 1.4; background: #fff; }
+h1 { font-size: 17pt; font-weight: 700; margin: 0 0 8px 0; }
+h2 { font-size: 13pt; font-weight: 700; border-bottom: 1px solid #999; padding-bottom: 3px; margin: 0 0 8px 0;
+     break-before: page; break-after: avoid; }
+h3 { font-size: 10.5pt; font-weight: 700; margin: 14px 0 6px 0; break-after: avoid; }
+h4 { font-size: 9pt; font-weight: 700; margin: 10px 0 2px 0; break-after: avoid; }
+p { margin: 4px 0 6px 0; }
+strong, th { font-weight: 700; }
+table { border-collapse: collapse; width: 100%; margin: 4px 0 10px 0; font-size: 8pt; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th, td { border: 0.5pt solid #b8b8b8; padding: 2px 4px; text-align: left; vertical-align: top; }
+th { background: #eeeeee; }
+td.num, th.num { text-align: right; }
+.mono { letter-spacing: 0.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 7.5pt; letter-spacing: 0.03em;
+      background: #f6f6f6; padding: 6px; margin: 4px 0 8px 0; }
+pre.settings { column-count: 3; column-gap: 18px; column-rule: 0.5pt solid #d0d0d0; }
+.disclaimer { border: 1px solid #555; padding: 6px 8px; background: #fafafa; font-weight: 700; }
+.banner { border: 2px solid #b00020; padding: 6px 8px; color: #b00020; font-weight: 700; }
+.scope-note, .core-clause-note, .coverage-note, .legend, .secondary-note { font-size: 8pt; color: #333; }
+.overall { font-size: 10pt; font-weight: 700; }
+.light { display: inline-block; padding: 0 8px; border-radius: 8px; font-weight: 700; }
+.light-red { background: #f6c7c7; } .light-yellow { background: #f7e7a6; }
+.light-green { background: #c9ebc9; } .light-grey { background: #e3e3e3; }
+tr.total th, tr.total td { font-weight: 700; background: #f4f4f4; }
+.sev-error { color: #8a0016; } .sev-warning { color: #6b4e00; } .sev-info { color: #1d3f6e; }
+.rule-group { margin-bottom: 6px; }
+.rule-group > h4, .rule-group > .aggregate { break-after: avoid; }
+.aggregate { font-size: 8pt; color: #333; margin: 0 0 2px 0; }
+.more { font-size: 8pt; font-weight: 700; }
+/* Wide tables: fixed column shares (each table's shares sum to 100 %), so that no column is squeezed to one
+   character per line. A rule ID and a date never break: their columns hold the longest rule ID of the shipped
+   packs and an ISO date in the report font on the landscape page (measured, A-84). */
+table.findings, table.rules, table.metrics, table.evidence, table.sample { table-layout: fixed; }
+table.findings td, table.rules td, table.metrics td, table.evidence td, table.sample td { overflow-wrap: anywhere; }
+table.findings td.c-rule, .nowrap { white-space: nowrap; }
+col.w-rule { width: 12%; } col.w-clause { width: 5%; } col.w-title { width: 12%; } col.w-status { width: 7%; }
+col.w-file { width: 11%; } col.w-channel { width: 6%; } col.w-measured { width: 7%; } col.w-threshold { width: 10%; }
+col.w-time { width: 13%; } col.w-reason { width: 17%; }
+col.w-pack { width: 6%; } col.w-rtitle { width: 22%; } col.w-phase { width: 6%; } col.w-severity { width: 10%; }
+col.w-kind { width: 6%; } col.w-count { width: 5.5%; }
+col.w-recording { width: 13%; } col.w-format { width: 6%; } col.w-num { width: 5%; } col.w-line { width: 8%; }
+col.w-metric { width: 7%; } col.w-metric2 { width: 9%; }
+col.w-erule { width: 12%; } col.w-etitle { width: 12%; } col.w-ekind { width: 8%; } col.w-estatus { width: 9%; }
+col.w-ereason { width: 11%; } col.w-edoc { width: 10%; } col.w-echeck { width: 9%; } col.w-esha { width: 10%; }
+col.w-ereviewer { width: 6%; } col.w-edate { width: 7%; } col.w-ecomment { width: 6%; }
+col.w-srec { width: 11%; } col.w-smode { width: 6%; } col.w-sseg { width: 50%; } col.w-sseed { width: 7%; }
+col.w-sch { width: 6%; } col.w-spos { width: 12%; } col.w-snotch { width: 8%; }
+table.metrics, table.sample { font-size: 7pt; }
+table.metrics td, table.sample td { padding: 1px 3px; }
+table.demographics, table.splits, table.labels, table.configuration, table.environment, table.coverage {
+  width: auto; min-width: 45%; }
+.charts { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 4px 0 10px 0; }
+figure.chart { margin: 0; width: 300px; break-inside: avoid; }
+figure.chart figcaption { font-size: 7pt; color: #333; }
+figure.chart .chart-title { font-size: 8pt; font-weight: 700; color: #1b1b1b; }
+ul.charts-empty { font-size: 8pt; color: #333; margin: 0 0 8px 0; padding-left: 16px; }
+svg.hist { display: block; }
+svg.hist .bar { fill: #4a6fa5; }
+svg.hist .ax { stroke: #333333; stroke-width: 1; }
+svg.hist .thr { stroke: #b00020; stroke-width: 1.5; stroke-dasharray: 3 2; }
+svg.hist .tk { font-size: 8px; fill: #333333; }
+footer.screen { margin-top: 24px; font-size: 8pt; color: #444; }
+@media print {
+  body { margin: 0; }
+  footer.screen { display: none; }
+}
+section#cover { break-after: page; }
+section#cover h2, section#summary h2 { break-before: auto; }
+section#findings, section#metrics, section#evidence, section#appendix { page: wide; }
+section#evidence h2, section#appendix h2, section#metrics h2 { break-before: page; }

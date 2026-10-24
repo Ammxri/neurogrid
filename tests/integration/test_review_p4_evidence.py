@@ -57,9 +57,13 @@ def _texts(results: Results) -> list[str]:
 
 
 def _rows(html: str, rule: str) -> list[list[str]]:
-    """The cells of the findings rows of ``rule``: rule, clause, title, status, file, measured value,
-    threshold, time range, reason."""
-    rows = re.findall(rf'<tr>\s*<td class="mono">{re.escape(rule)}</td>(.*?)</tr>', html, flags=re.S)
+    """The cells of the findings rows of ``rule``: rule, clause, title, status, file, channel, measured value,
+    threshold, time range, reason (P5: rows carry data-key and cell classes, a channel column was added)."""
+    rows = re.findall(
+        rf'<tr data-key="[0-9a-f]+"><td class="c-rule mono">{re.escape(rule)}</td>(.*?)</tr>',
+        html,
+        flags=re.S,
+    )
     return [[rule, *re.findall(r"<td[^>]*>(.*?)</td>", row, flags=re.S)] for row in rows]
 
 
@@ -255,7 +259,7 @@ def test_findings_on_files_that_are_no_recordings_cover_the_whole_file(
     notes = pseudonym(PurePosixPath("notes.txt")) + ".txt"
     assert set(rows) == {".neurogrid/neurogrid.toml", notes}
     for row in rows.values():
-        assert row[7] == str(escape(tr("report.value.whole_file")))
+        assert row[8] == str(escape(tr("report.value.whole_file")))
     # a finding on a recording without a time range still covers the whole recording
     fmt = build_context(deviations, lang)["fmt"]
     recordings = {rec.id for rec in deviations.recordings}
@@ -271,7 +275,7 @@ def test_orphan_companion_covers_the_whole_file(tmp_path: Path) -> None:
     results = _check(FIX / "orphan", documented_config(tmp_path))
     rows = _rows(render_report(results, "en"), "CORE-M01-04")
     assert [row[4] for row in rows] == [pseudonym(PurePosixPath("lonely.fdt")) + ".fdt"]
-    assert rows[0][7] == "whole file"
+    assert rows[0][8] == "whole file"
 
 
 # --- AI17: an extension that carries a name is left out of the effective configuration (A-51) --------------

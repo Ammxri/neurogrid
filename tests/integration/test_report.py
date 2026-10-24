@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import date
 from pathlib import Path
 
@@ -11,8 +10,9 @@ from markupsafe import escape
 
 from neurogrid import pipeline
 from neurogrid.kernel.findings import Phase, SourceStatus
-from neurogrid.report.render import render_report
+from neurogrid.report.render import EXPLAINED_EMPTY, FINDING_CELLS, render_report
 from neurogrid.report.texts import disclaimer, translator
+from report_html import finding_rows  # type: ignore[import-not-found]
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 
@@ -27,7 +27,10 @@ def test_sections_and_disclaimer(results, lang: str) -> None:  # type: ignore[no
     html = render_report(results, lang)
     for section in ("cover", "summary", "findings", "metrics", "evidence", "appendix"):
         assert f'id="{section}"' in html
-    assert html.count(disclaimer(lang)) >= 3
+    # P5 (REP-07, A-08): cover, appendix, screen footer, the meta description and the @page footer of every
+    # printed page (CSS string)
+    assert html.count(disclaimer(lang)) >= 5
+    assert f'<meta name="description" content="{escape(disclaimer(lang))}">' in html
     assert "Content-Security-Policy" in html and "default-src 'none'" in html
     assert "http://" not in html and "https://" not in html
     assert "2026-10-11" in html
@@ -41,14 +44,19 @@ def test_phase_order_follows_prd(results) -> None:  # type: ignore[no-untyped-de
 
 
 def test_each_finding_row_has_required_fields(results) -> None:  # type: ignore[no-untyped-def]
+    """NG-F13: every finding row names rule, clause, measured value, threshold, file and time range; P5 adds
+    the channel column, data-key and cell classes (B1), and an empty value is '–' with its reason (A-09)."""
     html = render_report(results, "en")
-    findings_html = html[html.index('id="findings"') : html.index('id="metrics"')]
-    rows = re.findall(r"<tr>\s*<td class=\"mono\">(CORE-[^<]+)</td>(.*?)</tr>", findings_html, flags=re.S)
-    assert len(rows) == len(results.findings) >= 2
-    for _rule, row in rows:
-        cells = re.findall(r"<td[^>]*>(.*?)</td>", row, flags=re.S)
-        assert len(cells) == 8  # clause, title, status, file, measured, threshold, time range, reason
-        assert all(cell.strip() for cell in cells)
+    rows = finding_rows(html)
+    assert len(rows) == len(results.findings) >= 2  # no rule has more than 50 findings here (A-59)
+    assert {row["key"] for row in rows} == {f.key for f in results.findings}
+    explained = {translator("en").t(key) for key in EXPLAINED_EMPTY}
+    for row in rows:
+        assert set(row) == {"key", *FINDING_CELLS}
+        assert all(row[cell].strip() for cell in FINDING_CELLS)
+        for cell in FINDING_CELLS:
+            if row[cell].startswith("–"):
+                assert row[cell] in explained and "(" in row[cell], (cell, row[cell])
 
 
 def test_untrusted_text_is_escaped(results) -> None:  # type: ignore[no-untyped-def]

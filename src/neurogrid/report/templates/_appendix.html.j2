@@ -1,0 +1,60 @@
+<section id="appendix">
+  <h2>{{ t('report.section.appendix') }}</h2>
+  <h3>6.1 {{ t('report.label.rules_checked') }}</h3>
+  <table class="rules">
+    <colgroup><col class="w-rule"><col class="w-pack"><col class="w-clause"><col class="w-rtitle"><col class="w-phase"><col class="w-severity"><col class="w-kind">{% for status in counted_statuses %}<col class="w-count">{% endfor %}</colgroup>
+    <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.pack') }}</th><th>{{ t('report.label.clause') }}</th><th>{{ t('report.label.title') }}</th><th>{{ t('report.label.phase') }}</th><th>{{ t('report.label.severity') }}</th><th>{{ t('report.label.verification') }}</th>{% for status in counted_statuses %}<th class="num">{{ t('status.' ~ status) }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in rule_overview %}
+    <tr data-rule="{{ row.id }}"><td class="mono nowrap">{{ row.id }}</td><td>{{ row.pack }}</td><td>{{ row.clause }}</td><td>{{ row.title }}</td><td>{{ row.phase }}</td><td>{{ row.severity }}</td><td>{{ row.verification }}</td>{% if row.placeholder %}<td colspan="{{ counted_statuses | length }}">{{ row.placeholder }}</td>{% else %}{% for count in row.counts %}<td class="num">{{ count }}</td>{% endfor %}{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h3>6.2 {{ t('report.label.effective_params') }}</h3>
+  <table class="params">
+    <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.parameter') }}</th><th>{{ t('report.label.threshold') }}</th><th>{{ t('report.label.origin') }}</th></tr></thead>
+    <tbody>
+    {% for rule_id, params in results.config.effective_params.items() %}{% for name, p in params.items() %}
+    <tr><td class="mono">{{ rule_id }}</td><td>{{ name }}</td><td>{{ fmt.value(p.value) }}</td><td>{{ t('report.text.origin_' ~ p.origin) }}</td></tr>
+    {% endfor %}{% endfor %}
+    </tbody>
+  </table>
+  <h3>6.3 {{ t('report.label.exceptions') }}</h3>
+  {% if results.exceptions %}
+  <table class="exceptions">
+    <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.file') }}</th><th>{{ t('report.label.exception_reason') }}</th><th>{{ t('report.label.approved_by') }}</th><th>{{ t('report.label.valid_until') }}</th><th>{{ t('report.label.used') }}</th><th>{{ t('report.label.expired') }}</th></tr></thead>
+    <tbody>
+    {% for use in results.exceptions %}
+    <tr><td class="mono">{{ use.entry.rule }}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td><td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td><td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td>{{ fmt.value(use.used) }}</td><td>{{ fmt.value(use.expired) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>{{ t('report.text.no_exceptions') }}</p>
+  {% endif %}
+  <h3>6.4 {{ t('report.label.notices') }}</h3>
+  {% if results.notices %}
+  <ul>{% for n in results.notices %}<li>{{ t('severity.' ~ n.level.value) }}: {{ t(n.message_key, **n.params) }}</li>{% endfor %}</ul>
+  {% else %}
+  <p>{{ t('report.text.no_notices') }}</p>
+  {% endif %}
+  <h3>6.5 {{ t('report.label.configuration') }}</h3>
+  <table class="configuration">
+    <tbody>
+    {% for label, value in configuration_rows %}
+    <tr><th>{{ label }}</th><td class="mono">{{ value }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <pre class="settings">{{ settings_json }}</pre>
+  <h3>6.6 {{ t('report.label.environment') }}</h3>
+  <table class="environment">
+    <tbody>
+    {% for label, value in environment_rows %}
+    <tr><th>{{ label }}</th><td>{{ value }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="scope-note">{{ t('report.text.scope_note') }}</p>
+  <p class="disclaimer">{{ t('disclaimer') }}</p>
+</section>

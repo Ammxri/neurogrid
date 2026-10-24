@@ -208,8 +208,13 @@ def bids_issues(tmp_path_factory: pytest.TempPathFactory) -> Results:
 
 
 def _row(html: str, rule_id: str, *contains: str) -> str:
-    """The one finding row of ``rule_id`` that contains every text in ``contains``."""
-    rows = re.findall(rf'<tr>\s*<td class="mono">{rule_id}</td>(.*?)</tr>', _findings_html(html), flags=re.S)
+    """The one finding row of ``rule_id`` that contains every text in ``contains`` (P5: rows carry data-key
+    and cell classes)."""
+    rows = re.findall(
+        rf'<tr data-key="[0-9a-f]+"><td class="c-rule mono">{rule_id}</td>(.*?)</tr>',
+        _findings_html(html),
+        flags=re.S,
+    )
     matching = [row for row in rows if all(text in row for text in contains)]
     assert len(matching) == 1, (rule_id, contains, rows)
     return matching[0]
@@ -247,7 +252,9 @@ def test_only_1005_title_states_the_checked_property(bids_issues: Results) -> No
     assert (finding.subkey, finding.status, finding.measured_value) == ("AFF1h", Status.FAILED, False)
     row = _row(render_report(bids_issues, "en"), "CORE-M04-05", "AFF1h")
     assert (
-        "Channel name is within 10-20/10-10 – AFF1h" in row and "not passed" in row and "<td>no</td>" in row
+        "Channel name is within 10-20/10-10 – AFF1h" in row
+        and "not passed" in row
+        and '<td class="c-measured">no</td>' in row
     )
 
 

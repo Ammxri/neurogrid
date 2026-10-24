@@ -119,8 +119,10 @@ def test_semi_automatic_rules_are_listed_with_their_document_check(tmp_path: Pat
 
 def test_findings_of_packs_sharing_a_threshold_are_linked(provided: Results) -> None:
     findings = _section(render_report(provided, "en"), "findings", "metrics")
-    core = re.findall(r'<td class="mono">CORE-M05-02</td>\s*<td>[^<]*</td>\s*<td>([^<]*)</td>', findings)
-    gx = re.findall(r'<td class="mono">GXDSL008-ACQ-001</td>\s*<td>[^<]*</td>\s*<td>([^<]*)</td>', findings)
+    # P5: the title is the cell of class c-title after the rule and clause cells
+    title = r'<td class="c-clause">[^<]*</td><td class="c-title">([^<]*)</td>'
+    core = re.findall(r'<td class="c-rule mono">CORE-M05-02</td>' + title, findings)
+    gx = re.findall(r'<td class="c-rule mono">GXDSL008-ACQ-001</td>' + title, findings)
     assert core and gx
     assert all("also reported as GXDSL008-ACQ-001" in title for title in core)
     assert all("also reported as CORE-M05-02" in title for title in gx)

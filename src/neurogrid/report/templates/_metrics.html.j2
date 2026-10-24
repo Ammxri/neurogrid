@@ -1,0 +1,98 @@
+<section id="metrics">
+  <h2>{{ t('report.section.metrics') }}</h2>
+  {% if results.recordings %}
+  <div class="charts">
+    {% for chart in charts if chart.svg %}
+    <figure class="chart" data-metric="{{ chart.key }}">
+      {{ chart.svg }}
+      <figcaption><span class="chart-title">{{ chart.title }}</span><br>{{ chart.caption }}</figcaption>
+    </figure>
+    {% endfor %}
+  </div>
+  {% set empty_charts = charts | rejectattr('svg') | list %}
+  {% if empty_charts %}
+  <ul class="charts-empty">
+    {% for chart in empty_charts %}
+    <li data-metric="{{ chart.key }}">{{ chart.empty }} {{ chart.caption }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <table class="metrics">
+    <colgroup><col class="w-recording"><col class="w-format"><col class="w-num"><col class="w-num"><col class="w-num"><col class="w-line"><col class="w-metric"><col class="w-metric"><col class="w-metric"><col class="w-metric2"><col class="w-metric"><col class="w-metric"><col class="w-metric"><col class="w-metric"></colgroup>
+    <thead><tr><th>{{ t('report.label.recording') }}</th><th>{{ t('report.label.format') }}</th><th class="num">{{ t('report.label.sampling_rate') }}</th><th class="num">{{ t('report.label.duration') }}</th><th class="num">{{ t('report.label.channels') }}</th><th>{{ t('report.label.line_frequency') }}</th><th class="num">{{ t('report.label.m06') }}</th><th class="num">{{ t('report.label.m07_max') }}</th><th class="num">{{ t('report.label.m07_failed') }}</th><th class="num">{{ t('report.label.m08') }}</th><th class="num">{{ t('report.label.m09a') }}</th><th class="num">{{ t('report.label.m09b') }}</th><th class="num">{{ t('report.label.kappa') }}</th><th class="num">{{ t('report.label.coverage_min') }}</th></tr></thead>
+    <tbody>
+    {% for row in metric_rows %}
+    <tr data-recording="{{ row.id }}"><td class="mono">{{ row.id }}</td><td>{{ row.format }}</td><td class="num">{{ row.rate }}</td><td class="num">{{ row.duration }}</td><td class="num">{{ row.channels }}</td><td class="line">{{ row.line }}</td><td class="num m06">{{ row.m06 }}</td><td class="num m07">{{ row.m07 }}</td><td class="num m07-failed">{{ row.m07_failed }}</td><td class="num m08">{{ row.m08 }}</td><td class="num m09a">{{ row.m09a }}</td><td class="num m09b">{{ row.m09b }}</td><td class="num kappa">{{ row.kappa }}</td><td class="num coverage">{{ row.coverage_min }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="legend">{{ t('report.text.metrics_legend') }}</p>
+  {% if sampled %}
+  <h3>{{ t('report.label.sample') }}</h3>
+  <p class="method">{{ fmt.sample_method(sampled[0].sample) }}</p>
+  <table class="sample">
+    <colgroup><col class="w-srec"><col class="w-smode"><col class="w-sseg"><col class="w-sseed"><col class="w-sch"><col class="w-spos"><col class="w-snotch"></colgroup>
+    <thead><tr><th>{{ t('report.label.recording') }}</th><th>{{ t('report.label.sample_mode') }}</th><th>{{ t('report.label.segments') }}</th><th>{{ t('report.label.seed') }}</th><th>{{ t('report.label.analysed_channels') }}</th><th>{{ t('report.label.positions') }}</th><th>{{ t('report.label.notch') }}</th></tr></thead>
+    <tbody>
+    {% for rec in sampled %}{% set row = fmt.sample_row(rec.sample) %}
+    <tr><td class="mono">{{ rec.id }}</td><td>{{ row.mode }}</td><td>{{ row.segments }}</td><td>{{ row.seed }}</td><td>{{ row.channels }}</td><td>{{ row.positions }}</td><td>{{ row.notch }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% else %}
+  <p>{{ t('report.text.no_recordings') }}</p>
+  {% endif %}
+  {% if dataset_level %}
+  <div class="dataset-level">
+  <h3>{{ t('report.label.dataset_metrics') }}</h3>
+  {% set labels = dataset_level.labels %}
+  {% if labels %}
+  <h4>{{ t('report.label.labels') }}</h4>
+  <p>{{ labels.source }}</p>
+  <table class="labels">
+    <thead><tr><th>{{ t('report.label.class') }}</th>{% for scope in labels.scopes %}<th class="num">{{ scope }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in labels.rows %}
+    <tr><td>{{ row[0] }}</td>{% for count in row[1:] %}<td class="num">{{ count }}</td>{% endfor %}</tr>
+    {% endfor %}
+    <tr class="total"><th>{{ t('report.label.total') }}</th>{% for total in labels.totals %}<td class="num">{{ total }}</td>{% endfor %}</tr>
+    {% if labels.withheld %}
+    <tr class="withheld"><th>{{ t('report.label.class') }}</th>{% for text in labels.withheld_text %}<td>{{ text }}</td>{% endfor %}</tr>
+    {% endif %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% set demo = dataset_level.demographics %}
+  {% if demo %}
+  <h4>{{ t('report.label.demographics') }}</h4>
+  <table class="demographics">
+    <tbody>
+    <tr><th>{{ t('report.label.subjects') }}</th><td class="num">{{ demo.subjects }}</td></tr>
+    <tr><th>{{ t('report.label.age_documented') }}</th><td class="num">{{ demo.age_documented }}</td></tr>
+    <tr><th>{{ t('report.label.sex_documented') }}</th><td class="num">{{ demo.sex_documented }}</td></tr>
+    <tr><th>{{ t('report.label.age_groups') }}</th><td>{% if demo.age_groups is none %}{{ demo.withheld }}{% else %}{% for name, count in demo.age_groups %}{{ name }}: {{ count }}{% if not loop.last %}; {% endif %}{% else %}{{ t('report.value.no_values') }}{% endfor %}{% endif %}</td></tr>
+    <tr><th>{{ t('report.label.sex') }}</th><td>{% if demo.sex is none %}{{ demo.withheld }}{% else %}{% for name, count in demo.sex %}{{ name }}: {{ count }}{% if not loop.last %}; {% endif %}{% else %}{{ t('report.value.no_values') }}{% endfor %}{% endif %}</td></tr>
+    </tbody>
+  </table>
+  {% endif %}
+  {% set splits = dataset_level.splits %}
+  {% if splits %}
+  <h4>{{ t('report.label.splits') }}</h4>
+  <p>{{ t('report.text.splits_source', source=splits.source) }}</p>
+  <table class="splits">
+    <thead><tr><th>{{ t('report.label.scope') }}</th><th class="num">{{ t('report.label.recordings_count') }}</th><th class="num">{{ t('report.label.subjects') }}</th></tr></thead>
+    <tbody>
+    {% for name, recordings, subjects in splits.rows %}
+    <tr><td>{{ name }}</td><td class="num">{{ recordings }}</td><td class="num">{{ subjects }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="unassigned">{{ t('report.label.unassigned') }}: {{ splits.unassigned }}</p>
+  {% endif %}
+  {% if dataset_level.duplicates is not none %}
+  <p class="duplicates">{{ t('report.label.duplicate_groups') }}: {{ dataset_level.duplicates }}</p>
+  {% endif %}
+  </div>
+  {% endif %}
+</section>

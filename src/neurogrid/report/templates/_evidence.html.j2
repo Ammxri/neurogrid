@@ -1,0 +1,17 @@
+<section id="evidence">
+  <h2>{{ t('report.section.evidence') }}</h2>
+  {% if evidence_rows %}
+  <p>{{ t('report.text.evidence_intro') }}</p>
+  <table class="evidence">
+    <colgroup><col class="w-erule"><col class="w-etitle"><col class="w-ekind"><col class="w-estatus"><col class="w-ereason"><col class="w-edoc"><col class="w-echeck"><col class="w-esha"><col class="w-ereviewer"><col class="w-edate"><col class="w-ecomment"></colgroup>
+    <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.title') }}</th><th>{{ t('report.label.verification') }}</th><th>{{ t('report.label.status') }}</th><th>{{ t('report.label.reason') }}</th><th>{{ t('report.label.document') }}</th><th>{{ t('report.label.document_check') }}</th><th>SHA-256</th><th>{{ t('report.label.reviewer') }}</th><th>{{ t('report.label.evidence_date') }}</th><th>{{ t('report.label.comment') }}</th></tr></thead>
+    <tbody>
+    {% for row in evidence_rows %}
+    <tr><td class="mono">{{ row.rule }} ({{ row.rulepack }})</td><td>{{ row.title }}</td><td>{{ row.kind }}</td><td>{{ row.status }}</td><td>{{ row.note }}</td><td class="mono">{{ row.document }}</td><td>{{ row.document_check }}</td><td class="mono">{{ row.sha256 }}</td><td>{{ row.reviewer }}</td><td class="nowrap">{{ row.date }}</td><td>{{ row.comment }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>{{ t('report.text.no_manual_rules') }}</p>
+  {% endif %}
+</section>

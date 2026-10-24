@@ -1,0 +1,42 @@
+{% macro finding_table(group) %}
+  <table class="findings">
+    <colgroup><col class="w-rule"><col class="w-clause"><col class="w-title"><col class="w-status"><col class="w-file"><col class="w-channel"><col class="w-measured"><col class="w-threshold"><col class="w-time"><col class="w-reason"></colgroup>
+    <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.clause') }}</th><th>{{ t('report.label.title') }}</th><th>{{ t('report.label.status') }}</th><th>{{ t('report.label.file') }}</th><th>{{ t('report.label.channel') }}</th><th>{{ t('report.label.measured') }}</th><th>{{ t('report.label.threshold') }}</th><th>{{ t('report.label.time_range') }}</th><th>{{ t('report.label.reason') }}</th></tr></thead>
+    <tbody>
+    {% for row in group.rows %}
+    <tr data-key="{{ row.key }}">{% for cell in finding_cells %}<td class="c-{{ cell }}{% if cell in ('rule', 'file') %} mono{% endif %}">{{ row[cell] }}</td>{% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+{% endmacro %}
+<section id="findings">
+  <h2>{{ t('report.section.findings') }}</h2>
+  {% for section in severity_sections %}
+  <h3 class="sev-{{ section.severity }}">{{ t('severity.' ~ section.severity) }} ({{ section.count }})</h3>
+  {% if section.groups %}
+  {% for group in section.groups %}
+  <div class="rule-group" data-rule="{{ group.rule }}">
+    <h4>{{ group.heading }}</h4>
+    <p class="aggregate">{{ group.aggregate }}</p>
+    {{ finding_table(group) }}
+    {% if group.more %}<p class="more">{{ group.more }}</p>{% endif %}
+  </div>
+  {% endfor %}
+  {% else %}
+  <p>{{ t('report.text.no_findings') }}</p>
+  {% endif %}
+  {% endfor %}
+  {% if placeholder_groups %}
+  <div class="placeholder-group">
+    <h3>{{ t('report.label.placeholder_findings') }} ({{ placeholder_count }})</h3>
+    {% for group in placeholder_groups %}
+    <div class="rule-group" data-rule="{{ group.rule }}">
+      <h4>{{ group.heading }}</h4>
+      <p class="aggregate">{{ group.aggregate }}</p>
+      {{ finding_table(group) }}
+      {% if group.more %}<p class="more">{{ group.more }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
