@@ -211,6 +211,24 @@ errors:
     empty: "Keine Sprache angegeben. Verfügbar: zh, en."
   report:
     format_unavailable: "Ausgabeformat '{format}' ist in dieser Version nicht verfügbar."
+  pdf:
+    shell_missing: "Der PDF-Browser (Chrome Headless Shell, Revision {revision}) ist in {folder} nicht installiert. HTML-Berichte gehen ohne ihn (--format html)."
+    shell_incomplete: "Der PDF-Browser in {folder} ist unvollständig (Installationsprotokoll oder Programmdatei fehlt). Bitte neu installieren."
+    shell_revision: "Der PDF-Browser im NeuroGrid-Ordner hat Revision {found}; diese NeuroGrid-Version braucht Revision {required}. Bitte neu installieren."
+    platform_unsupported: "PDF-Berichte gibt es auf dieser Plattform ({platform}) nicht; unterstützt sind nur Windows x86_64 und Linux x86_64. HTML-Berichte gehen."
+    browser_dir_invalid: "{variable} muss ein absoluter Ordner auf diesem Rechner sein (kein Netzwerk- oder Gerätepfad)."
+    playwright_version: "PDF-Berichte brauchen Playwright {required}, installiert ist {found}. Bitte NeuroGrid nach der Lock-Datei neu installieren."
+    linux_libraries: "Dem PDF-Browser fehlen Systembibliotheken: {libraries}."
+    glibc_too_old: "Der PDF-Browser braucht eine neuere C-Bibliothek (glibc {required} oder neuer). Unterstützt: Debian 12, Ubuntu 22.04 oder neuer."
+    launch_failed: "Der PDF-Browser ließ sich nicht starten ({type}). Bitte mit der Option --check des Installationsskripts prüfen; HTML-Berichte gehen ohne ihn."
+    print_failed: "Der PDF-Browser konnte den Bericht nicht drucken ({type}); es wurde nichts geschrieben."
+    timeout: "Der PDF-Browser wurde nicht innerhalb von {seconds} s fertig; es wurde nichts geschrieben."
+    qa_failed: "Das PDF hat die PDF-Prüfung von NeuroGrid nicht bestanden ({checks}); es wurde nichts geschrieben."
+    install:
+      command: "Installation mit: {command}   (offline: zusätzlich --from-zip <zip-Datei> --sha256 <SHA-256>; siehe Dokumentation)."
+      docs: "Installation: siehe Dokumentation, Seite Installation, Abschnitt „PDF-Browser“. Das Installationsskript install_pdf_browser.py liegt jedem NeuroGrid-Release bei (Adresse und SHA-256 dort); Ausführen mit Python 3.11 oder neuer."
+      apt: "Unter {distribution} installieren mit: apt-get install --no-install-recommends {packages}"
+      apt_other: "Diese Linux-Distribution ist nicht verifiziert; die Pakete für {distribution} sind: apt-get install --no-install-recommends {packages}"
   output:
     is_directory: "Der Ausgabepfad ist ein Ordner; bitte einen Dateinamen angeben."
     not_writable: "Die Ausgabe kann dort nicht geschrieben werden (Ordner fehlt, eine Datei steht im Weg oder es fehlen Rechte)."

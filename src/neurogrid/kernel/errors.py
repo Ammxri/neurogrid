@@ -31,5 +31,19 @@ class InputError(NeuroGridError):
     """An input file or option is unusable (e.g. a single file of unknown format)."""
 
 
+class PdfError(NeuroGridError):
+    """PDF output is not possible or failed its check: no or another PDF browser, missing system libraries,
+    a browser failure or the PDF QA gate (A-26, A-27). Nothing is written.
+
+    ``hint`` is an optional second message (key and parameters), e.g. the command that installs the PDF
+    browser; its parameters are NeuroGrid's own values (paths of this installation, package names)."""
+
+    def __init__(
+        self, message_key: str, *, hint: tuple[str, dict[str, object]] | None = None, **params: object
+    ) -> None:
+        super().__init__(message_key, **params)
+        self.hint = hint
+
+
 class NetworkBlockedError(RuntimeError):
     """Raised by the network guard when code tries to reach a non-loopback address."""

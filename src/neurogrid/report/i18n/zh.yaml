@@ -212,6 +212,24 @@ errors:
     empty: "未指定语言。可用：zh、en。"
   report:
     format_unavailable: "本版本不提供输出格式 '{format}'。"
+  pdf:
+    shell_missing: "{folder} 中未安装 PDF 浏览器（Chrome Headless Shell，修订版 {revision}）。不需要它也可生成 HTML 报告（--format html）。"
+    shell_incomplete: "{folder} 中的 PDF 浏览器不完整（缺少安装记录或程序文件）。请重新安装。"
+    shell_revision: "NeuroGrid 文件夹中的 PDF 浏览器为修订版 {found}；本版本 NeuroGrid 需要修订版 {required}。请重新安装。"
+    platform_unsupported: "此平台（{platform}）不提供 PDF 报告；仅支持 Windows x86_64 和 Linux x86_64。HTML 报告可正常生成。"
+    browser_dir_invalid: "{variable} 必须是本机上的绝对文件夹路径（不得为网络路径或设备路径）。"
+    playwright_version: "生成 PDF 报告需要 Playwright {required}，但已安装的是 {found}。请按锁定文件重新安装 NeuroGrid。"
+    linux_libraries: "PDF 浏览器缺少以下系统库：{libraries}。"
+    glibc_too_old: "PDF 浏览器需要更新的 C 库（glibc {required} 或更高版本）。支持的系统：Debian 12、Ubuntu 22.04 或更高版本。"
+    launch_failed: "无法启动 PDF 浏览器（{type}）。请使用安装程序的 --check 选项进行检查；不需要它也可生成 HTML 报告。"
+    print_failed: "PDF 浏览器无法打印报告（{type}）；未写入任何文件。"
+    timeout: "PDF 浏览器未在 {seconds} 秒内完成；未写入任何文件。"
+    qa_failed: "PDF 未通过 NeuroGrid 的 PDF 检查（{checks}）；未写入任何文件。"
+    install:
+      command: "安装命令：{command}（离线安装：加上 --from-zip <zip 文件> --sha256 <SHA-256>，详见文档）。"
+      docs: "安装方法见文档“安装”页的“PDF 浏览器”一节。每个 NeuroGrid 发布版本都附有安装程序 install_pdf_browser.py（地址和 SHA-256 见该节）；请用 Python 3.11 或更高版本运行。"
+      apt: "在 {distribution} 上可用以下命令安装：apt-get install --no-install-recommends {packages}"
+      apt_other: "此 Linux 发行版未经验证；{distribution} 的软件包为：apt-get install --no-install-recommends {packages}"
   output:
     is_directory: "输出路径是文件夹；请给出文件名。"
     not_writable: "无法在该位置写入输出（文件夹不存在、存在同名文件或没有权限）。"

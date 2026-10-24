@@ -30,6 +30,7 @@ dependencies = [
     "bids-validator-deno==3.0.2",
     "deno==2.9.7",
     "edfio==0.4.18",
+    "fonttools==4.66.1",
     "h5py==3.16.0",
     "jinja2==3.1.6",
     "matplotlib==3.11.2",
@@ -38,9 +39,11 @@ dependencies = [
     "mne-icalabel[onnx]==0.10.0",
     "numpy==2.4.6",
     "onnxruntime==1.31.0",
+    "playwright==1.63.0",
     "pybv==0.8.1",
     "pydantic==2.14.0",
     "pymatreader==1.3.2",
+    "pypdf==6.21.2",
     "pyprep==0.9.0",
     "python-picard==0.8.2",
     "pyyaml==6.0.3",
@@ -130,6 +133,7 @@ markers = [
     "corpus: needs the public test corpus in .local/corpus (tools/corpus.py)",
     "perf: performance measurements (NG-N02)",
     "browser: drives the Chrome Headless Shell (located by kernel.pdf.locate_shell) against the built docs site",
+    "pdf: prints PDFs with the Chrome Headless Shell (tools/install_pdf_browser.py); skipped without it unless NEUROGRID_REQUIRE_PDF=1",
 ]
 filterwarnings = ["error::EncodingWarning:neurogrid"]
 
@@ -137,6 +141,8 @@ filterwarnings = ["error::EncodingWarning:neurogrid"]
 source = ["neurogrid"]
 branch = true
 patch = ["subprocess"]
+# Playwright's synchronous API switches greenlets; without this, code after a PDF print is not traced
+concurrency = ["thread", "greenlet"]
 
 [tool.coverage.report]
 show_missing = true

@@ -2,7 +2,8 @@
 phases.
 
 Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error. manifest: 0 written, 1 files
-could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82).
+could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82);
+report: 0 written, 2 tool error, e.g. no PDF browser for --format pdf (nothing written, A-26).
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from typer.exceptions import TyperException
 from neurogrid import pipeline
 from neurogrid.io.provenance import inside, shown_target
 from neurogrid.kernel import canonical, netguard
-from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError
+from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError, PdfError
 from neurogrid.kernel.findings import Severity
 from neurogrid.kernel.i18n import DEFAULT_LANGUAGE, detect_language, normalize_language
 from neurogrid.kernel.safety import check_operator_path, read_limited, redact_paths
@@ -580,8 +581,8 @@ def report(
     fmt: Annotated[list[str] | None, typer.Option("--format")] = None,
     out: Annotated[str | None, typer.Option("--out")] = None,
 ) -> None:
-    """Render the report for each language and format."""
-    from neurogrid.report.render import render_report
+    """Render the report for each language and format (HTML; PDF with the PDF browser)."""
+    from neurogrid.report.output import FORMATS, write_reports
 
     source = check_operator_path(results_file)
     if not source.is_file():
@@ -598,16 +599,15 @@ def report(
         if language not in REPORT_LANGUAGES:
             raise NeuroGridError("errors.i18n.unknown_language", language=language)
     for name in formats:
-        if name != "html":
+        if name not in FORMATS:
             raise NeuroGridError("errors.report.format_unavailable", format=name)
     folder = check_operator_path(out) if out is not None else source.resolve().parent
     if folder.exists() and not folder.is_dir():
         raise InputError("output.not_writable")
-    for language in languages:
-        html = render_report(results, language)
-        target = folder / f"report.{language}.html"
-        _write_atomic(target, html.encode("utf-8"))
+    # all files or none (A-26); with pdf the PDF browser is checked before anything is rendered
+    for target in write_reports(results, languages, formats, folder, environ=os.environ):
         _say("cli.report.written", path=_display_path(target))
+    _say("disclaimer")
 
 
 def _print_list(items: list[str]) -> None:
@@ -677,11 +677,19 @@ def verify(
 
 
 def _error_text(exc: NeuroGridError) -> str:
-    """Translated message; parameters may come from foreign files and are cleaned and shortened (A-53)."""
+    """Translated message; parameters may come from foreign files and are cleaned and shortened (A-53).
+
+    A PDF error may carry a hint (e.g. the installer command or the apt packages): NeuroGrid's own values,
+    cleaned and with home and dataset paths redacted, but not shortened (A-51)."""
     tr = translator(_lang()).t
     key = exc.message_key if exc.message_key.startswith("errors.") else f"errors.{exc.message_key}"
     params = {name: _redact(_clean(str(value)))[:MAX_PARAM_CHARS] for name, value in exc.params.items()}
-    return f"{tr('cli.error.prefix')}: {tr(key, **params)}"
+    text = f"{tr('cli.error.prefix')}: {tr(key, **params)}"
+    if isinstance(exc, PdfError) and exc.hint is not None:
+        hint_key, hint_params = exc.hint
+        cleaned = {name: _redact(_clean(str(value))) for name, value in hint_params.items()}
+        text += "\n" + tr(f"errors.{hint_key}", **cleaned)
+    return text
 
 
 _DATASET_PATH = re.compile(r"<dataset>[\\/][^\n]*")

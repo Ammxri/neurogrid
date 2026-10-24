@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -35,6 +36,33 @@ def _offline() -> None:
 @pytest.fixture
 def fixtures() -> Path:
     return FIXTURES
+
+
+@pytest.fixture(scope="session")
+def pdf_shell() -> object:
+    """The installed PDF browser (kernel.pdf.locate_shell, the only way the project starts a browser),
+    located once per session from the environment the tests start with.
+
+    Without it, tests marked ``pdf`` (and fixtures that request this one) are skipped with the reason,
+    unless NEUROGRID_REQUIRE_PDF=1 (CI and the final local run): then a missing browser fails them."""
+    from neurogrid.kernel.errors import PdfError
+    from neurogrid.kernel.pdf import locate_shell
+
+    try:
+        return locate_shell(os.environ)
+    except PdfError as exc:
+        reason = (
+            f"PDF browser not available ({exc.message_key}); install it with tools/install_pdf_browser.py"
+        )
+        if os.environ.get("NEUROGRID_REQUIRE_PDF") == "1":
+            pytest.fail(reason)
+        pytest.skip(reason)
+
+
+@pytest.fixture(autouse=True)
+def _pdf_marker(request: pytest.FixtureRequest) -> None:
+    if request.node.get_closest_marker("pdf") is not None:
+        request.getfixturevalue("pdf_shell")
 
 
 def dir_link(link: Path, target: Path) -> None:
