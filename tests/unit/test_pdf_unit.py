@@ -550,6 +550,124 @@ def _skia_like(
     )
 
 
+class _FakePage:
+    def __init__(self, calls: dict[str, Any]) -> None:
+        self.calls = calls
+
+    def on(self, event: str, handler: object) -> None:
+        self.calls.setdefault("events", []).append(event)
+
+    def goto(self, url: str, **kwargs: Any) -> None:
+        self.calls["goto"] = (url, kwargs)
+
+    def pdf(self, **kwargs: Any) -> bytes:
+        self.calls["pdf"] = kwargs
+        return _skia_like()
+
+
+class _FakeContext:
+    def __init__(self, calls: dict[str, Any]) -> None:
+        self.calls = calls
+
+    def set_default_timeout(self, timeout: float) -> None:
+        self.calls["timeout"] = timeout
+
+    def route(self, pattern: str, handler: object) -> None:
+        self.calls["route"] = pattern
+
+    def new_page(self) -> _FakePage:
+        return _FakePage(self.calls)
+
+    def close(self) -> None:
+        self.calls["closed"] = True
+
+
+def _fake_playwright(monkeypatch: pytest.MonkeyPatch, launched: dict[str, Any]) -> list[dict[str, Any]]:
+    """sync_playwright with a browser whose contexts record their options and calls."""
+    import playwright.sync_api
+
+    contexts: list[dict[str, Any]] = []
+
+    class Browser:
+        def new_context(self, **kwargs: Any) -> _FakeContext:
+            contexts.append({"options": kwargs})
+            return _FakeContext(contexts[-1])
+
+        def close(self) -> None:
+            pass
+
+    class Chromium:
+        def launch(self, **kwargs: Any) -> Browser:
+            launched.update(kwargs)
+            return Browser()
+
+    class Driver:
+        chromium = Chromium()
+
+        def stop(self) -> None:
+            pass
+
+    monkeypatch.setattr(playwright.sync_api, "sync_playwright", lambda: type("S", (), {"start": Driver})())
+    return contexts
+
+
+def test_print_context_locale_per_document_and_fixed_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Spec D5: the context locale is the report's (zh-CN or en-US); everything else stays fixed. Another
+    locale is refused before a context is opened."""
+    launched: dict[str, Any] = {}
+    contexts = _fake_playwright(monkeypatch, launched)
+    page = tmp_path / "r.html"
+    page.write_text(f'<head><meta http-equiv="Content-Security-Policy" content="{CSP}"></head>', "utf-8")
+    shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
+    with PdfPrinter(shell, tmp_path / "work") as printer:
+        dated = printer.print(page, PdfMeta("t", AS_OF), locale="zh-CN")
+        printer.print(page, PdfMeta("t", AS_OF))
+        with pytest.raises(ValueError):
+            printer.print(page, PdfMeta("t", AS_OF), locale="de-DE")
+    assert pdf.LOCALES == {"zh-CN", "en-US"} and dated.data.count(STAMP.encode()) == 2
+    assert [c["options"]["locale"] for c in contexts] == ["zh-CN", "en-US"]
+    fixed = {k: v for k, v in contexts[0]["options"].items() if k != "locale"}
+    assert fixed == {
+        "java_script_enabled": False,
+        "offline": True,
+        "service_workers": "block",
+        "accept_downloads": False,
+        "timezone_id": "UTC",
+        "color_scheme": "light",
+    }
+    for context in contexts:
+        assert context["timeout"] == pdf.PAGE_TIMEOUT_MS and context["route"] == "**/*" and context["closed"]
+        assert context["goto"] == (page.resolve().as_uri(), {"wait_until": "load"})
+        assert context["pdf"]["tagged"] is False and context["pdf"]["outline"] is False
+
+
+def test_relative_work_folder_becomes_absolute(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """On Python 3.11 tempfile.mkdtemp returns a relative folder for a relative --out: the driver and the
+    browser still get absolute TMP, profile and log paths."""
+    launched: dict[str, Any] = {}
+    _fake_playwright(monkeypatch, launched)
+    monkeypatch.chdir(tmp_path)
+    shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
+    with PdfPrinter(shell, Path("out") / "run-1") as printer:
+        assert printer.work == tmp_path / "out" / "run-1"
+    assert launched["env"]["TMP"] == str(tmp_path / "out" / "run-1")
+    assert f"--log-file={tmp_path / 'out' / 'run-1' / 'chromium.log'}" in launched["args"]
+
+
+def test_playwright_prints_without_a_timeout_and_navigates_with_one() -> None:
+    """Playwright 1.63.0 sends Page.pdf without a timeout; the context default (PAGE_TIMEOUT_MS) bounds
+    only opening and loading the page. A large report therefore never ends in pdf.timeout while it is
+    printed (measured: 2000 extra finding rows, timeout 1 s: loading 0.2 s, printing 5.5 s, no timeout).
+    A Playwright update that changes this fails here."""
+    from playwright._impl._frame import Frame
+    from playwright._impl._page import Page
+
+    assert 'self._channel.send("pdf", None, params)' in inspect.getsource(Page.pdf)
+    assert '"goto", self._navigation_timeout' in inspect.getsource(Frame.goto)
+
+
 def test_set_dates_same_length_and_exactly_once() -> None:
     raw = _skia_like()
     dated = pdf.set_dates(raw, AS_OF)
@@ -649,7 +767,8 @@ def _simple(subtype: str, base: str = "/Helvetica") -> DictionaryObject:
     )
 
 
-EXPECT = PdfExpect(meta=PdfMeta(title="NeuroGrid pre-check report", as_of=AS_OF))
+FONTS = ("NotoSansSC-Regular", "NotoSansSC-Bold")  # PostScript names of the faces (kernel.fonts)
+EXPECT = PdfExpect(meta=PdfMeta(title="NeuroGrid pre-check report", as_of=AS_OF), fonts=FONTS)
 
 
 def test_qa_gate_on_built_pdfs() -> None:
@@ -668,6 +787,15 @@ def test_qa_gate_on_built_pdfs() -> None:
     assert pdf.qa_gate(_pdf(fonts={"/F1": _type0(file="/FontFile3")}), EXPECT) == ["font_not_cid_truetype"]
     assert pdf.qa_gate(_pdf(form_fonts={"/F9": _simple("/Type3")}), EXPECT) == ["font_type3"]  # inside a form
     assert pdf.qa_gate(_pdf(fonts={"/F1": _type0("/SegoeUISymbol")}), EXPECT) == ["font_not_report_font"]
+    assert pdf.qa_gate(_pdf(fonts={"/F1": _type0("/NotoSansSC-Regular")}), EXPECT) == ["font_not_report_font"]
+    # only the faces the product passes in: the kernel names no font itself (A-23)
+    other = PdfExpect(meta=EXPECT.meta, fonts=("OtherSans-Regular",))
+    assert pdf.qa_gate(_pdf(fonts={"/F1": _type0("/AAAAAA+OtherSans-Regular")}), other) == []
+    assert pdf.qa_gate(good, other) == ["font_not_report_font"]
+    assert pdf.qa_gate(good, PdfExpect(meta=EXPECT.meta, fonts=())) == ["font_not_report_font"]
+    assert pdf.qa_gate(_pdf(fonts={"/F1": _type0("/aaaaaa+NotoSansSC-Regular")}), EXPECT) == [
+        "font_not_report_font"
+    ]
 
 
 def test_qa_gate_metadata_phrases_and_requests() -> None:
@@ -686,7 +814,7 @@ def test_qa_gate_metadata_phrases_and_requests() -> None:
     dated = {**wrong, "/Title": EXPECT.meta.title, "/ModDate": "D:20261023183612+00'00'"}
     assert pdf.qa_gate(_pdf(info=dated), EXPECT) == ["metadata_dates"]
     assert pdf.qa_gate(_pdf(xmp=True), EXPECT) == ["metadata_xmp"]
-    phrases = PdfExpect(meta=EXPECT.meta, every_page=("fixed sentence",), once=("Cover",))
+    phrases = PdfExpect(meta=EXPECT.meta, fonts=FONTS, every_page=("fixed sentence",), once=("Cover",))
     assert pdf.qa_gate(_pdf(pages=2), phrases) == ["phrase_missing", "phrase_missing_on_page"]
     log = RequestLog(seen=3, unexpected=2, aborted=1, failed=1)
     assert pdf.qa_gate(_pdf(), EXPECT, log=log) == [

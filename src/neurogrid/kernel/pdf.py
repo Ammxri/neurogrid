@@ -15,9 +15,12 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   the caller's node, debug and Playwright variables; the browser gets a complete, minimal environment.
 - **Files (A-54):** temporary files, profile and logs in the run's work folder; the GPU runs inside the
   browser process, and a debug.log that a child process appends next to the executable is undone.
-- **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale, time
-  zone, colour scheme), CreationDate/ModDate set to the reference date by a same-length byte replacement of
-  the two fields Chromium writes; the result is byte-identical for the same input.
+- **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
+  report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a
+  same-length byte replacement of the two fields Chromium writes; the result is byte-identical for the same
+  input.
+- **QA gate:** the fonts it accepts are passed in by the product (PdfExpect.fonts, the PostScript names
+  of the report fonts); the kernel names no font itself (A-23).
 - **Metadata (A-51):** /Info holds exactly Title (the HTML title), Creator, Producer, CreationDate and
   ModDate; no XMP.
 
@@ -79,7 +82,13 @@ CHROMIUM_FLAGS = (
     "--host-resolver-rules=MAP * ~NOTFOUND",
 )
 CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"
+# The browser context's locale per printed document (zh-CN for the Chinese report, en-US otherwise). The
+# HTML names its language and JavaScript is off: the locale is not observable in the PDF (tested: each
+# report gives identical bytes in either locale).
+LOCALES = frozenset({"zh-CN", "en-US"})
 LAUNCH_TIMEOUT_MS = 60_000
+# Context default: opening the page and loading the file. Page.pdf itself runs without a timeout
+# (Playwright 1.63.0 sends no timeout for it), so a large report never ends in pdf.timeout while printing.
 PAGE_TIMEOUT_MS = 300_000
 # The driver (node) and Playwright's Python side read these: node options and module paths, debug output,
 # PLAYWRIGHT_NODEJS_PATH (another node binary), PLAYWRIGHT_*/PW_* switches that change the browser's flags or
@@ -93,7 +102,8 @@ IN_PROCESS_GPU = "--in-process-gpu"
 CHILD_LOG = "debug.log"
 LINUX_PACKAGES = Path(__file__).with_name("pdf_linux_packages.json")
 BUNDLE_MARKER = "BUNDLE.json"  # in the prefix of an offline-bundle installation (next to venv/, python/)
-REPORT_FONT = re.compile(r"^/?[A-Z]{6}\+NotoSansSC-(Regular|Bold)$")
+# an embedded font subset: six capital letters, "+", the PostScript name of the face
+_SUBSET_FONT = re.compile(r"^/?[A-Z]{6}\+(.+)$")
 INFO_KEYS = frozenset({"/Title", "/Creator", "/Producer", "/CreationDate", "/ModDate"})
 _DATE_FIELD = re.compile(rb"/(CreationDate|ModDate) ?\(D:\d{14}[+-]\d{2}'\d{2}'\)")
 _HEAD_END = re.compile(r"</head\s*>", re.IGNORECASE)
@@ -120,9 +130,11 @@ class PdfMeta:
 
 @dataclass(frozen=True)
 class PdfExpect:
-    """What the QA gate requires: the metadata, phrases on every page and phrases somewhere in the text."""
+    """What the QA gate requires: the metadata, the fonts (PostScript names of the faces whose subsets the
+    PDF may embed, passed in by the product), phrases on every page and phrases somewhere in the text."""
 
     meta: PdfMeta
+    fonts: tuple[str, ...]
     every_page: tuple[str, ...] = ()
     once: tuple[str, ...] = ()
 
@@ -493,7 +505,9 @@ class PdfPrinter:
 
     def __init__(self, shell: ShellInstall, work: Path, *, extra_flags: Sequence[str] = ()) -> None:
         self.shell = shell
-        self.work = work
+        # absolute: TMP, profile and log paths of driver and browser (on Python 3.11, tempfile.mkdtemp
+        # returns a relative folder for a relative --out)
+        self.work = Path(work).absolute()
         self.extra_flags = tuple(extra_flags)  # tests only (e.g. a Chromium net-log)
         self._playwright: Playwright | None = None
         self._browser: Browser | None = None
@@ -554,10 +568,13 @@ class PdfPrinter:
         if child_log is not None:  # after the last browser process has ended
             child_log.restore()
 
-    def print(self, html_path: Path, meta: PdfMeta) -> PrintedPdf:
-        """Print one HTML file (A4, CSS page size, backgrounds, untagged) with dates set to ``meta.as_of``."""
+    def print(self, html_path: Path, meta: PdfMeta, *, locale: str = "en-US") -> PrintedPdf:
+        """Print one HTML file (A4, CSS page size, backgrounds, untagged) with dates set to ``meta.as_of``;
+        ``locale`` is the browser context's locale (one of LOCALES)."""
         from playwright.sync_api import Error
 
+        if locale not in LOCALES:
+            raise ValueError(f"locale must be one of {sorted(LOCALES)}")
         if self._browser is None:
             raise RuntimeError("PdfPrinter is not started")
         try:
@@ -574,7 +591,7 @@ class PdfPrinter:
                 offline=True,
                 service_workers="block",
                 accept_downloads=False,
-                locale="en-US",
+                locale=locale,
                 timezone_id="UTC",
                 color_scheme="light",
             )
@@ -613,14 +630,15 @@ def _resolve(value: PdfObject | None) -> Any:
     return value.get_object() if isinstance(value, IndirectObject) else value
 
 
-def _font_violations(font: DictionaryObject) -> set[str]:
+def _font_violations(font: DictionaryObject, allowed: frozenset[str]) -> set[str]:
     found: set[str] = set()
     subtype = _resolve(font.get("/Subtype"))
     if subtype == "/Type3":
         return {"font_type3"}
     if subtype != "/Type0":
         return {"font_not_cid_truetype"}
-    if not REPORT_FONT.match(str(_resolve(font.get("/BaseFont")))):
+    subset_font = _SUBSET_FONT.match(str(_resolve(font.get("/BaseFont"))))
+    if subset_font is None or subset_font.group(1) not in allowed:
         found.add("font_not_report_font")
     if "/ToUnicode" not in font:
         found.add("font_no_tounicode")
@@ -641,7 +659,7 @@ def _font_violations(font: DictionaryObject) -> set[str]:
     return found
 
 
-def _resource_violations(resources: Any, seen: set[int]) -> set[str]:
+def _resource_violations(resources: Any, seen: set[int], allowed: frozenset[str]) -> set[str]:
     """Fonts of a resource dictionary and, recursively, of its form XObjects."""
     resources = _resolve(resources)
     if not isinstance(resources, DictionaryObject) or id(resources) in seen:
@@ -653,13 +671,13 @@ def _resource_violations(resources: Any, seen: set[int]) -> set[str]:
         for ref in fonts.values():
             font = _resolve(ref)
             if isinstance(font, DictionaryObject):
-                found |= _font_violations(font)
+                found |= _font_violations(font, allowed)
     xobjects = _resolve(resources.get("/XObject"))
     if isinstance(xobjects, DictionaryObject):
         for ref in xobjects.values():
             xobject = _resolve(ref)
             if isinstance(xobject, DictionaryObject) and xobject.get("/Subtype") == "/Form":
-                found |= _resource_violations(xobject.get("/Resources"), seen)
+                found |= _resource_violations(xobject.get("/Resources"), seen, allowed)
     return found
 
 
@@ -675,7 +693,7 @@ def pdf_text(data: bytes) -> list[str]:
 def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = None) -> list[str]:
     """The PDF QA gate (KONZEPT 1.6, A-27): sorted violation codes, empty when the PDF passes.
 
-    Fonts: only embedded Type0/CIDFontType2 subsets of the report fonts with ToUnicode, no Type3, no system
+    Fonts: only embedded Type0/CIDFontType2 subsets of ``expect.fonts`` with ToUnicode, no Type3, no system
     font. Text: no radical or compatibility code point; ``every_page`` phrases on each page, ``once``
     phrases somewhere (whitespace ignored, cells wrap). Metadata: exactly the five /Info keys, the title and
     the reference date, no XMP. Requests: none but the printed file, none aborted or failed."""
@@ -692,8 +710,9 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
     if not pages:
         violations.add("no_pages")
     seen: set[int] = set()
+    allowed = frozenset(expect.fonts)
     for page in pages:
-        violations |= _resource_violations(page.get("/Resources"), seen)
+        violations |= _resource_violations(page.get("/Resources"), seen, allowed)
     if any(is_radical_or_compat(ord(ch)) for text in texts for ch in text):
         violations.add("radical_codepoint")
     squeezed = [_squeeze(text) for text in texts]
@@ -724,11 +743,18 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
 
 
 def print_pdf(
-    html_path: Path, pdf_path: Path, *, meta: PdfMeta, expect: PdfExpect, shell: ShellInstall, work: Path
+    html_path: Path,
+    pdf_path: Path,
+    *,
+    meta: PdfMeta,
+    expect: PdfExpect,
+    shell: ShellInstall,
+    work: Path,
+    locale: str = "en-US",
 ) -> PrintedPdf:
     """Print one document, run the QA gate and write ``pdf_path`` atomically only if it passed."""
     with PdfPrinter(shell, work) as printer:
-        printed = printer.print(html_path, meta)
+        printed = printer.print(html_path, meta, locale=locale)
     violations = qa_gate(printed.data, expect, log=printed.log)
     if violations:
         raise PdfError("pdf.qa_failed", checks=",".join(violations))

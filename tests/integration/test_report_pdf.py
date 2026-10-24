@@ -8,6 +8,7 @@ others (HTML side of the pipeline, all-or-nothing without a browser) always run.
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import html.parser
 import io
@@ -16,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -26,13 +28,19 @@ from fontTools.ttLib import TTFont
 from pypdf.generic import DictionaryObject
 
 from neurogrid import pipeline
-from neurogrid.kernel import canonical, pdf
+from neurogrid.kernel import canonical, fonts, pdf
 from neurogrid.kernel.errors import NeuroGridError, PdfError
 from neurogrid.kernel.findings import SourceStatus, TimeRange
-from neurogrid.kernel.fonts import FONT_FAMILY, font_codepoints, subset_font_css
-from neurogrid.kernel.pdf import CSP, PdfExpect, PdfMeta, PdfPrinter, ShellInstall, qa_gate
+from neurogrid.kernel.fonts import (
+    FONT_FAMILY,
+    font_codepoints,
+    postscript_names,
+    shared_glyphs,
+    subset_font_css,
+)
+from neurogrid.kernel.pdf import CSP, PdfExpect, PdfMeta, PdfPrinter, PrintedPdf, ShellInstall, qa_gate
 from neurogrid.model.results import Results
-from neurogrid.report import output
+from neurogrid.report import output, texts
 from neurogrid.report.output import html_document, write_reports
 from neurogrid.report.render import page_text
 from neurogrid.report.texts import FONT_FILES, translator
@@ -41,6 +49,7 @@ FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 AS_OF = date(2026, 10, 11)
 STAMP = "D:20261011000000+00'00'"
 REPORT_FONT = re.compile(r"^/[A-Z]{6}\+NotoSansSC-(Regular|Bold)$")
+FONTS = postscript_names(FONT_FILES)
 
 
 @pytest.fixture(scope="module")
@@ -142,6 +151,21 @@ def test_metadata_title_dates_and_no_other_keys(results: Results, written: dict[
         assert "/Metadata" not in root and "/ID" not in reader.trailer
 
 
+def _page_counter(number: int, total: int) -> re.Pattern[str]:
+    """The page counter 'x / y' in the squeezed page text, with up to three characters of words around the
+    slash ('1/19', '第1页/共19页'), whatever words the report's counter uses. The digit before 'x' is not
+    excluded: the running head's date ends in a digit right before the counter ('2026-10-111/15')."""
+    return re.compile(rf"{number}\D{{0,3}}/\D{{0,3}}(?<!\d){total}(?!\d)")
+
+
+def test_page_counter_pattern() -> None:
+    assert _page_counter(1, 19).search("x1/19y") and _page_counter(1, 19).search("第1页/共19页")
+    assert _page_counter(3, 12).search("Page3/12") and _page_counter(1, 15).search("2026-10-111/15")
+    assert not _page_counter(1, 19).search("1/190") and not _page_counter(1, 19).search("1/219")
+    assert not _page_counter(1, 19).search("1 and then much later /19")
+    assert not _page_counter(2, 19).search("1/19")
+
+
 @pytest.mark.pdf
 def test_disclaimer_in_footer_of_every_page(results: Results, written: dict[str, Path]) -> None:
     """A-08: the fixed sentence in the footer of every page, with the page counter 'x / y' (B1)."""
@@ -151,7 +175,7 @@ def test_disclaimer_in_footer_of_every_page(results: Results, written: dict[str,
         sentence = _squeeze(translator(lang).t("disclaimer"))
         for number, page in enumerate(pages, start=1):
             assert sentence in page, number
-            assert f"{number}/{len(pages)}" in page, number
+            assert _page_counter(number, len(pages)).search(page), number
 
 
 class _Cells(html.parser.HTMLParser):
@@ -204,6 +228,20 @@ def test_every_finding_field_in_pdf_text(results: Results, written: dict[str, Pa
             if finding.file is not None:
                 assert any(_squeeze(finding.file) in cell for cell in cells), finding.file
         assert all(f"{r.start_s:.3f}" in text for r in long.time_ranges)
+
+
+@pytest.mark.pdf
+def test_rule_ids_do_not_break_inside_in_the_pdf(results: Results, written: dict[str, Path]) -> None:
+    """Every rule ID of the finding tables stands on one line of the PDF text (the verifier saw
+    'BIDS / -STO / -002' in the portrait table of this branch). The landscape finding tables with fixed
+    columns are the report area's (B1, REP-00); without them the check is skipped, after the merge it
+    guards the layout of the printed tables."""
+    for lang in ("zh", "en"):
+        if "@page wide" not in written[f"report.{lang}.html"].read_text(encoding="utf-8"):
+            pytest.skip("the landscape finding tables of the report area (B1) are not in this build")
+        lines = "\n".join(_texts(written[f"report.{lang}.pdf"].read_bytes())).splitlines()
+        broken = sorted({f.rule_id for f in results.findings if not any(f.rule_id in line for line in lines)})
+        assert not broken, (lang, broken)
 
 
 @pytest.mark.pdf
@@ -266,7 +304,7 @@ def test_qa_gate_negative_controls(
     text = "Hello 数据 <b>bold 粗体</b>"
     both = subset_font_css(FONT_FILES, text + "Control")
     regular_only = subset_font_css({400: FONT_FILES[400]}, text + "Control")
-    expect = PdfExpect(meta=PdfMeta("Control", AS_OF), every_page=("Hello",), once=("bold",))
+    expect = PdfExpect(meta=PdfMeta("Control", AS_OF), fonts=FONTS, every_page=("Hello",), once=("bold",))
     outside = "file:///C:/Windows/win.ini" if os.name == "nt" else "file:///etc/passwd"
     work = tmp_path / "work"
     with PdfPrinter(pdf_shell, work) as printer:
@@ -285,7 +323,9 @@ def test_qa_gate_negative_controls(
         assert "font_not_report_font" in cross
         radical = _print(printer, work, "radical", _page(text + " \u2f63", css=NG_CSS, font_css=both), expect)
         assert {"font_not_report_font", "radical_codepoint"} & set(radical)
-        missing = PdfExpect(meta=expect.meta, every_page=("absent phrase",), once=("also absent",))
+        missing = PdfExpect(
+            meta=expect.meta, fonts=FONTS, every_page=("absent phrase",), once=("also absent",)
+        )
         assert _print(printer, work, "phrases", _page(text, css=NG_CSS, font_css=both), missing) == [
             "phrase_missing",
             "phrase_missing_on_page",
@@ -299,7 +339,7 @@ def test_qa_gate_negative_controls(
         monkeypatch.setattr(pdf, "has_csp", lambda document: True)  # the router is the second layer
         routed = _print(printer, work, "router", _page(image, css=NG_CSS, font_css=both, csp=False), expect)
         assert "requests_aborted" in routed
-        wrong = PdfExpect(meta=PdfMeta("Other title", date(2026, 1, 1)))
+        wrong = PdfExpect(meta=PdfMeta("Other title", date(2026, 1, 1)), fonts=FONTS)
         page = _page(text, css=NG_CSS, font_css=both)
         assert _print(printer, work, "meta", page, wrong, meta=expect.meta) == [
             "metadata_dates",
@@ -461,6 +501,151 @@ def test_dataset_text_without_glyph_never_fails(results: Results, tmp_path: Path
     assert {ord(ch) for ch in text} <= font_codepoints(FONT_FILES) | {ord("\n")}
 
 
+@contextlib.contextmanager
+def _shared_glyphs_kept(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Negative control: font subsets as before the repair, glyphs shared by several code points stay
+    shared. The subset cache is emptied before and after, so no other test sees such a subset."""
+    fonts._subset.cache_clear()
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(fonts, "separate_shared_glyphs", lambda font: {})
+            yield
+    finally:
+        fonts._subset.cache_clear()
+
+
+def _twin_tokens(text: str) -> list[str]:
+    """The '|...|' tokens of the printed text without line breaks, spaces and soft hyphens (U+00AD is not
+    drawn; the extraction puts a space where it was)."""
+    return [re.sub("[\n \u00ad]", "", token) for token in re.findall(r"\|([^|]*)\|", text)]
+
+
+def _plain(text: str) -> str:
+    """``text`` without white space and soft hyphens (U+00AD is not drawn)."""
+    return re.sub("[\\s\u00ad]", "", text)
+
+
+# The characters of the repair note (U+2013, U+00AD, U+2011, U+00B7) next to code points that share their
+# glyph in the static cuts: U+2012 (with U+2013), U+002D (with U+00AD and U+2011), U+2027 (with U+00B7) and
+# the ideograph twins U+3B35/U+80F6 (\u80f6).
+TWIN_NAME = "EEG \u2012\u2013 -\u00ad\u2011 \u00b7\u2027 \u3b35\u80f6"
+
+
+@pytest.mark.pdf
+def test_glyph_twins_extract_as_their_own_codepoints(
+    pdf_shell: ShellInstall, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """B2/A-27: every code point of the 95 glyphs the static cuts share (U+2012/U+2013, U+002D/U+2011,
+    U+00B7/U+2027, U+3B35/U+80F6, ...) comes back from the PDF text as itself, in both weights. Negative
+    control with shared glyphs kept: Skia's ToUnicode gives the lowest code point of the embedded font, so
+    every en dash reads as a figure dash."""
+    groups = sorted(shared_glyphs(TTFont(FONT_FILES[400], lazy=True)).values())
+    assert len(groups) == 95
+    line = " ".join("|" + "".join(chr(cp) for cp in group) + "|" for group in groups)
+    body = f"<p>{line}</p><p><b>{line}</b></p>"
+    wanted = [re.sub("[ \u00ad]", "", "".join(chr(cp) for cp in group)) for group in groups] * 2
+    expect = PdfExpect(meta=PdfMeta("Control", AS_OF), fonts=FONTS, once=("|",))
+    work = tmp_path / "work"
+
+    def printed(name: str) -> str:
+        source = work / f"{name}.html"
+        source.write_text(_page(body, css=NG_CSS, font_css=subset_font_css(FONT_FILES, body)), "utf-8")
+        result = printer.print(source, expect.meta)
+        assert qa_gate(result.data, expect, log=result.log) == []
+        return "".join(_texts(result.data))
+
+    with PdfPrinter(pdf_shell, work) as printer:
+        assert _twin_tokens(printed("separated")) == wanted
+        with _shared_glyphs_kept(monkeypatch):
+            kept = _twin_tokens(printed("kept"))
+    dash = groups.index([0x2012, 0x2013])
+    assert kept[dash] == kept[dash + len(groups)] == "\u2012\u2012" and kept != wanted
+
+
+@pytest.mark.pdf
+def test_glyph_twins_in_dataset_text_never_fail_the_gate(
+    results: Results, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The verifier's case: with the zh title 'NeuroGrid – 预检报告' quoted in B2 (a phrase the gate
+    requires) and a dataset name with the glyph twins of TWIN_NAME (U+2012 shares the glyph of '–'), the
+    report passes and the PDF text keeps every twin apart; /Title is the HTML title. Negative control with
+    shared glyphs kept: every '–' reads as U+2012, the title goes missing and the run ends with exit 2
+    (pdf.qa_failed)."""
+    title = "NeuroGrid \u2013 预检报告"
+    monkeypatch.setitem(texts.tables()["zh"], "report.title", title)
+    twin = results.model_copy(deep=True)
+    twin.dataset.name = TWIN_NAME
+    paths = write_reports(twin, ["zh"], ["html", "pdf"], tmp_path / "ok", environ=os.environ)
+    reader = pypdf.PdfReader(io.BytesIO(paths[1].read_bytes()))
+    assert reader.metadata is not None and reader.metadata.get("/Title") == title
+    text = "".join(page.extract_text() or "" for page in reader.pages)
+    visible = _Text()
+    visible.feed(paths[0].read_text(encoding="utf-8"))
+    body = "".join(visible.parts)
+    assert TWIN_NAME in body
+    for char in "\u2012\u2011\u2027\u3b35":  # only in the dataset name: in the body, not in a margin box
+        assert text.count(char) == body.count(char) >= 1, f"U+{ord(char):04X}"
+    assert text.count("\u2013") >= body.count("\u2013") > 1  # the empty-cell dashes and the title
+    assert _squeeze(title) in _squeeze(text) and _plain(TWIN_NAME) in _plain(text)
+    with _shared_glyphs_kept(monkeypatch), pytest.raises(PdfError) as info:
+        write_reports(twin, ["zh"], ["html", "pdf"], tmp_path / "kept", environ=os.environ)
+    assert info.value.message_key == "pdf.qa_failed" and "phrase_missing" in str(info.value.params["checks"])
+    assert not (tmp_path / "kept").exists()
+
+
+def test_write_reports_prints_each_language_with_its_locale(
+    results: Results, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Spec D5: the zh report is printed in a zh-CN browser context, the en report in en-US (without a
+    browser: printer, start check and gate replaced)."""
+    printed: list[tuple[str, str]] = []
+
+    class Printer:
+        def __init__(self, shell: object, work: Path) -> None:
+            pass
+
+        def __enter__(self) -> Printer:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def print(self, source: Path, meta: PdfMeta, *, locale: str) -> PrintedPdf:
+            printed.append((source.name, locale))
+            return PrintedPdf(data=b"%PDF")
+
+    shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
+    monkeypatch.setattr(output, "locate_shell", lambda environ: shell)
+    monkeypatch.setattr(output, "preflight", lambda shell: None)
+    monkeypatch.setattr(output, "PdfPrinter", Printer)
+    monkeypatch.setattr(output, "qa_gate", lambda *args, **kwargs: [])
+    paths = write_reports(results, ["zh", "en"], ["pdf"], tmp_path, environ={})
+    assert printed == [("report.zh.html", "zh-CN"), ("report.en.html", "en-US")]
+    assert [p.read_bytes() for p in paths] == [b"%PDF", b"%PDF"]
+    assert output.LOCALES == {"zh": "zh-CN", "en": "en-US"} and set(output.LOCALES.values()) == pdf.LOCALES
+
+
+@pytest.mark.pdf
+def test_context_locale_leaves_the_pdf_bytes_unchanged(
+    results: Results, written: dict[str, Path], pdf_shell: ShellInstall, tmp_path: Path
+) -> None:
+    """Decision (6) of the repair: zh-CN for the zh report and en-US for the en report only because the
+    output stays byte-identical. Each delivered HTML printed in a zh-CN and in an en-US context gives the
+    same bytes, and they are the bytes write_reports delivered (the HTML names its language, JavaScript is
+    off, the fonts are embedded)."""
+    work = tmp_path / "work"
+    with PdfPrinter(pdf_shell, work) as printer:
+        for lang in ("zh", "en"):
+            source = work / f"report.{lang}.html"
+            source.write_bytes(written[f"report.{lang}.html"].read_bytes())
+            meta = PdfMeta(translator(lang).t("report.title"), results.config.as_of)
+            printed = {
+                locale: printer.print(source, meta, locale=locale).data for locale in sorted(pdf.LOCALES)
+            }
+            assert printed["zh-CN"] == printed["en-US"], lang
+            assert printed[output.LOCALES[lang]] == written[f"report.{lang}.pdf"].read_bytes(), lang
+
+
 @pytest.mark.pdf
 def test_failed_gate_writes_nothing(
     results: Results, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -501,7 +686,7 @@ def test_print_pdf_writes_only_a_passing_pdf(pdf_shell: ShellInstall, tmp_path: 
     page = _page(text, css=NG_CSS, font_css=subset_font_css(FONT_FILES, text + "Control"))
     source = tmp_path / "page.html"
     source.write_text(page, encoding="utf-8")
-    expect = PdfExpect(meta=PdfMeta("Control", AS_OF), every_page=("Hello",), once=("bold",))
+    expect = PdfExpect(meta=PdfMeta("Control", AS_OF), fonts=FONTS, every_page=("Hello",), once=("bold",))
     target = tmp_path / "out" / "page.pdf"
     printed = pdf.print_pdf(
         source, target, meta=expect.meta, expect=expect, shell=pdf_shell, work=tmp_path / "w"
@@ -509,7 +694,7 @@ def test_print_pdf_writes_only_a_passing_pdf(pdf_shell: ShellInstall, tmp_path: 
     assert target.read_bytes() == printed.data and printed.log.seen == 1
     assert sorted(p.name for p in target.parent.iterdir()) == ["page.pdf"]
     other = tmp_path / "other" / "page.pdf"
-    wrong = PdfExpect(meta=expect.meta, every_page=("absent phrase",))
+    wrong = PdfExpect(meta=expect.meta, fonts=FONTS, every_page=("absent phrase",))
     with pytest.raises(PdfError) as info:
         pdf.print_pdf(source, other, meta=expect.meta, expect=wrong, shell=pdf_shell, work=tmp_path / "w2")
     assert info.value.params == {"checks": "phrase_missing_on_page"} and not other.exists()

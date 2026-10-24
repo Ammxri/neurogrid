@@ -4,20 +4,24 @@ the output (REP-07)."""
 
 from __future__ import annotations
 
+import io
 import os
+import re
 import shutil
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
 
+import pypdf
 import pytest
 
 from neurogrid import pipeline
 from neurogrid.cli import main
-from neurogrid.kernel import canonical
+from neurogrid.kernel import canonical, fonts
 from neurogrid.kernel.errors import PdfError
 from neurogrid.kernel.pdf import ENV_BROWSER_DIR
+from neurogrid.model.results import Results
 from neurogrid.report.texts import disclaimer
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
@@ -74,6 +78,54 @@ def test_report_html_pdf_zh_en_writes_four_files(results_file: Path, tmp_path: P
         assert stdout.count("Report written to") == 4 or stdout.count("报告已写入") == 4
         assert stdout.strip().splitlines()[-1] in (disclaimer("en"), disclaimer("zh"))
         assert (out / "report.zh.pdf").read_bytes().startswith(b"%PDF-")
+
+
+# The characters of the repair note (U+2013, U+00AD, U+2011, U+00B7), each next to a code point of lower
+# value that shares its glyph in the static cuts: U+2012 (with U+2013), U+002D (with U+00AD and U+2011);
+# U+2027 shares the glyph of U+00B7.
+TWIN_NAME = "EEG \u2012\u2013 -\u00ad\u2011 \u00b7\u2027"
+
+
+def _plain(text: str) -> str:
+    """``text`` without white space and soft hyphens (U+00AD is not drawn)."""
+    return re.sub("[\\s\u00ad]", "", text)
+
+
+def _pdf_text(path: Path) -> str:
+    return "".join(page.extract_text() or "" for page in pypdf.PdfReader(io.BytesIO(path.read_bytes())).pages)
+
+
+@pytest.mark.pdf
+def test_glyph_twins_in_the_dataset_name_exit_0_with_the_name_as_written(
+    results_file: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Dataset data never ends with exit 2 (B2, A-27): a dataset name whose characters share a glyph with
+    another code point of the report font gives exit 0 and four reports; the PDF text holds the name as
+    written (the soft hyphen is not drawn). Negative control with the glyphs shared as in the font (the
+    subsets before the repair): the PDF text reads every character as the lowest code point of its glyph."""
+    results = Results.model_validate_json(results_file.read_bytes())
+    results.dataset.name = TWIN_NAME
+    source = tmp_path / "results.json"
+    source.write_bytes(canonical.dumps(results))
+    out = tmp_path / "out"
+    args = ["report", str(source), "--lang", "zh,en", "--format", "html,pdf", "--out"]
+    code, _, err = run([*args, str(out)], capsys)
+    assert code == 0, err
+    assert sorted(p.name for p in out.iterdir()) == FILES
+    for lang in ("zh", "en"):
+        assert TWIN_NAME in (out / f"report.{lang}.html").read_text(encoding="utf-8")
+        assert _plain(TWIN_NAME) in _plain(_pdf_text(out / f"report.{lang}.pdf")), lang
+    kept = tmp_path / "kept"
+    fonts._subset.cache_clear()
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(fonts, "separate_shared_glyphs", lambda font: {})
+            code, _, err = run([*args, str(kept)], capsys)
+    finally:
+        fonts._subset.cache_clear()  # no other test sees a subset with shared glyphs
+    assert code == 0, err  # no phrase the gate requires has a glyph twin of lower code point
+    lowest = "EEG\u2012\u2012--\u00b7\u00b7"
+    assert all(lowest in _plain(_pdf_text(kept / f"report.{lang}.pdf")) for lang in ("zh", "en"))
 
 
 def test_pdf_without_shell_exits_2_with_hint_and_writes_nothing(
