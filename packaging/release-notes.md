@@ -44,4 +44,8 @@ signature was verified with cosign or `-SkipSignatureCheck` / `--skip-signature-
 
 - Not verified / 未经验证：Windows 10; Linux distributions other than Debian 12 and Ubuntu 22.04+.
 - PDF reports need the separate Chrome Headless Shell (`install_pdf_browser.py`) and, on Linux, system libraries.
+- Linux bundle: the bundled Python lacks the `dbm.ndbm` module (`_dbm`, Berkeley DB licence; recorded in
+  `BUNDLE.json`); NeuroGrid does not use it. / Linux 安装包内置的 Python 不含 `dbm.ndbm` 模块（`_dbm`）。
+- Windows: the install folder path must be short (Windows limits paths of programs and of some modules even with
+  long paths enabled); the installer names the limit. / Windows：安装文件夹路径须较短，安装程序会给出上限。
 - Operating system services such as virus scanners or cloud sync are not controlled by NeuroGrid.

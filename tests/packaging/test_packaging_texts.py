@@ -112,6 +112,91 @@ def test_message_pair_check_finds_a_one_language_message() -> None:
     ]
 
 
+# Where results go (UF-08, CON-04): every delivery text that says so names --out and the defaults of check,
+# report and manifest (cli.py), in both languages. The README wraps its lines, hence the line breaks.
+RESULT_PLACES = {
+    "README.bundle.txt": (
+        "Results stay on this computer",
+        "check writes results.json in the current folder",
+        "report writes next to\nresults.json",
+        "manifest writes .neurogrid/manifest.json inside the dataset",
+        "结果只保存在本机",
+        "check 写入当前\n文件夹中的 results.json",
+        "report 写入 results.json 所在的文件夹",
+        "manifest 写入数据集中的 .neurogrid/manifest.json",
+    ),
+    "install.ps1": (
+        "results stay on this computer: where --out points;",
+        "check writes results.json in the current folder",
+        "report writes next to results.json",
+        "manifest writes .neurogrid\\manifest.json inside the dataset",
+        "结果只保存在本机：写入 --out 指定的位置；",
+        "check 写入当前文件夹中的 results.json",
+        "report 写入 results.json 所在的文件夹",
+        "manifest 写入数据集中的 .neurogrid\\manifest.json",
+    ),
+    "install.sh": (
+        "results stay on this computer: where --out points;",
+        "check writes results.json in the current folder",
+        "report writes next to results.json",
+        "manifest writes .neurogrid/manifest.json inside the dataset",
+        "结果只保存在本机：写入 --out 指定的位置；",
+        "check 写入当前文件夹中的 results.json",
+        "report 写入 results.json 所在的文件夹",
+        "manifest 写入数据集中的 .neurogrid/manifest.json",
+    ),
+}
+
+
+def test_no_delivery_text_claims_results_go_only_to_out() -> None:
+    """check, report and manifest have default locations: "only where --out points" was wrong (UF-08)."""
+    for path in TEXTS:
+        text = _read(path)
+        assert "only where --out" not in text and "只写入 --out" not in text, path.name
+
+
+@pytest.mark.parametrize("name", sorted(RESULT_PLACES))
+def test_delivery_texts_name_where_results_go(name: str) -> None:
+    text = _read(PACKAGING / name)
+    for needle in RESULT_PLACES[name]:
+        assert needle in text, (name, needle)
+
+
+def test_the_named_default_locations_are_the_ones_the_cli_uses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Run without --out on a copy of a synthetic fixture: check writes results.json in the current folder,
+    report writes next to results.json, manifest writes .neurogrid/manifest.json in the dataset - the places
+    RESULT_PLACES requires the texts to name."""
+    import shutil
+
+    from neurogrid.cli import main
+
+    work = tmp_path / "work"
+    data = Path(shutil.copytree(ROOT / "tests" / "fixtures" / "synthetic" / "edf_ok", tmp_path / "data"))
+    work.mkdir()
+    monkeypatch.chdir(work)
+    for args in (
+        ["check", str(data), "--as-of", "2026-10-11"],
+        ["report", "results.json", "--lang", "en", "--format", "html"],
+        ["manifest", str(data)],
+    ):
+        with pytest.raises(SystemExit) as info:
+            main(args)
+        assert info.value.code in (0, 1), (args, capsys.readouterr())
+    assert (work / "results.json").is_file()
+    assert (work / "report.en.html").is_file()
+    assert (data / ".neurogrid" / "manifest.json").is_file()
+
+
+def test_bundle_texts_record_the_removed_berkeley_db_module() -> None:
+    """B4: the _dbm removal is recorded in BUNDLE.json (tools/bundle.py), the notices and the documentation;
+    the bundle's own texts name it (the docs pages belong to the documentation area)."""
+    for name in ("README.bundle.txt", "release-notes.md"):
+        text = _read(PACKAGING / name)
+        assert "_dbm" in text and "Berkeley DB" in text and "BUNDLE.json" in text, name
+
+
 def test_installers_mark_the_prefix_as_an_offline_bundle_installation() -> None:
     """The PDF part names the bundled install command when the prefix holds BUNDLE.json next to python/ and
     tools/install_pdf_browser.py (interface with kernel/pdf.py); both installers put all three there."""

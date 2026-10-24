@@ -2,7 +2,7 @@
 # PDF tests included (NEUROGRID_REQUIRE_PDF=1: a missing PDF browser fails instead of skipping), the command line
 # under Windows PowerShell 5.1 and PowerShell 7, coverage, licence and traceability gates. Runs on every push to dev
 # and main and on pull requests; never uploads datasets (CON-02). The offline bundles, the clean rooms and the
-# OS-level offline evidence run in offline.yml (push to main, tags, manual start).
+# OS-level offline evidence run in offline.yml (push to main, manual start; for a tag through release.yml).
 name: ci
 
 on:

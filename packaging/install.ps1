@@ -123,7 +123,12 @@ try {
     }
     if ($VerifyOnly) { Say '仅核验，未安装' 'verified only, nothing installed'; exit 0 }
 
-    # 3. Target folder: local, absolute, new or empty, short enough for MAX_PATH unless long paths are enabled.
+    # 3. Target folder: local, absolute, new or empty, and short enough whatever LongPathsEnabled says. Measured
+    #    on Windows 11 (build 26200) with LongPathsEnabled = 1: an extension module with an embedded manifest
+    #    (fontTools' bezierTools.pyd) loads from a path of 250 characters but not from 251, and a program starts
+    #    from a path of 259 characters but not from 260 (both ERROR_FILENAME_EXCED_RANGE). So every file of the
+    #    installation stays within 250 characters: the prefix may have at most 249 minus the longest relative
+    #    path below it, which BUNDLE.json predicts (tools/bundle.py).
     if (-not $Prefix) {
         if (-not $env:LOCALAPPDATA) { Fail 2 '未设置 LOCALAPPDATA，请用 -Prefix 指定安装文件夹' 'LOCALAPPDATA is not set; choose the install folder with -Prefix' }
         $Prefix = Join-Path $env:LOCALAPPDATA "NeuroGrid\$version"
@@ -132,15 +137,12 @@ try {
         Fail 2 "安装文件夹须为本机绝对路径：$Prefix" "the install folder must be an absolute local path: $Prefix"
     }
     $Prefix = [System.IO.Path]::GetFullPath($Prefix).TrimEnd('\')
-    $longPaths = 0
-    try {
-        $longPaths = [int](Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -ErrorAction Stop).LongPathsEnabled
-    } catch {
-        $longPaths = 0
-    }
-    $needed = $Prefix.Length + 1 + [int]$info.max_relative_install_path
-    if ($longPaths -ne 1 -and $needed -gt 259) {
-        Fail 2 "安装路径过长（需要 $needed 个字符，上限 259）；请用 -Prefix 选择更短的文件夹" "install path too long ($needed characters needed, limit 259); choose a shorter folder with -Prefix"
+    # ConvertFrom-Json gives Int32 under Windows PowerShell 5.1 and Int64 under PowerShell 7; null if missing.
+    $longest = $info.max_relative_install_path
+    if (-not ($longest -is [int] -or $longest -is [long]) -or $longest -lt 0) { Fail 3 'BUNDLE.json 不完整' 'BUNDLE.json incomplete' }
+    $limit = 250 - 1 - [long]$longest
+    if ($Prefix.Length -gt $limit) {
+        Fail 2 "安装文件夹路径过长（$($Prefix.Length) 个字符，上限 $limit）：Windows 无法从更深的路径启动程序或加载部分模块，即使已启用长路径；请用 -Prefix 选择更短的文件夹" "install folder path too long ($($Prefix.Length) characters, limit $limit): Windows cannot start programs or load some modules from deeper paths, even with long paths enabled; choose a shorter folder with -Prefix"
     }
     $created = -not (Test-Path -LiteralPath $Prefix)
     if (-not $created) {
@@ -197,7 +199,8 @@ try {
     }
 
     Say "已安装：$launcher" "installed: $launcher"
-    Say '结果只写入 --out 指定的位置，不会上传任何数据' 'results are written only where --out points; nothing is uploaded'
+    # Where results go (UF-08, CON-04): --out, or the defaults of check, report and manifest (cli.py).
+    Say '结果只保存在本机：写入 --out 指定的位置；未指定 --out 时，check 写入当前文件夹中的 results.json，report 写入 results.json 所在的文件夹，manifest 写入数据集中的 .neurogrid\manifest.json；不会上传任何数据' 'results stay on this computer: where --out points; without --out, check writes results.json in the current folder, report writes next to results.json and manifest writes .neurogrid\manifest.json inside the dataset; nothing is uploaded'
     # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
     $pdfFolder = '%LOCALAPPDATA%\NeuroGrid\pdf-browser'
     if ($env:NEUROGRID_PDF_BROWSER_DIR) { $pdfFolder = $env:NEUROGRID_PDF_BROWSER_DIR }

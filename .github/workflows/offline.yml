@@ -6,13 +6,13 @@
 #   pdf-debian12       PDF with the documented package list, no network, under strace
 #   cleanroom-windows  Windows PowerShell 5.1 and PowerShell 7, WFP audit of every connection, PDF included
 # Only synthetic fixtures are used; artifacts are bundles (1 day) and evidence (traces, logs), never datasets.
-# Runs on push to main, on tags and by hand ("Run workflow", also on dev); release.yml calls it with its bundles.
+# Runs on push to main and by hand ("Run workflow", also on dev). A tag v* starts release.yml, which calls this
+# workflow with exactly the signed bundles: the clean rooms run once per release tag, not a second time here.
 name: offline
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
   workflow_call:
     inputs:

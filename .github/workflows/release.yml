@@ -43,17 +43,18 @@ jobs:
         run: python3 tools/release_check.py --tag "$GITHUB_REF_NAME"
       - name: Lock file is current
         run: uv lock --check
-      - name: Licence texts complete (fails while license-gate/known_missing.toml lists a gap, G1)
+      - name: Licence gate of the runtime, development and documentation dependencies (NG-N07)
         run: |
           uv sync --locked --no-build --python 3.12
-          uv run --no-sync python tools/licenses.py --release
+          uv run --no-sync python tools/licenses.py
+      - name: Licence texts complete (fails while license-gate/known_missing.toml lists a gap, G1)
+        run: uv run --no-sync python tools/notices.py --download --check
       - name: Wheel, sdist, documentation, notices of both targets and both signed bundles (reproducible)
         run: |
           export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
           version="${GITHUB_REF_NAME#v}"
           uv build --out-dir dist
           uv run --no-sync python tools/build_docs.py --site-dir site
-          uv run --no-sync python tools/notices.py --download --check
           cp THIRD_PARTY_NOTICES.txt tools/install_pdf_browser.py dist/
           for platform in win_amd64 linux_x86_64; do
             uv run --no-sync python tools/bundle.py build --platform "$platform" \

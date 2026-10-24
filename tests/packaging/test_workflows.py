@@ -6,6 +6,7 @@ triggers, pinned actions, permissions, the jobs and the commands they run, and t
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Any
@@ -16,15 +17,22 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 NAMES = ("ci", "offline", "corpus", "docs", "release", "publish-pypi", "mirror-gitee")
-# Tools of other P5 areas that the workflows call by name (docs: build_docs, notices; pdf:
-# install_pdf_browser, linux_pdf_packages; acceptance: acceptance_g1). They arrive with the merge.
-OTHER_AREAS = {
-    "build_docs.py",
-    "notices.py",
-    "install_pdf_browser.py",
-    "linux_pdf_packages.py",
-    "acceptance_g1.py",
-}
+# The argparse options of the tools that other P5 areas bring with the merge, read from their branches: docs
+# (dev at 7c99a82: tools/build_docs.py, tools/notices.py) and pdf (p5-pdf at 1dbb23e:
+# tools/install_pdf_browser.py, tools/linux_pdf_packages.py). They stand in for a tool only while it is
+# missing from the tree; in the merged tree the tool itself is read (see _options_of).
+MERGED_OPTIONS = {
+    "build_docs.py": {"--site-dir"},
+    "notices.py": {"--list", "--wheelhouse", "--download", "--cache", "--bundle-lock", "--out", "--check",
+                   "--components"},
+    "install_pdf_browser.py": {"--dir", "--from-zip", "--sha256", "--download-only", "--platform", "--out",
+                               "--force", "--check", "--print-info"},
+    "linux_pdf_packages.py": {"--list", "--check", "--write"},
+}  # fmt: skip
+# Written by the acceptance phase after the merge (corpus.yml calls it with --corpus and --out); its options
+# can be checked only once it exists.
+LATER = {"acceptance_g1.py"}
+OTHER_AREAS = set(MERGED_OPTIONS) | LATER
 PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
     "astral-sh/setup-uv": "07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",  # v10.3.2
@@ -138,6 +146,105 @@ def test_scripts_and_tools_called_by_the_workflows_exist() -> None:
             assert (ROOT / "tools" / tool).is_file() or tool in OTHER_AREAS, (name, tool)
 
 
+# A call of a repository tool: tools/<name>.py (also "$root/tools/..." or tools\<name>.py in PowerShell). Its
+# options are the --words up to a pipe, a separator, a redirection or the end of the line; in bash also up to
+# the ")" that closes a command substitution (PowerShell lists its arguments after the closing parenthesis).
+TOOL_CALL = {
+    "sh": re.compile(r"tools[/\\]([A-Za-z0-9_]+\.py)\b([^|;&>)\n]*)"),
+    "ps1": re.compile(r"tools[/\\]([A-Za-z0-9_]+\.py)\b([^|;&>\n]*)"),
+}
+OPTION = re.compile(r"(?<![\w-])--[a-z][a-z0-9-]*")
+CALLERS = [
+    *sorted((ROOT / "packaging" / "ci").glob("*.sh")),
+    *sorted((ROOT / "packaging" / "ci").glob("*.ps1")),
+    ROOT / "packaging" / "install.sh",
+    ROOT / "packaging" / "install.ps1",
+]
+
+
+def _tool_calls(text: str, kind: str = "sh") -> list[tuple[str, set[str]]]:
+    """(tool file name, options passed) of every tool call in shell text; comment lines are left out and bash
+    line continuations joined."""
+    calls = []
+    for line in re.sub(r"\\\n\s*", " ", text).splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        for match in TOOL_CALL[kind].finditer(line):
+            calls.append((match.group(1), set(OPTION.findall(match.group(2)))))
+    return calls
+
+
+def _defined_options(tool: Path) -> set[str]:
+    """Every --option the tool defines with argparse (all subcommands together), read statically."""
+    found = {"--help"}
+    for node in ast.walk(ast.parse(tool.read_text(encoding="utf-8"))):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "add_argument"
+        ):
+            found.update(
+                arg.value
+                for arg in node.args
+                if isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value.startswith("--")
+            )
+    return found
+
+
+def _options_of(name: str) -> set[str] | None:
+    """The options of a tool in the merged tree: the file if it is here, else the record of its area; None
+    for a tool that does not exist yet (LATER)."""
+    tool = ROOT / "tools" / name
+    if tool.is_file():
+        return _defined_options(tool)
+    if name in MERGED_OPTIONS:
+        return MERGED_OPTIONS[name] | {"--help"}
+    assert name in LATER, name
+    return None
+
+
+def _command_texts() -> dict[str, tuple[str, str]]:
+    texts = {f"{name}.yml/{job_id}": (_runs(job), "sh") for name, job_id, job in _all_jobs()}
+    for path in CALLERS:
+        texts[path.name] = (path.read_text(encoding="utf-8-sig"), path.suffix.lstrip("."))
+    return texts
+
+
+def test_every_option_passed_to_a_tool_exists() -> None:
+    """A workflow, CI script or installer that passes a tool an option the tool does not define fails on every
+    run: release.yml once called `tools/licenses.py --release`, which no area defines (argparse exits 2)."""
+    checked = 0
+    for where, (text, kind) in _command_texts().items():
+        for name, options in _tool_calls(text, kind):
+            defined = _options_of(name)
+            if defined is None:
+                continue
+            assert options <= defined, (where, name, sorted(options - defined))
+            checked += 1
+    assert checked >= 25, checked
+
+
+def test_the_option_check_finds_an_unknown_option() -> None:
+    assert _tool_calls("uv run --no-sync python tools/licenses.py --release\n") == [
+        ("licenses.py", {"--release"})
+    ]
+    assert "--release" not in (_options_of("licenses.py") or set())
+    text = (
+        'uv run python tools/bundle.py build --platform "$p" \\\n  --wheel w --sign sigstore | tee log\n'
+        "# python tools/bundle.py --commented-out\n"
+        'packages="$(python3 "$root/tools/linux_pdf_packages.py" debian12)" --not-an-option-of-it\n'
+    )
+    assert _tool_calls(text) == [
+        ("bundle.py", {"--platform", "--wheel", "--sign"}),
+        ("linux_pdf_packages.py", set()),
+    ]
+    powershell = (
+        "Invoke-Native $python @('-I', (Join-Path $Prefix 'tools\\install_pdf_browser.py'), '--from-zip', $z)"
+    )
+    assert _tool_calls(powershell, "ps1") == [("install_pdf_browser.py", {"--from-zip"})]
+    assert _defined_options(ROOT / "tools" / "bundle.py") >= {"--platform", "--wheel", "--sign", "--cache"}
+
+
 def test_ci_matrix_and_gates() -> None:
     ci = _load("ci")
     assert set(ci["on"]) == {"push", "pull_request"} and ci["on"]["push"]["branches"] == ["dev", "main"]
@@ -174,7 +281,14 @@ def test_ci_matrix_and_gates() -> None:
 def test_offline_workflow_runs_every_offline_proof() -> None:
     offline = _load("offline")
     assert set(offline["on"]) == {"push", "workflow_dispatch", "workflow_call"}
-    assert offline["on"]["push"] == {"branches": ["main"], "tags": ["v*"]}  # dev pushes run ci.yml only
+    # dev pushes run ci.yml only. A tag v* starts release.yml, which calls this workflow with the signed
+    # bundles: a tag trigger here as well would run every clean room twice per release tag.
+    assert offline["on"]["push"] == {"branches": ["main"]}
+    release = _load("release")
+    assert release["on"]["push"] == {"tags": ["v*"]}
+    assert release["jobs"]["test"]["uses"] == "./.github/workflows/offline.yml"
+    callers = [name for name in NAMES if "./.github/workflows/offline.yml" in _text(name)]
+    assert callers == ["release"]
     assert offline["on"]["workflow_call"]["inputs"]["artifact"]["default"] == ""
     jobs = offline["jobs"]
     assert set(jobs) == {
@@ -234,12 +348,18 @@ def test_release_is_started_only_by_a_tag_and_creates_a_draft() -> None:
     build = release["jobs"]["build"]
     assert build["if"] == "startsWith(github.ref, 'refs/tags/v')" and build["environment"] == "release"
     commands = _runs(build)
-    for command in ("tools/release_check.py --tag", "uv lock --check", "tools/licenses.py --release",
+    for command in ("tools/release_check.py --tag", "uv lock --check", "python tools/licenses.py\n",
                     "SOURCE_DATE_EPOCH", "uv build",
                     "tools/build_docs.py --site-dir site", "tools/notices.py --download --check",
                     "--sign sigstore", "tools/bundle.py verify", "cosign sign-blob", "cosign verify-blob",
                     "sha256sum --check --strict SHA256SUMS", "--notes"):  # fmt: skip
         assert command in commands, command
+    # The licence texts gate (notices.py --check exits 1 while license-gate/known_missing.toml lists a gap,
+    # G1) is its own step and runs before anything is built or signed.
+    steps = [str(step.get("run", "")) for step in _steps(build)]
+    (texts,) = [i for i, run in enumerate(steps) if "tools/notices.py --download --check" in run]
+    (building,) = [i for i, run in enumerate(steps) if "uv build" in run]
+    assert texts < building and "uv build" not in steps[texts]
     assert release["jobs"]["test"]["uses"] == "./.github/workflows/offline.yml"
     assert release["jobs"]["test"]["with"] == {"artifact": "release-dist"}
     draft = _runs(release["jobs"]["draft"])

@@ -7,6 +7,7 @@ signature branch without network."""
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -224,21 +225,110 @@ def test_variables_for_uv_are_restored_in_an_open_session(folder: Path, tmp_path
     assert not prefix.exists()
 
 
-def test_long_path_guard(folder: Path, tmp_path: Path) -> None:
+def _predict_longest_path(folder: Path, longest: object) -> None:
     info = json.loads((folder / "BUNDLE.json").read_text(encoding="utf-8"))
-    info["max_relative_install_path"] = 300
+    info["max_relative_install_path"] = longest
     (folder / "BUNDLE.json").write_text(json.dumps(info, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     _resum(folder)
+
+
+def _long_paths_enabled() -> bool:
     import winreg
 
     try:
         key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SYSTEM\CurrentControlSet\Control\FileSystem")
-        enabled = winreg.QueryValueEx(key, "LongPathsEnabled")[0] == 1
+        return bool(winreg.QueryValueEx(key, "LongPathsEnabled")[0] == 1)
     except OSError:
-        enabled = False
-    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(tmp_path / "t"))
+        return False
+
+
+def _total_path_limit() -> int:
+    """The total path length install.ps1 keeps every installed file within (step 3)."""
+    match = re.search(r"\$limit = (\d+) - 1 - \[long\]\$longest", SCRIPT.read_text(encoding="utf-8-sig"))
+    assert match, "install.ps1 no longer derives the prefix limit from max_relative_install_path"
+    return int(match.group(1))
+
+
+def test_long_path_guard_applies_whatever_long_paths_enabled_says(folder: Path, tmp_path: Path) -> None:
+    """Every installed file stays within 250 characters: at the limit the guard lets the installation start
+    (the stand-in uv then fails), one character more is refused before anything is created - also with
+    LongPathsEnabled = 1 (this machine), where the old guard let a 181-character prefix through and extension
+    modules then failed to load (UF-08). The limit counts characters; the Chinese folder name checks that."""
+    prefix = tmp_path / "安装 目录"
+    length = len(str(prefix))
+    total = _total_path_limit()
+    assert total == 250
+    _predict_longest_path(folder, total - 1 - length)
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
+    assert code == 2 and "install folder path too long" not in text, text
+    assert "creating the virtual environment failed" in text or "installation failed" in text
+    assert not prefix.exists()
+    _predict_longest_path(folder, total - length)
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
     assert code == 2, text
-    assert ("install path too long" in text) is not enabled  # the guard applies only without long paths
+    expected = f"install folder path too long ({length} characters, limit {length - 1})"
+    assert expected in text, (_long_paths_enabled(), text)
+    assert (
+        "even with long paths enabled" in text
+        and f"安装文件夹路径过长（{length} 个字符，上限 {length - 1}）" in text
+    )
+    assert not prefix.exists()
+
+
+@pytest.mark.parametrize("longest", [None, "88", -1, 1.5])
+def test_missing_path_prediction_is_an_integrity_error(folder: Path, tmp_path: Path, longest: object) -> None:
+    _predict_longest_path(folder, longest)
+    prefix = tmp_path / "t"
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
+    assert code == 3 and "BUNDLE.json incomplete" in text, text
+    assert not prefix.exists()
+
+
+def _copy_at_length(source: Path, base: Path, total: int) -> Path:
+    """A copy of source whose full path has exactly `total` characters (folder names of at most 100)."""
+    left = total - len(str(base)) - 1 - len(source.name)  # characters of the folders and their separators
+    assert left >= 2, left
+    folder = base
+    while left > 0:
+        part = min(100, left - 1)
+        if left - (part + 1) == 1:  # never leave one character, which cannot form a folder and a separator
+            part -= 1
+        folder = folder / ("d" * part)
+        left -= part + 1
+    folder.mkdir(parents=True)
+    target = folder / source.name
+    shutil.copyfile(source, target)
+    assert len(str(target)) == total, (len(str(target)), total)
+    return target
+
+
+def test_the_guard_keeps_modules_and_programs_loadable(tmp_path: Path) -> None:
+    """The allowance of the guard is safe: at the total length it allows, an extension module with an embedded
+    manifest (fontTools' bezierTools, the measured case: 250 loads, 251 fails with ERROR_FILENAME_EXCED_RANGE
+    even with LongPathsEnabled = 1) loads in a fresh interpreter, and a program starts."""
+    import fontTools.misc
+
+    total = _total_path_limit()
+    module = _copy_at_length(
+        next(Path(fontTools.misc.__file__).parent.glob("bezierTools*.pyd")), tmp_path / "m", total
+    )
+    code = (
+        "import importlib.machinery, importlib.util, sys\n"
+        "loader = importlib.machinery.ExtensionFileLoader('bezierTools', sys.argv[1])\n"
+        "spec = importlib.util.spec_from_file_location('bezierTools', sys.argv[1], loader=loader)\n"
+        "importlib.util.module_from_spec(spec)\n"
+        "print('loaded')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", code, str(module)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0 and result.stdout.strip() == "loaded", result.stderr
+    program = _copy_at_length(Path(r"C:\Windows\System32\hostname.exe"), tmp_path / "p", total)
+    assert subprocess.run([str(program)], capture_output=True, timeout=60, check=False).returncode == 0
 
 
 def test_install_cmd_passes_exit_codes_through(folder: Path) -> None:

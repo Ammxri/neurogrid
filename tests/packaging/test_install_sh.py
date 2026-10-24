@@ -211,6 +211,74 @@ def test_relative_prefix_is_refused_on_linux(folder: Path) -> None:
     assert code == 2 and "must be an absolute path" in text, text
 
 
+def _bash_path(path: Path) -> str:
+    """The absolute path as bash sees it (/c/... under Git Bash on Windows)."""
+    text = path.as_posix()
+    if sys.platform == "win32" and len(text) > 2 and text[1] == ":":
+        return f"/{text[0].lower()}{text[2:]}"
+    return text
+
+
+def _run_as_linux_x86_64(folder: Path, *args: str) -> tuple[int, str]:
+    """install.sh's main with uname and getconf replaced by shell functions that report Linux x86_64 with
+    glibc 2.36, so the installer gets past its platform check on any machine (Git Bash's wrapper puts its own
+    /usr/bin first on PATH, so stand-in programs could not win)."""
+    assert BASH is not None
+    script = (
+        'uname() { case "$1" in -m) echo x86_64 ;; *) echo Linux ;; esac; }\n'
+        "getconf() { echo glibc 2.36; }\n"
+        f'source "{(folder / "install.sh").as_posix()}"\n'
+        'main "$@"\n'
+    )
+    result = subprocess.run(
+        [BASH, "-c", script, "install.sh", *args], capture_output=True, timeout=300, check=False
+    )
+    return result.returncode, result.stdout.decode("utf-8", "replace") + result.stderr.decode(
+        "utf-8", "replace"
+    )
+
+
+def test_prefix_length_guard_counts_bytes_against_path_max(folder: Path, tmp_path: Path) -> None:
+    """Every installed path fits into PATH_MAX (4096 bytes with the closing NUL): the prefix may have at most
+    4094 bytes minus BUNDLE.json's longest relative path. At the limit the installation starts (the stand-in
+    uv then fails and the folder is removed); one byte more is refused with exit 2 before anything is
+    created. The Chinese folder name proves that bytes are counted, not characters."""
+    target = tmp_path / "安装 目录"
+    prefix = _bash_path(target)
+    length = len(prefix.encode("utf-8"))
+    info = json.loads((folder / "BUNDLE.json").read_text(encoding="utf-8"))
+    for longest, refused in ((4094 - length, False), (4095 - length, True)):
+        info["max_relative_install_path"] = longest
+        (folder / "BUNDLE.json").write_text(
+            json.dumps(info, indent=1, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        _resum(folder)
+        code, text = _run_as_linux_x86_64(folder, "--skip-signature-check", "--prefix", prefix)
+        assert code == 2, text
+        assert "only Linux x86_64 is supported" not in text, text  # the stand-ins took effect
+        if refused:
+            assert f"install folder path too long ({length} bytes, limit {length - 1})" in text, text
+            assert f"安装文件夹路径过长（{length} 字节，上限 {length - 1}）" in text, text
+        else:
+            assert "install folder path too long" not in text, text
+            assert "creating the virtual environment failed" in text, text
+        assert not target.exists()
+
+
+@pytest.mark.parametrize("longest", [None, -1, 1.5])
+def test_incomplete_path_prediction_is_an_integrity_error(
+    folder: Path, tmp_path: Path, longest: object
+) -> None:
+    info = json.loads((folder / "BUNDLE.json").read_text(encoding="utf-8"))
+    info["max_relative_install_path"] = longest
+    (folder / "BUNDLE.json").write_text(json.dumps(info, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    _resum(folder)
+    target = tmp_path / "target"
+    code, text = _run_as_linux_x86_64(folder, "--skip-signature-check", "--prefix", _bash_path(target))
+    assert code == 3 and "BUNDLE.json incomplete" in text, text
+    assert not target.exists()
+
+
 def test_help_and_fixed_sentence() -> None:
     assert BASH is not None
     result = subprocess.run([BASH, SCRIPT.as_posix(), "--help"], capture_output=True, check=False)

@@ -145,7 +145,10 @@ main() {
   glibc_supported "${glibc:-}" || fail 2 "需要 glibc 2.28 或更高版本（当前：${glibc:-未知}）" \
     "glibc 2.28 or newer is required (found: ${glibc:-unknown})"
 
-  # 4. Target folder: absolute, new or empty.
+  # 4. Target folder: absolute, new or empty, and short enough: every path of the installation must fit into
+  #    PATH_MAX (4096 bytes with the closing NUL, <linux/limits.h>), so the prefix may have at most 4094 bytes
+  #    minus the longest relative path below it, which BUNDLE.json predicts (tools/bundle.py). LC_ALL=C above
+  #    makes ${#prefix} count bytes, also for Chinese folder names.
   if [ -z "$prefix" ]; then
     [ -n "${XDG_DATA_HOME:-}${HOME:-}" ] || fail 2 "未设置 HOME，请用 --prefix 指定" "HOME is not set; choose the folder with --prefix"
     prefix="${XDG_DATA_HOME:-$HOME/.local/share}/neurogrid/$version"
@@ -155,13 +158,18 @@ main() {
     *) fail 2 "安装文件夹须为绝对路径：$prefix" "the install folder must be an absolute path: $prefix" ;;
   esac
   prefix="${prefix%/}"
+  [[ "$max_path" =~ ^[0-9]+$ ]] || fail 3 "BUNDLE.json 不完整" "BUNDLE.json incomplete"
+  local limit=$((4095 - 1 - max_path))
+  if [ "${#prefix}" -gt "$limit" ]; then
+    fail 2 "安装文件夹路径过长（${#prefix} 字节，上限 $limit）；请用 --prefix 选择更短的文件夹" \
+      "install folder path too long (${#prefix} bytes, limit $limit); choose a shorter folder with --prefix"
+  fi
   local created=1
   if [ -e "$prefix" ]; then
     [ -d "$prefix" ] && [ -z "$(ls -A "$prefix")" ] || fail 2 "目标已存在且不为空：$prefix（新版本请装入新文件夹）" \
       "target exists and is not empty: $prefix (install a new version into a new folder)"
     created=0
   fi
-  [ -n "$max_path" ] || fail 3 "BUNDLE.json 不完整" "BUNDLE.json incomplete"
 
   # 5. Install offline: interpreter, venv, wheelhouse with hashes, bytecode compiled at install (A-48).
   INSTALL_DONE=0
@@ -210,7 +218,9 @@ EOF
   fi
 
   say "已安装：$prefix/bin/neurogrid" "installed: $prefix/bin/neurogrid"
-  say "结果只写入 --out 指定的位置，不会上传任何数据" "results are written only where --out points; nothing is uploaded"
+  # Where results go (UF-08, CON-04): --out, or the defaults of check, report and manifest (cli.py).
+  say "结果只保存在本机：写入 --out 指定的位置；未指定 --out 时，check 写入当前文件夹中的 results.json，report 写入 results.json 所在的文件夹，manifest 写入数据集中的 .neurogrid/manifest.json；不会上传任何数据" \
+    "results stay on this computer: where --out points; without --out, check writes results.json in the current folder, report writes next to results.json and manifest writes .neurogrid/manifest.json inside the dataset; nothing is uploaded"
   # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
   local pdf_folder="\${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser"
   [ -z "${NEUROGRID_PDF_BROWSER_DIR:-}" ] || pdf_folder="$NEUROGRID_PDF_BROWSER_DIR"

@@ -105,9 +105,9 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 addopts = ["--strict-markers", "-m", "not corpus and not perf and not bundle", "-p", "no:cacheprovider"]
 markers = [
+    "bundle: real offline bundles from uv.lock (downloads into the bundle cache) and the Windows clean room",
     "corpus: needs the public test corpus in .local/corpus (tools/corpus.py)",
     "perf: performance measurements (NG-N02)",
-    "bundle: real offline bundles from uv.lock (downloads into the bundle cache) and the Windows clean room",
 ]
 filterwarnings = ["error::EncodingWarning:neurogrid"]
 
