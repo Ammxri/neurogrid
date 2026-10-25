@@ -567,7 +567,7 @@ def _squeeze(text: str) -> str:
 
 def _page_counter(number: int, total: int) -> re.Pattern[str]:
     """'x / y' in the squeezed page text with up to three characters of words around the slash."""
-    return re.compile(rf"{number}\D{{0,3}}/\D{{0,3}}(?<!\d){total}(?!\d)")
+    return re.compile(rf"(?<!\d){number}\D{{0,3}}/\D{{0,3}}(?<!\d){total}(?!\d)")
 
 
 def pdf_date(as_of: date) -> str:
