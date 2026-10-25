@@ -20,7 +20,9 @@ reading of the files (not the product's code that wrote them):
   of the report fonts, the fixed sentence, running head and page counter on every page, A4 pages, no radical
   or compatibility code point, every section heading and rule ID, /Info exactly Title Creator Producer
   CreationDate ModDate with the neutral title and the reference date, no XMP, no /ID (REP-00, A-08, A-27);
-- determinism: every file byte-identical over the two runs, ``--jobs 1`` equal to ``--jobs 4`` (NG-N03);
+- determinism: every file byte-identical over the two runs, ``--jobs 1`` equal to ``--jobs 4`` (NG-N03); the
+  content checks are not repeated on a later run whose files are byte-identical to run 1 (its exit codes,
+  console and file list are checked);
 - privacy (NG-N05, A-51): no path of the corpus or the output folder, no home folder, user or host name, no
   identifying EDF/BDF header value, recording date or time, no raw age, no digest other than those
   results.json declares (finding keys, manifest, rule pack, configuration and evidence SHA-256: so no signal
@@ -697,7 +699,9 @@ def header_values(path: Path, as_of: date = AS_OF) -> list[Forbidden]:
     """Identifying values of one EDF/BDF header: the patient and recording fields (whole and, in EDF+, every
     informative subfield), the start date in the forms dd.mm.yy, yyyy-mm-dd and dd-MMM-yyyy and the start
     time in the forms hh.mm.ss and hh:mm:ss. A start date equal to the reference date is not searched (the
-    report shows the reference date)."""
+    report shows the reference date). A subfield is searched as a whole word: a short name part such as
+    'San' is no leak inside the font family 'NG Sans'. An EDF+ recording field whose subfields are all
+    placeholders ('Startdate X X X X') and the start time 00.00.00 hold nothing to search."""
     with path.open("rb") as stream:
         head = stream.read(184)
     if len(head) < 184:
@@ -705,13 +709,15 @@ def header_values(path: Path, as_of: date = AS_OF) -> list[Forbidden]:
     found: list[Forbidden] = []
     patient = head[8:88].decode("latin-1").strip()
     recording = head[88:168].decode("latin-1").strip()
-    for value in (patient, recording):
+    plus = recording.startswith("Startdate")  # EDF+: subfields separated by spaces
+    subfields = [*patient.split(" "), *recording.split(" ")[1:]] if plus else []
+    whole = (patient, recording if not plus or any(map(_informative, recording.split(" ")[1:])) else "")
+    for value in whole:
         if _informative(value):
             found.append(Forbidden("EDF/BDF header value", value, "literal"))
-    if recording.startswith("Startdate"):  # EDF+: subfields separated by spaces
-        for value in [*patient.split(" "), *recording.split(" ")[1:]]:
-            if _informative(value):
-                found.append(Forbidden("EDF/BDF header subfield", value, "literal"))
+    for value in subfields:
+        if _informative(value):
+            found.append(Forbidden("EDF/BDF header subfield", value, "word"))
     start = head[168:176].decode("latin-1")
     if re.fullmatch(r"\d\d\.\d\d\.\d\d", start):
         day, month, year = start.split(".")
@@ -720,7 +726,7 @@ def header_values(path: Path, as_of: date = AS_OF) -> list[Forbidden]:
             for form in (start, f"{full}-{month}-{day}", f"{day}-{MONTHS[int(month) - 1]}-{full}"):
                 found.append(Forbidden("recording date", form, "literal"))
     clock = head[176:184].decode("latin-1")
-    if re.fullmatch(r"\d\d\.\d\d\.\d\d", clock):
+    if re.fullmatch(r"\d\d\.\d\d\.\d\d", clock) and clock != "00.00.00":
         found.append(Forbidden("recording time", clock, "literal"))
         found.append(Forbidden("recording time", clock.replace(".", ":"), "literal"))
     return found
@@ -1050,9 +1056,19 @@ class DatasetEval:
 
 
 def evaluate_run(
-    dataset: Path, folder: Path, runs: Mapping[str, CommandRun], lang: str, out: Path, *, as_of: date = AS_OF
+    dataset: Path,
+    folder: Path,
+    runs: Mapping[str, CommandRun],
+    lang: str,
+    out: Path,
+    *,
+    as_of: date = AS_OF,
+    contents: bool = True,
 ) -> DatasetEval:
-    """Every check on the outputs of one run of one data set."""
+    """Every check on the outputs of one run of one data set. With ``contents=False`` only what differs
+    between runs by design is checked - exit codes, console streams (their language) and the file list - for
+    a run whose files are byte-identical to a run checked in full (the content checks would repeat
+    themselves on the same bytes; compare_runs proves the identity)."""
     result = DatasetEval()
     checked = validate_results_file(folder / "results.json") if (folder / "results.json").is_file() else None
     results = checked.results if checked else None
@@ -1065,11 +1081,21 @@ def evaluate_run(
         result.add("json", ["results.json missing"])
         return result
     result.add("json", checked.problems)
+    if results is None:
+        return result
+    forbidden = forbidden_values(dataset, out, as_of=as_of)
+    consoles = [console_output(name, run, out) for name, run in runs.items()]
+    manifest_text = ""
+    if (folder / "manifest.json").is_file():
+        manifest_text = (folder / "manifest.json").read_text(encoding="utf-8")
+    # the file digests and the manifest hash the manifest declares (manifest and verify print the hash)
+    manifest_digests = {match.group(0) for match in re.finditer(r"[0-9a-f]{64}", manifest_text)}
+    if not contents:
+        result.add("privacy", check_privacy(consoles, forbidden, results, extra=manifest_digests))
+        return result
     for name in ("scan.json", "manifest.json"):
         if (folder / name).is_file():
             result.add("json", validate_schema_file(folder / name, SCHEMAS[name]))
-    if results is None:
-        return result
     documents: dict[str, str] = {}
     outputs: list[Output] = []
     for lang_report in REPORT_LANGS:
@@ -1091,13 +1117,9 @@ def evaluate_run(
     for name in ("results.json", "scan.json"):
         if (folder / name).is_file():
             outputs.append(Output(name, (folder / name).read_text(encoding="utf-8")))
-    manifest_digests: set[str] = set()
-    if (folder / "manifest.json").is_file():
-        text = (folder / "manifest.json").read_text(encoding="utf-8")
-        outputs.append(Output("manifest.json", text, manifest=True))
-        manifest_digests = {match.group(0) for match in re.finditer(r"[0-9a-f]{64}", text)}
-    outputs += [console_output(name, run, out) for name, run in runs.items()]
-    forbidden = forbidden_values(dataset, out, as_of=as_of)
+    if manifest_text:
+        outputs.append(Output("manifest.json", manifest_text, manifest=True))
+    outputs += consoles
     result.add("privacy", check_privacy(outputs, forbidden, results, extra=manifest_digests))
     result.add("privacy", age_problems(json.loads((folder / "results.json").read_text(encoding="utf-8"))))
     result.add("v06", v06_problems(results, [o.text for o in outputs if not o.manifest]))
@@ -1188,6 +1210,8 @@ def run_acceptance(
     replace: bool = False,
 ) -> dict[str, Any]:
     """The whole G1 run; returns the summary (also written to <out>/summary.json and summary.md)."""
+    # the commands run inside the output folder: relative arguments would point elsewhere there
+    corpus, out = corpus.absolute(), out.absolute()
     _start_checks(corpus, names, out)
     _prepare_out(out, runs, replace)
     executable = neurogrid_executable()
@@ -1198,19 +1222,24 @@ def run_acceptance(
         evaluations: list[DatasetEval] = []
         seconds: dict[str, dict[str, float]] = {}
         exits: dict[str, int] = {}
+        compared = {file: True for file in PRODUCT_FILES}  # file -> equal in every run so far
         for number in range(1, runs + 1):
             lang = CONSOLE_LANGS[(number - 1) % len(CONSOLE_LANGS)]
             folder = out / f"run{number}" / name
             print(f"{name}: run {number} (console {lang})", flush=True)
             commands = run_dataset(dataset, folder, lang=lang, jobs=jobs, as_of=as_of, executable=executable)
             seconds[f"run{number}"] = {cmd: run.seconds for cmd, run in commands.items()}
+            contents = True
             if number == 1:
                 exits = {cmd: run.code for cmd, run in commands.items()}
-            evaluations.append(evaluate_run(dataset, folder, commands, lang, out, as_of=as_of))
-        compared = compare_runs(out / "run1" / name, out / f"run{runs}" / name)
-        for number in range(2, runs):
-            middle = compare_runs(out / "run1" / name, out / f"run{number}" / name)
-            compared = {key: value and middle[key] for key, value in compared.items()}
+            else:
+                same = compare_runs(out / "run1" / name, folder)
+                compared = {file: equal and same[file] for file, equal in compared.items()}
+                # a later run byte-identical to run 1 needs no second content check of the same bytes
+                contents = not all(same.values())
+            evaluations.append(
+                evaluate_run(dataset, folder, commands, lang, out, as_of=as_of, contents=contents)
+            )
         entries.append(_entry(name, out, evaluations, seconds, exits, compared))
     jobs1 = None
     if JOBS1_DATASET in names:
@@ -1225,12 +1254,20 @@ def run_acceptance(
             commands=("check",),
             executable=executable,
         )
-        same = compare_runs(out / "run1" / JOBS1_DATASET, folder, ("results.json",))["results.json"]
+        equal = compare_runs(out / "run1" / JOBS1_DATASET, folder, ("results.json",))["results.json"]
+        run = single["check"]
+        checked = (
+            validate_results_file(folder / "results.json") if (folder / "results.json").is_file() else None
+        )
+        problems = check_exit_codes(single, checked.results if checked else None)
+        problems += check_console(run.stdout, run.stderr, "en", run.code, allowed_paths=(out,))
         jobs1 = {
             "dataset": JOBS1_DATASET,
-            "exit": single["check"].code,
-            "identical": same,
-            "check_s": single["check"].seconds,
+            "exit": run.code,
+            "identical": equal,
+            "check_s": run.seconds,
+            "problems": problems,
+            "ok": equal and not problems,
         }
     after = {name: tree_state(corpus / name) for name in names}
     unchanged = before == after
@@ -1310,7 +1347,7 @@ def _summary(
     minimum = len(passed) >= MIN_DATASETS and len(formats) >= MIN_FORMATS
     all_met = bool(entries) and len(passed) == len(entries)
     statuses = matrix_status(MATRIX.read_text(encoding="utf-8")) if MATRIX.is_file() else {}
-    criteria = all_met and unchanged and (jobs1 is None or jobs1["identical"])
+    criteria = minimum and all_met and unchanged and (jobs1 is None or jobs1["ok"])
     checklist = v01_checklist(statuses, entries, criteria)
     return {
         "schema": SUMMARY_SCHEMA,
@@ -1419,6 +1456,8 @@ def summary_markdown(summary: Mapping[str, Any]) -> str:
         "",
     ]
     problems = [(entry["name"], problem) for entry in summary["datasets"] for problem in entry["problems"]]
+    if jobs1:
+        problems += [(f"{jobs1['dataset']} (--jobs 1)", problem) for problem in jobs1["problems"]]
     lines += [f"- {name}: {problem}" for name, problem in problems] or ["- keine"]
     return "\n".join(lines) + "\n"
 
@@ -1467,6 +1506,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     for entry in summary["datasets"]:
         for problem in entry["problems"]:
             print(f"  {entry['name']}: {problem}")
+    for problem in (summary["jobs1"] or {}).get("problems", []):
+        print(f"  {JOBS1_DATASET} (--jobs 1): {problem}")
     return 0 if g1["criteria_met"] else 1
 
 
