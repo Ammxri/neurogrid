@@ -14,13 +14,16 @@ stays active. Run with: uv run pytest -m bundle tests/packaging/test_bundle_real
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
+from test_packaging_texts import documented_prefix_limit
 
 ROOT = Path(__file__).resolve().parents[2]
 UV = os.environ.get("UV") or shutil.which("uv")
@@ -82,6 +85,16 @@ def test_real_bundle_builds_reproducibly_and_passes_verify(bundles: dict[str, Pa
     assert archive.stat().st_size < 2 * 1024**3
     result = _run([sys.executable, str(ROOT / "tools" / "bundle.py"), "verify", str(archive)], timeout=900)
     assert result.returncode == 0, result.stdout[-3000:]
+
+
+def test_documented_windows_prefix_limit_is_the_one_of_the_built_bundle(bundles: dict[str, Path]) -> None:
+    """The longest relative path the installation pages name (test_packaging_texts.py) is the one the built
+    Windows bundle's BUNDLE.json gives install.ps1, for this version."""
+    with zipfile.ZipFile(bundles["win_amd64"]) as archive:
+        (name,) = [n for n in archive.namelist() if n.count("/") == 1 and n.endswith("/BUNDLE.json")]
+        info = json.loads(archive.read(name))
+    for lang in ("en", "zh"):
+        assert documented_prefix_limit(lang)[:2] == (info["version"], info["max_relative_install_path"]), lang
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="the Windows clean room needs Windows")

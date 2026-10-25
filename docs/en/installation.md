@@ -90,6 +90,17 @@ Without `cosign` the script stops unless the signature check is skipped explicit
 The script creates a virtual environment in the prefix (bytecode compiled), installs the wheels offline with
 their hashes and writes a launcher. Exit codes: 0 installed, 2 usage or environment, 3 integrity, 4 signature.
 
+On Windows the install folder needs a short path: Windows cannot start programs or load some modules from
+longer paths, even with long paths enabled (`LongPathsEnabled`), so every installed file stays within 250
+characters. The installer accepts a prefix of at most 249 characters minus the longest relative path below it,
+which `BUNDLE.json` records as `max_relative_install_path`; a longer prefix stops it with exit code 2 before it
+creates anything. For NeuroGrid 0.1.0rc1 that path has 148 characters, so the limit is 101 characters. The
+default prefix `%LOCALAPPDATA%\NeuroGrid\<version>` is much shorter.
+
+The Python of the Linux bundle lacks the module `dbm.ndbm` (`_dbm`): it links Berkeley DB, which is under the
+Sleepycat licence, so the bundle leaves it out and records this in `BUNDLE.json` (`python.removed`). NeuroGrid
+does not use it.
+
 The launcher is not added to `PATH`. Call it with its full path:
 
 === "Windows"

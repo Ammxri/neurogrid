@@ -10,11 +10,13 @@ from pathlib import Path
 
 import pytest
 
+import neurogrid
 from neurogrid.kernel.safety import load_yaml
 from neurogrid.report.texts import disclaimer, tables
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGING = ROOT / "packaging"
+DOCS = ROOT / "docs"
 COPIES = {
     "README.bundle.txt": "{}",
     "release-notes.md": "{}",
@@ -191,10 +193,47 @@ def test_the_named_default_locations_are_the_ones_the_cli_uses(
 
 def test_bundle_texts_record_the_removed_berkeley_db_module() -> None:
     """B4: the _dbm removal is recorded in BUNDLE.json (tools/bundle.py), the notices and the documentation;
-    the bundle's own texts name it (the docs pages belong to the documentation area)."""
-    for name in ("README.bundle.txt", "release-notes.md"):
-        text = _read(PACKAGING / name)
-        assert "_dbm" in text and "Berkeley DB" in text and "BUNDLE.json" in text, name
+    the bundle's own texts and both installation pages name it."""
+    pages = [DOCS / lang / "installation.md" for lang in ("en", "zh")]
+    for path in [PACKAGING / "README.bundle.txt", PACKAGING / "release-notes.md", *pages]:
+        text = _read(path)
+        assert "_dbm" in text and "Berkeley DB" in text and "BUNDLE.json" in text, path
+    for path in pages:
+        assert "`dbm.ndbm`" in _read(path) and "`python.removed`" in _read(path), path
+
+
+# The sentence of the installation pages that states the Windows prefix limit of this version (A-87).
+PREFIX_LIMIT = {
+    "en": re.compile(r"For NeuroGrid (\S+) that path has (\d+) characters, so the limit is (\d+) characters"),
+    "zh": re.compile(r"NeuroGrid (\S+) 的最长相对路径为 (\d+) 个字符，因此上限为 (\d+) 个字符"),
+}
+
+
+def _page(lang: str) -> str:
+    """The installation page of `lang` with every line break and indentation as one space."""
+    return re.sub(r"\s+", " ", _read(DOCS / lang / "installation.md"))
+
+
+def documented_prefix_limit(lang: str) -> tuple[str, int, int]:
+    """(version, longest relative path below the prefix, prefix limit) as the installation page names them."""
+    (match,) = PREFIX_LIMIT[lang].finditer(_page(lang))
+    return match.group(1), int(match.group(2)), int(match.group(3))
+
+
+def test_installation_pages_state_the_windows_prefix_limit_of_this_version() -> None:
+    """install.ps1 keeps every installed file within 250 characters (prefix <= 249 minus
+    max_relative_install_path, whatever LongPathsEnabled says). Both installation pages state that rule and
+    the value of this version; tests/packaging/test_bundle_real.py compares it with the built bundle."""
+    match = re.search(r"\$limit = (\d+) - 1 - \[long\]\$longest", _read(PACKAGING / "install.ps1"))
+    assert match, "install.ps1 no longer derives the prefix limit from max_relative_install_path"
+    total = int(match.group(1))
+    for lang in ("en", "zh"):
+        text = _page(lang)
+        assert f" {total} " in text and f" {total - 1} " in text, lang
+        assert "`max_relative_install_path`" in text and "`LongPathsEnabled`" in text, lang
+        version, longest, limit = documented_prefix_limit(lang)
+        assert version == neurogrid.__version__ and limit == total - 1 - longest, (lang, version, longest)
+    assert documented_prefix_limit("en") == documented_prefix_limit("zh")
 
 
 def test_installers_mark_the_prefix_as_an_offline_bundle_installation() -> None:
