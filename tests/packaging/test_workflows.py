@@ -321,9 +321,9 @@ def _command_texts() -> dict[str, tuple[str, str]]:
 
 def test_every_option_passed_to_a_tool_exists() -> None:
     """A workflow, CI script or installer that passes a tool an option or subcommand the tool does not define
-    fails on every run: release.yml once called `tools/licenses.py --release`, which no area defines (argparse
-    exits 2). Every called tool in the tree is checked against its own parser (_parser_of); only a pending
-    tool whose file does not exist yet is left out (PENDING)."""
+    fails on every run: release.yml once passed --release to tools/licenses.py, which no area defines
+    (argparse exits 2). Every called tool in the tree is checked against its own parser (_parser_of); only a
+    pending tool whose file does not exist yet is left out (PENDING)."""
     checked = 0
     problems = []
     for where, (text, kind) in _command_texts().items():
@@ -339,9 +339,10 @@ def test_every_option_passed_to_a_tool_exists() -> None:
 
 
 def test_the_option_check_finds_an_unknown_option() -> None:
-    assert _tool_calls("uv run --no-sync python tools/licenses.py --release\n") == [
-        ("licenses.py", ["--release"])
-    ]
+    # Split, so that the option scan of the documentation tests (tests/docs/test_notices.py), which also reads
+    # this file, does not take the wrong call for a real one.
+    wrong = "uv run --no-sync python tools/" + "licenses.py --release\n"
+    assert _tool_calls(wrong) == [("licenses.py", ["--release"])]
     assert _call_problems("licenses.py", _parser_of(TOOLS / "licenses.py"), ["--release"]) == [
         "licenses.py: unknown option --release"
     ]
