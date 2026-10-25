@@ -2,7 +2,12 @@
 PowerShell 7 when installed) on a stand-in bundle: integrity (exit 3), signature (exit 4), usage and
 environment (exit 2), cleanup after a failed installation. The full installation of a real bundle is the clean
 room (packaging/ci/cleanroom_windows.ps1). A stand-in cosign (a .cmd that exits 0 or 1) exercises the
-signature branch without network."""
+signature branch without network.
+
+Every folder of these tests lies in a short folder of its own below the system's temporary folder, not below
+pytest's temporary folder: the installer refuses an install folder longer than 249 minus the longest path the
+bundle installs, and Windows PowerShell 5.1 reaches paths over 260 characters only with long-path support. So
+the outcome does not depend on how long pytest's folder (--basetemp) is."""
 
 from __future__ import annotations
 
@@ -11,6 +16,8 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -26,15 +33,38 @@ PWSH = shutil.which("pwsh") if sys.platform == "win32" else None
 pytestmark = pytest.mark.skipif(POWERSHELL is None, reason="Windows PowerShell 5.1 exists only on Windows")
 
 
+# Room for the deepest folder below the short root: the guard test needs a prefix of up to 249 - 1 characters
+# and the module copies of test_the_guard_keeps_modules_and_programs_loadable a path of 250.
+SHORT_ROOT_LIMIT = 120
+
+
 @pytest.fixture(scope="module")
-def built(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    tmp = tmp_path_factory.mktemp("ps1")
+def short_root() -> Iterator[Path]:
+    """This module's folder below the system's temporary folder (independent of --basetemp), removed at the
+    end."""
+    root = Path(tempfile.mkdtemp(prefix="ngps-"))
+    try:
+        assert len(str(root)) <= SHORT_ROOT_LIMIT, f"temporary folder too long for these tests: {root}"
+        yield root
+    finally:
+        shutil.rmtree(root)
+
+
+@pytest.fixture
+def work(short_root: Path) -> Path:
+    """A new folder of one test below the short root."""
+    return Path(tempfile.mkdtemp(prefix="t", dir=short_root))
+
+
+@pytest.fixture(scope="module")
+def built(short_root: Path) -> Path:
+    tmp = Path(tempfile.mkdtemp(prefix="ps1-", dir=short_root))
     return extract(bundle.build(inputs(tmp, "win_amd64")), tmp / "extracted")
 
 
 @pytest.fixture
-def folder(built: Path, tmp_path: Path) -> Path:
-    return Path(shutil.copytree(built, tmp_path / built.name))
+def folder(built: Path, work: Path) -> Path:
+    return Path(shutil.copytree(built, work / built.name))
 
 
 def _run(
@@ -68,8 +98,8 @@ def _sign(folder: Path) -> None:
     _resum(folder)
 
 
-def _fake_cosign(tmp_path: Path, code: int) -> Path:
-    path = tmp_path / "cosign-stand-in" / "cosign.cmd"
+def _fake_cosign(base: Path, code: int) -> Path:
+    path = base / "cosign-stand-in" / "cosign.cmd"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"@echo off\r\necho stand-in cosign %*\r\nexit /b {code}\r\n", encoding="ascii")
     return path
@@ -115,10 +145,10 @@ def test_verify_only_under_powershell_7(folder: Path) -> None:
     ],
 )
 def test_integrity_problems_exit_3_and_install_nothing(
-    folder: Path, tmp_path: Path, tamper: object, expected: str
+    folder: Path, work: Path, tamper: object, expected: str
 ) -> None:
     tamper(folder)  # type: ignore[operator]
-    prefix = tmp_path / "target"
+    prefix = work / "target"
     code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
     assert code == 3, text
     assert expected in text
@@ -131,7 +161,7 @@ def test_unsigned_bundle_needs_the_explicit_switch(folder: Path) -> None:
     assert "pass -SkipSignatureCheck to continue" in text
 
 
-def test_signed_bundle_without_cosign_needs_the_switch(folder: Path, tmp_path: Path) -> None:
+def test_signed_bundle_without_cosign_needs_the_switch(folder: Path) -> None:
     _sign(folder)
     env = {**_clean_env(), "PATH": r"C:\Windows\System32;C:\Windows\System32\WindowsPowerShell\v1.0"}
     code, text = _run(folder, "-VerifyOnly", env=env)
@@ -140,9 +170,9 @@ def test_signed_bundle_without_cosign_needs_the_switch(folder: Path, tmp_path: P
     assert code == 0 and "signature not verified here, as requested" in text, text
 
 
-def test_signed_bundle_with_cosign(folder: Path, tmp_path: Path) -> None:
+def test_signed_bundle_with_cosign(folder: Path, work: Path) -> None:
     _sign(folder)
-    good, bad = _fake_cosign(tmp_path / "ok", 0), _fake_cosign(tmp_path / "bad", 1)
+    good, bad = _fake_cosign(work / "ok", 0), _fake_cosign(work / "bad", 1)
     code, text = _run(folder, "-VerifyOnly", "-Cosign", str(good))
     assert code == 0, text
     assert "signature verified: https://github.com/owner/neurogrid/" in text
@@ -176,8 +206,8 @@ def test_usage_and_environment_errors_exit_2(folder: Path, args: list[str], expe
     assert expected in text
 
 
-def test_existing_target_is_never_overwritten(folder: Path, tmp_path: Path) -> None:
-    prefix = tmp_path / "target"
+def test_existing_target_is_never_overwritten(folder: Path, work: Path) -> None:
+    prefix = work / "target"
     prefix.mkdir()
     (prefix / "keep.txt").write_text("mine", encoding="utf-8")
     code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
@@ -185,20 +215,20 @@ def test_existing_target_is_never_overwritten(folder: Path, tmp_path: Path) -> N
     assert [p.name for p in prefix.iterdir()] == ["keep.txt"]
 
 
-def test_failed_installation_exits_2_and_removes_what_it_created(folder: Path, tmp_path: Path) -> None:
+def test_failed_installation_exits_2_and_removes_what_it_created(folder: Path, work: Path) -> None:
     """The stand-in uv.exe is not a program: creating the venv fails, the new folder is removed again."""
-    prefix = tmp_path / "new-target"
+    prefix = work / "new-target"
     code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
     assert code == 2, text
     assert "installation failed" in text or "creating the virtual environment failed" in text
     assert not prefix.exists()
 
 
-def test_variables_for_uv_are_restored_in_an_open_session(folder: Path, tmp_path: Path) -> None:
+def test_variables_for_uv_are_restored_in_an_open_session(folder: Path, work: Path) -> None:
     """Run inside an existing session (not through install.cmd), a failed installation leaves neither the uv
     variables nor PYTHONIOENCODING behind, and a value the session had before is kept."""
     assert POWERSHELL is not None
-    prefix = tmp_path / "target"
+    prefix = work / "target"
     script = (
         "$env:UV_NO_CONFIG = 'mine'; "
         f"& '{folder / 'install.ps1'}' -SkipSignatureCheck -Prefix '{prefix}' *> $null; "
@@ -249,12 +279,12 @@ def _total_path_limit() -> int:
     return int(match.group(1))
 
 
-def test_long_path_guard_applies_whatever_long_paths_enabled_says(folder: Path, tmp_path: Path) -> None:
+def test_long_path_guard_applies_whatever_long_paths_enabled_says(folder: Path, work: Path) -> None:
     """Every installed file stays within 250 characters: at the limit the guard lets the installation start
     (the stand-in uv then fails), one character more is refused before anything is created - also with
     LongPathsEnabled = 1 (this machine), where the old guard let a 181-character prefix through and extension
     modules then failed to load (UF-08). The limit counts characters; the Chinese folder name checks that."""
-    prefix = tmp_path / "安装 目录"
+    prefix = work / "安装 目录"
     length = len(str(prefix))
     total = _total_path_limit()
     assert total == 250
@@ -276,9 +306,9 @@ def test_long_path_guard_applies_whatever_long_paths_enabled_says(folder: Path, 
 
 
 @pytest.mark.parametrize("longest", [None, "88", -1, 1.5])
-def test_missing_path_prediction_is_an_integrity_error(folder: Path, tmp_path: Path, longest: object) -> None:
+def test_missing_path_prediction_is_an_integrity_error(folder: Path, work: Path, longest: object) -> None:
     _predict_longest_path(folder, longest)
-    prefix = tmp_path / "t"
+    prefix = work / "t"
     code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
     assert code == 3 and "BUNDLE.json incomplete" in text, text
     assert not prefix.exists()
@@ -302,7 +332,7 @@ def _copy_at_length(source: Path, base: Path, total: int) -> Path:
     return target
 
 
-def test_the_guard_keeps_modules_and_programs_loadable(tmp_path: Path) -> None:
+def test_the_guard_keeps_modules_and_programs_loadable(work: Path) -> None:
     """The allowance of the guard is safe: at the total length it allows, an extension module with an embedded
     manifest (fontTools' bezierTools, the measured case: 250 loads, 251 fails with ERROR_FILENAME_EXCED_RANGE
     even with LongPathsEnabled = 1) loads in a fresh interpreter, and a program starts."""
@@ -310,7 +340,7 @@ def test_the_guard_keeps_modules_and_programs_loadable(tmp_path: Path) -> None:
 
     total = _total_path_limit()
     module = _copy_at_length(
-        next(Path(fontTools.misc.__file__).parent.glob("bezierTools*.pyd")), tmp_path / "m", total
+        next(Path(fontTools.misc.__file__).parent.glob("bezierTools*.pyd")), work / "m", total
     )
     code = (
         "import importlib.machinery, importlib.util, sys\n"
@@ -327,7 +357,7 @@ def test_the_guard_keeps_modules_and_programs_loadable(tmp_path: Path) -> None:
         check=False,
     )
     assert result.returncode == 0 and result.stdout.strip() == "loaded", result.stderr
-    program = _copy_at_length(Path(r"C:\Windows\System32\hostname.exe"), tmp_path / "p", total)
+    program = _copy_at_length(Path(r"C:\Windows\System32\hostname.exe"), work / "p", total)
     assert subprocess.run([str(program)], capture_output=True, timeout=60, check=False).returncode == 0
 
 
