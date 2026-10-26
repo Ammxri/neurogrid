@@ -47,9 +47,10 @@ function Quote([string]$text) {
 
 function Shown([string]$path) {
     # A path as NeuroGrid's messages show it: quoted when it holds a space (kernel/pdf.py _quoted), then the home
-    # folder as ~ (A-51, cli.py _redact).
+    # folder as ~ (A-51, cli.py _redact). Without USERPROFILE the path stays as it is ([string] of $null is '',
+    # so no method is called on a null value under ErrorActionPreference Stop).
     if ($path.Contains(' ')) { $path = '"' + $path + '"' }
-    $userHome = $env:USERPROFILE.TrimEnd('\')
+    $userHome = ([string]$env:USERPROFILE).TrimEnd('\')
     if (-not $userHome) { return $path }
     return [regex]::Replace($path, [regex]::Escape($userHome) + '(?=[\\/])', '~', 'IgnoreCase')
 }
