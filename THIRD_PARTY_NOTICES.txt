@@ -326,7 +326,10 @@ with it.
     isomorphic-git 1.41.9 with its comments (sourcesContent), and the offline bundle keeps that file;
     upstream: isomorphic-git at tag v1.41.9 (https://github.com/isomorphic-git/isomorphic-git) and @zenfs/core
     (https://github.com/zen-fs/core).
-  Licence texts: LICENSES/LGPL-3.0-or-later.txt, LICENSES/GPL-3.0-or-later.txt (section 6)
+  Licence texts:
+    license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/LICENSE.LGPL-3.0-or-later.txt,
+    license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/LICENSE.GPL-3.0-or-later.txt
+    (section 6)
   Note: No version of the validator without this part meets the pins (BIDS 1.11.1, schema 1.2.7, deno run as
     of A-06). The validator code calls it only for git and git-annex paths, which NeuroGrid does not use; the
     licence follows the distribution, not the call. An upstream request to replace the part is drafted (D-16).

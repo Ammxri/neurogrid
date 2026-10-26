@@ -1526,7 +1526,7 @@ size = 99
 sha256 = "8edab7c7f3e4c705121b9b5da7bcf137fa0135df0ec63b3446915f7031fcd96a"
 
 [[package.text]]
-repository_file = "LICENSES/LGPL-3.0-or-later.txt"
+file = "npm/isomorphic-git@1.41.9/LICENSE.LGPL-3.0-or-later.txt"
 origin = "GNU Lesser General Public License version 3 (the licence of the path.join copied from @zenfs/core/path; SPDX license-list-data v3.27.0, D-16)"
 kind = "standard text"
 url = ""
@@ -1534,7 +1534,7 @@ size = 42098
 sha256 = "996af0513df21f7496288951c41428a03c174e9e4a9d63665c57d670f845ccb1"
 
 [[package.text]]
-repository_file = "LICENSES/GPL-3.0-or-later.txt"
+file = "npm/isomorphic-git@1.41.9/LICENSE.GPL-3.0-or-later.txt"
 origin = "GNU General Public License version 3 (LGPL-3.0 section 4 b asks for it with the LGPL; SPDX license-list-data v3.27.0, D-16)"
 kind = "standard text"
 url = ""

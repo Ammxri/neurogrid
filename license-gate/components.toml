@@ -86,7 +86,8 @@ note = "BIDS schema 1.2.7 (jsr @bids/schema, BIDS 1.11.1) inside the bundle; the
 # validator bundle (D-16, pattern of D-08). tools/notices.py accepts the licence only for exactly dist_version
 # of the wheel, exactly the package version and the one source-map entry that states it; any other version
 # fails the check until the part is reviewed again. The texts are attached to the package in
-# license-gate/third_party/<bundle>/manifest.toml and copied into the notices.
+# license-gate/third_party/<bundle>/manifest.toml, kept next to it in that folder (not in the REUSE folder
+# LICENSES/, which holds only licences of this repository's own files) and copied into the notices.
 
 [[bundled_exception]]
 decision = "D-16"
@@ -101,7 +102,10 @@ component = "path.join of isomorphic-git 1.41.9 with its helpers normalizeString
 copyright = "Copyright (c) James Prevett and other ZenFS contributors"
 location = "bids_validator_deno/bids-validator.js of bids_validator_deno-3.0.2-py3-none-any.whl (SHA-256 69932249880e0cb6a7135f33ee7af46e072a795f8ba3b800cb99ee53a48842d3), functions normalizeString2, getWindowsDrivePrefix, normalize4 and join5 at lines 9125 to 9217 (names as esbuild wrote them); its licence header is in the bundle's 'Bundled license information' trailer under isomorphic-git/index.cjs."
 source_code = "bids_validator_deno/bids-validator.js.map of the same wheel carries the whole index.cjs of isomorphic-git 1.41.9 with its comments (sourcesContent), and the offline bundle keeps that file; upstream: isomorphic-git at tag v1.41.9 (https://github.com/isomorphic-git/isomorphic-git) and @zenfs/core (https://github.com/zen-fs/core)."
-texts = ["LICENSES/LGPL-3.0-or-later.txt", "LICENSES/GPL-3.0-or-later.txt"]
+texts = [
+    "license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/LICENSE.LGPL-3.0-or-later.txt",
+    "license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/LICENSE.GPL-3.0-or-later.txt",
+]
 note = "No version of the validator without this part meets the pins (BIDS 1.11.1, schema 1.2.7, deno run as of A-06). The validator code calls it only for git and git-annex paths, which NeuroGrid does not use; the licence follows the distribution, not the call. An upstream request to replace the part is drafted (D-16)."
 
 # --- h5py ---------------------------------------------------------------------------------------------------

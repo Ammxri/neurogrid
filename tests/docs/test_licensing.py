@@ -2,9 +2,11 @@
 
 REUSE.toml is checked with an own implementation of its rules (``*`` within a path segment, ``**`` across
 segments, the last matching table wins): the REUSE tool itself is GPL-3.0 and has no Windows wheel for the
-no-build lock (A-48), so this test is the REUSE gate. The licence texts are in LICENSES/; a text whose
-download D-06 does not cover is listed in license-gate/known_missing.toml (STOPP G1) and blocks the
-release."""
+no-build lock (A-48), so this test is the REUSE gate. Like ``reuse lint`` it fails for a licence without its
+text in LICENSES/ and for a text in LICENSES/ that no file of the repository uses; a text whose download
+neither D-06 nor D-15 covers is listed in license-gate/known_missing.toml (STOPP G1) and blocks the release.
+Licence texts of bundled third-party packages (D-15, D-16) are kept next to the package in
+license-gate/third_party/, not in LICENSES/."""
 
 from __future__ import annotations
 
@@ -142,17 +144,22 @@ def test_licence_file_names(path: str, hit: bool) -> None:
     assert bool(LICENCE_FILE.search(path)) is hit
 
 
-def third_party_texts() -> set[str]:
-    """Licence texts of LICENSES/ that a manifest of license-gate/third_party attaches to a bundled package
-    (repository_file), for example the LGPL-3.0 and GPL-3.0 texts of the D-16 exception."""
-    found: set[str] = set()
+STANDARD_TEXT = re.compile(r"(?:^|/)LICENSE\.([A-Za-z0-9.+-]+)\.txt$")
+
+
+def third_party_texts() -> dict[str, str]:
+    """SPDX ID -> repository path of the standard licence texts that a manifest of license-gate/third_party
+    keeps next to a bundled package (file LICENSE.<SPDX-ID>.txt of kind 'standard text'), for example the
+    LGPL-3.0 and GPL-3.0 texts of the D-16 exception."""
+    found: dict[str, str] = {}
     for manifest in (ROOT / THIRD_PARTY).glob("*/manifest.toml"):
         data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        base = manifest.parent.relative_to(ROOT).as_posix()
         for package in data["package"]:
             for text in package.get("text", []):
-                name = str(text.get("repository_file", ""))
-                if name.startswith("LICENSES/"):
-                    found.add(Path(name).stem)
+                match = STANDARD_TEXT.search(str(text.get("file", "")))
+                if match and text.get("kind") == "standard text":
+                    found[match.group(1)] = f"{base}/{text['file']}"
     return found
 
 
@@ -163,20 +170,25 @@ def test_used_licences_have_texts_and_texts_are_used() -> None:
         used |= _ids(str(table["SPDX-License-Identifier"]))
     own |= used
     for name in _files():
-        header = _header_licence(name) if not name.startswith("LICENSES/") else None
+        # licence files themselves are no licensed files (reuse lint skips them): a third-party header
+        # extract such as the LGPL path.join header of isomorphic-git states its own licence
+        header = _header_licence(name) if not LICENCE_FILE.search(name) else None
         if header:
             used |= _ids(header)
-            if not LICENCE_FILE.search(name):
-                own |= _ids(header)
+            own |= _ids(header)
     texts = {path.stem for path in LICENSES.glob("*.txt")}
     absent = used - texts
     assert absent <= known_missing(), sorted(absent - known_missing())  # only reviewed gaps (G1)
-    # no unused licence text: each one licenses files of this repository or a bundled third-party package
-    unused = texts - used - third_party_texts()
+    # as reuse lint: every text in LICENSES/ licenses a file of this repository (no unused licence)
+    unused = texts - used
     assert not unused, sorted(unused)
-    # the copyleft texts serve the bundled LGPL part only (D-16), never a file of this repository
-    assert {"LGPL-3.0-or-later", "GPL-3.0-or-later"} <= third_party_texts() - own
-    assert third_party_texts() <= texts, sorted(third_party_texts() - texts)
+    # the copyleft texts serve the bundled LGPL part only (D-16): kept next to that package in
+    # license-gate/third_party, never in LICENSES/ and never the licence of a file of this repository
+    copyleft = {"LGPL-3.0-or-later", "GPL-3.0-or-later"}
+    kept = third_party_texts()
+    assert copyleft <= set(kept), sorted(copyleft - set(kept))
+    assert not copyleft & (texts | own | used)
+    assert all((ROOT / path).is_file() and LICENCE_FILE.search(path) for path in kept.values()), kept
     if absent:
         warnings.warn(f"licence texts pending owner approval (G1): {sorted(absent)}", stacklevel=1)
     assert (LICENSES / "Apache-2.0.txt").read_bytes() == (ROOT / "LICENSE").read_bytes()
@@ -186,22 +198,25 @@ LICENCE_TEXTS = ROOT / "license-gate" / "licence_texts.toml"
 SHA256 = re.compile(r"[0-9a-f]{64}")
 SPDX_DATA = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0"
 # Every licence text downloaded into LICENSES/ and the decision that approved exactly that download.
+COPYLEFT_DIR = "license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9"
 APPROVED_DOWNLOADS = {
     "LICENSES/CC-BY-4.0.txt": "D-15",
-    "LICENSES/LGPL-3.0-or-later.txt": "D-16",
-    "LICENSES/GPL-3.0-or-later.txt": "D-16",
+    f"{COPYLEFT_DIR}/LICENSE.LGPL-3.0-or-later.txt": "D-16",
+    f"{COPYLEFT_DIR}/LICENSE.GPL-3.0-or-later.txt": "D-16",
 }
 
 
 def test_downloaded_licence_texts_match_their_record() -> None:
-    """D-15, D-16: a licence text downloaded into LICENSES/ is recorded with its URL, size and SHA-256 and
-    stored byte for byte; Apache-2.0 (a copy of LICENSE) and OFL-1.1 (the font's OFL.txt) are no downloads.
-    Each download is the one its decision approved, all from the same pinned tag of SPDX license-list-data."""
+    """D-15, D-16: a licence text downloaded into LICENSES/ or next to a bundled package (the standard texts
+    of license-gate/third_party) is recorded with its URL, size and SHA-256 and stored byte for byte;
+    Apache-2.0 (a copy of LICENSE) and OFL-1.1 (the font's OFL.txt) are no downloads. Each download is the
+    one its decision approved, all from the same pinned tag of SPDX license-list-data."""
     data = tomllib.loads(LICENCE_TEXTS.read_text(encoding="utf-8"))
     assert data["version"] == 1
     recorded = {str(item["path"]): item for item in data["text"]}
     texts = {f"LICENSES/{path.name}" for path in LICENSES.glob("*.txt")}
-    assert set(recorded) == texts - {"LICENSES/Apache-2.0.txt", "LICENSES/OFL-1.1.txt"}
+    texts -= {"LICENSES/Apache-2.0.txt", "LICENSES/OFL-1.1.txt"}
+    assert set(recorded) == texts | set(third_party_texts().values())
     assert {path: item["decision"] for path, item in recorded.items()} == APPROVED_DOWNLOADS
     assert not {Path(path).stem for path in recorded} & known_missing()
     for path, item in recorded.items():
@@ -209,7 +224,8 @@ def test_downloaded_licence_texts_match_their_record() -> None:
         assert SHA256.fullmatch(str(item["sha256"])), path
         assert hashlib.sha256(content).hexdigest() == item["sha256"], path
         assert len(content) == item["size"], path
-        assert item["spdx"] == Path(path).stem, path
+        named = STANDARD_TEXT.search(path)
+        assert item["spdx"] == (named.group(1) if named else Path(path).stem), path
         assert str(item["url"]) == f"{SPDX_DATA}/text/{item['spdx']}.txt", path
         assert b"\r" not in content, path
     font_licence = ROOT / "src" / "neurogrid" / "report" / "fonts" / "OFL.txt"
@@ -217,10 +233,10 @@ def test_downloaded_licence_texts_match_their_record() -> None:
     cc_by = (LICENSES / "CC-BY-4.0.txt").read_text(encoding="utf-8")
     assert cc_by.startswith("Creative Commons Attribution 4.0 International")
     assert "Section 1 – Definitions." in cc_by and "Section 8 – Interpretation." in cc_by
-    lgpl = (LICENSES / "LGPL-3.0-or-later.txt").read_text(encoding="utf-8")
+    lgpl = (ROOT / COPYLEFT_DIR / "LICENSE.LGPL-3.0-or-later.txt").read_text(encoding="utf-8")
     assert lgpl.startswith("GNU LESSER GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007")
     assert "4. Combined Works." in lgpl
-    gpl = (LICENSES / "GPL-3.0-or-later.txt").read_text(encoding="utf-8")
+    gpl = (ROOT / COPYLEFT_DIR / "LICENSE.GPL-3.0-or-later.txt").read_text(encoding="utf-8")
     assert gpl.startswith("GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007")
     assert "END OF TERMS AND CONDITIONS" in gpl
 

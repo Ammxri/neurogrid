@@ -911,7 +911,7 @@ def check_exceptions(
                 f"{tag}: the licence is stated in {', '.join(stating) or 'no source'}, "
                 f"the exception names {exception.source}"
             )
-        attached = {text.label for text in package.texts}
+        attached = {text.label for text in package.texts} | {_repository_path(t.path) for t in package.texts}
         if not exception.texts:
             problems.append(f"{tag}: names no licence text")
         for name in exception.texts:
@@ -920,6 +920,14 @@ def check_exceptions(
         if len(problems) == before:
             excused.setdefault(package.key, set()).update(units)
     return problems, excused
+
+
+def _repository_path(path: Path) -> str:
+    """``path`` relative to the repository (POSIX), or as it is when it lies outside."""
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def licence_policy(package: BundledPackage, permitted: Iterable[str]) -> tuple[set[str], list[str]]:

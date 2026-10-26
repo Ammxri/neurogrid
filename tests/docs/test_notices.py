@@ -665,7 +665,11 @@ def test_a_licence_outside_the_permissive_ones_needs_an_owner_decision(tmp_path:
     )
 
 
-COPYLEFT_TEXTS = ("LICENSES/LGPL-3.0-or-later.txt", "LICENSES/GPL-3.0-or-later.txt")
+COPYLEFT_DIR = "license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9"
+COPYLEFT_TEXTS = (
+    f"{COPYLEFT_DIR}/LICENSE.LGPL-3.0-or-later.txt",
+    f"{COPYLEFT_DIR}/LICENSE.GPL-3.0-or-later.txt",
+)
 LGPL_SOURCE = "../../node_modules/.deno/a@1.0.0/node_modules/a/index.cjs"
 
 
@@ -732,7 +736,7 @@ def test_a_version_bound_exception_admits_exactly_its_part(tmp_path: Path) -> No
     found = notices.check_validator_texts(
         wheel, notices.load_validator_texts("9.9.9", only_lgpl), [], exceptions=[_exception()]
     )
-    assert "LICENSES/GPL-3.0-or-later.txt is not attached" in "\n".join(found)
+    assert f"{COPYLEFT_TEXTS[1]} is not attached" in "\n".join(found)
     assert "names no licence text" in "\n".join(
         notices.check_validator_texts(wheel, packages, [], exceptions=[_exception(texts=())])
     )
@@ -800,9 +804,7 @@ def test_the_notices_name_the_exception_with_its_texts(tmp_path: Path) -> None:
     assert notices.EXCEPTIONS_HEADING in section
     for value in ("Copyright (c) Example contributors", "lines 1 to 9", LGPL_SOURCE, "bids-validator.js.map"):
         assert value in section, value
-    assert (
-        "Licence texts: LICENSES/LGPL-3.0-or-later.txt, LICENSES/GPL-3.0-or-later.txt (section 6)" in section
-    )
+    assert f"Licence texts: {COPYLEFT_TEXTS[0]}, {COPYLEFT_TEXTS[1]} (section 6)" in section
     texts = list(notices.iter_texts(text))
     assert any(t.startswith("GNU LESSER GENERAL PUBLIC LICENSE") for t in texts)
     assert any(t.startswith("GNU GENERAL PUBLIC LICENSE") for t in texts)
