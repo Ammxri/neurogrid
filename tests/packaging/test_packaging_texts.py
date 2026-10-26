@@ -20,6 +20,7 @@ DOCS = ROOT / "docs"
 COPIES = {
     "README.bundle.txt": "{}",
     "release-notes.md": "{}",
+    "gitee-release.md": "{}",
     "install.ps1": "'{}'",
     "install.sh": '"{}"',
 }
@@ -224,8 +225,8 @@ def test_installation_pages_state_the_windows_prefix_limit_of_this_version() -> 
     """install.ps1 keeps every installed file within 250 characters (prefix <= 249 minus
     max_relative_install_path, whatever LongPathsEnabled says). Both installation pages state that rule and
     the value of this version; tests/packaging/test_bundle_real.py compares it with the built bundle (the
-    build job of offline.yml runs it on every push to main, so a uv.lock change that moves the value without
-    a version bump fails there)."""
+    build job of offline.yml runs it on every push to dev and main, so a uv.lock change that moves the value
+    without a version bump fails there)."""
     match = re.search(r"\$limit = (\d+) - 1 - \[long\]\$longest", _read(PACKAGING / "install.ps1"))
     assert match, "install.ps1 no longer derives the prefix limit from max_relative_install_path"
     total = int(match.group(1))
@@ -249,3 +250,63 @@ def test_installers_mark_the_prefix_as_an_offline_bundle_installation() -> None:
     assert 'cp "$bundle/BUNDLE.json" "$prefix/BUNDLE.json"' in sh
     assert 'cp "$bundle/tools/install_pdf_browser.py" "$prefix/tools/install_pdf_browser.py"' in sh
     assert 'cp -a "$bundle/python" "$prefix/python"' in sh
+
+
+# The project's release page (D-15: repository https://github.com/Ammxri/neurogrid): the one place outside the
+# archive that publishes the signer identity of a release (release notes).
+RELEASES = "https://github.com/Ammxri/neurogrid/releases"
+
+
+def test_signer_identity_is_compared_with_the_published_one() -> None:
+    """Review R12 (lead decision: the in-archive check stays limited, D-15): the identity that cosign checks
+    comes from BUNDLE.json, which a changed bundle carries as well. The installers print the identity they
+    verified and tell the user to compare it with the release notes; README.txt says the same in step 1; the
+    release notes publish it; the installation pages describe the comparison."""
+    decisions = _read(ROOT / "docs" / "umsetzung" / "ENTSCHEIDUNGEN.md")
+    assert f"`{RELEASES.removesuffix('/releases')}`" in decisions  # the repository URL of D-15
+    ps1, sh = _read(PACKAGING / "install.ps1"), _read(PACKAGING / "install.sh")
+    assert f"$Releases = '{RELEASES}'" in ps1 and f'RELEASES="{RELEASES}"' in sh
+    for text, variable in ((ps1, "$Releases"), (sh, "$RELEASES")):
+        verified = text.index("signature verified: $identity")
+        sentence = (
+            "compare this signer identity with the one in the release notes on the project's release page"
+        )
+        compare = text.index(f"{sentence} ({variable})")
+        assert 0 < compare - verified < 600
+    readme = _read(PACKAGING / "README.bundle.txt")
+    step1 = readme[readme.index("1. ") : readme.index("2. ")]
+    assert "--certificate-identity {{identity}}" in step1 and RELEASES in step1
+    assert "First compare this signer identity with the one in the release notes" in step1
+    assert "请先将此签名者身份与项目发布页面" in step1
+    notes = _read(PACKAGING / "release-notes.md")
+    assert "Signer identity / 签名者身份：`{{identity}}`" in notes
+    for lang, needle in (
+        ("en", "compare it with the identity in the release notes"),
+        ("zh", "发布说明中的身份核对"),
+    ):
+        assert needle in _page(lang), lang
+
+
+def test_readme_commands_are_complete_lines_in_the_named_shell() -> None:
+    """Review R18: the cosign command of README.txt was split over two lines without a continuation (pasted,
+    cosign ran without --certificate-oidc-issuer), and the section headed PowerShell used cmd.exe syntax.
+    Every command line (indented by five spaces) is complete, and the Windows lines are PowerShell lines
+    (tests/packaging/test_install_ps1.py runs them)."""
+    lines = _read(PACKAGING / "README.bundle.txt").splitlines()
+    commands = [line.strip() for line in lines if line.startswith("     ")]
+    for line, following in zip(lines, lines[1:], strict=False):
+        if line.startswith("     "):
+            assert not following.lstrip().startswith("--"), (line, following)  # an option left over
+            assert not line.rstrip().endswith(("\\", "`")), line  # no continuation in either shell
+    (cosign,) = [line for line in commands if line.startswith("cosign ")]
+    assert "--certificate-identity {{identity}}" in cosign
+    assert cosign.endswith("--certificate-oidc-issuer https://token.actions.githubusercontent.com")
+    windows = [line for line in commands if "install.cmd" in line or "neurogrid.cmd" in line]
+    assert len(windows) == 5, windows
+    launcher = '& "$env:LOCALAPPDATA\\NeuroGrid\\{{version}}\\neurogrid.cmd" '
+    for line in windows:
+        assert line.startswith((".\\install.cmd ", launcher)), line
+        assert "%LOCALAPPDATA%" not in line, line
+        assert not re.search(r"\s--(lang|format) [^\"\s]*,", line), line  # a bare a,b: an array in PowerShell
+    heading = lines.index(next(line for line in lines if line.startswith("2. ")))
+    assert "PowerShell" in lines[heading] and "cmd.exe" in "\n".join(lines[heading : heading + 8])

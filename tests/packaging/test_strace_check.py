@@ -13,9 +13,9 @@ import pytest
 import strace_check
 
 LOOPBACK = [
-    '1234  connect(5, {sa_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("127.0.0.1")}, 16) '
+    '1234  connect(5, {sa_family=AF_INET, sin_port=htons(41237), sin_addr=inet_addr("127.0.0.1")}, 16) '
     "= -1 ECONNREFUSED",
-    "1234  connect(6, {sa_family=AF_INET6, sin6_port=htons(9), sin6_flowinfo=htonl(0), "
+    "1234  connect(6, {sa_family=AF_INET6, sin6_port=htons(41238), sin6_flowinfo=htonl(0), "
     'inet_pton(AF_INET6, "::1", &sin6_addr), sin6_scope_id=0}, 28) = -1 ECONNREFUSED',
     "1240  connect(3, {sa_family=AF_INET6, sin6_port=htons(53), sin6_flowinfo=htonl(0), "
     'inet_pton(AF_INET6, "::ffff:127.0.0.53", &sin6_addr), sin6_scope_id=0}, 28) = -1 ENETUNREACH',
@@ -28,6 +28,17 @@ NETWORK = [
     "1303  connect(9, {sa_family=AF_INET6, sin6_port=htons(443), sin6_flowinfo=htonl(0), "
     'inet_pton(AF_INET6, "2001:db8::1", &sin6_addr), sin6_scope_id=0}, 28 <unfinished ...>',
     "1304  connect(10, {sa_family=AF_INET, sin_port=htons(80), ...}, 16) = -1 EINVAL",  # address not readable
+]
+# A request that a proxy-honouring client hands to a dead proxy (HTTP(S)_PROXY=http://127.0.0.1:9): the real
+# host is never resolved, so this loopback connect to the discard port is the only trace of the attempt
+# (review R11, reproduced with urllib under an audit hook).
+DEAD_PROXY = [
+    '1310  connect(3, {sa_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("127.0.0.1")}, 16) '
+    "= -1 ECONNREFUSED (Connection refused)",
+    "1311  connect(4, {sa_family=AF_INET6, sin6_port=htons(9), sin6_flowinfo=htonl(0), "
+    'inet_pton(AF_INET6, "::1", &sin6_addr), sin6_scope_id=0}, 28) = -1 ECONNREFUSED',
+    "1312  connect(5, {sa_family=AF_INET6, sin6_port=htons(9), sin6_flowinfo=htonl(0), "
+    'inet_pton(AF_INET6, "::ffff:127.0.0.1", &sin6_addr), sin6_scope_id=0}, 28) = -1 ECONNREFUSED',
 ]
 LOCAL = [
     '1234  connect(4, {sa_family=AF_UNIX, sun_path="/var/run/nscd/socket"}, 110) = -1 ENOENT',
@@ -72,3 +83,22 @@ def test_any_non_loopback_address_fails(tmp_path: Path) -> None:
 def test_usage_and_empty_folder_exit_2(tmp_path: Path, args: list[str]) -> None:
     assert strace_check.main(args) == 2
     assert strace_check.main([str(tmp_path)]) == 2
+
+
+def test_a_connect_to_a_dead_proxy_is_a_network_attempt(tmp_path: Path) -> None:
+    assert [strace_check.classify(line)[0] for line in DEAD_PROXY] == ["network"] * 3  # type: ignore[index]
+    (tmp_path / "strace-check-edf.txt").write_text("\n".join(LOCAL + DEAD_PROXY) + "\n", encoding="utf-8")
+    assert strace_check.main([str(tmp_path)]) == 1
+    summary = (tmp_path / "strace-summary.txt").read_text(encoding="utf-8")
+    assert "3 network, 0 loopback" in summary and summary.count("NETWORK: strace-check-edf.txt: ") == 3
+    assert summary.endswith("result: 3 network attempt(s)\n")
+
+
+def test_the_summary_is_never_read_back_as_a_trace(tmp_path: Path) -> None:
+    """strace-summary.txt matches strace-*.txt: a second run over the same folder must not parse it."""
+    (tmp_path / "strace-check.txt").write_text("\n".join(LOCAL + LOOPBACK) + "\n", encoding="utf-8")
+    assert strace_check.main([str(tmp_path)]) == 0
+    first = (tmp_path / "strace-summary.txt").read_text(encoding="utf-8")
+    assert strace_check.main([str(tmp_path)]) == 0
+    assert (tmp_path / "strace-summary.txt").read_text(encoding="utf-8") == first
+    assert "strace-summary.txt" not in first

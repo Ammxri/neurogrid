@@ -500,9 +500,15 @@ def test_ci_matrix_and_gates() -> None:
 def test_offline_workflow_runs_every_offline_proof() -> None:
     offline = _load("offline")
     assert set(offline["on"]) == {"push", "workflow_dispatch", "workflow_call"}
-    # dev pushes run ci.yml only. A tag v* starts release.yml, which calls this workflow with the signed
-    # bundles: a tag trigger here as well would run every clean room twice per release tag.
-    assert offline["on"]["push"] == {"branches": ["main"]}
+    # D-15: the repository is public and the bundle tests run on every push to dev and main (only dev is
+    # pushed until G1, so a main-only trigger never ran them). A tag v* starts release.yml, which calls this
+    # workflow with the signed bundles: a tag trigger here as well would run every clean room twice per tag.
+    assert offline["on"]["push"] == {"branches": ["dev", "main"]}
+    # Quick dev pushes do not pile up clean-room runs; a release run (tag ref) is never cancelled.
+    assert offline["concurrency"] == {
+        "group": "offline-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}",
+    }
     release = _load("release")
     assert release["on"]["push"] == {"tags": ["v*"]}
     assert release["jobs"]["test"]["uses"] == "./.github/workflows/offline.yml"
@@ -545,6 +551,26 @@ def test_offline_workflow_runs_every_offline_proof() -> None:
             assert job["needs"] == "build" and "!cancelled()" in job["if"], job_id
 
 
+def test_rebuild_guide_states_the_offline_trigger_of_the_workflow() -> None:
+    """Review R10 follow-up: after the trigger moved to dev and main, docs/umsetzung/NACHBAU.md still said
+    that offline.yml ran on main pushes only and listed that as a deviation from D-15. The guide's workflow
+    list names the branches of the workflow's push trigger, and no sentence keeps the main-only claim."""
+    guide = (ROOT / "docs" / "umsetzung" / "NACHBAU.md").read_text(encoding="utf-8")
+    flat = " ".join(guide.split())
+    (listed,) = re.findall(r"`offline\.yml` \(Push ([^,;)]+)[,;)]", flat)
+    branches = _load("offline")["on"]["push"]["branches"]
+    assert sorted(listed.replace(" ", "").split("/")) == sorted(branches), listed
+    stale = (
+        r"`offline\.yml` nur",
+        r"nur bei Push auf `main`",
+        r"nicht bei jedem Push auf `dev`",
+        r"heute nicht so konfiguriert",
+        r"Abweichung von D-15: die Bündel-Tests",
+    )
+    for pattern in stale:
+        assert not re.search(pattern, flat), pattern
+
+
 def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
     linux = (ROOT / "packaging" / "ci" / "cleanroom_linux.sh").read_text(encoding="utf-8")
     assert "--network none" in linux and "--user 1000:1000" in linux
@@ -566,6 +592,20 @@ def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
                    "http://127.0.0.1:9", "System32\\tar.exe", "Join-Path $room '安装 目录'", "temp-left.txt",
                    "max_relative_install_path", "'BUNDLE.json', 'python\\python.exe'"):  # fmt: skip
         assert needle in windows, needle
+    # Review R11: dead proxies (127.0.0.1:9) turn a phone-home of a proxy-honouring client into a loopback
+    # connect that the evidence counts as allowed. The traced Linux runs and the audited Windows run set no
+    # proxy variables, and both evaluations count a loopback connect to port 9 as a network attempt.
+    assert "export HTTP_PROXY" not in inside
+    assert "127.0.0.1:9" not in inside.replace("such as http://127.0.0.1:9", "")
+    assert "unset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY" in inside
+    proxies = re.findall(r"^\s*(.*\$env:HTTP_PROXY = .*)$", windows, re.M)
+    assert proxies == [
+        "$env:HTTP_PROXY = $deadProxy; $env:HTTPS_PROXY = $deadProxy; $env:ALL_PROXY = $deadProxy; "
+        "$env:NO_PROXY = ''"
+    ]
+    assert "    if ($NoOsAudit) {\n        $env:HTTP_PROXY = $deadProxy" in windows
+    assert 'Remove-Item -LiteralPath "Env:$name"' in windows
+    assert "-in @('127.0.0.1', '::1') -and [string]$data['DestPort'] -ne '9'" in windows
     # The prefix has exactly install.ps1's limit and one character more is refused before anything exists;
     # without a PDF browser the report writes nothing and names the installation's own installer (B2).
     for needle in (
@@ -644,10 +684,57 @@ def test_gitee_mirror_is_switched_off_until_the_owner_enables_it() -> None:
     assert step["env"]["GITEE_SSH_KEY"] == "${{ secrets.GITEE_SSH_KEY }}"
 
 
+def test_gitee_release_files_are_prepared_from_the_signed_github_release() -> None:
+    """Review R15 (D-15: Gitee release with wheel, sdist, SHA256SUMS, signature and a link to the GitHub
+    release). No workflow prepared it. The job gitee-release takes exactly those four files from the published
+    GitHub release, checks the signature and the two checksums again, renders packaging/gitee-release.md with
+    the link and uploads files and text for the owner, who attaches them on Gitee: D-15 approves only the SSH
+    key for Gitee, so no API call and no further secret."""
+    mirror = _load("mirror-gitee")
+    assert mirror["on"]["workflow_dispatch"]["inputs"]["tag"]["default"] == ""
+    job = mirror["jobs"]["gitee-release"]
+    assert job["needs"] == "mirror" and job["environment"] == "gitee"
+    assert job["if"] == "vars.GITEE_MIRROR == 'true' && (github.event_name == 'release' || inputs.tag != '')"
+    assert "permissions" not in job  # the workflow's contents: read
+    (step,) = [s for s in _steps(job) if "run" in s]
+    assert step["env"] == {
+        "GH_TOKEN": "${{ github.token }}",
+        "TAG": "${{ inputs.tag || github.event.release.tag_name }}",
+    }
+    run = step["run"]
+    for needle in (
+        'gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir gitee-release --pattern "$wheel"',
+        '--pattern "$sdist" --pattern SHA256SUMS --pattern SHA256SUMS.sigstore.json',
+        'test "$(find gitee-release -type f | wc -l)" -eq 4',
+        "cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json",
+        '--certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com',
+        'identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${TAG}"',
+        'sha256sum --check --strict "$RUNNER_TEMP/wanted"',
+        'url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"',
+        "packaging/gitee-release.md > gitee-release-text.md",
+        "$GITHUB_STEP_SUMMARY",
+    ):
+        assert needle in run, needle
+    assert "gitee.com" not in run and "curl" not in run and "secrets" not in str(job)
+    assert "offline" not in run  # the bundles stay on GitHub
+    (upload,) = [s for s in _steps(job) if "upload-artifact" in str(s.get("uses"))]
+    assert upload["with"]["path"].split() == ["gitee-release/", "gitee-release-text.md"]
+    template = (ROOT / "packaging" / "gitee-release.md").read_text(encoding="utf-8")
+    assert set(re.findall(r"\{\{(\w+)\}\}", template)) == {"version", "github_release", "identity"}
+    for name in (
+        "neurogrid-{{version}}-py3-none-any.whl",
+        "neurogrid-{{version}}.tar.gz",
+        "SHA256SUMS.sigstore.json",
+    ):
+        assert name in template, name
+    assert "release.yml" in _text("release") and "Gitee release" in _text("release")
+
+
 def test_docs_and_corpus_workflows() -> None:
     docs = _load("docs")
     assert set(docs["on"]) == {"push", "pull_request", "workflow_dispatch"}
-    assert docs["on"]["push"] == {"branches": ["main"]}  # dev pushes run ci.yml only
+    # The documentation build is no bundle test (D-15 covers those, offline.yml): docs build on main pushes.
+    assert docs["on"]["push"] == {"branches": ["main"]}
     assert "tools/build_docs.py --site-dir site" in _runs(docs["jobs"]["build"])
     assert docs["jobs"]["browser"]["strategy"]["matrix"]["os"] == ["ubuntu-24.04", "windows-latest"]
     browser = _runs(docs["jobs"]["browser"])
@@ -678,10 +765,16 @@ JUNIT = "pytest-junit.xml"
 
 def test_every_pytest_step_annotates_its_failed_tests() -> None:
     """TECH-05: a failed test must be readable without a login. Every step that runs pytest writes a JUnit
-    report, and the two steps right after it run only on failure: tools/junit_annotations.py prints at most
-    10 failed tests as error annotations (GitHub keeps 10 per step), then, in its own step, one annotation
-    with the counts."""
+    report, and the five steps right after it run only on failure: tools/junit_annotations.py prints the
+    failed tests 1-10, 11-20, 21-30 and 31-40 as error annotations in four steps (GitHub keeps 10 per step;
+    CI run 40355705974 showed only 10 of 28 failures with one step), then, in its own step, one annotation
+    with the counts that says how many were annotated."""
+    import junit_annotations
+
     found = []
+    tool = f"uv run --no-sync python tools/junit_annotations.py {JUNIT}"
+    offsets = [index * junit_annotations.LIMIT for index in range(junit_annotations.STEPS)]
+    assert offsets == [0, 10, 20, 30]
     for name, job_id, job in _all_jobs():
         steps = _steps(job)
         for index, step in enumerate(steps):
@@ -689,12 +782,12 @@ def test_every_pytest_step_annotates_its_failed_tests() -> None:
                 continue
             found.append(f"{name}/{job_id}")
             assert f"--junitxml={JUNIT}" in step["run"], (name, job_id)
-            failed, counts = steps[index + 1 : index + 3]
-            for after in (failed, counts):
-                assert after["if"] == f"failure() && hashFiles('{JUNIT}') != ''", (name, job_id)
-            tool = f"uv run --no-sync python tools/junit_annotations.py {JUNIT}"
-            assert failed["run"] == f"{tool} --limit 10", (name, job_id)
-            assert counts["run"] == f"{tool} --summary", (name, job_id)
+            after = steps[index + 1 : index + 2 + len(offsets)]
+            assert len(after) == len(offsets) + 1, (name, job_id)
+            for annotation in after:
+                assert annotation["if"] == f"failure() && hashFiles('{JUNIT}') != ''", (name, job_id)
+            assert [a["run"] for a in after[:-1]] == [f"{tool} --offset {o} --limit 10" for o in offsets]
+            assert after[-1]["run"] == f"{tool} --summary --limit {len(offsets) * junit_annotations.LIMIT}"
     assert sorted(found) == ["ci/test", "docs/browser", "offline/build"]
     assert JUNIT in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
 

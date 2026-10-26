@@ -31,6 +31,11 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 Windows: `(Get-FileHash <file> -Algorithm SHA256).Hash.ToLower()` must equal the line in `SHA256SUMS`.
 
+Signer identity / 签名者身份：`{{identity}}`. The installers print the identity they verified
+(`signature verified: …`) and each bundle's `README.txt` names it; both must equal this one, which this release
+page publishes outside the archive. 安装程序在核验后显示的身份以及安装包 `README.txt` 中写明的身份都必须与此处一致；
+只有本发布页面上的身份在安装包之外公布。
+
 Each offline bundle also carries its own signed `SHA256SUMS`. Its installer checks every file and stops unless the
 signature was verified with cosign or `-SkipSignatureCheck` / `--skip-signature-check` confirms the check above.
 每个离线安装包都带有自己的已签名 `SHA256SUMS`；安装脚本逐一核对文件，未核验签名时需明确加上跳过参数。

@@ -9,11 +9,76 @@ set -euo pipefail
 export LC_ALL=C
 
 ISSUER="https://token.actions.githubusercontent.com"
+RELEASES="https://github.com/Ammxri/neurogrid/releases" # the project's release page (D-15)
 
 say() { printf '%s / %s\n' "$1" "$2"; }
 fail() {
   printf '错误 / Error: %s / %s\n' "$2" "$3" >&2
   exit "$1"
+}
+
+# A-51: console text names no user. A path is shown with ${XDG_DATA_HOME} or the home folder as ~ (as
+# NeuroGrid's own messages show it), whole folder names only.
+show() {
+  local text="$1" xdg="${XDG_DATA_HOME:-}" home="${HOME:-}"
+  xdg="${xdg%/}" home="${home%/}"
+  if [ -n "$xdg" ] && { [ "$text" = "$xdg" ] || [ "${text#"$xdg"/}" != "$text" ]; }; then
+    printf '%s' "\${XDG_DATA_HOME}${text#"$xdg"}"
+  elif [ -n "$home" ] && { [ "$text" = "$home" ] || [ "${text#"$home"/}" != "$text" ]; }; then
+    printf '%s' "~${text#"$home"}"
+  else
+    printf '%s' "$text"
+  fi
+}
+
+# A-51 for foreign text: every occurrence of the folder $2 in $1 that is a whole folder name (followed by the end,
+# a separator, a space, a quote or punctuation) becomes $3.
+hide_folder() {
+  local rest="$1" folder="$2" name="$3" out=""
+  if [ -z "$folder" ]; then
+    printf '%s' "$rest"
+    return 0
+  fi
+  while [[ "$rest" == *"$folder"* ]]; do
+    out+="${rest%%"$folder"*}"
+    rest="${rest#*"$folder"}"
+    case "${rest:0:1}" in
+      "" | / | " " | $'\t' | \" | \' | : | \; | , | \) | \]) out+="$name" ;;
+      *) out+="$folder" ;;
+    esac
+  done
+  printf '%s' "$out$rest"
+}
+
+# What a program prints, line by line through hide_folder: ${XDG_DATA_HOME} first, then the home folder as ~.
+# uv, cosign, cp and Python name absolute paths in their messages (the cache below the install folder, Sigstore's
+# trust root below the home folder).
+hide_lines() {
+  local line xdg="${XDG_DATA_HOME:-}" home="${HOME:-}"
+  xdg="${xdg%/}" home="${home%/}"
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(hide_folder "$line" "$xdg" "\${XDG_DATA_HOME}")"
+    printf '%s\n' "$(hide_folder "$line" "$home" "~")"
+  done
+}
+
+# Runs a command with its output through hide_lines on standard output and its errors through hide_lines on
+# standard error; the result is the command's exit code (pipefail).
+run_shown() {
+  { "$@" 2>&1 1>&3 3>&- | hide_lines >&2; } 3>&1 | hide_lines
+}
+
+# The launcher of the installation; run through run_shown, also bash's own message about a file it cannot
+# write is shown without the user folder.
+write_launcher() {
+  cat >"$1" <<'EOF'
+#!/bin/sh
+# NeuroGrid launcher of the offline bundle. Moving the install folder breaks the venv: reinstall instead.
+unset PYTHONPATH PYTHONHOME
+here="$(dirname "$(readlink -f "$0")")"
+exec "$here/../venv/bin/neurogrid" "$@"
+EOF
+  chmod 755 "$1"
 }
 
 usage() {
@@ -37,13 +102,28 @@ glibc_supported() {
   ((major > 2 || (major == 2 && minor >= 28)))
 }
 
+# EXIT trap of the installation step: after a failure the prefix goes again if the installer created it, or is
+# emptied again if it existed empty (checked before), and the parents the installer created go while empty.
+undo_failed_install() {
+  [ "${INSTALL_DONE:-1}" -eq 0 ] || return 0
+  if [ "$INSTALL_CREATED" -eq 1 ]; then
+    run_shown rm -rf -- "$INSTALL_PREFIX" || true
+  else
+    find "$INSTALL_PREFIX" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true
+  fi
+  local parent
+  for parent in ${install_parents[@]+"${install_parents[@]}"}; do
+    rmdir -- "$parent" 2>/dev/null || true
+  done
+}
+
 # A top-level field of BUNDLE.json (written with one space of indentation and sorted keys).
 bundle_field() {
   sed -n "s/^ \"$2\": \"\\{0,1\\}\\([^\",]*\\)\"\\{0,1\\},\\{0,1\\}\$/\\1/p" "$1/BUNDLE.json" | head -n 1
 }
 
 main() {
-  local bundle prefix="" cosign="" skip_signature=0 verify_only=0 pdf_zip="" pdf_sha=""
+  local bundle prefix="" cosign="" skip_signature=0 verify_only=0 pdf_zip="" pdf_sha="" shown=""
   bundle="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -60,9 +140,24 @@ main() {
       --skip-signature-check) skip_signature=1; shift ;;
       --verify-only) verify_only=1; shift ;;
       -h | --help) usage; exit 0 ;;
-      *) fail 2 "未知参数：$1" "unknown option: $1" ;;
+      *)
+        shown="$(show "$1")"
+        fail 2 "未知参数：$shown" "unknown option: $shown"
+        ;;
     esac
   done
+  # A relative --cosign names a file in the current folder (the script changes into the bundle folder below, and
+  # a bare name would be looked up on PATH): it becomes a full path now.
+  case "$cosign" in
+    "" | /*) ;;
+    *)
+      if [ -e "$cosign" ]; then
+        cosign="$(cd "$(dirname -- "$cosign")" && pwd -P)/$(basename -- "$cosign")"
+      else
+        cosign="$(pwd -P)/$cosign"
+      fi
+      ;;
+  esac
 
   [ -f "$bundle/BUNDLE.json" ] || fail 3 "缺少 BUNDLE.json" "BUNDLE.json missing"
   local version platform identity max_path
@@ -78,7 +173,8 @@ main() {
     [ -n "$pdf_zip" ] && [[ "$pdf_sha" =~ ^[0-9a-fA-F]{64}$ ]] \
       || fail 2 "--pdf-browser-zip 须与 --pdf-browser-sha256（64 位十六进制）同时使用" \
         "--pdf-browser-zip needs --pdf-browser-sha256 (64 hex digits)"
-    [ -f "$pdf_zip" ] || fail 2 "找不到文件：$pdf_zip" "file not found: $pdf_zip"
+    shown="$(show "$pdf_zip")"
+    [ -f "$pdf_zip" ] || fail 2 "找不到文件：$shown" "file not found: $shown"
     pdf_zip="$(cd "$(dirname "$pdf_zip")" && pwd -P)/$(basename "$pdf_zip")"
   fi
 
@@ -103,23 +199,37 @@ main() {
   count="$(printf '%s\n' "$listed" | wc -l)"
   say "完整性已核对（${count// /} 个文件）" "integrity verified (${count// /} files)"
 
-  # 2. Signature (Sigstore keyless, D-10 g). A check inside the archive proves integrity; authenticity comes from
-  #    the check on a connected machine before the transfer (README.txt, docs/installation.html). cosign needs
-  #    Sigstore's trust root (network or a prepared cache), so an explicit --skip-signature-check wins over a cosign
-  #    found on PATH; --cosign always verifies.
+  # 2. Signature (Sigstore keyless, D-10 g, D-15): SHA256SUMS is always checked (above); the signature whenever
+  #    cosign is there: --cosign, or a cosign on PATH, also with --skip-signature-check, which only lets an
+  #    installation without cosign go on. A check inside the archive proves integrity; authenticity comes from the
+  #    check on a connected machine before the transfer and from comparing the signer identity with the one the
+  #    project publishes (README.txt, docs/installation.html).
   if [ -n "$cosign" ] && [ "$skip_signature" -eq 1 ]; then
     fail 2 "--cosign 与 --skip-signature-check 不能同时使用" "--cosign and --skip-signature-check exclude each other"
   fi
   if [ -f SHA256SUMS.sigstore.json ]; then
     [ -n "$identity" ] || fail 4 "BUNDLE.json 未写明签名者身份" "BUNDLE.json names no signer identity"
-    if [ -z "$cosign" ] && [ "$skip_signature" -eq 0 ]; then cosign="$(command -v cosign || true)"; fi
+    local on_path=0 verified=0
+    if [ -z "$cosign" ]; then
+      cosign="$(command -v cosign || true)"
+      [ -z "$cosign" ] || on_path=1
+    fi
     if [ -n "$cosign" ]; then
-      [ -x "$cosign" ] || fail 2 "找不到 cosign：$cosign" "cosign not found: $cosign"
-      "$cosign" verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity "$identity" \
-        --certificate-oidc-issuer "$ISSUER" >&2 \
-        || fail 4 "签名核验失败，未安装（cosign 需要 Sigstore 信任根：联网或已准备的缓存）" \
-          "signature check failed; nothing installed (cosign needs the Sigstore trust root: network or a prepared cache)"
+      shown="$(show "$cosign")"
+      [ -x "$cosign" ] || fail 2 "找不到 cosign：$shown" "cosign not found: $shown"
+      run_shown "$cosign" verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity \
+        "$identity" --certificate-oidc-issuer "$ISSUER" >&2 && verified=1
+      if [ "$verified" -eq 0 ] && [ "$on_path" -eq 1 ] && [ "$skip_signature" -eq 1 ]; then
+        fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。--skip-signature-check 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的环境中加 --skip-signature-check 运行" \
+          "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). --skip-signature-check does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with --skip-signature-check where cosign is not on PATH"
+      fi
+      [ "$verified" -eq 1 ] || fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）" \
+        "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache)"
       say "签名已核验：$identity" "signature verified: $identity"
+      # The identity comes from BUNDLE.json, which a changed bundle can carry as well (D-15, review R12): only the
+      # comparison with the identity the project publishes shows who signed.
+      say "请将此签名者身份与项目发布页面（$RELEASES）发布说明中的身份核对；安装包内部的核验只能证明文件完整，不能证明来源" \
+        "compare this signer identity with the one in the release notes on the project's release page ($RELEASES); a check inside the archive proves that the files are intact, not who made them"
     elif [ "$skip_signature" -eq 1 ]; then
       say "按要求未在本机核验签名；请确认已在联网电脑上核验" \
         "signature not verified here, as requested; make sure it was verified on a connected machine"
@@ -165,67 +275,71 @@ main() {
       "install folder path too long (${#prefix} bytes, limit $limit); choose a shorter folder with --prefix"
   fi
   local created=1
+  shown="$(show "$prefix")"
   if [ -e "$prefix" ]; then
-    [ -d "$prefix" ] && [ -z "$(ls -A "$prefix")" ] || fail 2 "目标已存在且不为空：$prefix（新版本请装入新文件夹）" \
-      "target exists and is not empty: $prefix (install a new version into a new folder)"
+    [ -d "$prefix" ] && [ -z "$(ls -A "$prefix")" ] || fail 2 "目标已存在且不为空：$shown（新版本请装入新文件夹）" \
+      "target exists and is not empty: $shown (install a new version into a new folder)"
     created=0
   fi
+
+  # A failed installation leaves the target as it was found: the folders the installer creates (the prefix and
+  # any missing parent, deepest first) are removed again, and an existing empty prefix is emptied again.
+  install_parents=()
+  local walk="${prefix%/*}"
+  while [ -n "$walk" ] && [ ! -e "$walk" ]; do
+    install_parents+=("$walk")
+    walk="${walk%/*}"
+  done
 
   # 5. Install offline: interpreter, venv, wheelhouse with hashes, bytecode compiled at install (A-48).
   INSTALL_DONE=0
   INSTALL_PREFIX="$prefix"
   INSTALL_CREATED="$created"
-  trap 'if [ "$INSTALL_DONE" -eq 0 ] && [ "$INSTALL_CREATED" -eq 1 ]; then rm -rf -- "$INSTALL_PREFIX"; fi' EXIT
-  mkdir -p "$prefix"
-  cp -a "$bundle/python" "$prefix/python"
+  trap undo_failed_install EXIT
+  run_shown mkdir -p "$prefix"
+  run_shown cp -a "$bundle/python" "$prefix/python"
   export UV_OFFLINE=1 UV_NO_CONFIG=1 UV_PYTHON_DOWNLOADS=never UV_NO_PROGRESS=1 UV_CACHE_DIR="$prefix/.uv-cache"
   # uv hands the files to compile to the interpreter through a pipe: UTF-8 for prefixes with Chinese characters
   # (on Windows the ANSI code page made the compilation silently skip every file; A-48).
   export PYTHONIOENCODING=utf-8
-  "$bundle/uv/uv" venv --quiet --python "$prefix/python/bin/python3.12" "$prefix/venv" \
+  run_shown "$bundle/uv/uv" venv --quiet --python "$prefix/python/bin/python3.12" "$prefix/venv" \
     || fail 2 "创建虚拟环境失败" "creating the virtual environment failed"
-  "$bundle/uv/uv" pip sync --quiet --python "$prefix/venv/bin/python" --no-index --find-links "$bundle/wheels" \
-    --require-hashes --no-build --compile-bytecode --link-mode copy "$bundle/requirements.lock.txt" \
-    || fail 2 "离线安装失败" "offline installation failed"
-  rm -rf -- "$UV_CACHE_DIR"
+  run_shown "$bundle/uv/uv" pip sync --quiet --python "$prefix/venv/bin/python" --no-index \
+    --find-links "$bundle/wheels" --require-hashes --no-build --compile-bytecode --link-mode copy \
+    "$bundle/requirements.lock.txt" || fail 2 "离线安装失败" "offline installation failed"
+  run_shown rm -rf -- "$UV_CACHE_DIR"
 
   # 6. Launcher (exit codes pass through; nothing is set for DENO_DIR, which NeuroGrid sets per run, A-06/A-54),
   #    the PDF browser installer and the bundle's BUNDLE.json: next to python/ and tools/ it marks this folder as
   #    an offline-bundle installation, so a missing PDF browser is reported with the bundled command (D-08).
-  mkdir -p "$prefix/bin" "$prefix/tools"
-  cat >"$prefix/bin/neurogrid" <<'EOF'
-#!/bin/sh
-# NeuroGrid launcher of the offline bundle. Moving the install folder breaks the venv: reinstall instead.
-unset PYTHONPATH PYTHONHOME
-here="$(dirname "$(readlink -f "$0")")"
-exec "$here/../venv/bin/neurogrid" "$@"
-EOF
-  chmod 755 "$prefix/bin/neurogrid"
-  cp "$bundle/tools/install_pdf_browser.py" "$prefix/tools/install_pdf_browser.py"
-  cp "$bundle/BUNDLE.json" "$prefix/BUNDLE.json"
+  run_shown mkdir -p "$prefix/bin" "$prefix/tools"
+  run_shown write_launcher "$prefix/bin/neurogrid"
+  run_shown cp "$bundle/tools/install_pdf_browser.py" "$prefix/tools/install_pdf_browser.py"
+  run_shown cp "$bundle/BUNDLE.json" "$prefix/BUNDLE.json"
 
   # 7. Self-test.
-  "$prefix/bin/neurogrid" --help >/dev/null || fail 2 "安装后自检失败" "self-test after installation failed"
+  run_shown "$prefix/bin/neurogrid" --help >/dev/null || fail 2 "安装后自检失败" "self-test after installation failed"
   INSTALL_DONE=1
 
   # 8. Optional: PDF browser from a zip the customer provides, into NeuroGrid's own browser folder (D-08).
   if [ -n "$pdf_zip" ]; then
-    "$prefix/python/bin/python3.12" -I "$prefix/tools/install_pdf_browser.py" --from-zip "$pdf_zip" \
+    run_shown "$prefix/python/bin/python3.12" -I "$prefix/tools/install_pdf_browser.py" --from-zip "$pdf_zip" \
       --sha256 "$(printf '%s' "$pdf_sha" | tr 'A-F' 'a-f')" \
       || fail 2 "NeuroGrid 已安装，但 PDF 浏览器未安装" "NeuroGrid is installed, but the PDF browser is not"
     say "PDF 浏览器已安装；它还需要系统库（见 docs/installation.html）" \
       "PDF browser installed; it also needs system libraries (see docs/installation.html)"
   fi
 
-  say "已安装：$prefix/bin/neurogrid" "installed: $prefix/bin/neurogrid"
+  shown="$(show "$prefix")"
+  say "已安装：$shown/bin/neurogrid" "installed: $shown/bin/neurogrid"
   # Where results go (UF-08, CON-04): --out, or the defaults of check, report and manifest (cli.py).
   say "结果只保存在本机：写入 --out 指定的位置；未指定 --out 时，check 写入当前文件夹中的 results.json，report 写入 results.json 所在的文件夹，manifest 写入数据集中的 .neurogrid/manifest.json；不会上传任何数据" \
     "results stay on this computer: where --out points; without --out, check writes results.json in the current folder, report writes next to results.json and manifest writes .neurogrid/manifest.json inside the dataset; nothing is uploaded"
   # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
   local pdf_folder="\${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser"
-  [ -z "${NEUROGRID_PDF_BROWSER_DIR:-}" ] || pdf_folder="$NEUROGRID_PDF_BROWSER_DIR"
-  say "卸载：删除文件夹 $prefix（若装过 PDF 浏览器，另删 $pdf_folder）" \
-    "uninstall: delete the folder $prefix (and $pdf_folder if the PDF browser was installed)"
+  [ -z "${NEUROGRID_PDF_BROWSER_DIR:-}" ] || pdf_folder="$(show "$NEUROGRID_PDF_BROWSER_DIR")"
+  say "卸载：删除文件夹 $shown（若装过 PDF 浏览器，另删 $pdf_folder）" \
+    "uninstall: delete the folder $shown (and $pdf_folder if the PDF browser was installed)"
   printf '%s\n' "使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。"
   printf '%s\n' "Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations."
 }

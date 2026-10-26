@@ -4,16 +4,17 @@ The CI jobs that run pytest write the report with ``--junitxml``. When the test 
 the failed tests into workflow commands, ``::error title=<node ID>::<first line of the failure message>``.
 GitHub shows them as annotations of the job's check run, which the public REST API serves without a login
 (``GET /repos/<owner>/<repo>/check-runs/<id>/annotations``), unlike the job log. GitHub keeps at most 10 error
-annotations per step, so the workflows run the tool twice, in two steps: once for at most 10 failed tests,
-once with ``--summary`` for the counts.
+annotations per step, so the workflows run the tool in five steps: four for the failed tests 1-10, 11-20,
+21-30 and 31-40 (``--offset 0|10|20|30 --limit 10``), then one with ``--summary --limit 40`` for the counts,
+which also says how many failed tests the steps before annotated.
 
 Usage:
-    python tools/junit_annotations.py pytest-junit.xml [--root .] [--limit 10]
-    python tools/junit_annotations.py pytest-junit.xml --summary
+    python tools/junit_annotations.py pytest-junit.xml [--root .] [--offset 0] [--limit 10]
+    python tools/junit_annotations.py pytest-junit.xml --summary [--limit 40]
 
 The node ID is rebuilt from the report's class name (``tests.unit.test_x.TestY``) against the files below
 --root. The tool always exits 0, because the job has already failed: a missing or unreadable report gives one
-annotation that says so.
+annotation that says so (from the first step and the summary, not once per step).
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 LIMIT = 10  # error annotations GitHub keeps per step
+STEPS = 4  # annotation steps for failed tests after each pytest step of the workflows
 MESSAGE_LENGTH = 500
 OUTCOMES = ("failure", "error")
 
@@ -100,10 +102,12 @@ def read(report: Path, root: Path) -> tuple[list[Failed], Counts]:
     return failed, Counts(tests, failures, errors, skipped)
 
 
-def failure_commands(failed: Sequence[Failed], limit: int) -> list[str]:
+def failure_commands(failed: Sequence[Failed], limit: int, offset: int = 0) -> list[str]:
+    """The annotations of the failed tests offset+1 .. offset+limit, in report order."""
+    start = max(offset, 0)
     return [
         f"::error title={escape_property(item.node_id)}::{escape_data(item.message)}"
-        for item in failed[:limit]
+        for item in failed[start : start + max(limit, 0)]
     ]
 
 
@@ -123,19 +127,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("report", type=Path, help="JUnit XML file written by pytest --junitxml")
     parser.add_argument("--root", type=Path, default=Path(), help="folder the node IDs are relative to")
     parser.add_argument("--limit", type=int, default=LIMIT, help="failed tests to annotate (default 10)")
+    parser.add_argument("--offset", type=int, default=0, help="failed tests to skip first (default 0)")
     parser.add_argument("--summary", action="store_true", help="print only the annotation with the counts")
     args = parser.parse_args(argv)
     try:
         failed, counts = read(args.report, args.root)
     except (OSError, ElementTree.ParseError) as exc:
+        if args.offset > 0 and not args.summary:  # the first annotation step has said so already
+            return 0
         reason = f"no readable JUnit report {args.report}: {type(exc).__name__}: {exc}"
         print(f"::error title={escape_property('pytest summary')}::{escape_data(reason)}")
         return 0
-    shown = min(len(failed), max(args.limit, 0))
     if args.summary:
+        shown = min(len(failed), max(args.limit, 0))
         print(summary_command(counts, shown, args.report.as_posix()))
     else:
-        for line in failure_commands(failed, shown):
+        for line in failure_commands(failed, args.limit, args.offset):
             print(line)
     return 0
 

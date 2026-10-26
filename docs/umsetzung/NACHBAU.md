@@ -955,7 +955,7 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   gemergten Stand nicht wiederholt [NV]), `tools/strace_check.py` (Abschnitt 5).
 - **Workflows** (alle Actions per Commit-SHA gepinnt, Abschnitt 7) [G: `on:`-Blöcke]: `ci.yml` (Push dev/main, PRs;
   Jobs `test`, `compare`, `traceability`, `licenses`, `powershell51`, `pwsh`, **kein Bündel-Job**), `offline.yml`
-  (Push main, Dispatch, Aufruf aus `release.yml`; Jobs `build`, `offline-strace`, `cleanroom-linux`, `glibc-refusal`,
+  (Push dev/main, Dispatch, Aufruf aus `release.yml`; Jobs `build`, `offline-strace`, `cleanroom-linux`, `glibc-refusal`,
   `pdf-debian12`, `cleanroom-windows`), `docs.yml` (Push main, PRs, Dispatch), `corpus.yml` (Push main, Dispatch; ruft
   `tools/acceptance_g1.py --corpus .local/corpus --out .local/acceptance/g1` auf), `release.yml` (Tag `v*` und
   Dispatch, nur Entwurf), `publish-pypi.yml` (Dispatch, Trusted Publishing), `mirror-gitee.yml` (Dispatch/Release,
@@ -990,9 +990,11 @@ existiert noch nicht), A-84..A-88, Review mit vier Prüfrichtungen, Matrix/KONZE
 Dazu nach dem Merge zu wiederholen: Lizenz-Gate runtime/dev/docs und `--components` auf dem 103-Paket-Lock (4.7.4),
 Windows-Reinraum, `bundle.py sizes`, `scan_runtime_network.py` (4.7.5).
 
-Ebenfalls offen: D-15 verlangt, dass die Bündel-Tests nach dem ersten Push bei jedem Push auf `dev` und `main` laufen.
-Heute läuft `offline.yml` nur bei Push auf `main` sowie per Dispatch oder Aufruf aus `release.yml`, und `ci.yml` (Push
-`dev`/`main`) hat keinen Bündel-Job [G]. Einer der beiden Workflows muss vor dem ersten Push angepasst werden.
+D-15 verlangt, dass die Bündel-Tests nach dem ersten Push bei jedem Push auf `dev` und `main` laufen. Seit Review R10
+läuft `offline.yml` bei jedem Push auf `dev` und `main` sowie per Dispatch oder Aufruf aus `release.yml`; ein neuerer
+Push auf denselben Zweig bricht den älteren Lauf ab, ein Release-Lauf (Tag-Ref) wird nie abgebrochen [G: `on:`- und
+`concurrency:`-Block, `tests/packaging/test_workflows.py`]. `ci.yml` (Push `dev`/`main`) hat weiterhin keinen
+Bündel-Job; die Bündel-Tests liegen in `offline.yml`. Ein grüner Lauf von `offline.yml` auf `dev` steht noch aus [NV].
 
 ---
 
@@ -1171,8 +1173,8 @@ Cache entfernt).
 **P5 (Stand 584b7d2, P5 noch nicht abgeschlossen):** volle Suite, Abdeckung, Lizenz-Gate (alle Gruppen und
 `--components`), Korpus, Skalierungsgrenzen (A-88), `bundle.py sizes`, `scan_runtime_network.py` und Reinraum auf dem
 gemergten Stand sind noch nicht gelaufen; `tools/acceptance_g1.py` fehlt; A-84..A-88, Matrix, KONZEPT 1.2/1.3/1.6 und
-FORTSCHRITT sind für P5 noch nicht nachgetragen. Abweichung von D-15: die Bündel-Tests laufen in der CI nicht bei jedem
-Push auf `dev` (`offline.yml` nur Push `main`/Dispatch/Aufruf, `ci.yml` ohne Bündel-Job) [G].
+FORTSCHRITT sind für P5 noch nicht nachgetragen. Die Bündel-Tests laufen seit Review R10 wie in D-15 verlangt bei jedem
+Push auf `dev` und `main` (`offline.yml`) [G]; ein grüner Lauf auf `dev` steht aus [NV].
 
 ---
 
@@ -1253,7 +1255,8 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
 
 **Nur mit dem Projektverantwortlichen / CI (offen)**
 - [ ] Push auf `<REPO_URL>`, erster Lauf von `ci.yml`, `offline.yml`, `docs.yml`, `corpus.yml`
-- [ ] Bündel-Tests laufen bei jedem Push auf `dev` und `main` (D-15; heute nicht so konfiguriert, 4.7.6)
+- [ ] Bündel-Tests laufen bei jedem Push auf `dev` und `main` grün (D-15; seit Review R10 so konfiguriert,
+      `offline.yml` Push `dev`/`main`; erster grüner Lauf auf `dev` steht aus, 4.7.6)
 - [ ] Linux-Reinräume (`cleanroom_linux.sh` je Image, Ablehnung `ubuntu:18.04`), `offline_strace_linux.sh`,
       `pdf_debian12.sh` grün (4.7.5)
 - [ ] fehlende Lizenztexte abgelegt (D-15), `known_missing.toml` leer

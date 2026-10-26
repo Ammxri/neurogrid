@@ -52,7 +52,11 @@ tar -xzf /in/bundle.tar.gz
 bundle="$(echo "$room"/neurogrid-*-offline-linux_x86_64)"
 [ -d "$bundle" ] || { echo "no bundle folder in the archive" >&2; exit 1; }
 export NEUROGRID_PDF_BROWSER_DIR="$room/pdf-browser"
-export HTTP_PROXY=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 ALL_PROXY=http://127.0.0.1:9
+# No proxy variables (A-49 evidence): a dead proxy such as http://127.0.0.1:9 would turn a phone-home of a
+# proxy-honouring client into a loopback connect, which the strace evaluation counts as allowed; without them
+# every attempt names its real destination and fails on --network none. Nothing is inherited from the host
+# (docker run passes only the -e variables of cleanroom_linux.sh); this unset is for a reused image.
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy
 
 # A Chinese folder name with a space in the install prefix too (home folders may carry such names).
 prefix="$room/安装 目录/neurogrid"

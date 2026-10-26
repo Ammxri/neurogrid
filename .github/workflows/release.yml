@@ -2,8 +2,8 @@
 # starts by hand on such a tag); never on branches. Builds wheel, sdist, documentation, notices and both offline
 # bundles reproducibly, signs them keyless with Sigstore (no stored key), tests exactly the signed bundles in the
 # clean rooms (offline.yml) and creates a DRAFT GitHub Release. Publishing the draft, PyPI (publish-pypi.yml) and
-# the Gitee mirror (mirror-gitee.yml) stay with the owner. The gate fails while placeholders or missing licence
-# texts remain.
+# the Gitee mirror with the files of the Gitee release (mirror-gitee.yml, D-15) stay with the owner. The gate fails
+# while placeholders or missing licence texts remain.
 name: release
 
 on:

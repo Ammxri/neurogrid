@@ -399,7 +399,8 @@ def test_ci_traces_check_and_convert_for_network_connections() -> None:
     (D-09: runs on push). Since P5 (B4) the job lives in offline.yml and traces the installed offline bundle
     in a container without network: check with the validator (rule pack bids) and convert run under strace."""
     workflow = load_yaml((ROOT / ".github" / "workflows" / "offline.yml").read_text(encoding="utf-8"))
-    assert workflow[True]["push"]["branches"] == ["main"]  # YAML 1.1 reads the key `on` as true
+    # YAML 1.1 reads the key `on` as true; D-15: every push to dev and main (review R10)
+    assert workflow[True]["push"]["branches"] == ["dev", "main"]
     job = workflow["jobs"]["offline-strace"]
     assert job["runs-on"] == "ubuntu-24.04"
     script = "\n".join(str(step.get("run", "")) for step in job["steps"])

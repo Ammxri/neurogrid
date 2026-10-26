@@ -56,7 +56,8 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 在 Windows 上，将 `Get-FileHash -Algorithm SHA256 <file>` 的结果与 `SHA256SUMS` 中该文件的那一行进行比较。安装脚本
 会再次按 `SHA256SUMS` 检查安装包中的每个文件。由同一压缩包内的脚本进行的检查只能证明文件完整，不能证明文件来自何
-人；这一点由拷贝前的签名校验来证明。
+人；这一点由拷贝前的签名校验来证明。安装程序会显示其核验的签名者身份（`signature verified: …`），安装包中的
+`README.txt` 也写明该身份：请将其与项目发布页面上发布说明中的身份核对，因为从压缩包中读取的身份可能随压缩包一起被改动。
 
 ### 安装 {#install}
 
@@ -83,7 +84,8 @@ sha256sum --check --ignore-missing SHA256SUMS
     `--pdf-browser-zip <zip> --pdf-browser-sha256 <hex>`。不需要 root 权限。
 
 如果没有 `cosign`，脚本会停止，除非在完成上文所述的联网校验后明确跳过签名校验（`-SkipSignatureCheck` /
-`--skip-signature-check`）。脚本在安装目录中创建虚拟环境（预编译字节码），离线并按哈希值安装 wheel 文件，然后写入
+`--skip-signature-check`）。如果有 `cosign`（用 `-Cosign` / `--cosign` 指定或在 `PATH` 中找到），脚本总会校验签名，
+上述开关不能覆盖 `cosign` 的否定结果。脚本在安装目录中创建虚拟环境（预编译字节码），离线并按哈希值安装 wheel 文件，然后写入
 启动程序。退出码：0 已安装，2 用法或环境问题，3 完整性问题，4 签名问题。
 
 在 Windows 上，安装文件夹的路径必须较短：即使已启用长路径（`LongPathsEnabled`），

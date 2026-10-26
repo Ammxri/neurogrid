@@ -6,13 +6,15 @@
 #   pdf-debian12       PDF with the documented package list, no network, under strace
 #   cleanroom-windows  Windows PowerShell 5.1 and PowerShell 7, WFP audit of every connection, PDF included
 # Only synthetic fixtures are used; artifacts are bundles (1 day) and evidence (traces, logs), never datasets.
-# Runs on push to main and by hand ("Run workflow", also on dev). A tag v* starts release.yml, which calls this
-# workflow with exactly the signed bundles: the clean rooms run once per release tag, not a second time here.
+# Runs on every push to dev and main (D-15: the repository is public, the bundle tests run on each push) and by
+# hand ("Run workflow"); a newer push to the same branch cancels the older run. A tag v* starts release.yml,
+# which calls this workflow with exactly the signed bundles: the clean rooms run once per release tag, not a
+# second time here, and a release run is never cancelled.
 name: offline
 
 on:
   push:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -23,6 +25,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: offline-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   UV_VERSION: "0.13.0"
@@ -66,14 +72,23 @@ jobs:
             uv run --no-sync python -m pytest -m bundle -p no:cacheprovider tests/packaging/test_bundle_real.py \
               --junitxml=pytest-junit.xml
       # On failure: the failed tests as error annotations of the check run, which the public API serves
-      # without a login (TECH-05). GitHub keeps 10 error annotations per step: the tests and the counts
-      # come from two steps.
-      - name: Failed tests as annotations (at most 10)
+      # without a login (TECH-05). GitHub keeps 10 error annotations per step: four steps annotate the
+      # failed tests 1-40, a fifth the counts.
+      - name: Failed tests 1-10 as annotations
         if: failure() && hashFiles('pytest-junit.xml') != ''
-        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --limit 10
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 0 --limit 10
+      - name: Failed tests 11-20 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 10 --limit 10
+      - name: Failed tests 21-30 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 20 --limit 10
+      - name: Failed tests 31-40 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 30 --limit 10
       - name: Test counts as an annotation
         if: failure() && hashFiles('pytest-junit.xml') != ''
-        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary --limit 40
 
   offline-strace:
     name: every v0.1 command under strace, --network none (Linux)
@@ -197,7 +212,7 @@ jobs:
       - name: Install from the bundle, every v0.1 command, no connection of any bundle program (A-49)
         run: |
           $zip = (Get-ChildItem shell -Filter *.zip | Select-Object -First 1).FullName
-          $sha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $sha = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([System.IO.File]::ReadAllBytes($zip))).Replace('-', '').ToLowerInvariant()
           $archive = (Get-Item dist/neurogrid-*-offline-win_amd64.zip).FullName
           ./packaging/ci/cleanroom_windows.ps1 -Archive $archive -Evidence evidence -Installer ${{ matrix.installer }} -PdfBrowserZip $zip -PdfBrowserSha256 $sha
       - if: always()

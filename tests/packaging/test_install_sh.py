@@ -6,6 +6,7 @@ installation runs in the Linux clean room (packaging/ci/cleanroom_linux.sh, CI o
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -52,10 +53,14 @@ def folder(built: Path, tmp_path: Path) -> Path:
     return Path(shutil.copytree(built, tmp_path / built.name))
 
 
-def _run(folder: Path, *args: str) -> tuple[int, str]:
+def _run(folder: Path, *args: str, env: dict[str, str] | None = None) -> tuple[int, str]:
     assert BASH is not None
     result = subprocess.run(
-        [BASH, (folder / "install.sh").as_posix(), *args], capture_output=True, timeout=300, check=False
+        [BASH, (folder / "install.sh").as_posix(), *args],
+        capture_output=True,
+        env=env,
+        timeout=300,
+        check=False,
     )
     return result.returncode, result.stdout.decode("utf-8", "replace") + result.stderr.decode(
         "utf-8", "replace"
@@ -171,10 +176,30 @@ def test_signature_branch(folder: Path, tmp_path: Path) -> None:
         if code_ == 0:
             assert code == 0 and "signature verified: https://github.com/owner/neurogrid/" in text, text
             assert "--certificate-oidc-issuer https://token.actions.githubusercontent.com" in text
+            assert (  # review R12: compare with the identity the project publishes
+                "compare this signer identity with the one in the release notes on the project's "
+                "release page (https://github.com/Ammxri/neurogrid/releases)"
+            ) in text
         else:
             assert code == 4 and "signature check failed" in text, text
     code, text = _run(folder, "--verify-only", "--skip-signature-check")
     assert code == 0 and "signature not verified here, as requested" in text, text
+    # D-15 (review R16): a cosign found on PATH verifies, also with --skip-signature-check, which only lets an
+    # installation without cosign go on; a rejection is no longer overridden by the switch.
+    for code_, name in ((1, "bad"), (0, "good")):
+        on_path = tmp_path / f"path-{name}"
+        on_path.mkdir()
+        shutil.copyfile(tmp_path / f"cosign-{name}", on_path / "cosign")
+        (on_path / "cosign").chmod(0o755)
+        env = {**os.environ, "PATH": os.pathsep.join([str(on_path), os.environ.get("PATH", "")])}
+        code, text = _run(folder, "--verify-only", "--skip-signature-check", env=env)
+        if code_ == 0:
+            assert code == 0 and "signature verified: https://github.com/owner/neurogrid/" in text, text
+            assert "stand-in cosign verify-blob" in text and "as requested" not in text
+        else:
+            assert code == 4 and "signature check failed; nothing installed" in text, text
+            assert "--skip-signature-check does not skip the check of a cosign found on PATH" in text
+            assert "verified only" not in text
 
 
 @pytest.mark.parametrize(
@@ -211,6 +236,41 @@ def test_relative_prefix_is_refused_on_linux(folder: Path) -> None:
     assert code == 2 and "must be an absolute path" in text, text
 
 
+def test_a_relative_cosign_is_the_named_file(folder: Path, tmp_path: Path) -> None:
+    """Review R17: a relative --cosign was checked after the script had changed into the bundle folder, and a
+    bare name ran whatever cosign PATH held. It names a file of the current folder."""
+    assert BASH is not None
+    info = json.loads((folder / "BUNDLE.json").read_text(encoding="utf-8"))
+    info["release_identity"] = (
+        "https://github.com/owner/neurogrid/.github/workflows/release.yml@refs/tags/v9.8.7"
+    )
+    (folder / "BUNDLE.json").write_text(json.dumps(info, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    (folder / "SHA256SUMS.sigstore.json").write_text("{}", encoding="utf-8")
+    _resum(folder)
+    here, elsewhere = tmp_path / "here", tmp_path / "path"
+    for place, code_ in ((here, 0), (elsewhere, 1)):
+        place.mkdir()
+        (place / "cosign").write_text(
+            f'#!/bin/sh\necho stand-in cosign "$@"\nexit {code_}\n', encoding="utf-8", newline="\n"
+        )
+        (place / "cosign").chmod(0o755)
+    env = {**os.environ, "PATH": os.pathsep.join([str(elsewhere), os.environ.get("PATH", "")])}
+    for name in ("cosign", "./cosign"):
+        result = subprocess.run(
+            [BASH, (folder / "install.sh").as_posix(), "--verify-only", "--cosign", name],
+            capture_output=True,
+            cwd=here,
+            env=env,
+            timeout=300,
+            check=False,
+        )
+        text = result.stdout.decode("utf-8", "replace") + result.stderr.decode("utf-8", "replace")
+        assert result.returncode == 0 and "signature verified: https://github.com/owner/" in text, (
+            name,
+            text,
+        )
+
+
 def _bash_path(path: Path) -> str:
     """The absolute path as bash sees it (/c/... under Git Bash on Windows)."""
     text = path.as_posix()
@@ -219,10 +279,13 @@ def _bash_path(path: Path) -> str:
     return text
 
 
-def _run_as_linux_x86_64(folder: Path, *args: str) -> tuple[int, str]:
+def _run_as_linux_x86_64_streams(
+    folder: Path, *args: str, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
     """install.sh's main with uname and getconf replaced by shell functions that report Linux x86_64 with
     glibc 2.36, so the installer gets past its platform check on any machine (Git Bash's wrapper puts its own
-    /usr/bin first on PATH, so stand-in programs could not win)."""
+    /usr/bin first on PATH, so stand-in programs could not win): (exit code, standard output, standard
+    error)."""
     assert BASH is not None
     script = (
         'uname() { case "$1" in -m) echo x86_64 ;; *) echo Linux ;; esac; }\n'
@@ -231,11 +294,15 @@ def _run_as_linux_x86_64(folder: Path, *args: str) -> tuple[int, str]:
         'main "$@"\n'
     )
     result = subprocess.run(
-        [BASH, "-c", script, "install.sh", *args], capture_output=True, timeout=300, check=False
+        [BASH, "-c", script, "install.sh", *args], capture_output=True, env=env, timeout=300, check=False
     )
-    return result.returncode, result.stdout.decode("utf-8", "replace") + result.stderr.decode(
-        "utf-8", "replace"
-    )
+    out, err = (stream.decode("utf-8", "replace") for stream in (result.stdout, result.stderr))
+    return result.returncode, out, err
+
+
+def _run_as_linux_x86_64(folder: Path, *args: str, env: dict[str, str] | None = None) -> tuple[int, str]:
+    code, out, err = _run_as_linux_x86_64_streams(folder, *args, env=env)
+    return code, out + err
 
 
 def test_prefix_length_guard_counts_bytes_against_path_max(folder: Path, tmp_path: Path) -> None:
@@ -285,3 +352,181 @@ def test_help_and_fixed_sentence() -> None:
     assert result.returncode == 0 and b"--pdf-browser-zip" in result.stdout
     text = SCRIPT.read_text(encoding="utf-8")
     assert f'"{disclaimer("zh")}"' in text and f'"{disclaimer("en")}"' in text
+
+
+# A stand-in uv that works (a shell script): `uv venv ... <venv>` creates <venv>/bin/neurogrid, which exits 0,
+# so the installer's self-test passes; `uv pip ...` exits with NG_STAND_IN_PIP_EXIT (default 0).
+STAND_IN_UV = """#!/bin/sh
+case "$1" in
+  venv)
+    for venv in "$@"; do :; done
+    mkdir -p "$venv/bin"
+    printf '#!/bin/sh\\nexit 0\\n' >"$venv/bin/neurogrid"
+    chmod 755 "$venv/bin/neurogrid"
+    ;;
+  pip)
+    # A failing uv names its cache and the user's settings (absolute paths), as the real uv does.
+    if [ "${NG_STAND_IN_PIP_EXIT:-0}" != 0 ]; then
+      echo "error: failed to read $UV_CACHE_DIR/wheels" >&2
+      echo "hint: settings in $HOME/.config/uv/uv.toml"
+    fi
+    exit "${NG_STAND_IN_PIP_EXIT:-0}"
+    ;;
+  *) exit 1 ;;
+esac
+"""
+
+
+@pytest.fixture
+def installable(folder: Path) -> Path:
+    (folder / "uv" / "uv").write_text(STAND_IN_UV, encoding="utf-8", newline="\n")
+    (folder / "uv" / "uv").chmod(0o755)
+    _resum(folder)
+    return folder
+
+
+def _environment(**changes: str | None) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if k not in ("XDG_DATA_HOME", "NEUROGRID_PDF_BROWSER_DIR")}
+    for key, value in changes.items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = value
+    return env
+
+
+def test_show_writes_the_home_folder_as_tilde() -> None:
+    out = _source(
+        "HOME=/home/runneradmin; unset XDG_DATA_HOME; for p in /home/runneradmin /home/runneradmin/a/b "
+        '/home/runneradminx/c /opt/ng; do show "$p"; echo; done; '
+        "XDG_DATA_HOME=/home/runneradmin/.data; show /home/runneradmin/.data/neurogrid/1; echo; "
+        "HOME=/; show /x; echo; HOME=; show /home/runneradmin/y; echo"
+    )
+    assert out.splitlines() == [
+        "~",
+        "~/a/b",
+        "/home/runneradminx/c",
+        "/opt/ng",
+        "${XDG_DATA_HOME}/neurogrid/1",
+        "/x",
+        "/home/runneradmin/y",
+    ]
+
+
+def test_console_names_no_user_folder(installable: Path, tmp_path: Path) -> None:
+    """A-51 (review R13): the installer printed /home/<name>/... in 'installed:', 'uninstall:' and 'target
+    exists'; like NeuroGrid's own console it shows ~ (or ${XDG_DATA_HOME})."""
+    home = tmp_path / "home" / "runneradmin"
+    home.mkdir(parents=True)
+    env = _environment(HOME=_bash_path(home))
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
+    assert code == 0, text
+    assert "installed: ~/.local/share/neurogrid/9.8.7/bin/neurogrid" in text
+    assert "已安装：~/.local/share/neurogrid/9.8.7/bin/neurogrid" in text
+    assert (
+        "uninstall: delete the folder ~/.local/share/neurogrid/9.8.7 "
+        "(and ${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser if the PDF browser was installed)"
+    ) in text
+    assert "runneradmin" not in text, text
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
+    assert code == 2 and "target exists and is not empty: ~/.local/share/neurogrid/9.8.7 (" in text, text
+    assert "runneradmin" not in text, text
+    data = home / "data"
+    env = _environment(HOME=_bash_path(home), XDG_DATA_HOME=_bash_path(data))
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
+    assert code == 0 and "installed: ${XDG_DATA_HOME}/neurogrid/9.8.7/bin/neurogrid" in text, text
+    assert "runneradmin" not in text, text
+
+
+def test_hide_lines_and_run_shown_clean_foreign_output(tmp_path: Path) -> None:
+    """A-51 for what programs print: every whole occurrence of ${XDG_DATA_HOME} or the home folder in a line,
+    also without a closing newline; run_shown keeps output and errors on their own streams and returns the
+    program's exit code."""
+    errors = tmp_path / "errors.txt"
+    out = _source(
+        "HOME=/home/runneradmin/; XDG_DATA_HOME=/home/runneradmin/.data\n"
+        "printf '%s\\n' 'a /home/runneradmin/x' \"'/home/runneradmin'\" '/home/runneradminx/y' "
+        "'/home/runneradmin/.data/ng: no' 'last /home/runneradmin' "
+        "'twice /home/runneradmin:/home/runneradmin/b' "
+        "| hide_lines\n"
+        "printf 'no newline /home/runneradmin/z' | hide_lines\n"
+        'run_shown sh -c \'echo "out /home/runneradmin/a"; echo "err /home/runneradmin/b" >&2; exit 7\' '
+        f'2>"{_bash_path(errors)}" || echo "code=$?"\n'
+        "HOME=; XDG_DATA_HOME=; echo /home/runneradmin/c | hide_lines\n"
+    )
+    assert out.splitlines() == [
+        "a ~/x",
+        "'~'",
+        "/home/runneradminx/y",
+        "${XDG_DATA_HOME}/ng: no",
+        "last ~",
+        "twice ~:~/b",
+        "no newline ~/z",
+        "out ~/a",
+        "code=7",
+        "/home/runneradmin/c",
+    ]
+    assert errors.read_text(encoding="utf-8").splitlines() == ["err ~/b"]
+
+
+def test_program_output_names_no_user_folder(installable: Path, tmp_path: Path) -> None:
+    """A-51 (verification of review R13): what uv and cosign printed reached the console unchanged, so a
+    failing uv showed /home/<name>/.local/share/neurogrid/<version>/.uv-cache and cosign the trust root below
+    the home folder. Their output and their errors go through hide_lines now, each on its own stream."""
+    home = tmp_path / "home" / "runneradmin"
+    home.mkdir(parents=True)
+    env = _environment(HOME=_bash_path(home), NG_STAND_IN_PIP_EXIT="1")
+    code, out, err = _run_as_linux_x86_64_streams(installable, "--skip-signature-check", env=env)
+    assert code == 2 and "offline installation failed" in err, out + err
+    assert "error: failed to read ~/.local/share/neurogrid/9.8.7/.uv-cache/wheels" in err, err
+    assert "hint: settings in ~/.config/uv/uv.toml" in out, out
+    assert "runneradmin" not in out + err, out + err
+    assert not (home / ".local").exists()
+    info = json.loads((installable / "BUNDLE.json").read_text(encoding="utf-8"))
+    info["release_identity"] = (
+        "https://github.com/owner/neurogrid/.github/workflows/release.yml@refs/tags/v9.8.7"
+    )
+    (installable / "BUNDLE.json").write_text(
+        json.dumps(info, indent=1, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (installable / "SHA256SUMS.sigstore.json").write_text("{}", encoding="utf-8")
+    _resum(installable)
+    cosign = tmp_path / "cosign-talkative"
+    cosign.write_text(
+        '#!/bin/sh\necho "trust root: $HOME/.sigstore/root"\n'
+        'echo "error: cannot open $HOME/.sigstore/root/targets.json" >&2\nexit 1\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    cosign.chmod(0o755)
+    code, text = _run(installable, "--verify-only", "--cosign", cosign.as_posix(), env=env)
+    assert code == 4 and "signature check failed" in text, text
+    assert "trust root: ~/.sigstore/root" in text, text
+    assert "error: cannot open ~/.sigstore/root/targets.json" in text, text
+    assert "runneradmin" not in text, text
+
+
+def test_a_failed_installation_leaves_the_target_as_it_was(installable: Path, tmp_path: Path) -> None:
+    """Review R14: a failure into an existing empty folder left python/ behind, so a retry stopped at 'target
+    exists and is not empty'; parents that mkdir -p created stayed too. Now the empty folder is empty again
+    and the retry runs to its end; created parents go again, a parent with other content stays."""
+    failing = _environment(NG_STAND_IN_PIP_EXIT="1")
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    code, text = _run_as_linux_x86_64(
+        installable, "--skip-signature-check", "--prefix", _bash_path(empty), env=failing
+    )
+    assert code == 2 and "offline installation failed" in text, text
+    assert empty.is_dir() and list(empty.iterdir()) == []
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", "--prefix", _bash_path(empty))
+    assert code == 0 and "target exists" not in text, text
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    prefix = _bash_path(shared / "neurogrid" / "9.8.7")
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", "--prefix", prefix, env=failing)
+    assert code == 2, text
+    assert shared.is_dir() and list(shared.iterdir()) == []
+    (shared / "neurogrid" / "pdf-browser").mkdir(parents=True)
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", "--prefix", prefix, env=failing)
+    assert code == 2, text
+    assert [p.name for p in (shared / "neurogrid").iterdir()] == ["pdf-browser"]

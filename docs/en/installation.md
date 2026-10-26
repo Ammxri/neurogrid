@@ -59,7 +59,9 @@ sha256sum --check --ignore-missing SHA256SUMS
 On Windows, compare the value of `Get-FileHash -Algorithm SHA256 <file>` with the line of the file in
 `SHA256SUMS`. The installation script checks every file of the bundle against its `SHA256SUMS` again. A check by
 a script inside the same archive proves that the files are intact, not who made them; the signature check
-before the transfer does that.
+before the transfer does that. The installer prints the signer identity it verified (`signature verified: …`),
+and `README.txt` in the bundle names it: compare it with the identity in the release notes on the project's
+release page, because an identity read from the archive can be changed together with the archive.
 
 ### Install {#install}
 
@@ -87,7 +89,8 @@ before the transfer does that.
 
 Without `cosign` the script stops unless the signature check is skipped explicitly
 (`-SkipSignatureCheck` / `--skip-signature-check`) after the check on a connected computer described above.
-The script creates a virtual environment in the prefix (bytecode compiled), installs the wheels offline with
+When `cosign` is there (named with `-Cosign` / `--cosign` or found on `PATH`), the script always checks the
+signature, and the switch does not override a `cosign` that rejects it. The script creates a virtual environment in the prefix (bytecode compiled), installs the wheels offline with
 their hashes and writes a launcher. Exit codes: 0 installed, 2 usage or environment, 3 integrity, 4 signature.
 
 On Windows the install folder needs a short path: Windows cannot start programs or load some modules from

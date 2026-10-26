@@ -103,6 +103,35 @@ def test_at_most_the_limit_is_annotated(report: Path) -> None:
     assert len(summary) == 1 and "; 2 of 5 annotated," in summary[0]
 
 
+def test_offset_steps_annotate_every_failed_test_once(report: Path) -> None:
+    """The workflows annotate in steps of at most 10 (GitHub's limit per step): --offset picks each step's
+    slice, so together the steps cover the failed tests in report order without gaps or repeats, and the
+    summary names how many all steps annotated."""
+    every = [line.split("::")[1] for line in _run(report.name, "--limit", "40", cwd=report.parent)]
+    assert len(every) == 5
+    slices = [
+        [
+            line.split("::")[1]
+            for line in _run(report.name, "--offset", str(o), "--limit", "2", cwd=report.parent)
+        ]
+        for o in (0, 2, 4, 6)
+    ]
+    assert [len(part) for part in slices] == [2, 2, 1, 0]
+    assert [item for part in slices for item in part] == every
+    summary = _run(report.name, "--summary", "--limit", "40", cwd=report.parent)
+    assert len(summary) == 1 and "; 5 of 5 annotated," in summary[0]
+    summary = _run(report.name, "--summary", "--limit", "3", cwd=report.parent)
+    assert "; 3 of 5 annotated," in summary[0]
+
+
+def test_an_unreadable_report_is_said_once_not_per_step(tmp_path: Path) -> None:
+    (tmp_path / "broken.xml").write_text("<testsuites>", encoding="utf-8")
+    assert len(_run("broken.xml", "--offset", "0", cwd=tmp_path)) == 1
+    for offset in ("10", "20", "30"):
+        assert _run("broken.xml", "--offset", offset, cwd=tmp_path) == []
+    assert len(_run("broken.xml", "--summary", "--limit", "40", cwd=tmp_path)) == 1
+
+
 def test_node_ids_without_a_test_file_keep_the_reported_names(report: Path) -> None:
     lines = _run(report.name, "--root", str(report.parent / "pkg"), cwd=report.parent)
     assert lines[0].startswith("::error title=pkg.test_sample%3A%3Atest_fails::")

@@ -2,7 +2,8 @@
 # OS-level offline evidence on Linux (NG-N01, CON-04, ARC-06, A-49; CI only, D-09): the installed offline bundle
 # runs the installer and every v0.1 command in a container without network (--network none) under
 # strace -f -e trace=connect,sendto,sendmsg. tools/strace_check.py fails on any AF_INET/AF_INET6 address that is
-# not loopback and lists the loopback calls. The image is debian:12-slim plus strace, without Python.
+# not loopback (or that goes to the dead-proxy port 9 on loopback) and lists the loopback calls. No proxy variables
+# are set, so an attempt names its real destination. The image is debian:12-slim plus strace, without Python.
 #
 # Usage: offline_strace_linux.sh ARCHIVE [EVIDENCE_DIR]
 set -euo pipefail

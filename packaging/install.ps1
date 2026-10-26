@@ -24,18 +24,51 @@ foreach ($name in 'UV_OFFLINE', 'UV_NO_CONFIG', 'UV_PYTHON_DOWNLOADS', 'UV_NO_PR
 }
 $Bundle = $PSScriptRoot
 $Issuer = 'https://token.actions.githubusercontent.com'
+$Releases = 'https://github.com/Ammxri/neurogrid/releases'  # the project's release page (D-15)
 
 function Say([string]$zh, [string]$en) { [Console]::Out.WriteLine("$zh / $en") }
 function Fail([int]$code, [string]$zh, [string]$en) {
     [Console]::Error.WriteLine("错误 / Error: $zh / $en")
     exit $code
 }
+# A-51: console text names no user. Every path or foreign message goes through Show: the local application
+# data folder becomes %LOCALAPPDATA%, the rest of the home folder ~ (as NeuroGrid's own messages show it), in
+# the long and in the 8.3 short spelling (C:\Users\RUNNER~1\... on GitHub's runners), ignoring case.
+$script:hidden = $null
+function Show([string]$text) {
+    if ($null -eq $script:hidden) {
+        $script:hidden = New-Object System.Collections.Generic.List[object]
+        foreach ($entry in @(@([string]$env:LOCALAPPDATA, '%LOCALAPPDATA%'), @([string]$env:USERPROFILE, '~'))) {
+            $long = $entry[0].TrimEnd('\')
+            if (-not $long) { continue }
+            $forms = @($long)
+            try {
+                $short = [string](New-Object -ComObject Scripting.FileSystemObject).GetFolder($long).ShortPath
+                if ($short -and $short -ne $long) { $forms += $short.TrimEnd('\') }
+            } catch { }
+            foreach ($form in $forms) { $script:hidden.Add(@($form, $entry[1])) }
+        }
+    }
+    foreach ($pair in $script:hidden) {
+        $text = [regex]::Replace($text, [regex]::Escape($pair[0]) + '(?=$|[\\/\s"'':;,)\]])', $pair[1], 'IgnoreCase')
+    }
+    return $text
+}
 function Invoke-Native([string]$exe, [string[]]$arguments, [switch]$Quiet) {
-    # Native stderr reaches the console as it is; under 'Stop' Windows PowerShell 5.1 could turn it into an error.
+    # A-51: what the program prints goes through Show as well, line by line as it comes: uv, cosign and Python
+    # name absolute paths in their messages (the cache below the install folder, Sigstore's trust root below
+    # the home folder). Output stays on standard output (dropped with -Quiet), errors on standard error. With
+    # 'Stop', Windows PowerShell 5.1 would turn the program's error output into a terminating error.
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        if ($Quiet) { & $exe @arguments | Out-Null } else { & $exe @arguments | Out-Host }
+        & $exe @arguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                [Console]::Error.WriteLine((Show $_.ToString()))
+            } elseif (-not $Quiet) {
+                [Console]::Out.WriteLine((Show ([string]$_)))
+            }
+        }
         return $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previous
@@ -43,7 +76,7 @@ function Invoke-Native([string]$exe, [string[]]$arguments, [switch]$Quiet) {
 }
 
 try {
-    if ($Unknown) { Fail 2 "未知参数：$($Unknown -join ' ')" "unknown option: $($Unknown -join ' ')" }
+    if ($Unknown) { Fail 2 "未知参数：$(Show ($Unknown -join ' '))" "unknown option: $(Show ($Unknown -join ' '))" }
     $infoPath = Join-Path $Bundle 'BUNDLE.json'
     if (-not (Test-Path -LiteralPath $infoPath -PathType Leaf)) { Fail 3 '缺少 BUNDLE.json' 'BUNDLE.json missing' }
     $info = [System.IO.File]::ReadAllText($infoPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -55,7 +88,7 @@ try {
         if (-not $PdfBrowserZip -or $PdfBrowserSha256 -notmatch '^[0-9a-fA-F]{64}$') {
             Fail 2 '-PdfBrowserZip 须与 -PdfBrowserSha256（64 位十六进制）同时使用' '-PdfBrowserZip needs -PdfBrowserSha256 (64 hex digits)'
         }
-        if (-not (Test-Path -LiteralPath $PdfBrowserZip -PathType Leaf)) { Fail 2 "找不到文件：$PdfBrowserZip" "file not found: $PdfBrowserZip" }
+        if (-not (Test-Path -LiteralPath $PdfBrowserZip -PathType Leaf)) { Fail 2 "找不到文件：$(Show $PdfBrowserZip)" "file not found: $(Show $PdfBrowserZip)" }
         $PdfBrowserZip = (Resolve-Path -LiteralPath $PdfBrowserZip).ProviderPath
     }
 
@@ -72,11 +105,22 @@ try {
         $listed[$rel] = $digest
     }
     $bad = New-Object System.Collections.Generic.List[string]
-    foreach ($rel in $listed.Keys) {
-        $path = Join-Path $Bundle ($rel -replace '/', '\')
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $bad.Add("missing / 缺少：$rel"); continue }
-        $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actual -cne $listed[$rel]) { $bad.Add("changed / 已更改：$rel") }
+    # SHA-256 through .NET, not Get-FileHash: under Windows PowerShell 5.1 that command comes from a script module,
+    # and started from PowerShell 7 (Windows Terminal, GitHub's default shell) Windows PowerShell inherits a module
+    # path where PowerShell 7's own Microsoft.PowerShell.Utility comes first and cannot load, so Get-FileHash
+    # is "not recognized" (measured in CI). Only commands built into the engine are used here.
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        foreach ($rel in $listed.Keys) {
+            $path = Join-Path $Bundle ($rel -replace '/', '\')
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $bad.Add("missing / 缺少：$rel"); continue }
+            $stream = [System.IO.File]::OpenRead($path)
+            try { $hashBytes = $hasher.ComputeHash($stream) } finally { $stream.Dispose() }
+            $actual = [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+            if ($actual -cne $listed[$rel]) { $bad.Add("changed / 已更改：$rel") }
+        }
+    } finally {
+        $hasher.Dispose()
     }
     $root = (Resolve-Path -LiteralPath $Bundle).ProviderPath.TrimEnd('\') + '\'
     foreach ($item in Get-ChildItem -LiteralPath $Bundle -Recurse -Force) {
@@ -91,26 +135,36 @@ try {
     }
     Say "完整性已核对（$($listed.Count) 个文件）" "integrity verified ($($listed.Count) files)"
 
-    # 2. Signature (Sigstore keyless, D-10 g). A check inside the archive proves integrity; authenticity comes from
-    #    the check on a connected machine before the transfer (README.txt, docs/installation.html). cosign needs
-    #    Sigstore's trust root (network or a prepared cache), so an explicit -SkipSignatureCheck wins over a cosign
-    #    found on PATH; -Cosign always verifies.
+    # 2. Signature (Sigstore keyless, D-10 g, D-15): SHA256SUMS is always checked (above); the signature whenever
+    #    cosign is there: -Cosign, or a cosign on PATH, also with -SkipSignatureCheck, which only lets an
+    #    installation without cosign go on. A check inside the archive proves integrity; authenticity comes from
+    #    the check on a connected machine before the transfer and from comparing the signer identity with the one
+    #    the project publishes (README.txt, docs/installation.html).
     if ($Cosign -and $SkipSignatureCheck) { Fail 2 '-Cosign 与 -SkipSignatureCheck 不能同时使用' '-Cosign and -SkipSignatureCheck exclude each other' }
     $signature = Join-Path $Bundle 'SHA256SUMS.sigstore.json'
     $identity = [string]$info.release_identity
     if (Test-Path -LiteralPath $signature -PathType Leaf) {
         if (-not $identity) { Fail 4 'BUNDLE.json 未写明签名者身份' 'BUNDLE.json names no signer identity' }
-        if (-not $Cosign -and -not $SkipSignatureCheck) {
+        $onPath = $false
+        if (-not $Cosign) {
             $found = Get-Command cosign -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($found) { $Cosign = $found.Path }
+            if ($found) { $Cosign = $found.Path; $onPath = $true }
         }
         if ($Cosign) {
-            if (-not (Test-Path -LiteralPath $Cosign -PathType Leaf)) { Fail 2 "找不到 cosign：$Cosign" "cosign not found: $Cosign" }
+            if (-not (Test-Path -LiteralPath $Cosign -PathType Leaf)) { Fail 2 "找不到 cosign：$(Show $Cosign)" "cosign not found: $(Show $Cosign)" }
+            # The full path, so that & runs exactly the named file: a bare name would be looked up on PATH.
+            $Cosign = (Resolve-Path -LiteralPath $Cosign).ProviderPath
             $code = Invoke-Native $Cosign @('verify-blob', $sumsPath, '--bundle', $signature, '--certificate-identity', $identity, '--certificate-oidc-issuer', $Issuer)
+            if ($code -ne 0 -and $onPath -and $SkipSignatureCheck) {
+                Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。-SkipSignatureCheck 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的会话中加 -SkipSignatureCheck 运行' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). -SkipSignatureCheck does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with -SkipSignatureCheck in a session without cosign on PATH"
+            }
             if ($code -ne 0) {
-                Fail 4 '签名核验失败，未安装（cosign 需要 Sigstore 信任根：联网或已准备的缓存）' 'signature check failed; nothing installed (cosign needs the Sigstore trust root: network or a prepared cache)'
+                Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache)"
             }
             Say "签名已核验：$identity" "signature verified: $identity"
+            # The identity comes from BUNDLE.json, which a changed bundle can carry as well (D-15, review R12):
+            # only the comparison with the identity the project publishes shows who signed.
+            Say "请将此签名者身份与项目发布页面（$Releases）发布说明中的身份核对；安装包内部的核验只能证明文件完整，不能证明来源" "compare this signer identity with the one in the release notes on the project's release page ($Releases); a check inside the archive proves that the files are intact, not who made them"
         } elseif ($SkipSignatureCheck) {
             Say '按要求未在本机核验签名；请确认已在联网电脑上核验' 'signature not verified here, as requested; make sure it was verified on a connected machine'
         } else {
@@ -133,10 +187,15 @@ try {
         if (-not $env:LOCALAPPDATA) { Fail 2 '未设置 LOCALAPPDATA，请用 -Prefix 指定安装文件夹' 'LOCALAPPDATA is not set; choose the install folder with -Prefix' }
         $Prefix = Join-Path $env:LOCALAPPDATA "NeuroGrid\$version"
     }
-    if ($Prefix -match '^(\\\\|//)' -or -not [System.IO.Path]::IsPathRooted($Prefix) -or $Prefix -notmatch '^[A-Za-z]:') {
-        Fail 2 "安装文件夹须为本机绝对路径：$Prefix" "the install folder must be an absolute local path: $Prefix"
+    # A drive letter, a colon and a separator: 'C:folder' is relative to the current folder of drive C:, a UNC
+    # path or a mapped network drive is not local.
+    if ($Prefix -notmatch '^[A-Za-z]:[\\/]') {
+        Fail 2 "安装文件夹须为本机绝对路径：$(Show $Prefix)" "the install folder must be an absolute local path: $(Show $Prefix)"
     }
     $Prefix = [System.IO.Path]::GetFullPath($Prefix).TrimEnd('\')
+    if ((New-Object System.IO.DriveInfo ($Prefix.Substring(0, 1))).DriveType -eq [System.IO.DriveType]::Network) {
+        Fail 2 "安装文件夹须为本机绝对路径：$(Show $Prefix)" "the install folder must be an absolute local path: $(Show $Prefix)"
+    }
     # ConvertFrom-Json gives Int32 under Windows PowerShell 5.1 and Int64 under PowerShell 7; null if missing.
     $longest = $info.max_relative_install_path
     if (-not ($longest -is [int] -or $longest -is [long]) -or $longest -lt 0) { Fail 3 'BUNDLE.json 不完整' 'BUNDLE.json incomplete' }
@@ -147,8 +206,16 @@ try {
     $created = -not (Test-Path -LiteralPath $Prefix)
     if (-not $created) {
         if (-not (Test-Path -LiteralPath $Prefix -PathType Container) -or (Get-ChildItem -LiteralPath $Prefix -Force | Select-Object -First 1)) {
-            Fail 2 "目标已存在且不为空：$Prefix（新版本请装入新文件夹）" "target exists and is not empty: $Prefix (install a new version into a new folder)"
+            Fail 2 "目标已存在且不为空：$(Show $Prefix)（新版本请装入新文件夹）" "target exists and is not empty: $(Show $Prefix) (install a new version into a new folder)"
         }
+    }
+    # A failed installation leaves the target as it was found: the folders the installer creates (the prefix and
+    # any missing parent, deepest first) are removed again, and an existing empty prefix is emptied again.
+    $newFolders = New-Object System.Collections.Generic.List[string]
+    $walk = $Prefix
+    while ($walk -and -not (Test-Path -LiteralPath $walk)) {
+        $newFolders.Add($walk)
+        $walk = [System.IO.Path]::GetDirectoryName($walk)
     }
 
     # 4. Install offline: interpreter, venv, wheelhouse with hashes, bytecode compiled at install (A-48).
@@ -187,7 +254,25 @@ try {
         if ($code -ne 0) { Fail 2 "安装后自检失败（退出码 $code）" "self-test after installation failed (exit code $code)" }
         $done = $true
     } finally {
-        if (-not $done -and $created) { Remove-Item -LiteralPath $Prefix -Recurse -Force -ErrorAction SilentlyContinue }
+        if (-not $done) {
+            try {
+                if ($created) {
+                    Remove-Item -LiteralPath $Prefix -Recurse -Force -ErrorAction SilentlyContinue
+                } else {
+                    # The prefix was verified empty above: everything in it now comes from this attempt.
+                    Get-ChildItem -LiteralPath $Prefix -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                # Parents only while empty: a folder such as %LOCALAPPDATA%\NeuroGrid that gained other
+                # content meanwhile stays.
+                foreach ($folder in $newFolders) {
+                    if ($folder -ne $Prefix -and (Test-Path -LiteralPath $folder -PathType Container)) {
+                        try { [System.IO.Directory]::Delete($folder, $false) } catch { }
+                    }
+                }
+            } catch { }
+        }
     }
 
     # 7. Optional: PDF browser from a zip the customer provides, into NeuroGrid's own browser folder (D-08).
@@ -198,19 +283,19 @@ try {
         Say 'PDF 浏览器已安装' 'PDF browser installed'
     }
 
-    Say "已安装：$launcher" "installed: $launcher"
+    Say "已安装：$(Show $launcher)" "installed: $(Show $launcher)"
     # Where results go (UF-08, CON-04): --out, or the defaults of check, report and manifest (cli.py).
     Say '结果只保存在本机：写入 --out 指定的位置；未指定 --out 时，check 写入当前文件夹中的 results.json，report 写入 results.json 所在的文件夹，manifest 写入数据集中的 .neurogrid\manifest.json；不会上传任何数据' 'results stay on this computer: where --out points; without --out, check writes results.json in the current folder, report writes next to results.json and manifest writes .neurogrid\manifest.json inside the dataset; nothing is uploaded'
     # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
     $pdfFolder = '%LOCALAPPDATA%\NeuroGrid\pdf-browser'
     if ($env:NEUROGRID_PDF_BROWSER_DIR) { $pdfFolder = $env:NEUROGRID_PDF_BROWSER_DIR }
-    Say "卸载：删除文件夹 $Prefix（若装过 PDF 浏览器，另删 $pdfFolder）" "uninstall: delete the folder $Prefix (and $pdfFolder if the PDF browser was installed)"
+    Say "卸载：删除文件夹 $(Show $Prefix)（若装过 PDF 浏览器，另删 $(Show $pdfFolder)）" "uninstall: delete the folder $(Show $Prefix) (and $(Show $pdfFolder) if the PDF browser was installed)"
     [Console]::Out.WriteLine('使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。')
     [Console]::Out.WriteLine('Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations.')
     exit 0
 } catch {
     # Any unexpected failure (copying, file system) is an environment error, never a crash with another code.
-    [Console]::Error.WriteLine("错误 / Error: 安装失败 / installation failed: $($_.Exception.Message)")
+    [Console]::Error.WriteLine("错误 / Error: 安装失败 / installation failed: $(Show $_.Exception.Message)")
     exit 2
 } finally {
     foreach ($name in $savedEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], 'Process') }
