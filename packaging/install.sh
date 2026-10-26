@@ -9,6 +9,7 @@ set -euo pipefail
 export LC_ALL=C
 
 ISSUER="https://token.actions.githubusercontent.com"
+RELEASES="https://github.com/Ammxri/neurogrid/releases" # the project's release page (D-15)
 
 say() { printf '%s / %s\n' "$1" "$2"; }
 fail() {
@@ -175,6 +176,10 @@ main() {
       [ "$verified" -eq 1 ] || fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）" \
         "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache)"
       say "签名已核验：$identity" "signature verified: $identity"
+      # The identity comes from BUNDLE.json, which a changed bundle can carry as well (D-15, review R12): only the
+      # comparison with the identity the project publishes shows who signed.
+      say "请将此签名者身份与项目发布页面（$RELEASES）发布说明中的身份核对；安装包内部的核验只能证明文件完整，不能证明来源" \
+        "compare this signer identity with the one in the release notes on the project's release page ($RELEASES); a check inside the archive proves that the files are intact, not who made them"
     elif [ "$skip_signature" -eq 1 ]; then
       say "按要求未在本机核验签名；请确认已在联网电脑上核验" \
         "signature not verified here, as requested; make sure it was verified on a connected machine"

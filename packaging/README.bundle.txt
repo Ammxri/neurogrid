@@ -14,6 +14,11 @@ results.json and manifest writes .neurogrid/manifest.json inside the dataset. No
      cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity {{identity}}
        --certificate-oidc-issuer https://token.actions.githubusercontent.com
    签名者身份为 "-" 表示未签名的开发版本 / a signer identity "-" means an unsigned development build.
+   请先将此签名者身份与项目发布页面（https://github.com/Ammxri/neurogrid/releases）发布说明中的身份核对：本文件和
+   安装包中写明的身份可能随安装包一起被改动，单独不能证明来源。安装程序核验后也会显示该身份。
+   First compare this signer identity with the one in the release notes on the project's release page
+   (https://github.com/Ammxri/neurogrid/releases): the identity written here and in the bundle can be changed
+   together with the bundle, so on its own it proves nothing. The installer shows it again after verifying.
 
 2. Windows 10/11 x64 (PowerShell 5.1):
      install.cmd -SkipSignatureCheck          签名已在联网电脑上核验 / signature verified on a connected machine

@@ -176,6 +176,10 @@ def test_signature_branch(folder: Path, tmp_path: Path) -> None:
         if code_ == 0:
             assert code == 0 and "signature verified: https://github.com/owner/neurogrid/" in text, text
             assert "--certificate-oidc-issuer https://token.actions.githubusercontent.com" in text
+            assert (  # review R12: compare with the identity the project publishes
+                "compare this signer identity with the one in the release notes on the project's "
+                "release page (https://github.com/Ammxri/neurogrid/releases)"
+            ) in text
         else:
             assert code == 4 and "signature check failed" in text, text
     code, text = _run(folder, "--verify-only", "--skip-signature-check")

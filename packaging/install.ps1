@@ -24,6 +24,7 @@ foreach ($name in 'UV_OFFLINE', 'UV_NO_CONFIG', 'UV_PYTHON_DOWNLOADS', 'UV_NO_PR
 }
 $Bundle = $PSScriptRoot
 $Issuer = 'https://token.actions.githubusercontent.com'
+$Releases = 'https://github.com/Ammxri/neurogrid/releases'  # the project's release page (D-15)
 
 function Say([string]$zh, [string]$en) { [Console]::Out.WriteLine("$zh / $en") }
 function Fail([int]$code, [string]$zh, [string]$en) {
@@ -152,6 +153,9 @@ try {
                 Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache)"
             }
             Say "签名已核验：$identity" "signature verified: $identity"
+            # The identity comes from BUNDLE.json, which a changed bundle can carry as well (D-15, review R12):
+            # only the comparison with the identity the project publishes shows who signed.
+            Say "请将此签名者身份与项目发布页面（$Releases）发布说明中的身份核对；安装包内部的核验只能证明文件完整，不能证明来源" "compare this signer identity with the one in the release notes on the project's release page ($Releases); a check inside the archive proves that the files are intact, not who made them"
         } elseif ($SkipSignatureCheck) {
             Say '按要求未在本机核验签名；请确认已在联网电脑上核验' 'signature not verified here, as requested; make sure it was verified on a connected machine'
         } else {

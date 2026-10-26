@@ -283,6 +283,12 @@ def test_signed_bundle_with_cosign(folder: Path, work: Path) -> None:
     assert (
         "--certificate-oidc-issuer https://token.actions.githubusercontent.com" in text
     )  # what cosign received
+    # Review R12: the identity comes from the bundle itself; the installer says to compare it with the
+    # identity the project publishes.
+    assert (
+        "compare this signer identity with the one in the release notes on the project's release page "
+        "(https://github.com/Ammxri/neurogrid/releases)"
+    ) in text
     code, text = _run(folder, "-VerifyOnly", "-Cosign", str(bad))
     assert code == 4 and "signature check failed" in text, text
     on_path = {**_clean_env(), "PATH": f"{bad.parent};C:\\Windows\\System32"}

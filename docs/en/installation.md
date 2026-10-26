@@ -59,7 +59,9 @@ sha256sum --check --ignore-missing SHA256SUMS
 On Windows, compare the value of `Get-FileHash -Algorithm SHA256 <file>` with the line of the file in
 `SHA256SUMS`. The installation script checks every file of the bundle against its `SHA256SUMS` again. A check by
 a script inside the same archive proves that the files are intact, not who made them; the signature check
-before the transfer does that.
+before the transfer does that. The installer prints the signer identity it verified (`signature verified: …`),
+and `README.txt` in the bundle names it: compare it with the identity in the release notes on the project's
+release page, because an identity read from the archive can be changed together with the archive.
 
 ### Install {#install}
 

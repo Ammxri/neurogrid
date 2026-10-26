@@ -249,3 +249,38 @@ def test_installers_mark_the_prefix_as_an_offline_bundle_installation() -> None:
     assert 'cp "$bundle/BUNDLE.json" "$prefix/BUNDLE.json"' in sh
     assert 'cp "$bundle/tools/install_pdf_browser.py" "$prefix/tools/install_pdf_browser.py"' in sh
     assert 'cp -a "$bundle/python" "$prefix/python"' in sh
+
+
+# The project's release page (D-15: repository https://github.com/Ammxri/neurogrid): the one place outside the
+# archive that publishes the signer identity of a release (release notes).
+RELEASES = "https://github.com/Ammxri/neurogrid/releases"
+
+
+def test_signer_identity_is_compared_with_the_published_one() -> None:
+    """Review R12 (lead decision: the in-archive check stays limited, D-15): the identity that cosign checks
+    comes from BUNDLE.json, which a changed bundle carries as well. The installers print the identity they
+    verified and tell the user to compare it with the release notes; README.txt says the same in step 1; the
+    release notes publish it; the installation pages describe the comparison."""
+    decisions = _read(ROOT / "docs" / "umsetzung" / "ENTSCHEIDUNGEN.md")
+    assert f"`{RELEASES.removesuffix('/releases')}`" in decisions  # the repository URL of D-15
+    ps1, sh = _read(PACKAGING / "install.ps1"), _read(PACKAGING / "install.sh")
+    assert f"$Releases = '{RELEASES}'" in ps1 and f'RELEASES="{RELEASES}"' in sh
+    for text, variable in ((ps1, "$Releases"), (sh, "$RELEASES")):
+        verified = text.index("signature verified: $identity")
+        sentence = (
+            "compare this signer identity with the one in the release notes on the project's release page"
+        )
+        compare = text.index(f"{sentence} ({variable})")
+        assert 0 < compare - verified < 600
+    readme = _read(PACKAGING / "README.bundle.txt")
+    step1 = readme[readme.index("1. ") : readme.index("2. ")]
+    assert "--certificate-identity {{identity}}" in step1 and RELEASES in step1
+    assert "First compare this signer identity with the one in the release notes" in step1
+    assert "请先将此签名者身份与项目发布页面" in step1
+    notes = _read(PACKAGING / "release-notes.md")
+    assert "Signer identity / 签名者身份：`{{identity}}`" in notes
+    for lang, needle in (
+        ("en", "compare it with the identity in the release notes"),
+        ("zh", "发布说明中的身份核对"),
+    ):
+        assert needle in _page(lang), lang

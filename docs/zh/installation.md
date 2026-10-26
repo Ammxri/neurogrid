@@ -56,7 +56,8 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 在 Windows 上，将 `Get-FileHash -Algorithm SHA256 <file>` 的结果与 `SHA256SUMS` 中该文件的那一行进行比较。安装脚本
 会再次按 `SHA256SUMS` 检查安装包中的每个文件。由同一压缩包内的脚本进行的检查只能证明文件完整，不能证明文件来自何
-人；这一点由拷贝前的签名校验来证明。
+人；这一点由拷贝前的签名校验来证明。安装程序会显示其核验的签名者身份（`signature verified: …`），安装包中的
+`README.txt` 也写明该身份：请将其与项目发布页面上发布说明中的身份核对，因为从压缩包中读取的身份可能随压缩包一起被改动。
 
 ### 安装 {#install}
 
