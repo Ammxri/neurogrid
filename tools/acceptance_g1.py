@@ -18,6 +18,8 @@ reading of the files (not the product's code that wrote them):
 - every finding row of both HTML reports: the ten cells of report/render.py (FINDING_CELLS), every empty
   value one of the explained texts (EXPLAINED_EMPTY), the threshold with the origin of every parameter, at
   most MAX_ROWS_PER_RULE rows per rule with the exact remainder named (NG-F13, A-09, A-13, A-59);
+- both HTML reports: the fixed sentence as visible text of the cover and of the appendix and as the meta
+  description; its copy in the print CSS does not count (REP-07, A-08);
 - every PDF: the runtime QA gate and an independent pypdf reading - only embedded Type0/CIDFontType2 subsets
   of the report fonts, the fixed sentence, running head and page counter on every page, A4 pages, no radical
   or compatibility code point, every section heading and rule ID, /Info exactly Title Creator Producer
@@ -527,6 +529,64 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
                 f"{rule}: the sentence naming the remaining {total - expected} findings is missing"
             )
     return RowCheck(problems, len(rows))
+
+
+class _Sentence(HTMLParser):
+    """The visible text of every <section id=...> (style, script and head left out) and the content of
+    <meta name="description">."""
+
+    SKIPPED = ("style", "script", "head")
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.sections: dict[str, list[str]] = defaultdict(list)
+        self.description: str | None = None
+        self._section: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "meta" and (values.get("name") or "").lower() == "description":
+            self.description = values.get("content") or ""
+        if tag in self.SKIPPED:
+            self._skip += 1
+        elif tag == "section":
+            self._section.append(values.get("id") or "")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "meta":
+            self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self.SKIPPED and self._skip:
+            self._skip -= 1
+        elif tag == "section" and self._section:
+            self._section.pop()
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip and self._section:
+            self.sections[self._section[-1]].append(data)
+
+
+HTML_SENTENCE_PLACES = (("cover", "on the cover"), ("appendix", "in the appendix"))
+
+
+def check_html(document: str, lang: str) -> list[str]:
+    """REP-07/A-08 on one HTML report: the fixed sentence of ``lang`` is visible text of the cover and of the
+    appendix and is the meta description. Its copy in the print CSS (@page margin boxes) does not count:
+    the HTML read on screen has to carry it itself."""
+    parser = _Sentence()
+    parser.feed(document)
+    parser.close()
+    sentence = _squeeze(disclaimer(lang))
+    problems = [
+        f"the fixed sentence is missing {where}"
+        for section, where in HTML_SENTENCE_PLACES
+        if sentence not in _squeeze("".join(parser.sections.get(section, [])))
+    ]
+    if parser.description is None or _squeeze(parser.description) != sentence:
+        problems.append("the meta description is not the fixed sentence")
+    return problems
 
 
 # --- PDF ---------------------------------------------------------------------------------------------------
@@ -1123,6 +1183,7 @@ def evaluate_run(
         documents[lang_report] = document
         rows = check_finding_rows(document, results, lang_report)
         result.add("rows", (f"{lang_report}: {problem}" for problem in rows.problems))
+        result.add("html", (f"{lang_report}: {problem}" for problem in check_html(document, lang_report)))
         result.stats.setdefault("rows_checked", {})[lang_report] = rows.rows
         raw = pdf_path.read_bytes()
         pdf = check_pdf(raw, lang_report, results, document)
@@ -1345,7 +1406,9 @@ def _entry(
         "seconds": {run: dict(values) for run, values in seconds.items()},
         "identical": not different and len(compared) == len(PRODUCT_FILES),
         "forbidden_values_checked": stats.get("forbidden_checked", 0),
-        "report_problems": sorted(problems.get("rows", []) + problems.get("pdf", [])),
+        "report_problems": sorted(
+            problems.get("rows", []) + problems.get("html", []) + problems.get("pdf", [])
+        ),
         "json_problems": sorted(problems.get("json", []) + problems.get("exit", [])),
         "v06": sorted(problems.get("v06", [])),
         "problems": flat,

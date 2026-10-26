@@ -715,3 +715,35 @@ def test_unreadable_recordings_do_not_count_towards_the_minimum(tmp_path: Path) 
     entry = g1._entry("ds-x", tmp_path, [evaluation], {}, {"check": 1}, same)
     assert entry["ok"] is False
     assert "read: 2 failed readability findings (CORE-M01-01..04)" in entry["problems"]
+
+
+# --- the fixed sentence in the HTML reports (REP-07, A-08) --------------------------------------------------
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_html_reports_carry_the_fixed_sentence(results: Results, lang: str) -> None:
+    """REP-07/A-08: the fixed sentence is visible on the cover and in the appendix and is the meta
+    description; a copy in the print CSS (@page) alone does not count."""
+    document = render_report(results, lang)
+    assert g1.check_html(document, lang) == []
+    sentence = html_lib.escape(disclaimer(lang), quote=False)
+    paragraph = f'<p class="disclaimer">{sentence}</p>'
+    assert document.count(paragraph) == 2
+    cover, appendix = (document.index(paragraph), document.rindex(paragraph))
+    no_cover = document[:cover] + document[cover:].replace(paragraph, "<p></p>", 1)
+    assert g1.check_html(no_cover, lang) == ["the fixed sentence is missing on the cover"]
+    no_appendix = document[:appendix] + document[appendix:].replace(paragraph, "<p></p>", 1)
+    assert g1.check_html(no_appendix, lang) == ["the fixed sentence is missing in the appendix"]
+    meta = f'<meta name="description" content="{html_lib.escape(disclaimer(lang))}">'
+    assert meta in document
+    no_meta = document.replace(meta, '<meta name="description" content="">')
+    assert g1.check_html(no_meta, lang) == ["the meta description is not the fixed sentence"]
+    css_only = document.replace(paragraph, "<p></p>").replace(meta, "")
+    assert disclaimer(lang) in css_only  # still in @page content of the print CSS
+    assert g1.check_html(css_only, lang) == [
+        "the fixed sentence is missing on the cover",
+        "the fixed sentence is missing in the appendix",
+        "the meta description is not the fixed sentence",
+    ]
+    other = "zh" if lang == "en" else "en"
+    assert "the fixed sentence is missing on the cover" in g1.check_html(document, other)
