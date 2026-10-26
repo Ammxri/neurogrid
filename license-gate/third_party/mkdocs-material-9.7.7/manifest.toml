@@ -1,0 +1,268 @@
+# Licence review of the documentation site (TECH-06, TECH-10, NG-N07, D-05, A-86): every third-party part of
+# the site that tools/build_docs.py builds with mkdocs-material 9.7.7 (docs group of uv.lock) and that the
+# offline bundle (docs/) and the release ship. Read on 2026-10-26 from the installed wheel
+# mkdocs_material-9.7.7 (minified files, their source maps and licence files); nothing was downloaded.
+#
+# [[package]]: a part of the site with its reviewed licence (spdx), its stored texts ([[package.text]]: file
+# below this folder, or repository_file of this repository) and, while a text or the licence itself could
+# not be read from the shipped files, the known_missing.toml entry it waits for (pending). installed: the
+# file of the installed distribution a licence file was copied from byte for byte; tools/build_docs.py
+# checks that the installed theme still carries exactly that file. found: how the shipped files name the
+# version ("in mkdocs-material@9.7.7": compiled into the theme's files, no own version recorded).
+# [[site_file]]: a glob of a path of the built site (** spans folders) and the packages the file contains.
+# tools/build_docs.py fails for a site file that neither NeuroGrid writes itself (OWN_SITE_FILES) nor an entry
+# covers, for a package whose licence is not permissive (MPL-2.0 only with unmodified = true, D-05) and has
+# no known_missing.toml entry, and for any file of pruned that is still there; tools/notices.py copies the
+# review into THIRD_PARTY_NOTICES.txt and checks every SHA-256.
+version = 1
+theme = "mkdocs-material"
+theme_version = "9.7.7"
+retrieved = "2026-10-26"
+# Removed by tools/build_docs.py after the build: the lunr language files (lunr-languages, MPL; tinyseg;
+# wordcut), which the English-only search (mkdocs.yml search lang: en) never loads, and the source maps.
+pruned = ["assets/javascripts/lunr/**", "**/*.map"]
+
+[[package]]
+registry = "pypi"
+name = "mkdocs-material"
+version = "9.7.7"
+found = "9.7.7"
+spdx = "MIT"
+note = "Copyright (c) 2016-2025 Martin Donath. The theme: the templates of every page, the style sheets main and palette, the script bundle, the search worker and the favicon."
+pending = ""
+
+[[package.text]]
+file = "pypi/mkdocs-material@9.7.7/LICENSE"
+origin = "mkdocs_material-9.7.7.dist-info/licenses/LICENSE"
+installed = "mkdocs_material-9.7.7.dist-info/licenses/LICENSE"
+kind = "licence file"
+size = 1093
+sha256 = "e1150f26b4c0f872627b39fda49ae3bd850304f2f7f3171ae0531c1f8f4dd078"
+
+[[package]]
+registry = "npm"
+name = "rxjs"
+version = ""
+found = "in mkdocs-material@9.7.7"
+spdx = "Apache-2.0"
+note = "Compiled into the script bundle (its source map names node_modules/rxjs/src). The bundled sources carry no copyright line and no NOTICE text; the text is the Apache License 2.0 (LICENSES/Apache-2.0.txt)."
+pending = ""
+
+[[package.text]]
+repository_file = "LICENSES/Apache-2.0.txt"
+origin = "Apache License 2.0"
+kind = "standard text"
+size = 11357
+sha256 = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+
+[[package]]
+registry = "npm"
+name = "tslib"
+version = ""
+found = "in mkdocs-material@9.7.7"
+spdx = "0BSD"
+note = "Helpers compiled into the script bundle; the header of tslib.es6.mjs (from the bundle's source map) holds the copyright line (Microsoft Corporation) and the 0BSD text."
+pending = ""
+
+[[package.text]]
+file = "npm/tslib/LICENSE.source-header.txt"
+origin = "node_modules/tslib/tslib.es6.mjs: header (bundle.d7400e89.min.js.map)"
+kind = "source header"
+size = 806
+sha256 = "f8b254da37e08406ccb6c9d8321ef584d1b22f44f9e12d5436325aeea0e6d60b"
+
+[[package]]
+registry = "npm"
+name = "clipboard"
+version = "2.0.11"
+found = "2.0.11"
+spdx = "MIT"
+note = "clipboard.js in the script bundle, header 'Licensed MIT © Zeno Rocha' kept in the minified file; its dist file also carries the small modules delegate, good-listener, select and tiny-emitter, for which it states no other licence."
+pending = ""
+
+[[package.text]]
+file = "npm/clipboard@2.0.11/LICENSE.bundle-header.txt"
+origin = "bundle.d7400e89.min.js: header comment of clipboard.js"
+kind = "source header"
+size = 93
+sha256 = "08253e0f29ea53ce3ba5fc47908e23ee5367c4cff4b6863ff0747b56e726d917"
+
+[[package.text]]
+file = "standard/LICENSE.MIT-permission-notice.txt"
+origin = "the permission notice of the MIT licence (as in mkdocs-material's LICENSE)"
+kind = "permission notice"
+size = 1024
+sha256 = "0b48f2cc7f618fce9e2bf4b3f582fad5a484d1149c3cfac14199021c63006b99"
+
+[[package]]
+registry = "npm"
+name = "escape-html"
+version = ""
+found = "in mkdocs-material@9.7.7"
+spdx = "MIT"
+note = "In the script bundle; its header with the copyright lines (TJ Holowaychuk, Andreas Lubbe, Tiancheng Gu) is kept in the minified file."
+pending = ""
+
+[[package.text]]
+file = "npm/escape-html/LICENSE.bundle-header.txt"
+origin = "bundle.d7400e89.min.js: header comment of escape-html"
+kind = "source header"
+size = 159
+sha256 = "c8d2783fa2c8fed284d3ad16a5e9e6e2b677efb15b1d2d5aa1ba06402f38e349"
+
+[[package.text]]
+file = "standard/LICENSE.MIT-permission-notice.txt"
+origin = "the permission notice of the MIT licence (as in mkdocs-material's LICENSE)"
+kind = "permission notice"
+size = 1024
+sha256 = "0b48f2cc7f618fce9e2bf4b3f582fad5a484d1149c3cfac14199021c63006b99"
+
+[[package]]
+registry = "npm"
+name = "focus-visible"
+version = ""
+found = "in mkdocs-material@9.7.7"
+spdx = ""
+note = "The :focus-visible polyfill of the WICG in the script bundle. Its bundled dist file states neither a licence nor a copyright line; the upstream project names the W3C Software and Document License, which is to be confirmed with the text."
+pending = "docs-site:focus-visible"
+
+[[package]]
+registry = "npm"
+name = "lunr"
+version = "2.3.9"
+found = "2.3.9"
+spdx = "MIT"
+note = "The search index library in the search worker (Copyright (C) 2020 Oliver Nightingale; its stemmer includes code from Martin Porter's stemmer, tartarus.org)."
+pending = ""
+
+[[package.text]]
+file = "npm/lunr@2.3.9/LICENSE.source-header.txt"
+origin = "node_modules/lunr/lunr.js: header (search.2c215733.min.js.map)"
+kind = "source header"
+size = 155
+sha256 = "3344578b77ac8611341f8acac3fb73f3e7815c16977684bde7a41e8253152df3"
+
+[[package.text]]
+file = "standard/LICENSE.MIT-permission-notice.txt"
+origin = "the permission notice of the MIT licence (as in mkdocs-material's LICENSE)"
+kind = "permission notice"
+size = 1024
+sha256 = "0b48f2cc7f618fce9e2bf4b3f582fad5a484d1149c3cfac14199021c63006b99"
+
+[[package]]
+registry = "npm"
+name = "material-design-color"
+version = ""
+found = "in mkdocs-material@9.7.7"
+spdx = ""
+note = "The colour palette compiled into the main style sheet (its source map names node_modules/material-design-color/material-color.scss, without content). The shipped files state no licence."
+pending = "docs-site:material-design-color"
+
+[[package]]
+registry = "icons"
+name = "Material Design Icons"
+version = ""
+found = "in mkdocs-material@9.7.7"
+spdx = "Apache-2.0"
+note = "Pictogrammers icons, inlined as SVG into every page and as data URIs into the main style sheet; the icons are under the Apache License 2.0 (Pictogrammers Free License, material/templates/.icons/material/LICENSE of the theme)."
+pending = ""
+
+[[package.text]]
+file = "pypi/mkdocs-material@9.7.7/LICENSE.icons-material"
+origin = "material/templates/.icons/material/LICENSE"
+installed = "material/templates/.icons/material/LICENSE"
+kind = "licence file"
+size = 992
+sha256 = "3bae6305bcaa6d10219b999f65c342034c2d40b1c0e8567fa08605e73ccba829"
+
+[[package.text]]
+repository_file = "LICENSES/Apache-2.0.txt"
+origin = "Apache License 2.0"
+kind = "standard text"
+size = 11357
+sha256 = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+
+[[package]]
+registry = "icons"
+name = "Octicons"
+version = ""
+found = "in mkdocs-material@9.7.7"
+spdx = "MIT"
+note = "GitHub's icons, as data URIs in the main style sheet (Copyright (c) 2025 GitHub Inc.)."
+pending = ""
+
+[[package.text]]
+file = "pypi/mkdocs-material@9.7.7/LICENSE.icons-octicons"
+origin = "material/templates/.icons/octicons/LICENSE"
+installed = "material/templates/.icons/octicons/LICENSE"
+kind = "licence file"
+size = 1068
+sha256 = "3d8b9d9254e7aa7517ed5abc8df3a4bc230081a613e8e872fb6558e8759c9040"
+
+[[package]]
+registry = "icons"
+name = "Font Awesome Free"
+version = "7.1.0"
+found = "7.1.0"
+spdx = "CC-BY-4.0"
+note = "Icons as data URIs in the main style sheet, whose comment 'Font Awesome Free 7.1.0 ... Copyright 2025 Fonticons, Inc.' is kept; icons as SVG are under CC BY 4.0 (LICENSES/CC-BY-4.0.txt)."
+pending = ""
+
+[[package.text]]
+file = "pypi/mkdocs-material@9.7.7/LICENSE.icons-fontawesome.txt"
+origin = "material/templates/.icons/fontawesome/LICENSE.txt"
+installed = "material/templates/.icons/fontawesome/LICENSE.txt"
+kind = "licence file"
+size = 7427
+sha256 = "329f24fdba0c57714d7d202d30a74767feac6907685ee24f0abbf1bd47581a07"
+
+[[package.text]]
+repository_file = "LICENSES/CC-BY-4.0.txt"
+origin = "Creative Commons Attribution 4.0 International"
+kind = "standard text"
+size = 17023
+sha256 = "d557539df68e771cc1eedcc91d13f70fca930e508d11eedcafa4b15db49e3744"
+
+[[package]]
+registry = "font"
+name = "Noto Sans SC"
+version = ""
+found = "subset of the report fonts"
+spdx = "OFL-1.1"
+note = "The Han characters of the pages, cut by tools/build_docs.py from the static report fonts of src/neurogrid/report/fonts (A-27)."
+pending = ""
+
+[[package.text]]
+repository_file = "src/neurogrid/report/fonts/OFL.txt"
+origin = "SIL Open Font License 1.1 of the report fonts"
+kind = "licence file"
+size = 4388
+sha256 = "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+
+[[site_file]]
+pattern = "**/*.html"
+packages = ["mkdocs-material", "Material Design Icons"]
+
+[[site_file]]
+pattern = "assets/images/favicon.png"
+packages = ["mkdocs-material"]
+
+[[site_file]]
+pattern = "assets/javascripts/bundle.*.min.js"
+packages = ["mkdocs-material", "rxjs", "tslib", "clipboard", "escape-html", "focus-visible"]
+
+[[site_file]]
+pattern = "assets/javascripts/workers/search.*.min.js"
+packages = ["mkdocs-material", "lunr"]
+
+[[site_file]]
+pattern = "assets/stylesheets/main.*.min.css"
+packages = ["mkdocs-material", "material-design-color", "Material Design Icons", "Octicons", "Font Awesome Free"]
+
+[[site_file]]
+pattern = "assets/stylesheets/palette.*.min.css"
+packages = ["mkdocs-material"]
+
+[[site_file]]
+pattern = "assets/fonts/neurogrid-sc-*.woff"
+packages = ["Noto Sans SC"]

@@ -350,6 +350,53 @@ not_distributed  Chrome Headless Shell    revision 1243 (153.0.8010.12)         
 - python-build-standalone 3.12.15+20261009: CPython 3.12.15, install_only_stripped. LICENSE.txt holds the PSF licence stack (PSF, BeOpen, CNRI, CWI) and the zero-clause BSD licence for code in the documentation; on Windows also the conditions for the Microsoft Distributable Code, bzip2 1.0.8 and Tcl/Tk. pip inside the archive brings its own licence files. The texts of the further libraries built into the interpreter (for example OpenSSL, libffi, SQLite, XZ, zlib) are not in the archive (known_missing.toml). On Linux the bundle leaves out _dbm (Berkeley DB, Sleepycat; packaging/bundle_lock.json).
 - uv 0.13.0: The uv binary from the PyPI wheel uv==0.13.0, which also carries the CycloneDX SBOM of its Rust crates (uv/uv.cyclonedx.json in the bundle).
 
+Documentation site (docs/ of the offline bundle and of the release, mkdocs-material 9.7.7):
+
+Built by tools/build_docs.py with mkdocs-material 9.7.7 and reviewed in
+license-gate/third_party/mkdocs-material-9.7.7/manifest.toml; the build fails for a file of the site that
+neither NeuroGrid writes itself nor this review covers, and for a licence outside the permissive ones.
+NeuroGrid's own parts of the site are the text of the pages (CC BY 4.0) and its style sheet, script and
+generated index, sitemap and schemas (Apache-2.0).
+
+Kind   Part                   Version                     Licence              Licence texts
+-----  ---------------------  --------------------------  -------------------  --------------------------------
+pypi   mkdocs-material        9.7.7                       MIT                  licence file
+npm    rxjs                   in mkdocs-material@9.7.7    Apache-2.0           standard text
+npm    tslib                  in mkdocs-material@9.7.7    0BSD                 source header
+npm    clipboard              2.0.11                      MIT                  source header, permission notice
+npm    escape-html            in mkdocs-material@9.7.7    MIT                  source header, permission notice
+npm    focus-visible          in mkdocs-material@9.7.7    pending (section 5)  missing (section 5)
+npm    lunr                   2.3.9                       MIT                  source header, permission notice
+npm    material-design-color  in mkdocs-material@9.7.7    pending (section 5)  missing (section 5)
+icons  Material Design Icons  in mkdocs-material@9.7.7    Apache-2.0           licence file, standard text
+icons  Octicons               in mkdocs-material@9.7.7    MIT                  licence file
+icons  Font Awesome Free      7.1.0                       CC-BY-4.0            licence file, standard text
+font   Noto Sans SC           subset of the report fonts  OFL-1.1              licence file
+
+Files of the site and the parts they contain:
+- **/*.html: mkdocs-material, Material Design Icons
+- assets/images/favicon.png: mkdocs-material
+- assets/javascripts/bundle.*.min.js: mkdocs-material, rxjs, tslib, clipboard, escape-html, focus-visible
+- assets/javascripts/workers/search.*.min.js: mkdocs-material, lunr
+- assets/stylesheets/main.*.min.css: mkdocs-material, material-design-color, Material Design Icons, Octicons, Font Awesome Free
+- assets/stylesheets/palette.*.min.css: mkdocs-material
+- assets/fonts/neurogrid-sc-*.woff: Noto Sans SC
+
+Review notes (manifest.toml):
+- pypi mkdocs-material 9.7.7: Copyright (c) 2016-2025 Martin Donath. The theme: the templates of every page, the style sheets main and palette, the script bundle, the search worker and the favicon.
+- npm rxjs in mkdocs-material@9.7.7: Compiled into the script bundle (its source map names node_modules/rxjs/src). The bundled sources carry no copyright line and no NOTICE text; the text is the Apache License 2.0 (LICENSES/Apache-2.0.txt).
+- npm tslib in mkdocs-material@9.7.7: Helpers compiled into the script bundle; the header of tslib.es6.mjs (from the bundle's source map) holds the copyright line (Microsoft Corporation) and the 0BSD text.
+- npm clipboard 2.0.11: clipboard.js in the script bundle, header 'Licensed MIT © Zeno Rocha' kept in the minified file; its dist file also carries the small modules delegate, good-listener, select and tiny-emitter, for which it states no other licence.
+- npm escape-html in mkdocs-material@9.7.7: In the script bundle; its header with the copyright lines (TJ Holowaychuk, Andreas Lubbe, Tiancheng Gu) is kept in the minified file.
+- npm focus-visible in mkdocs-material@9.7.7: The :focus-visible polyfill of the WICG in the script bundle. Its bundled dist file states neither a licence nor a copyright line; the upstream project names the W3C Software and Document License, which is to be confirmed with the text.
+- npm lunr 2.3.9: The search index library in the search worker (Copyright (C) 2020 Oliver Nightingale; its stemmer includes code from Martin Porter's stemmer, tartarus.org).
+- npm material-design-color in mkdocs-material@9.7.7: The colour palette compiled into the main style sheet (its source map names node_modules/material-design-color/material-color.scss, without content). The shipped files state no licence.
+- icons Material Design Icons in mkdocs-material@9.7.7: Pictogrammers icons, inlined as SVG into every page and as data URIs into the main style sheet; the icons are under the Apache License 2.0 (Pictogrammers Free License, material/templates/.icons/material/LICENSE of the theme).
+- icons Octicons in mkdocs-material@9.7.7: GitHub's icons, as data URIs in the main style sheet (Copyright (c) 2025 GitHub Inc.).
+- icons Font Awesome Free 7.1.0: Icons as data URIs in the main style sheet, whose comment 'Font Awesome Free 7.1.0 ... Copyright 2025 Fonticons, Inc.' is kept; icons as SVG are under CC BY 4.0 (LICENSES/CC-BY-4.0.txt).
+- font Noto Sans SC subset of the report fonts: The Han characters of the pages, cut by tools/build_docs.py from the static report fonts of src/neurogrid/report/fonts (A-27).
+- not shipped: assets/javascripts/lunr/**, **/*.map - removed by tools/build_docs.py after the build (the lunr language files of lunr-languages, tinyseg and wordcut, which the English-only search never loads, and the source maps)
+
 Offline bundle parts as pinned in packaging/bundle_lock.json:
 
 Target        Component                Version           File                                                                            Licence
@@ -368,6 +415,8 @@ win_amd64     uv                       0.13.0            uv-0.13.0-py3-none-win_
 - h5py:h5py.libs/libaec-*.so*: libaec 1.1.4 in the Linux h5py wheel: the wheel states neither its licence nor its text. Text pending owner approval (G1).
 - h5py:h5py.libs/libsz-*.so*: libsz (part of libaec 1.1.4) in the Linux h5py wheel: the wheel states neither its licence nor its text. Text pending owner approval (G1).
 - python-build-standalone:3.12.15+20261009: The licence texts of the libraries inside the python-build-standalone archive other than CPython (e.g. OpenSSL, libffi, SQLite, XZ, zlib) are not in the distributed install_only archive. Text pending owner approval (G1).
+- docs-site:focus-visible: focus-visible (the WICG :focus-visible polyfill) inside the script bundle of the documentation theme mkdocs-material 9.7.7: the shipped file states neither its licence nor a copyright line, so its licence and text could not be taken from the shipped files (a download is covered by neither D-06 nor D-15). Text pending owner approval (G1).
+- docs-site:material-design-color: material-design-color, whose colour palette the main style sheet of the documentation theme mkdocs-material 9.7.7 compiles in: the shipped files state no licence, so neither its licence nor its text could be reviewed (a download is covered by neither D-06 nor D-15). Text pending owner approval (G1).
 
 6. Licence texts
 
@@ -889,6 +938,8 @@ Creative Commons may be contacted at creativecommons.org.
 Used by: bids-validator-deno 3.0.2 bundle: jsr @bradenmacdonald/s3-lite-client 0.9.6: Apache License 2.0 (the LICENSE names it for the MinIO portions, without its text)
 Used by: bids-validator-deno 3.0.2 bundle: npm clean-git-ref 2.0.1: Apache License 2.0 (the package has no licence file)
 Used by: bids-validator-deno 3.0.2 bundle: npm hash-wasm 4.12.0: Apache License 2.0 (ripemd160 and the option NeuroGrid uses of the choices of blake2b, blake2s and blake3, D-16; the package has no Apache text)
+Used by: documentation site (mkdocs-material 9.7.7): icons Material Design Icons in mkdocs-material@9.7.7: Apache License 2.0
+Used by: documentation site (mkdocs-material 9.7.7): npm rxjs in mkdocs-material@9.7.7: Apache License 2.0
 Used by: edfio 0.4.18 (linux_x86_64): edfio-0.4.18.dist-info/licenses/LICENSE
 Used by: edfio 0.4.18 (win_amd64): edfio-0.4.18.dist-info/licenses/LICENSE
 Used by: uv 0.13.0 (linux_x86_64): uv-0.13.0.dist-info/licenses/LICENSE-APACHE
@@ -1921,6 +1972,7 @@ SOFTWARE.
 
 ==============================================================================
 Used by: bids-validator-deno 3.0.2 bundle: npm hash-wasm 4.12.0: dist/index.esm.js (tslib helpers)
+Used by: documentation site (mkdocs-material 9.7.7): npm tslib in mkdocs-material@9.7.7: node_modules/tslib/tslib.es6.mjs: header (bundle.d7400e89.min.js.map)
 ------------------------------------------------------------------------------
 /******************************************************************************
 Copyright (c) Microsoft Corporation.
@@ -3434,6 +3486,7 @@ THE SOFTWARE.
 
 ==============================================================================
 Used by: bids-validator-deno 3.0.2: bids_validator_deno/bids-validator.js (CC-BY-4.0)
+Used by: documentation site (mkdocs-material 9.7.7): icons Font Awesome Free 7.1.0: Creative Commons Attribution 4.0 International
 ------------------------------------------------------------------------------
 Creative Commons Attribution 4.0 International
 
@@ -3840,6 +3893,300 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): icons Font Awesome Free 7.1.0: material/templates/.icons/fontawesome/LICENSE.txt
+------------------------------------------------------------------------------
+Fonticons, Inc. (https://fontawesome.com)
+
+--------------------------------------------------------------------------------
+
+Font Awesome Free License
+
+Font Awesome Free is free, open source, and GPL friendly. You can use it for
+commercial projects, open source projects, or really almost whatever you want.
+Full Font Awesome Free license: https://fontawesome.com/license/free.
+
+--------------------------------------------------------------------------------
+
+# Icons: CC BY 4.0 License (https://creativecommons.org/licenses/by/4.0/)
+
+The Font Awesome Free download is licensed under a Creative Commons
+Attribution 4.0 International License and applies to all icons packaged
+as SVG and JS file types.
+
+--------------------------------------------------------------------------------
+
+# Fonts: SIL OFL 1.1 License
+
+In the Font Awesome Free download, the SIL OFL license applies to all icons
+packaged as web and desktop font files.
+
+Copyright (c) 2025 Fonticons, Inc. (https://fontawesome.com)
+with Reserved Font Name: "Font Awesome".
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+http://scripts.sil.org/OFL
+
+SIL OPEN FONT LICENSE
+Version 1.1 - 26 February 2007
+
+PREAMBLE
+The goals of the Open Font License (OFL) are to stimulate worldwide
+development of collaborative font projects, to support the font creation
+efforts of academic and linguistic communities, and to provide a free and
+open framework in which fonts may be shared and improved in partnership
+with others.
+
+The OFL allows the licensed fonts to be used, studied, modified and
+redistributed freely as long as they are not sold by themselves. The
+fonts, including any derivative works, can be bundled, embedded,
+redistributed and/or sold with any software provided that any reserved
+names are not used by derivative works. The fonts and derivatives,
+however, cannot be released under any other type of license. The
+requirement for fonts to remain under this license does not apply
+to any document created using the fonts or their derivatives.
+
+DEFINITIONS
+"Font Software" refers to the set of files released by the Copyright
+Holder(s) under this license and clearly marked as such. This may
+include source files, build scripts and documentation.
+
+"Reserved Font Name" refers to any names specified as such after the
+copyright statement(s).
+
+"Original Version" refers to the collection of Font Software components as
+distributed by the Copyright Holder(s).
+
+"Modified Version" refers to any derivative made by adding to, deleting,
+or substituting — in part or in whole — any of the components of the
+Original Version, by changing formats or by porting the Font Software to a
+new environment.
+
+"Author" refers to any designer, engineer, programmer, technical
+writer or other person who contributed to the Font Software.
+
+PERMISSION & CONDITIONS
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of the Font Software, to use, study, copy, merge, embed, modify,
+redistribute, and sell modified and unmodified copies of the Font
+Software, subject to the following conditions:
+
+1) Neither the Font Software nor any of its individual components,
+in Original or Modified Versions, may be sold by itself.
+
+2) Original or Modified Versions of the Font Software may be bundled,
+redistributed and/or sold with any software, provided that each copy
+contains the above copyright notice and this license. These can be
+included either as stand-alone text files, human-readable headers or
+in the appropriate machine-readable metadata fields within text or
+binary files as long as those fields can be easily viewed by the user.
+
+3) No Modified Version of the Font Software may use the Reserved Font
+Name(s) unless explicit written permission is granted by the corresponding
+Copyright Holder. This restriction only applies to the primary font name as
+presented to the users.
+
+4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
+Software shall not be used to promote, endorse or advertise any
+Modified Version, except to acknowledge the contribution(s) of the
+Copyright Holder(s) and the Author(s) or with their explicit written
+permission.
+
+5) The Font Software, modified or unmodified, in part or in whole,
+must be distributed entirely under this license, and must not be
+distributed under any other license. The requirement for fonts to
+remain under this license does not apply to any document created
+using the Font Software.
+
+TERMINATION
+This license becomes null and void if any of the above conditions are
+not met.
+
+DISCLAIMER
+THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
+OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
+DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
+OTHER DEALINGS IN THE FONT SOFTWARE.
+
+--------------------------------------------------------------------------------
+
+# Code: MIT License (https://opensource.org/licenses/MIT)
+
+In the Font Awesome Free download, the MIT license applies to all non-font and
+non-icon files.
+
+Copyright 2025 Fonticons, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in the
+Software without restriction, including without limitation the rights to use, copy,
+modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so, subject to the
+following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+--------------------------------------------------------------------------------
+
+# Attribution
+
+Attribution is required by MIT, SIL OFL, and CC BY licenses. Downloaded Font
+Awesome Free files already contain embedded comments with sufficient
+attribution, so you shouldn't need to do anything additional when using these
+files normally.
+
+We've kept attribution comments terse, so we ask that you do not actively work
+to remove them from files, especially code. They're a great way for folks to
+learn about Font Awesome.
+
+--------------------------------------------------------------------------------
+
+# Brand Icons
+
+All brand icons are trademarks of their respective owners. The use of these
+trademarks does not indicate endorsement of the trademark holder by Font
+Awesome, nor vice versa. **Please do not use brand logos for any purpose except
+to represent the company, product, or service to which they refer.**
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): icons Material Design Icons in mkdocs-material@9.7.7: material/templates/.icons/material/LICENSE
+------------------------------------------------------------------------------
+Pictogrammers Free License
+--------------------------
+
+This icon collection is released as free, open source, and GPL friendly by
+the [Pictogrammers](http://pictogrammers.com/) icon group. You may use it
+for commercial projects, open source projects, or anything really.
+
+# Icons: Apache 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
+Some of the icons are redistributed under the Apache 2.0 license. All other
+icons are either redistributed under their respective licenses or are
+distributed under the Apache 2.0 license.
+
+# Fonts: Apache 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
+All web and desktop fonts are distributed under the Apache 2.0 license. Web
+and desktop fonts contain some icons that are redistributed under the Apache
+2.0 license. All other icons are either redistributed under their respective
+licenses or are distributed under the Apache 2.0 license.
+
+# Code: MIT (https://opensource.org/licenses/MIT)
+The MIT license applies to all non-font and non-icon files.
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): icons Octicons in mkdocs-material@9.7.7: material/templates/.icons/octicons/LICENSE
+------------------------------------------------------------------------------
+MIT License
+
+Copyright (c) 2025 GitHub Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): npm clipboard 2.0.11: bundle.d7400e89.min.js: header comment of clipboard.js
+------------------------------------------------------------------------------
+/*!
+ * clipboard.js v2.0.11
+ * https://clipboardjs.com/
+ *
+ * Licensed MIT © Zeno Rocha
+ */
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): npm clipboard 2.0.11: the permission notice of the MIT licence (as in mkdocs-material's LICENSE)
+Used by: documentation site (mkdocs-material 9.7.7): npm escape-html in mkdocs-material@9.7.7: the permission notice of the MIT licence (as in mkdocs-material's LICENSE)
+Used by: documentation site (mkdocs-material 9.7.7): npm lunr 2.3.9: the permission notice of the MIT licence (as in mkdocs-material's LICENSE)
+------------------------------------------------------------------------------
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): npm escape-html in mkdocs-material@9.7.7: bundle.d7400e89.min.js: header comment of escape-html
+------------------------------------------------------------------------------
+/*!
+ * escape-html
+ * Copyright(c) 2012-2013 TJ Holowaychuk
+ * Copyright(c) 2015 Andreas Lubbe
+ * Copyright(c) 2015 Tiancheng "Timothy" Gu
+ * MIT Licensed
+ */
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): npm lunr 2.3.9: node_modules/lunr/lunr.js: header (search.2c215733.min.js.map)
+------------------------------------------------------------------------------
+/**
+ * lunr - http://lunrjs.com - A bit like Solr, but much smaller and not as bright - 2.3.9
+ * Copyright (C) 2020 Oliver Nightingale
+ * @license MIT
+ */
+
+==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): pypi mkdocs-material 9.7.7: mkdocs_material-9.7.7.dist-info/licenses/LICENSE
+------------------------------------------------------------------------------
+Copyright (c) 2016-2025 Martin Donath <martin.donath@squidfunk.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the
+rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
 
 ==============================================================================
 Used by: fonttools 4.66.1 (linux_x86_64): fonttools-4.66.1.dist-info/licenses/LICENSE
@@ -6400,6 +6747,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
+Used by: documentation site (mkdocs-material 9.7.7): font Noto Sans SC subset of the report fonts: SIL Open Font License 1.1 of the report fonts
 Used by: Noto Sans SC (any): src/neurogrid/report/fonts/OFL.txt
 ------------------------------------------------------------------------------
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'

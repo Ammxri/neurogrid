@@ -65,12 +65,12 @@ plugins:
           name: English
           default: true
           build: true
-          copyright: "Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations. · Code: Apache-2.0 · Documentation: CC BY 4.0"
+          copyright: "Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations. · Code: Apache-2.0 · Documentation text: CC BY 4.0 · Theme and scripts: own licences (Licences page)"
         - locale: zh
           name: 中文
           build: true
           site_name: NeuroGrid
-          copyright: "使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。 · 代码：Apache-2.0 · 文档：CC BY 4.0"
+          copyright: "使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。 · 代码：Apache-2.0 · 文档文本：CC BY 4.0 · 主题与脚本：各自的许可证（“许可证”页）"
           nav_translations:
             Home: 首页
             Getting started: 入门
