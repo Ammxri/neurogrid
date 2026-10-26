@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 import pypdf
@@ -165,7 +165,25 @@ def test_install_hint_bundle_command_otherwise_docs_page(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"")
     monkeypatch.setattr(pdf.sys, "prefix", str(prefix / "venv"))
-    assert pdf.install_hint() == ("pdf.install.command", {"command": f'"{python}" "{script}"'})
+    # review R07: written so that it runs as printed and holds no user name (no '~', no home folder)
+    if os.name == "nt":
+        assert pdf.install_hint({"LOCALAPPDATA": str(tmp_path)}) == (
+            "pdf.install.command_windows",
+            {
+                "cmd": '"%LOCALAPPDATA%\\Neuro Grid\\python\\python.exe" '
+                '"%LOCALAPPDATA%\\Neuro Grid\\tools\\install_pdf_browser.py"',
+                "powershell": '& "$env:LOCALAPPDATA\\Neuro Grid\\python\\python.exe" '
+                '"$env:LOCALAPPDATA\\Neuro Grid\\tools\\install_pdf_browser.py"',
+            },
+        )
+    else:
+        assert pdf.install_hint({"HOME": str(tmp_path)}) == (
+            "pdf.install.command",
+            {
+                "command": '"$HOME/Neuro Grid/python/bin/python3.12" '
+                '"$HOME/Neuro Grid/tools/install_pdf_browser.py"'
+            },
+        )
     plain = tmp_path / "plain"
     for path in (
         plain / pdf.BUNDLE_MARKER,
@@ -181,6 +199,52 @@ def test_install_hint_bundle_command_otherwise_docs_page(
         (prefix / missing).unlink()
         assert pdf.install_hint() == ("pdf.install.docs", {})
         (prefix / missing).write_bytes(b"")
+
+
+def test_install_commands_for_each_shell_and_prefix() -> None:
+    """Review R07: the offline-bundle hint printed '~\\AppData\\Local\\...\\python\\python.exe ~\\...' (the
+    home folder redacted on the console), which neither Command Prompt nor PowerShell can run. Windows: a
+    prefix below LOCALAPPDATA, else below the user profile, is written with that variable for both shells
+    (in any letter case; $ and ` escaped for PowerShell); a prefix elsewhere as it is (PowerShell: literal
+    single quotes). Linux: "$HOME/..." inside double quotes, \\ " $ ` escaped; a prefix elsewhere as it is."""
+    local, profile = r"C:\Users\lin.wei\AppData\Local", r"C:\Users\lin.wei"
+    env = {"LOCALAPPDATA": local, "USERPROFILE": profile}
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(local.upper(), "NeuroGrid", "0.1.0"), env, None)
+    assert cmd == (
+        '"%LOCALAPPDATA%\\NeuroGrid\\0.1.0\\python\\python.exe" '
+        '"%LOCALAPPDATA%\\NeuroGrid\\0.1.0\\tools\\install_pdf_browser.py"'
+    )
+    assert powershell == (
+        '& "$env:LOCALAPPDATA\\NeuroGrid\\0.1.0\\python\\python.exe" '
+        '"$env:LOCALAPPDATA\\NeuroGrid\\0.1.0\\tools\\install_pdf_browser.py"'
+    )
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(profile, "tools", "N$G`1"), env, None)
+    assert cmd.startswith('"%USERPROFILE%\\tools\\N$G`1\\python\\python.exe" ')
+    assert powershell.startswith('& "$env:USERPROFILE\\tools\\N`$G``1\\python\\python.exe" ')
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(profile, "NG"), {}, profile)  # no variables set
+    assert cmd.startswith('"%USERPROFILE%\\NG\\python\\python.exe" ')
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(r"D:\Tools\Neuro Grid's"), env, profile)
+    assert cmd == (
+        '"D:\\Tools\\Neuro Grid\'s\\python\\python.exe" '
+        '"D:\\Tools\\Neuro Grid\'s\\tools\\install_pdf_browser.py"'
+    )
+    assert powershell == (
+        "& 'D:\\Tools\\Neuro Grid''s\\python\\python.exe' "
+        "'D:\\Tools\\Neuro Grid''s\\tools\\install_pdf_browser.py'"
+    )
+    for text in (cmd, powershell):
+        assert "lin.wei" not in text and "~" not in text
+    assert pdf._posix_command(PurePosixPath("/home/lin/.local/share/neurogrid/0.1.0"), "/home/lin") == (
+        '"$HOME/.local/share/neurogrid/0.1.0/python/bin/python3.12" '
+        '"$HOME/.local/share/neurogrid/0.1.0/tools/install_pdf_browser.py"'
+    )
+    assert pdf._posix_command(PurePosixPath('/home/lin/a$b"c'), "/home/lin/") == (
+        '"$HOME/a\\$b\\"c/python/bin/python3.12" "$HOME/a\\$b\\"c/tools/install_pdf_browser.py"'
+    )
+    assert pdf._posix_command(PurePosixPath("/opt/ng"), "/home/lin") == (
+        '"/opt/ng/python/bin/python3.12" "/opt/ng/tools/install_pdf_browser.py"'
+    )
+    assert pdf._posix_command(PurePosixPath("/home/linda/ng"), "/home/lin").startswith('"/home/linda/')
 
 
 def test_ldd_parser_maps_missing_libraries_to_packages() -> None:

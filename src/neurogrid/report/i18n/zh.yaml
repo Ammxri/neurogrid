@@ -231,6 +231,7 @@ errors:
     temp_unusable_hint: "请将 TEMP 和 TMP（Linux：TMPDIR）设为一个您有写入权限的现有本地文件夹，然后重新运行该命令。"
     install:
       command: "安装命令：{command}（离线安装：加上 --from-zip <zip 文件> --sha256 <SHA-256>，详见文档）。"
+      command_windows: "在命令提示符中的安装命令：{cmd}；在 PowerShell 中：{powershell}（离线安装：加上 --from-zip <zip 文件> --sha256 <SHA-256>，详见文档）。"
       docs: "安装方法见文档“安装”页的“PDF 浏览器”一节。每个 NeuroGrid 发布版本都附有安装程序 install_pdf_browser.py（地址和 SHA-256 见该节）；请用 Python 3.11 或更高版本运行。"
       apt: "在 {distribution} 上可用以下命令安装：apt-get install --no-install-recommends {packages}"
       apt_other: "此 Linux 发行版未经验证；{distribution} 的软件包为：apt-get install --no-install-recommends {packages}"

@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from html.parser import HTMLParser
 from importlib import metadata
-from pathlib import Path
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
@@ -218,21 +218,86 @@ def browser_dir(environ: Mapping[str, str]) -> Path:
     return path
 
 
-def _quoted(path: Path) -> str:
-    text = str(path)
-    return f'"{text}"' if " " in text else text
+def _below(path: PurePath, base: str | None, *, windows: bool) -> str | None:
+    """``path`` relative to the absolute folder ``base`` (case-insensitively on Windows), with the native
+    separator; '' for the folder itself, None when it lies elsewhere or there is no such folder."""
+    if not base:
+        return None
+    flavour = PureWindowsPath if windows else PurePosixPath
+    root, inner = flavour(base), flavour(path)
+    if not root.is_absolute():
+        return None
+    parts = tuple(part.lower() for part in inner.parts) if windows else inner.parts
+    head = tuple(part.lower() for part in root.parts) if windows else root.parts
+    if parts[: len(head)] != head:
+        return None
+    return str(flavour(*inner.parts[len(head) :])) if len(parts) > len(head) else ""
 
 
-def install_hint() -> tuple[str, dict[str, object]]:
+def _windows_commands(prefix: PurePath, environ: Mapping[str, str], home: str | None) -> tuple[str, str]:
+    """The installer command for Command Prompt and for Windows PowerShell. A prefix below LOCALAPPDATA or
+    the user profile (the bundle's default) is written with that variable, so the command runs as printed
+    and shows no user name (A-51); '~' would not run in either shell. A prefix elsewhere is written as it
+    is."""
+    tail = ("python\\python.exe", "tools\\install_pdf_browser.py")
+    for variable, base in (
+        ("LOCALAPPDATA", environ.get("LOCALAPPDATA")),
+        ("USERPROFILE", environ.get("USERPROFILE") or home),
+    ):
+        rest = _below(prefix, base, windows=True)
+        if rest is not None:
+            inner = [f"{rest}\\{part}" if rest else part for part in tail]
+            # PowerShell expands $ and ` inside double quotes; a Windows path cannot hold '"'
+            escaped = [part.replace("`", "``").replace("$", "`$") for part in inner]
+            cmd = " ".join(f'"%{variable}%\\{part}"' for part in inner)
+            powershell = "& " + " ".join(f'"$env:{variable}\\{part}"' for part in escaped)
+            return cmd, powershell
+    paths = [str(PureWindowsPath(prefix, part)) for part in tail]
+    cmd = " ".join(f'"{path}"' for path in paths)
+    powershell = "& " + " ".join("'" + path.replace("'", "''") + "'" for path in paths)
+    return cmd, powershell
+
+
+def _posix_command(prefix: PurePath, home: str | None) -> str:
+    """The installer command for sh/bash: a prefix below the home folder as "$HOME/..." (inside double
+    quotes '~' is not expanded), each part double-quoted with \\, ", $ and ` escaped."""
+    tail = ("python/bin/python3.12", "tools/install_pdf_browser.py")
+    rest = _below(prefix, home, windows=False)
+
+    def quoted(text: str) -> str:
+        return re.sub(r'([\\"$`])', r"\\\1", text)
+
+    if rest is not None:
+        parts = [f"$HOME/{quoted(rest)}/{part}" if rest else f"$HOME/{part}" for part in tail]
+    else:
+        parts = [quoted(str(PurePosixPath(prefix, part))) for part in tail]
+    return " ".join(f'"{part}"' for part in parts)
+
+
+def install_hint(
+    environ: Mapping[str, str] | None = None, *, windows: bool | None = None
+) -> tuple[str, dict[str, object]]:
     """How to install the shell, by installation type: an offline bundle (marker file in its prefix, the
-    folder above the venv) gets the command with its own interpreter and script; every other installation
-    (PyPI, source) gets the documentation page, which names the installer's release address and SHA-256."""
+    folder above the venv) gets the command with its own interpreter and script, written so that it runs as
+    printed and holds no user name (review R07): on Windows for Command Prompt and PowerShell with
+    %LOCALAPPDATA% / $env:LOCALAPPDATA (or the user profile), on Linux with "$HOME/...". Every other
+    installation (PyPI, source) gets the documentation page, which names the installer's release address
+    and SHA-256."""
+    environ = os.environ if environ is None else environ
+    windows = os.name == "nt" if windows is None else windows
     prefix = Path(sys.prefix).parent
     script = prefix / "tools" / "install_pdf_browser.py"
-    python = prefix / "python" / ("python.exe" if os.name == "nt" else "bin/python3.12")
-    if (prefix / BUNDLE_MARKER).is_file() and script.is_file() and python.is_file():
-        return "pdf.install.command", {"command": f"{_quoted(python)} {_quoted(script)}"}
-    return "pdf.install.docs", {}
+    python = prefix / "python" / ("python.exe" if windows else "bin/python3.12")
+    if not ((prefix / BUNDLE_MARKER).is_file() and script.is_file() and python.is_file()):
+        return "pdf.install.docs", {}
+    try:
+        home: str | None = str(Path.home())
+    except (RuntimeError, KeyError, OSError):
+        home = None
+    if windows:
+        cmd, powershell = _windows_commands(prefix, environ, home)
+        return "pdf.install.command_windows", {"cmd": cmd, "powershell": powershell}
+    return "pdf.install.command", {"command": _posix_command(prefix, environ.get("HOME") or home)}
 
 
 def locate_shell(environ: Mapping[str, str]) -> ShellInstall:
@@ -242,20 +307,22 @@ def locate_shell(environ: Mapping[str, str]) -> ShellInstall:
     shell_dir = folder / SHELL_DIRNAME
     executable = shell_dir / EXECUTABLES[platform_name]
     if not shell_dir.is_dir():
-        raise PdfError("pdf.shell_missing", folder=folder, revision=SHELL_REVISION, hint=install_hint())
+        raise PdfError(
+            "pdf.shell_missing", folder=folder, revision=SHELL_REVISION, hint=install_hint(environ)
+        )
     try:
         record = json.loads((shell_dir / RECORD_NAME).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         record = None
     if not isinstance(record, dict) or not executable.is_file():
-        raise PdfError("pdf.shell_incomplete", folder=shell_dir, hint=install_hint())
+        raise PdfError("pdf.shell_incomplete", folder=shell_dir, hint=install_hint(environ))
     if (
         record.get("revision") != SHELL_REVISION
         or record.get("platform") != platform_name
         or record.get("executable") != EXECUTABLES[platform_name]
     ):
         found = f"{record.get('revision')}/{record.get('platform')}"[:40]
-        raise PdfError("pdf.shell_revision", found=found, required=SHELL_REVISION, hint=install_hint())
+        raise PdfError("pdf.shell_revision", found=found, required=SHELL_REVISION, hint=install_hint(environ))
     return ShellInstall(folder=folder, shell_dir=shell_dir, executable=executable, platform=platform_name)
 
 
