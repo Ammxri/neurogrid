@@ -345,6 +345,18 @@ def _root_text(path: Path) -> str:
     return text.rstrip("\\/") if text == path.anchor else text
 
 
+_BARE_DRIVE = re.compile(r"[A-Za-z]:")
+
+
+def _root_pattern(spelling: str) -> str:
+    """The pattern for one spelling of a root, up to the end of a path segment. A bare drive ('E:', a drive
+    root without its separator) counts only as a word of its own followed by a separator, the way a drive
+    root is always written: with a dataset on E:\\ the text 'Size: 3 MB' stays as it is."""
+    if _BARE_DRIVE.fullmatch(spelling):
+        return rf"(?<![{_WORD_EDGE}]){re.escape(spelling)}(?=[\\/])"
+    return re.escape(spelling) + r"(?=$|[\\/'\"\s:,;)\]])"
+
+
 def _inside_label(match: re.Match[str], labels: Iterable[str]) -> bool:
     start, end = match.span()
     for label in labels:
@@ -382,7 +394,8 @@ def redact_paths(
     Roots: the native, POSIX and repr (doubled backslash) spellings, case-insensitively on Windows, as whole
     path segments. Longer roots are replaced first so that the dataset root wins over the home directory
     around it. A root that ends with a separator (a drive root such as ``E:\\``, a dataset on a stick) is
-    matched without it, so that the separator stays after the label; the top of the POSIX file system ('/')
+    matched without it, so that the separator stays after the label, and only where a separator follows and
+    no ASCII letter or digit comes before it (_root_pattern); the top of the POSIX file system ('/')
     is no root, it would stand for every separator.
     Names: whole words (no ASCII letter or digit before or after), without case, never inside a label, and
     only in absolute or '~' paths: a login such as 'eeg' leaves 'sub-01_task-rest_eeg.edf' and the paths
@@ -398,7 +411,7 @@ def redact_paths(
             continue
         spellings = {root, root.replace("\\", "/"), root.replace("\\", "\\\\")}
         for spelling in sorted(spellings, key=len, reverse=True):
-            pattern = re.escape(spelling) + r"(?=$|[\\/'\"\s:,;)\]])"
+            pattern = _root_pattern(spelling)
             text = re.sub(pattern, lambda _match, replacement=label: replacement, text, flags=flags)
     if names:
         text = _MACHINE_PATH.sub(lambda match: _redact_names(match.group(0), names, labels), text)

@@ -5,7 +5,7 @@ import re
 import socket
 import stat
 import tempfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
@@ -405,6 +405,24 @@ def test_redact_paths_with_a_root_at_the_top_of_the_file_system_or_a_drive() -> 
         assert shown == f"a / b, ~{os.sep}data{os.sep}x"
     else:
         assert shown == text
+
+
+@pytest.mark.parametrize("drive", ["E", "e", "D", "R"])
+def test_redact_paths_leaves_words_ending_in_the_letter_of_a_drive_root_alone(drive: str) -> None:
+    """A dataset at a drive root (a stick, E:\\) is matched as 'E:' before a separator, never as the end of
+    a word: 'Size: 3 MB', 'Unchanged:' or 'Error:' in a message or a --debug traceback stay as they are.
+    PureWindowsPath gives the Windows root on every platform; both cases count, as on Windows."""
+    root = PureWindowsPath(f"{drive}:\\")
+    roots = {"<dataset>": root}
+    for word in ("Size", "SIZE", "Source", "Type", "TYPE", "Unchanged", "Error", "ERROR", "Rd", "Rr", "R2D"):
+        for after in (" 3 MB", "", "'", '"', ",", ";", ")", "]", ":", "\n"):
+            text = f"{word}:{after} | ({word}: lab)"
+            assert redact_paths(text, roots) == text  # type: ignore[arg-type]
+    assert redact_paths(f"Read {drive}:\\sub-01\\x.edf", roots) == "Read <dataset>\\sub-01\\x.edf"  # type: ignore[arg-type]
+    assert redact_paths(f"'{drive}:/sub-01' and ({drive}:\\\\sub-01)", roots) == (  # type: ignore[arg-type]
+        "'<dataset>/sub-01' and (<dataset>\\\\sub-01)"
+    )
+    assert redact_paths(f"\\\\?\\{drive}:\\x={drive}:\\", roots) == "\\\\?\\<dataset>\\x=<dataset>\\"  # type: ignore[arg-type]
 
 
 def test_home_folder_is_none_when_it_cannot_be_determined_or_is_the_root(
