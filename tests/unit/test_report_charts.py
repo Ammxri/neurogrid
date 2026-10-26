@@ -46,6 +46,8 @@ def test_bin_edges_and_clamping() -> None:
     assert bin_index(-1.0, -1.0, 1.0) == 0 and bin_index(0.0, -1.0, 1.0) == 10
     counts = bin_counts([0.0, 0.01, 0.5, 1.0, 2.0], 0.0, 1.0)
     assert len(counts) == CHART_BINS and sum(counts) == 5 and counts[0] == 2 and counts[-1] == 2
+    with pytest.raises(ValueError):
+        bin_counts([0.5], 1.0, 1.0)
 
 
 def test_huge_values_never_overflow() -> None:
@@ -60,8 +62,6 @@ def test_huge_values_never_overflow() -> None:
         assert ceiling >= value and ceiling != float("inf"), value
     svg = histogram_svg([1.7e308], lo=0.0, hi=nice_ceiling(1.7e308), label="M07", thresholds=[1e308])
     assert "inf" not in svg and "nan" not in svg and svg.count('class="bar"') == 1
-    with pytest.raises(ValueError):
-        bin_counts([0.5], 1.0, 1.0)
 
 
 @pytest.mark.parametrize(
