@@ -500,9 +500,15 @@ def test_ci_matrix_and_gates() -> None:
 def test_offline_workflow_runs_every_offline_proof() -> None:
     offline = _load("offline")
     assert set(offline["on"]) == {"push", "workflow_dispatch", "workflow_call"}
-    # dev pushes run ci.yml only. A tag v* starts release.yml, which calls this workflow with the signed
-    # bundles: a tag trigger here as well would run every clean room twice per release tag.
-    assert offline["on"]["push"] == {"branches": ["main"]}
+    # D-15: the repository is public and the bundle tests run on every push to dev and main (only dev is
+    # pushed until G1, so a main-only trigger never ran them). A tag v* starts release.yml, which calls this
+    # workflow with the signed bundles: a tag trigger here as well would run every clean room twice per tag.
+    assert offline["on"]["push"] == {"branches": ["dev", "main"]}
+    # Quick dev pushes do not pile up clean-room runs; a release run (tag ref) is never cancelled.
+    assert offline["concurrency"] == {
+        "group": "offline-${{ github.ref }}",
+        "cancel-in-progress": "${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}",
+    }
     release = _load("release")
     assert release["on"]["push"] == {"tags": ["v*"]}
     assert release["jobs"]["test"]["uses"] == "./.github/workflows/offline.yml"
@@ -641,7 +647,8 @@ def test_gitee_mirror_is_switched_off_until_the_owner_enables_it() -> None:
 def test_docs_and_corpus_workflows() -> None:
     docs = _load("docs")
     assert set(docs["on"]) == {"push", "pull_request", "workflow_dispatch"}
-    assert docs["on"]["push"] == {"branches": ["main"]}  # dev pushes run ci.yml only
+    # The documentation build is no bundle test (D-15 covers those, offline.yml): docs build on main pushes.
+    assert docs["on"]["push"] == {"branches": ["main"]}
     assert "tools/build_docs.py --site-dir site" in _runs(docs["jobs"]["build"])
     assert docs["jobs"]["browser"]["strategy"]["matrix"]["os"] == ["ubuntu-24.04", "windows-latest"]
     browser = _runs(docs["jobs"]["browser"])

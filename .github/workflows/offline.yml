@@ -6,13 +6,15 @@
 #   pdf-debian12       PDF with the documented package list, no network, under strace
 #   cleanroom-windows  Windows PowerShell 5.1 and PowerShell 7, WFP audit of every connection, PDF included
 # Only synthetic fixtures are used; artifacts are bundles (1 day) and evidence (traces, logs), never datasets.
-# Runs on push to main and by hand ("Run workflow", also on dev). A tag v* starts release.yml, which calls this
-# workflow with exactly the signed bundles: the clean rooms run once per release tag, not a second time here.
+# Runs on every push to dev and main (D-15: the repository is public, the bundle tests run on each push) and by
+# hand ("Run workflow"); a newer push to the same branch cancels the older run. A tag v* starts release.yml,
+# which calls this workflow with exactly the signed bundles: the clean rooms run once per release tag, not a
+# second time here, and a release run is never cancelled.
 name: offline
 
 on:
   push:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -23,6 +25,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: offline-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   UV_VERSION: "0.13.0"
