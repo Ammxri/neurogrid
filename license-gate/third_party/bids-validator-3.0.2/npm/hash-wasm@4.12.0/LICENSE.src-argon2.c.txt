@@ -1,0 +1,5 @@
+/*
+  Based on Golang's Argon2 implementation from crypto package
+
+  Written for hash-wasm by Dani Biró
+*/
