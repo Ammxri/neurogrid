@@ -154,8 +154,11 @@ TOOL_CALL = {
     "ps1": re.compile(r"tools[/\\]([A-Za-z0-9_]+\.py)\b([^|;&>\n]*)"),
 }
 OPTION = re.compile(r"--[a-z][a-z0-9-]*")
-# A bash word: quoted parts and unquoted characters together; a lone quote (the end of a quoted tool path such
-# as "$root/tools/x.py") is no word.
+# Every --word of a call's argument text as a plain scan finds it, quoted or not. Each one must be an option
+# word of the call (_hidden_options), so a word split that joins an option into a longer word can never take
+# it out of the check.
+PLAIN_OPTION = re.compile(r"(?<![\w-])--[a-z][a-z0-9-]*")
+# A bash word: quoted parts and unquoted characters together.
 SH_WORD = re.compile(r"""(?:"[^"]*"|'[^']*'|[^\s"'])+""")
 CALLERS = [
     *sorted((ROOT / "packaging" / "ci").glob("*.sh")),
@@ -168,21 +171,36 @@ _MODULES = itertools.count()
 
 def _words(arguments: str, kind: str) -> list[str]:
     """The argument words of a call without their quotes; PowerShell passes an argument array, whose words
-    are separated by commas and parentheses."""
-    parts = re.split(r"[\s,()]+", arguments) if kind == "ps1" else SH_WORD.findall(arguments)
+    are separated by commas and parentheses. In bash the argument text starts right after the tool's path, so
+    a quote there closes a quoted path ("$root/tools/x.py") and is dropped: paired with the next opening quote
+    it would make every option up to that quote part of one word."""
+    if kind == "ps1":
+        parts = re.split(r"[\s,()]+", arguments)
+    else:
+        parts = SH_WORD.findall(arguments[1:] if arguments[:1] in ('"', "'") else arguments)
     return [word for word in (part.replace('"', "").replace("'", "") for part in parts) if word]
 
 
-def _tool_calls(text: str, kind: str = "sh") -> list[tuple[str, list[str]]]:
-    """(tool file name, argument words) of every tool call in shell text; comment lines are left out and bash
+def _call_arguments(text: str, kind: str = "sh") -> list[tuple[str, str]]:
+    """(tool file name, argument text) of every tool call in shell text; comment lines are left out and bash
     line continuations joined."""
     calls = []
     for line in re.sub(r"\\\n\s*", " ", text).splitlines():
         if line.lstrip().startswith("#"):
             continue
-        for match in TOOL_CALL[kind].finditer(line):
-            calls.append((match.group(1), _words(match.group(2), kind)))
+        calls += [(match.group(1), match.group(2)) for match in TOOL_CALL[kind].finditer(line)]
     return calls
+
+
+def _tool_calls(text: str, kind: str = "sh") -> list[tuple[str, list[str]]]:
+    """(tool file name, argument words) of every tool call in shell text."""
+    return [(name, _words(arguments, kind)) for name, arguments in _call_arguments(text, kind)]
+
+
+def _hidden_options(arguments: str, kind: str) -> list[str]:
+    """The --words of a call's argument text that are no option word of the call: the word split joined them
+    into a longer word, so the check would not see them."""
+    return sorted(set(PLAIN_OPTION.findall(arguments)) - _options(_words(arguments, kind)))
 
 
 def _options(words: list[str]) -> set[str]:
@@ -327,15 +345,34 @@ def test_every_option_passed_to_a_tool_exists() -> None:
     checked = 0
     problems = []
     for where, (text, kind) in _command_texts().items():
-        for name, words in _tool_calls(text, kind):
+        for name, arguments in _call_arguments(text, kind):
+            hidden = _hidden_options(arguments, kind)
+            problems += [f"{where}: {name}: option inside another word, not checked: {o}" for o in hidden]
             tool = TOOLS / name
             if not tool.is_file():
                 assert name in PENDING, (where, name)
                 continue
+            words = _words(arguments, kind)
             problems += [f"{where}: {problem}" for problem in _call_problems(name, _parser_of(tool), words)]
             checked += 1
     assert problems == []
     assert checked >= 25, checked
+
+
+def test_the_calls_handed_over_by_the_pdf_area_are_checked() -> None:
+    """The pdf area's hand-over: the installers call tools/install_pdf_browser.py with --from-zip and
+    --sha256, the offline workflow downloads the shell with --download-only --platform linux64|win64 --out.
+    The check reads exactly these options of these calls, so renaming or removing one of them in the tool
+    fails test_every_option_passed_to_a_tool_exists."""
+    passed: dict[str, set[str]] = defaultdict(set)
+    for where, (text, kind) in _command_texts().items():
+        for name, words in _tool_calls(text, kind):
+            if name == "install_pdf_browser.py":
+                passed[where.partition("/")[0]] |= _options(words)
+    assert passed["install.sh"] == passed["install.ps1"] == {"--from-zip", "--sha256"}
+    assert passed["offline.yml"] == {"--download-only", "--platform", "--out"}
+    shell = _parser_of(TOOLS / "install_pdf_browser.py")
+    assert shell is not None and set().union(*passed.values()) <= _defined_options(shell)
 
 
 def test_the_option_check_finds_an_unknown_option() -> None:
@@ -359,6 +396,35 @@ def test_the_option_check_finds_an_unknown_option() -> None:
         "Invoke-Native $python @('-I', (Join-Path $Prefix 'tools\\install_pdf_browser.py'), '--from-zip', $z)"
     )
     assert _tool_calls(powershell, "ps1") == [("install_pdf_browser.py", ["--from-zip", "$z"])]
+
+
+def test_options_between_quoted_arguments_are_their_own_words() -> None:
+    """A quoted tool path closes with a quote right after the file name; that quote must not pair with the
+    next opening quote, or every option in between becomes part of one word and goes unchecked (install.sh
+    passes --from-zip and --sha256 that way)."""
+    # Split like the calls above, so that the documentation tests do not take these for real calls.
+    quoted = 'x "$r/tools/' + 't.py" --a "$v" --b "$w"\n'
+    assert _tool_calls(quoted) == [("t.py", ["--a", "$v", "--b", "$w"])]
+    installer = (
+        '    "$prefix/python/bin/python3.12" -I "$prefix/tools/'
+        + 'install_pdf_browser.py" --from-zip "$pdf_zip" \\\n'
+        + "      --sha256 \"$(printf '%s' \"$pdf_sha\" | tr 'A-F' 'a-f')\" \\\n"
+        + '      || fail 2 "x" "y"\n'
+    )
+    ((name, words),) = _tool_calls(installer)
+    assert name == "install_pdf_browser.py" and _options(words) == {"--from-zip", "--sha256"}
+    shell = _parser_of(TOOLS / "install_pdf_browser.py")
+    renamed = installer.replace("--from-zip", "--from-zipp").replace("--sha256", "--sha-typo")
+    ((_, wrong),) = _tool_calls(renamed)
+    assert _call_problems("install_pdf_browser.py", shell, wrong) == [
+        "install_pdf_browser.py: unknown option --from-zipp",
+        "install_pdf_browser.py: unknown option --sha-typo",
+    ]
+    for text in (quoted, installer, renamed):
+        ((_, arguments),) = _call_arguments(text)
+        assert _hidden_options(arguments, "sh") == []
+    # the safety net: options that a split joins into a longer word are reported
+    assert _hidden_options(' "--a "$v" --b"', "sh") == ["--a", "--b"]
 
 
 @pytest.mark.parametrize(
