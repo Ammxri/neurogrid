@@ -62,7 +62,7 @@ undo_failed_install() {
     find "$INSTALL_PREFIX" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true
   fi
   local parent
-  for parent in ${INSTALL_PARENTS[@]+"${INSTALL_PARENTS[@]}"}; do
+  for parent in ${install_parents[@]+"${install_parents[@]}"}; do
     rmdir -- "$parent" 2>/dev/null || true
   done
 }
@@ -104,7 +104,7 @@ main() {
       if [ -e "$cosign" ]; then
         cosign="$(cd "$(dirname -- "$cosign")" && pwd -P)/$(basename -- "$cosign")"
       else
-        cosign="$PWD/$cosign"
+        cosign="$(pwd -P)/$cosign"
       fi
       ;;
   esac
@@ -234,10 +234,10 @@ main() {
 
   # A failed installation leaves the target as it was found: the folders the installer creates (the prefix and
   # any missing parent, deepest first) are removed again, and an existing empty prefix is emptied again.
-  INSTALL_PARENTS=()
+  install_parents=()
   local walk="${prefix%/*}"
   while [ -n "$walk" ] && [ ! -e "$walk" ]; do
-    INSTALL_PARENTS+=("$walk")
+    install_parents+=("$walk")
     walk="${walk%/*}"
   done
 
