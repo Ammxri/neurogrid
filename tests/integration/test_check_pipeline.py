@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
 from datetime import date
 from pathlib import Path, PurePosixPath
 
@@ -42,6 +44,19 @@ def test_scan_result_schema() -> None:
     data = json.loads(canonical.dumps(pipeline.run_scan(FIX / "unsupported")))
     jsonschema.validate(data, json.loads((SCHEMAS / "scan.schema.json").read_text(encoding="utf-8")))
     assert data["formats"] == {"EDF": 1} and data["unsupported"][0]["format"] == "CNT"
+
+
+def test_a_run_without_an_output_folder_works_in_the_users_own_temp_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Library calls name no output folder; their work folder lies in the temporary folder (A-54). On
+    POSIX that folder is shared by every user, so the base is '<temp>/neurogrid-<uid>', not one
+    '<temp>/neurogrid' for all (kernel.safety.temp_work_base); nothing is left in it after the run."""
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    pipeline.run_check(FIX / "edf_ok", OPTIONS)
+    expected = "neurogrid" if os.name == "nt" else f"neurogrid-{os.getuid()}"
+    assert [p.name for p in tmp_path.iterdir()] == [expected]
+    assert list((tmp_path / expected).iterdir()) == []
 
 
 def test_single_file_target() -> None:
@@ -297,8 +312,10 @@ def test_name_hint_notice(tmp_path: Path) -> None:
     assert "4711234" not in canonical.dumps(results).decode("utf-8")
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="lone surrogates in names are a Windows case here")
 def test_undecodable_name_does_not_crash_check(tmp_path: Path) -> None:
+    """Windows: a lone surrogate in the name. Linux: the byte 0x80, not valid UTF-8 (names from old
+    systems or archives); Python lists it as the same surrogate escape, so both take the same way through
+    pseudonyms and display (A-51). A file system that refuses the name skips the test (macOS)."""
     (tmp_path / "rec.edf").write_bytes((FIX / "edf_ok" / "rec_a.edf").read_bytes())
     try:
         (tmp_path / "notiz_\udc80.txt").write_bytes(b"x")
@@ -405,13 +422,35 @@ def test_single_file_ids_do_not_depend_on_typed_case() -> None:
     assert shown.recordings[0].id == "rec_a.edf"
 
 
+def _other_spellings(dataset: Path) -> list[str]:
+    """Command-line spellings of <dataset>/.neurogrid/lab.yaml from inside the dataset (A-66): a doubled
+    separator, a detour through '..', the absolute path; on Windows also backslashes and another case. On
+    POSIX a backslash is an ordinary character of a name, so '.\\.neurogrid\\lab.yaml' names another
+    (missing) file there: the Linux CI failure 'rulepack.not_found' was the test's, not the loader's."""
+    spellings = [
+        "./.neurogrid//lab.yaml",
+        ".neurogrid/../.neurogrid/lab.yaml",
+        str(dataset / ".neurogrid" / "lab.yaml"),
+    ]
+    if sys.platform == "win32":
+        spellings.append(".\\.neurogrid\\lab.yaml")
+        if Path(".NeuroGrid", "LAB.yaml").is_file():  # a case-insensitive folder (the usual one on Windows)
+            spellings.append(".NeuroGrid\\LAB.yaml")
+    return spellings
+
+
 def test_rule_packs_are_deduplicated_by_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     dataset = _dataset_with_config(tmp_path, '[check]\nrulepacks = ["core", ".neurogrid/lab.yaml"]\n')
     monkeypatch.chdir(dataset)
-    same = pipeline.run_check(
-        dataset, pipeline.CheckOptions(rulepacks=(".\\.neurogrid\\lab.yaml",), as_of=OPTIONS.as_of)
-    )
-    assert [p.name for p in same.rulepacks] == ["core", "lab"]
+    for spelling in _other_spellings(dataset):
+        same = pipeline.run_check(dataset, pipeline.CheckOptions(rulepacks=(spelling,), as_of=OPTIONS.as_of))
+        assert [p.name for p in same.rulepacks] == ["core", "lab"], spelling
+    if sys.platform != "win32":  # the backslash spelling is another file on POSIX, not the same pack again
+        with pytest.raises(RulepackError) as info:
+            pipeline.run_check(
+                dataset, pipeline.CheckOptions(rulepacks=(".\\.neurogrid\\lab.yaml",), as_of=OPTIONS.as_of)
+            )
+        assert info.value.message_key == "rulepack.not_found"
     elsewhere = tmp_path / "cwd"
     (elsewhere / ".neurogrid").mkdir(parents=True)
     (elsewhere / ".neurogrid" / "lab.yaml").write_text(

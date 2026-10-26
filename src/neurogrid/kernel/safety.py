@@ -4,12 +4,16 @@ the output filter for paths (A-51) and per-run work directories (A-54)."""
 from __future__ import annotations
 
 import ctypes
+import getpass
+import ntpath
 import os
 import re
+import secrets
 import shutil
+import stat
 import sys
 import tempfile
-from collections.abc import Hashable, Iterator, Mapping
+from collections.abc import Hashable, Iterable, Iterator, Mapping
 from contextlib import contextmanager, suppress
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -97,6 +101,39 @@ def load_yaml(text: str, *, max_bytes: int = MAX_YAML_BYTES, max_depth: int = MA
         raise ConfigError("yaml.syntax", line="?") from None
     finally:
         loader.dispose()
+
+
+_TEMPORARY_FLAGS = (
+    os.O_RDWR
+    | os.O_CREAT
+    | os.O_EXCL
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_NOINHERIT", 0)
+    | getattr(os, "O_BINARY", 0)
+)
+_TEMPORARY_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789_"  # those of tempfile.mkstemp
+
+
+def create_temporary(folder: Path, prefix: str, suffix: str = ".tmp") -> tuple[int, str]:
+    """tempfile.mkstemp (a new file ``<prefix><8 random characters><suffix>`` in ``folder``, opened for
+    writing), but created with 0666, from which the system takes the umask, like any new file, instead of
+    0600. NeuroGrid writes every output to such a file and renames it to the target, and the rename keeps
+    the mode: on POSIX results.json, the manifest handed over with the dataset, the reports and the mapping
+    template were readable by their writer only, whatever the umask says (access rights are the operating
+    system's, KONZEPT 2.8). On Windows the mode only sets the read-only flag, which 0666 leaves off."""
+    directory = Path(folder).absolute()
+    for _attempt in range(tempfile.TMP_MAX):
+        name = "".join(secrets.choice(_TEMPORARY_CHARACTERS) for _ in range(8))
+        path = str(directory / f"{prefix}{name}{suffix}")
+        try:
+            return os.open(path, _TEMPORARY_FLAGS, 0o666), path
+        except FileExistsError:
+            continue
+        except PermissionError:  # on Windows also when a folder of that name exists (as in tempfile)
+            if os.name == "nt" and directory.is_dir() and os.access(directory, os.W_OK):
+                continue
+            raise
+    raise FileExistsError(17, "No usable temporary file name found")
 
 
 def read_limited(path: Path, max_bytes: int) -> bytes:
@@ -189,31 +226,52 @@ def _is_network_drive(path: Path) -> bool:
     return int(get_drive_type(anchor)) == _DRIVE_REMOTE
 
 
-def check_operator_path(raw: str | os.PathLike[str]) -> Path:
-    """Validate a path given on the command line: local paths only, no UNC/device paths, no streams.
+_DEVICE_PREFIXES = ("\\\\?\\", "\\\\.\\", "\\??\\")
 
-    On Windows every root made of two separators (slashes and backslashes in any mix) is UNC or a device
-    path; the check is repeated on the resolved path so that links to network shares are refused as well.
-    Colons after the drive (alternate data streams) only exist on Windows; on POSIX they are legal.
+
+def operator_path_problem(text: str, *, windows: bool) -> str | None:
+    """The message key that refuses a command-line path by its spelling alone, before any file access, or
+    None (A-52, A-67); ``windows`` selects the platform's rules.
+
+    Windows: every root made of two separators (slashes and backslashes in any mix) is UNC or a device path;
+    colons after the drive (alternate data streams) and reserved device names in any part are refused.
+    POSIX: colons, device names and backslashes inside a name are ordinary characters, and '/\\…' is an
+    absolute path. A path that starts with '//' or with a backslash followed by another separator (or the
+    NT prefix '\\??\\') is a Windows network or device path the operator typed or pasted: refused with the
+    same key as on Windows instead of being taken for a relative name (with --out a file of that name).
     """
+    if windows:
+        native = text.replace("/", "\\")
+        if native.startswith(_DEVICE_PREFIXES):
+            return "path.device"
+        if native.startswith("\\\\"):
+            return "path.unc"
+        _drive, rest = ntpath.splitdrive(native)
+        if ":" in rest:
+            return "path.colon"
+        for part in rest.split("\\"):
+            if part.split(".")[0].strip().upper() in _WINDOWS_RESERVED:
+                return "path.reserved"
+        return None
+    if text.startswith("\\"):
+        native = text.replace("/", "\\")
+        if native.startswith(_DEVICE_PREFIXES):
+            return "path.device"
+        if native.startswith("\\\\"):
+            return "path.unc"
+    return "path.unc" if text.startswith("//") else None
+
+
+def check_operator_path(raw: str | os.PathLike[str]) -> Path:
+    """Validate a path given on the command line: local paths only, no UNC/device paths, no streams
+    (operator_path_problem); on Windows the check is repeated on the resolved path so that links to network
+    shares and mapped network drives are refused as well."""
     text = os.fspath(raw)
     if not text or len(text) > MAX_PATH_CHARS or any(ord(ch) < 32 for ch in text):
         raise UnsafePathError("path.invalid")
-    if os.name == "nt":
-        native = text.replace("/", "\\")
-        if native.startswith(("\\\\?\\", "\\\\.\\", "\\??\\")):
-            raise UnsafePathError("path.device")
-        if native.startswith("\\\\"):
-            raise UnsafePathError("path.unc")
-        _drive, rest = os.path.splitdrive(native)
-        if ":" in rest:
-            raise UnsafePathError("path.colon")
-        for part in rest.split("\\"):
-            stem = part.split(".")[0].strip().upper()
-            if stem in _WINDOWS_RESERVED:
-                raise UnsafePathError("path.reserved")
-    elif text.startswith("//"):
-        raise UnsafePathError("path.unc")
+    problem = operator_path_problem(text, windows=os.name == "nt")
+    if problem is not None:
+        raise UnsafePathError(problem)
     path = Path(text)
     try:
         resolved = path.resolve(strict=False)
@@ -224,19 +282,139 @@ def check_operator_path(raw: str | os.PathLike[str]) -> Path:
     return path
 
 
-def redact_paths(text: str, roots: Mapping[str, Path | None]) -> str:
-    """Output filter (A-51): replace known roots (e.g. the dataset root, the home directory) by a label.
+MIN_NAME_CHARS = 3  # shorter login or computer names are not searched (the G1 privacy check's limit too)
+_NOT_PERSONAL = frozenset({"neurogrid"})  # a service account or computer named after the product
+_WORD_EDGE = "A-Za-z0-9"
 
-    Covers the native, POSIX and repr (doubled backslash) spellings, case-insensitively on Windows.
-    Longer roots are replaced first so that the dataset root wins over the home directory around it.
+
+def home_folder() -> Path | None:
+    """The home folder the output filter writes as '~' (A-51), or None: when it cannot be determined (on
+    Linux without HOME and without a passwd entry for the user, as in containers with an arbitrary uid,
+    Path.home() raises) and when it is the top of the file system (containers often set HOME=/), which
+    would stand for every separator."""
+    try:
+        home = Path.home()
+    except (RuntimeError, KeyError, OSError):
+        return None
+    if not home.is_absolute() or home == Path(home.anchor):
+        return None
+    return home
+
+
+def _names(values: Iterable[str]) -> tuple[str, ...]:
+    kept: dict[str, str] = {}
+    for raw in values:
+        value = raw.strip()
+        if len(value) >= MIN_NAME_CHARS and value.casefold() not in _NOT_PERSONAL:
+            kept.setdefault(value.casefold(), value)
+    return tuple(sorted(kept.values(), key=lambda value: (-len(value), value)))
+
+
+def identity_names() -> dict[str, tuple[str, ...]]:
+    """The login name and the computer name, as the output filter replaces them: '<user>' and '<host>'
+    (A-51: no user or computer names). They stand in paths outside the home folder, e.g. Linux's
+    /tmp/pytest-of-<user> or /media/<user>/<stick>. Every source that answers counts (the login from the
+    environment, getpass and on POSIX the passwd entry; the computer from COMPUTERNAME and the host name, also
+    without its domain); one that fails is left out, never an error. Names shorter than MIN_NAME_CHARS and
+    the product's own name are kept as they are: they would garble paths without naming anyone."""
+    users = [os.environ.get("USERNAME", "")]
+    with suppress(Exception):
+        users.append(getpass.getuser())
+    if sys.platform != "win32":
+        with suppress(Exception):
+            import pwd
+
+            users.append(pwd.getpwuid(os.getuid()).pw_name)
+    hosts = [os.environ.get("COMPUTERNAME", "")]
+    with suppress(Exception):
+        host = _host_name()
+        hosts += [host, host.split(".")[0]]
+    return {"<user>": _names(users), "<host>": _names(hosts)}
+
+
+def _host_name() -> str:
+    """The host name the kernel reports (POSIX uname, no socket API outside netguard); Windows names the
+    computer in COMPUTERNAME."""
+    uname = getattr(os, "uname", None)
+    return str(uname().nodename) if uname is not None else ""
+
+
+def _root_text(path: Path) -> str:
+    """A root as the filter matches it: a drive or file system root without its separator ('' for '/')."""
+    text = str(path)
+    return text.rstrip("\\/") if text == path.anchor else text
+
+
+_BARE_DRIVE = re.compile(r"[A-Za-z]:")
+
+
+def _root_pattern(spelling: str) -> str:
+    """The pattern for one spelling of a root, up to the end of a path segment. A bare drive ('E:', a drive
+    root without its separator) counts only as a word of its own followed by a separator, the way a drive
+    root is always written: with a dataset on E:\\ the text 'Size: 3 MB' stays as it is."""
+    if _BARE_DRIVE.fullmatch(spelling):
+        return rf"(?<![{_WORD_EDGE}]){re.escape(spelling)}(?=[\\/])"
+    return re.escape(spelling) + r"(?=$|[\\/'\"\s:,;)\]])"
+
+
+def _inside_label(match: re.Match[str], labels: Iterable[str]) -> bool:
+    start, end = match.span()
+    for label in labels:
+        for found in re.finditer(re.escape(label), match.string):
+            if found.start() <= start and end <= found.end():
+                return True
+    return False
+
+
+# A path of the computer in console text: absolute (POSIX, a drive, a UNC or device root) or below the home
+# folder ('~'), up to a quote, a line end or a label such as '<dataset>'. Names relative to the dataset are
+# the dataset's (pseudonyms in raw folders, as stored in BIDS), not the computer's.
+_MACHINE_PATH = re.compile(r"""(?:^|(?<=[\s'"(=]))(?:[A-Za-z]:[\\/]|[\\/]|~(?=[\\/]|$))[^'"\n<]*""")
+
+
+def _redact_names(path: str, names: Mapping[str, Iterable[str]], labels: Iterable[str]) -> str:
+    for label, values in names.items():
+
+        def replace(match: re.Match[str], replacement: str = label) -> str:
+            return match.group(0) if _inside_label(match, labels) else replacement
+
+        for value in sorted(set(values), key=lambda value: (-len(value), value)):
+            if value:
+                pattern = rf"(?<![{_WORD_EDGE}]){re.escape(value)}(?![{_WORD_EDGE}])"
+                path = re.sub(pattern, replace, path, flags=re.IGNORECASE)
+    return path
+
+
+def redact_paths(
+    text: str, roots: Mapping[str, Path | None], names: Mapping[str, Iterable[str]] | None = None
+) -> str:
+    """Output filter (A-51): replace known roots (e.g. the dataset root, the home directory) by a label, then
+    the ``names`` (identity_names: the login and the computer name) by theirs in the computer's paths.
+
+    Roots: the native, POSIX and repr (doubled backslash) spellings, case-insensitively on Windows, as whole
+    path segments. Longer roots are replaced first so that the dataset root wins over the home directory
+    around it. A root that ends with a separator (a drive root such as ``E:\\``, a dataset on a stick) is
+    matched without it, so that the separator stays after the label, and only where a separator follows and
+    no ASCII letter or digit comes before it (_root_pattern); the top of the POSIX file system ('/')
+    is no root, it would stand for every separator.
+    Names: whole words (no ASCII letter or digit before or after), without case, never inside a label, and
+    only in absolute or '~' paths: a login such as 'eeg' leaves 'sub-01_task-rest_eeg.edf' and the paths
+    below '<dataset>' alone.
     """
-    pairs = sorted(((str(path), label) for label, path in roots.items() if path), key=lambda p: -len(p[0]))
+    labels = [label for label in (*roots, *(names or {})) if label]
+    pairs = sorted(
+        ((_root_text(path), label) for label, path in roots.items() if path), key=lambda pair: -len(pair[0])
+    )
     flags = re.IGNORECASE if os.name == "nt" else 0
     for root, label in pairs:
+        if not root:
+            continue
         spellings = {root, root.replace("\\", "/"), root.replace("\\", "\\\\")}
         for spelling in sorted(spellings, key=len, reverse=True):
-            pattern = re.escape(spelling) + r"(?=$|[\\/'\"\s:,;)\]])"
+            pattern = _root_pattern(spelling)
             text = re.sub(pattern, lambda _match, replacement=label: replacement, text, flags=flags)
+    if names:
+        text = _MACHINE_PATH.sub(lambda match: _redact_names(match.group(0), names, labels), text)
     return text
 
 
@@ -405,6 +583,32 @@ def remove_leftovers(base: Path, prefix: str) -> None:
         return
     for name in names:
         _remove_leftover(base / name)
+
+
+def temp_work_base() -> Path:
+    """The base of the work folders of a run that names no output folder (library calls of run_check and
+    run_convert, convert_to_bids without a work folder; the CLI always works next to its output), A-54:
+    '<temp>/neurogrid' on Windows, whose temporary folder is the user's own. On POSIX the temporary folder
+    (/tmp) is shared by every user: one name for all let the first user's folder (0755) refuse every other
+    user's runs, and its owner could swap a run's work folder (staged recordings, validator output) for one
+    of theirs. There the base is '<temp>/neurogrid-<uid>', created for this user only (0700); one that is a
+    link, belongs to someone else or others may write to is refused (output.not_writable)."""
+    try:
+        base = Path(tempfile.gettempdir()) / "neurogrid"
+    except OSError:  # no usable temporary folder among TMPDIR, TEMP, TMP and tempfile's fallbacks
+        raise InputError("output.not_writable") from None
+    if sys.platform == "win32":
+        return base
+    uid = os.getuid()
+    base = base.with_name(f"neurogrid-{uid}")
+    try:
+        base.mkdir(mode=0o700, exist_ok=True)
+        info = base.lstat()
+    except OSError:
+        raise InputError("output.not_writable") from None
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != uid or info.st_mode & 0o022:
+        raise InputError("output.not_writable")
+    return base
 
 
 @contextmanager

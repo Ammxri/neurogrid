@@ -27,6 +27,8 @@ synchronised if that matters to you.
 - In raw folders recordings get pseudonymous IDs (`rec-<8 hex digits>` or the mapping of `neurogrid.toml`); the
   dataset root appears as `<dataset>`, the home folder as `~`. `--show-paths` shows real names – only use it where
   real names may appear.
+- The console writes the computer's paths with the home folder as `~` and the login name and the computer name
+  as `<user>` and `<host>`, also outside the home folder (an output on a USB stick: `/media/<user>/…`).
 - NeuroGrid does not pseudonymize data: IDs and file names come from the input. `convert
   --strip-identifying-headers` replaces identifying header fields in the converted copies by placeholders.
 - Demography and class labels appear only aggregated; a table on subject level is withheld when a filled cell

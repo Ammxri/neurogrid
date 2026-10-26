@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -441,3 +443,36 @@ def test_directory_with_globalroot_in_its_name_is_allowed(
     (folder / "r.edf").write_bytes((FIX / "edf_ok" / "rec_a.edf").read_bytes())
     code, _, _ = run(["scan", str(folder)], capsys)
     assert code == 0
+
+
+def test_outputs_are_created_with_the_mode_of_any_new_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """POSIX: every output is written to a temporary file that a rename turns into the target. With
+    tempfile.mkstemp that file is 0600, and the rename kept it: results.json, the inventory, the manifest
+    handed over with the dataset, the reports and the mapping template were readable by their writer only,
+    whatever the umask says (KONZEPT: access rights are the operating system's). They are created with 0666
+    now, from which the system takes the umask, like any new file. Checked through the mode NeuroGrid asks
+    for, so on every platform."""
+    asked: dict[str, int] = {}
+    real_open = os.open
+
+    def spy(path: Any, flags: int, mode: int = 0o777, *args: Any, **kwargs: Any) -> int:
+        name = Path(os.fsdecode(path)).name
+        if name.endswith(".tmp"):
+            asked[name.split(".")[1]] = mode
+        return real_open(path, flags, mode, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", spy)
+    dataset = tmp_path / "ds"
+    shutil.copytree(FIX / "edf_ok", dataset)
+    config = str(documented_config(tmp_path))
+    results = tmp_path / "out" / "results.json"
+    assert run(["check", str(dataset), "--config", config, "--out", str(results)], capsys)[0] == 0
+    assert run(["scan", str(dataset), "--out", str(tmp_path / "out" / "inventory.json")], capsys)[0] == 0
+    assert run(["manifest", str(dataset)], capsys)[0] == 0
+    assert run(["report", str(results), "--lang", "en", "--out", str(tmp_path / "report")], capsys)[0] == 0
+    assert run(["convert", str(dataset), "--to", "bids", "--out", str(tmp_path / "bids")], capsys)[0] == 2
+    assert (dataset / ".neurogrid" / "mapping-template.toml").is_file()
+    expected = ("results", "inventory", "manifest", "report", "mapping-template")
+    assert asked == dict.fromkeys(expected, 0o666)

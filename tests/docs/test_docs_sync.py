@@ -22,7 +22,7 @@ from neurogrid.cli import app
 from neurogrid.config import Config, MetadataDefaults
 from neurogrid.kernel.findings import Finding, Light, Phase, Severity, Status, Verification
 from neurogrid.kernel.rules import EVIDENCE_CHECK, Bound, Rule, Rulepack, is_true, load_rulepack
-from neurogrid.kernel.safety import load_yaml
+from neurogrid.kernel.safety import load_yaml, operator_path_problem
 from neurogrid.model.dataset import Channel
 from neurogrid.model.results import Results, Summary
 from neurogrid.report.texts import tables
@@ -459,3 +459,29 @@ def test_no_unmarked_placeholders() -> None:
             )
             for name in used:
                 assert any(f"<{name}>" in note for note in notes), (lang, page.name, name)
+
+
+def test_decision_a67_records_the_posix_rules_of_the_code() -> None:
+    """A-67 in the decision log names the POSIX rules of operator_path_problem: the Windows network and device
+    forms are refused with the Windows keys, backslashes inside a name stay legal. Every example it quotes
+    gets the verdict it states."""
+    text = (DOCS / "umsetzung" / "ENTSCHEIDUNGEN.md").read_text(encoding="utf-8")
+    found = re.search(r"^\*\*A-67 .*?(?=\n\n)", text, flags=re.M | re.S)
+    assert found is not None
+    paragraph = found.group(0)
+    refused = {
+        "//…": "path.unc",
+        r"\\server\share": "path.unc",
+        r"\/server/share": "path.unc",
+        "\\\\?\\": "path.device",
+        "\\\\.\\": "path.device",
+        "\\??\\": "path.device",
+    }
+    for example, key in refused.items():
+        assert f"`{example}`" in paragraph, example
+        assert f"`{key}`" in paragraph, key
+        typed = example.replace("…", "server/share") + "x"
+        assert operator_path_problem(typed, windows=False) == key, example
+    for example in (r"\x.edf", r"a\b.edf", "/\\…"):
+        assert f"`{example}`" in paragraph, example
+        assert operator_path_problem(example.replace("…", "x"), windows=False) is None, example
