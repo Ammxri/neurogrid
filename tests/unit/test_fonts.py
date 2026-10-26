@@ -521,12 +521,26 @@ LAYOUT_COPIES = {
     "dash": ["dash.u2013"],
     "dash.alt": ["dash.alt.u2013"],
     "a.sc": ["a.sc.u0062"],
-    "b": ["b.u0062"],  # second glyph of the multiple substitution of 'a'
+    # 'b' (U+0042) is also the second glyph of the multiple substitution of 'a' (ccmp): a substitution
+    # output with a code point gets a copy for it (review R02); the copy of 'a' gets b.u0062 there
+    "b": ["b.u0042", "b.u0062"],
     "b.alt": ["b.alt.u0062", "b.alt.u2013"],
     # ligatures: per component '.L<length of its suffix><suffix>' ('.L0' for an original)
-    "a_b": ["a_b.L0.L6.u0062", "a_b.L6.u0062.L0", "a_b.L6.u0062.L6.u0062"],
+    "a_b": [
+        "a_b.L0.L6.u0042",
+        "a_b.L0.L6.u0062",
+        "a_b.L6.u0062.L0",
+        "a_b.L6.u0062.L6.u0042",
+        "a_b.L6.u0062.L6.u0062",
+    ],
     "a_dash": ["a_dash.L0.L6.u2013", "a_dash.L6.u0062.L0", "a_dash.L6.u0062.L6.u2013"],
-    "b_dash": ["b_dash.L0.L6.u2013", "b_dash.L6.u0062.L0", "b_dash.L6.u0062.L6.u2013"],
+    "b_dash": [
+        "b_dash.L0.L6.u2013",
+        "b_dash.L6.u0042.L0",
+        "b_dash.L6.u0042.L6.u2013",
+        "b_dash.L6.u0062.L0",
+        "b_dash.L6.u0062.L6.u2013",
+    ],
 }
 
 
@@ -547,7 +561,12 @@ def test_glyph_copies_take_part_in_every_lookup_of_their_original(form: int) -> 
     substitute of a copy is a copy of the substitute with the copy's suffix (its own glyph, so the PDF
     text keeps the code point); copies get outline, metrics and every GDEF entry of their original."""
     font = _layout_font(form)
-    assert fonts.separate_shared_glyphs(font) == {0x62: "a.u0062", 0x341: "acute.u0341", 0x2013: "dash.u2013"}
+    assert fonts.separate_shared_glyphs(font) == {
+        0x42: "b.u0042",
+        0x62: "a.u0062",
+        0x341: "acute.u0341",
+        0x2013: "dash.u2013",
+    }
     font = _saved(font)
     copies = font.getGlyphOrder()[len(LAYOUT_GLYPHS) :]
     assert sorted(copies) == sorted(c for group in LAYOUT_COPIES.values() for c in group)
@@ -573,7 +592,7 @@ def test_glyph_copies_take_part_in_every_lookup_of_their_original(form: int) -> 
         "a": "a.sc",
         "a.u0062": "a.sc.u0062",
     }
-    assert [c.glyphs for c in reverse.BacktrackCoverage] == [["b", "x", "b.u0062"]]
+    assert [c.glyphs for c in reverse.BacktrackCoverage] == [["b", "x", "b.u0042", "b.u0062"]]
     assert [c.glyphs for c in reverse.LookAheadCoverage] == [["dash", "dash.u2013"]]
     # contextual lookups (GSUB 5/6, GPOS 7/8) in the forced format: every variant matches like the original
     for tag, index, backtrack, glyphs, lookahead in (
@@ -661,7 +680,7 @@ def test_glyph_copies_without_layout_are_in_no_lookup() -> None:
     font = _layout_font(1)
     fonts.separate_shared_glyphs(font, layout=False)
     font = _saved(font)
-    assert font.getGlyphOrder()[len(LAYOUT_GLYPHS) :] == ["a.u0062", "acute.u0341", "dash.u2013"]
+    assert font.getGlyphOrder()[len(LAYOUT_GLYPHS) :] == ["b.u0042", "a.u0062", "acute.u0341", "dash.u2013"]
     assert "dash.u2013" not in _mapping(font, GSUB_INDEX["single"])
     assert _pair_value(font, GPOS_INDEX["pair1"], "a", "dash.u2013") is None
     assert _pair_value(font, GPOS_INDEX["pair2"], "a.u0062", "dash") is None
@@ -758,6 +777,72 @@ def test_static_cuts_share_95_glyphs_and_subsets_share_none() -> None:
     assert groups[400] == groups[700] and len(groups[400]) == 95
     assert [0x2012, 0x2013] in groups[400] and [0x2D, 0xAD, 0x2011] in groups[400]
     assert [0xB7, 0x2022, 0x2027, 0x30FB] in groups[400] and [0x3B35, 0x80F6] in groups[400]
+
+
+def _substitutes(font: TTFont, kinds: tuple[int, ...]) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
+    """(input glyphs, output glyphs) of every GSUB substitution of the given lookup types."""
+    found = []
+    for index, lookup in enumerate(font["GSUB"].table.LookupList.Lookup):
+        for subtable in _subtables(font, "GSUB", index):
+            kind = lookup.LookupType if lookup.LookupType != 7 else lookup.SubTable[0].ExtensionLookupType
+            if kind == 1 and 1 in kinds:
+                found += [((name,), (value,)) for name, value in subtable.mapping.items()]
+            elif kind == 4 and 4 in kinds:
+                found += [
+                    ((first, *ligature.Component), (ligature.LigGlyph,))
+                    for first, ligatures in subtable.ligatures.items()
+                    for ligature in ligatures
+                ]
+    return found
+
+
+def test_substitution_outputs_with_a_code_point_get_their_own_glyph(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Review R02 (A-27): a glyph that a substitution produces and a code point maps to is a glyph twin.
+    With U+FB01 in a dataset name the subset mapped it to uniFB01, the 'liga' output of f + i, so every
+    'fi' of the report extracted as U+FB01 ('Conﬁguration'); likewise U+2E3A (ccmp of two em dashes) and
+    U+2015 (zh locl of the em dash). In the subsets each such code point gets a copy; the substitution keeps
+    the original glyph, which no code point maps to (Skia names it by the text it was shaped from).
+    Negative control without the new rule: U+FB01 maps to the ligature again."""
+    text = "fi fl ﬁ ﬂ ⸺ ― —— —"
+    for weight, path in FONT_FILES.items():
+        original = TTFont(path, lazy=True)
+        try:
+            produced = fonts.substituted_glyphs(original)
+        finally:
+            original.close()
+        for name, codepoint in (("uniFB01", 0xFB01), ("uniFB02", 0xFB02), ("uni2E3A", 0x2E3A)):
+            assert produced[name] == [codepoint], (weight, name)
+        assert produced["uni2015"] == [0x2015]
+        subset = TTFont(io.BytesIO(subset_ttf(path, fonts.used_codepoints(text))))
+        cmap = subset.getBestCmap()
+        assert fonts.substituted_glyphs(subset) == {} and fonts.shared_glyphs(subset) == {}
+        glyf = subset["glyf"]
+
+        def outline(glyph: str, glyf: Any = glyf) -> Any:
+            return glyf[glyph].getCoordinates(glyf)[0]
+
+        em = cmap[0x2014]
+        # (substitution input, code point whose glyph looks like the output): liga, ccmp, zh locl
+        for inputs, codepoint in (
+            ((cmap[ord("f")], cmap[ord("i")]), 0xFB01),
+            ((em, em), 0x2E3A),
+            ((em,), 0x2015),
+        ):
+            outputs = [out for found, (out,) in _substitutes(subset, (1, 4)) if found == inputs]
+            matching = [out for out in outputs if outline(out) == outline(cmap[codepoint])]
+            assert matching, (weight, hex(codepoint))
+            for output in matching:  # the substitution's glyph has no code point; the code point has a copy
+                assert output not in cmap.values() and output != cmap[codepoint], (weight, hex(codepoint))
+                assert subset["hmtx"][output] == subset["hmtx"][cmap[codepoint]]
+    fonts._subset.cache_clear()
+    try:
+        monkeypatch.setattr(fonts, "substituted_glyphs", lambda font: {})
+        before = TTFont(io.BytesIO(subset_ttf(FONT_FILES[400], fonts.used_codepoints(text))))
+        cmap = before.getBestCmap()
+        ligature = [out for found, (out,) in _substitutes(before, (4,)) if found == (cmap[0x66], cmap[0x69])]
+        assert ligature == [cmap[0xFB01]]  # U+FB01 maps to the ligature of f + i: the defect
+    finally:
+        fonts._subset.cache_clear()
 
 
 def test_required_phrases_keep_their_codepoints_next_to_every_glyph_twin() -> None:

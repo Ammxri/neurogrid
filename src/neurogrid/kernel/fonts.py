@@ -106,6 +106,24 @@ def shared_glyphs(font: TTFont) -> dict[str, list[int]]:
     return {name: codepoints for name, codepoints in by_glyph.items() if len(codepoints) > 1}
 
 
+def substituted_glyphs(font: TTFont) -> dict[str, list[int]]:
+    """Glyphs of the best cmap that a GSUB substitution also produces from other glyphs (glyph name ->
+    ascending code points), e.g. uniFB01 (U+FB01), the 'liga' ligature of f + i in Noto Sans SC, or
+    uni2015, the zh 'locl' form of the em dash. Every substitution subtable counts, whichever feature uses
+    it: a copy too many costs a glyph, a twin left shared changes the PDF text."""
+    by_glyph: dict[str, list[int]] = {}
+    for codepoint, name in sorted(cast("dict[int, str]", font.getBestCmap() or {}).items()):
+        by_glyph.setdefault(name, []).append(codepoint)
+    produced: set[str] = set()
+    glyphs = GlyphCopies(font)
+    for _tag, kind, subtable in glyphs._subtables("GSUB"):
+        if kind not in (1, 2, 3, 4, 8):
+            continue  # contextual lookups substitute only through the lookups they name, listed themselves
+        for inputs, outputs in glyphs._substitutions(kind, subtable):
+            produced.update(output for output in outputs if inputs != [output])
+    return {name: codepoints for name, codepoints in by_glyph.items() if name in produced}
+
+
 def separate_shared_glyphs(font: TTFont, *, layout: bool = True) -> dict[int, str]:
     """Give every code point of ``font`` its own glyph; returns code point -> new glyph name.
 
@@ -116,11 +134,18 @@ def separate_shared_glyphs(font: TTFont, *, layout: bool = True) -> dict[int, st
     glyph; each other one gets a copy with the same outline and metrics, so the PDF text is exactly the
     HTML text. Deterministic: copies are named and ordered by code point.
 
+    A glyph that a substitution also produces from other glyphs is a twin as well (substituted_glyphs,
+    review R02): with U+FB01 in a dataset name the subset maps U+FB01 to uniFB01, which is also the 'liga'
+    output of f + i, so every 'fi' of NeuroGrid's own text extracted as U+FB01. Every code point of such a
+    glyph gets a copy, so the glyph itself is left to the substitution; Skia names a glyph that no code
+    point maps to by the text it was shaped from ('fi').
+
     With ``layout`` (always, except as a test's negative control) a copy takes part in every GSUB, GPOS
     and GDEF entry of its original (GlyphCopies), so kerning, mark positioning and localized forms are
     the same as with the shared glyph."""
     shared = shared_glyphs(font)
-    if not shared:
+    substituted = substituted_glyphs(font)
+    if not shared and not substituted:
         return {}
     unsupported = sorted(tag for tag in GLYPH_TABLES_NOT_COPIED if tag in font)
     if unsupported:
@@ -129,6 +154,11 @@ def separate_shared_glyphs(font: TTFont, *, layout: bool = True) -> dict[int, st
         codepoint: (name, f"{name}.u{codepoint:04X}")
         for name, codepoints in shared.items()
         for codepoint in codepoints[1:]
+    }
+    copies |= {
+        codepoint: (name, f"{name}.u{codepoint:04X}")
+        for name, codepoints in substituted.items()
+        for codepoint in codepoints
     }
     glyphs = GlyphCopies(font)
     for codepoint in sorted(copies):

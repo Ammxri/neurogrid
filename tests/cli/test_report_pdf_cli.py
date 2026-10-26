@@ -137,6 +137,44 @@ def test_glyph_twins_in_the_dataset_name_exit_0_with_the_name_as_written(
     assert all(lowest in _plain(_pdf_text(kept / f"report.{lang}.pdf")) for lang in ("zh", "en"))
 
 
+LIGATURE_NAME = "Classiﬁcation of ﬂankers ⸺ ―"
+# presentation forms and the dash glyphs that a substitution of NeuroGrid's own text can produce
+SUBSTITUTED = re.compile("[ﬀ-ﬆ⸺⸻―]")
+
+
+@pytest.mark.pdf
+def test_substitution_twins_in_the_dataset_name_leave_the_report_text_unchanged(
+    results_file: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Review R02 (A-27): a dataset name with ligature presentation forms (copied from a PDF paper) and
+    U+2E3A/U+2015 used to make the subsets map those code points to the glyphs that 'liga', 'ccmp' and the
+    zh 'locl' produce, so every 'fi' and 'fl' of NeuroGrid's own words extracted as U+FB01/U+FB02
+    ('Conﬁguration', 'edﬁo'). Now the PDF text holds the name as written and none of these characters
+    anywhere else, while 'fi' occurs. Negative control with the rule switched off: U+FB01 in own words."""
+    results = Results.model_validate_json(results_file.read_bytes())
+    results.dataset.name = LIGATURE_NAME
+    source = tmp_path / "results.json"
+    source.write_bytes(canonical.dumps(results))
+    args = ["report", str(source), "--lang", "zh,en", "--format", "pdf", "--out"]
+    code, _, err = run([*args, str(tmp_path / "out")], capsys)
+    assert code == 0, err
+    for lang in ("zh", "en"):
+        text = _plain(_pdf_text(tmp_path / "out" / f"report.{lang}.pdf"))
+        assert _plain(LIGATURE_NAME) in text, lang
+        rest = text.replace(_plain(LIGATURE_NAME), "")
+        assert SUBSTITUTED.findall(rest) == [] and "fi" in rest and "fl" in rest.lower(), lang
+    fonts._subset.cache_clear()
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(fonts, "substituted_glyphs", lambda font: {})
+            code, _, err = run([*args, str(tmp_path / "kept")], capsys)
+    finally:
+        fonts._subset.cache_clear()  # no other test sees a subset with the twins
+    assert code == 0, err
+    before = _plain(_pdf_text(tmp_path / "kept" / "report.en.pdf")).replace(_plain(LIGATURE_NAME), "")
+    assert "ﬁ" in before
+
+
 def _child_log_state(executable: Path) -> int | None:
     log = executable.parent / "debug.log"
     return log.stat().st_size if log.is_file() else None
