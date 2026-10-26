@@ -60,7 +60,7 @@ from neurogrid.io.eeglab import epoched as eeglab_epoched
 from neurogrid.kernel import canonical
 from neurogrid.kernel.errors import InputError, NeuroGridError, UnsafePathError
 from neurogrid.kernel.provenance import sha256_file
-from neurogrid.kernel.safety import read_limited, resolve_within, work_directory
+from neurogrid.kernel.safety import create_temporary, read_limited, resolve_within, work_directory
 from neurogrid.metadata import RecordingMetadata, collect, mapped_entities
 from neurogrid.model.dataset import ProcessingStep, Recording
 
@@ -193,7 +193,7 @@ def mapping_template(unmapped: list[FoundFile]) -> bytes:
 def _replace_file(target: Path, data: bytes) -> None:
     """Write via a temporary file in the same folder that then replaces ``target``: an existing link or
     hard link at ``target`` is replaced, not written through; nothing is left behind on failure (A-54)."""
-    handle, name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    handle, name = create_temporary(target.parent, f".{target.name}.")
     temporary = Path(name)
     try:
         with os.fdopen(handle, "wb") as stream:

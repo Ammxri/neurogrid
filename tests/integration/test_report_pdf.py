@@ -893,17 +893,17 @@ def test_output_that_cannot_be_written_ends_before_the_browser_starts(
         write_reports(results, ["en"], ["html", "pdf"], occupied, environ={})
     assert info.value.message_key == "output.is_directory" and started == [] and rendered == []
     assert [p.name for p in occupied.iterdir()] == ["report.en.pdf"]
-    real_mkstemp = tempfile.mkstemp
+    real_create = output.create_temporary  # tempfile.mkstemp with the mode of any new file (kernel.safety)
 
     def refused(*args: Any, **kwargs: Any) -> tuple[int, str]:
         raise PermissionError(13, "no permission")
 
     new_folder = tmp_path / "new"
     with monkeypatch.context() as patch:
-        patch.setattr(tempfile, "mkstemp", refused)
+        patch.setattr(output, "create_temporary", refused)
         with pytest.raises(InputError) as info:
             write_reports(results, ["en"], ["pdf"], new_folder, environ={})
-    assert tempfile.mkstemp is real_mkstemp
+    assert output.create_temporary is real_create
     assert info.value.message_key == "output.not_writable" and started == [] and rendered == []
     assert not new_folder.exists()  # created by the check, removed again
     paths = write_reports(results, ["en"], ["html", "pdf"], new_folder, environ={})

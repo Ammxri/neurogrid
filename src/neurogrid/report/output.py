@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import os
 import re
-import tempfile
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -36,6 +35,7 @@ from neurogrid.kernel.pdf import (
     preflight,
     qa_gate,
 )
+from neurogrid.kernel.safety import create_temporary
 from neurogrid.model.results import Results
 from neurogrid.report.glyphs import glyph_safe
 from neurogrid.report.render import page_text, render_report
@@ -105,7 +105,7 @@ def _print_all(results: Results, documents: Mapping[str, str], shell: ShellInsta
 def _stage(target: Path, data: bytes) -> Path:
     if target.is_dir():
         raise InputError("output.is_directory")
-    handle, name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    handle, name = create_temporary(target.parent, f".{target.name}.")
     temporary = Path(name)
     try:
         with os.fdopen(handle, "wb") as stream:
@@ -126,7 +126,7 @@ def check_output_folder(folder: Path, targets: Sequence[Path]) -> None:
             raise InputError("output.is_directory")
     try:
         folder.mkdir(parents=True, exist_ok=True)
-        handle, name = tempfile.mkstemp(dir=folder, prefix=".report.", suffix=".tmp")
+        handle, name = create_temporary(folder, ".report.")
         os.close(handle)
         Path(name).unlink()
     except OSError:

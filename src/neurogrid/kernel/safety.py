@@ -8,6 +8,7 @@ import getpass
 import ntpath
 import os
 import re
+import secrets
 import shutil
 import socket
 import sys
@@ -100,6 +101,39 @@ def load_yaml(text: str, *, max_bytes: int = MAX_YAML_BYTES, max_depth: int = MA
         raise ConfigError("yaml.syntax", line="?") from None
     finally:
         loader.dispose()
+
+
+_TEMPORARY_FLAGS = (
+    os.O_RDWR
+    | os.O_CREAT
+    | os.O_EXCL
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_NOINHERIT", 0)
+    | getattr(os, "O_BINARY", 0)
+)
+_TEMPORARY_CHARACTERS = "abcdefghijklmnopqrstuvwxyz0123456789_"  # those of tempfile.mkstemp
+
+
+def create_temporary(folder: Path, prefix: str, suffix: str = ".tmp") -> tuple[int, str]:
+    """tempfile.mkstemp (a new file ``<prefix><8 random characters><suffix>`` in ``folder``, opened for
+    writing), but created with 0666, from which the system takes the umask, like any new file, instead of
+    0600. NeuroGrid writes every output to such a file and renames it to the target, and the rename keeps
+    the mode: on POSIX results.json, the manifest handed over with the dataset, the reports and the mapping
+    template were readable by their writer only, whatever the umask says (access rights are the operating
+    system's, KONZEPT 6). On Windows the mode only sets the read-only flag, which 0666 leaves off."""
+    directory = Path(folder).absolute()
+    for _attempt in range(tempfile.TMP_MAX):
+        name = "".join(secrets.choice(_TEMPORARY_CHARACTERS) for _ in range(8))
+        path = str(directory / f"{prefix}{name}{suffix}")
+        try:
+            return os.open(path, _TEMPORARY_FLAGS, 0o666), path
+        except FileExistsError:
+            continue
+        except PermissionError:  # on Windows also when a folder of that name exists (as in tempfile)
+            if os.name == "nt" and directory.is_dir() and os.access(directory, os.W_OK):
+                continue
+            raise
+    raise FileExistsError(17, "No usable temporary file name found")
 
 
 def read_limited(path: Path, max_bytes: int) -> bytes:

@@ -62,7 +62,7 @@ from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, PdfObje
 
 from neurogrid.kernel.errors import InputError, PdfError, UnsafePathError
 from neurogrid.kernel.fonts import is_radical_or_compat
-from neurogrid.kernel.safety import WorkFolder, check_operator_path, remove_leftovers
+from neurogrid.kernel.safety import WorkFolder, check_operator_path, create_temporary, remove_leftovers
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, Playwright, Request, Route
@@ -882,7 +882,7 @@ def write_atomic(path: Path, data: bytes) -> None:
         raise InputError("output.is_directory")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handle, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+        handle, name = create_temporary(path.parent, f".{path.name}.")
     except OSError:
         raise InputError("output.not_writable") from None
     temporary = Path(name)

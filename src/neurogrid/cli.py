@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 import re
 import sys
-import tempfile
 import traceback
 import unicodedata
 import warnings
@@ -31,6 +30,7 @@ from neurogrid.kernel.findings import Severity
 from neurogrid.kernel.i18n import DEFAULT_LANGUAGE, detect_language, normalize_language
 from neurogrid.kernel.safety import (
     check_operator_path,
+    create_temporary,
     home_folder,
     identity_names,
     read_limited,
@@ -398,7 +398,7 @@ def _write_atomic(path: Path, data: bytes) -> None:
         raise InputError("output.is_directory")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handle, temporary_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+        handle, temporary_name = create_temporary(path.parent, f".{path.name}.")
     except OSError:
         raise InputError("output.not_writable") from None
     temporary = Path(temporary_name)

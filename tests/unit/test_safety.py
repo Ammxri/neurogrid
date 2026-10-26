@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import re
 import socket
+import stat
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -180,6 +182,41 @@ def test_posix_keeps_names_that_are_legal_there(raw: str) -> None:
 )
 def test_windows_verdicts_are_checked_on_every_platform(raw: str, key: str | None) -> None:
     assert safety.operator_path_problem(raw, windows=True) == key
+
+
+def test_temporary_files_ask_for_the_mode_of_any_new_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """tempfile.mkstemp's 0600 survived the rename into every output on POSIX; create_temporary asks for
+    0666 (the system takes the umask off), with mkstemp's exclusive creation and name pattern."""
+    asked: list[tuple[str, int, int]] = []
+    real_open = os.open
+
+    def spy(path: str, flags: int, mode: int = 0o777) -> int:
+        asked.append((path, flags, mode))
+        if len(asked) == 1:  # a name that is taken: the next one is tried
+            raise FileExistsError(17, "exists", path)
+        return real_open(path, flags, mode)
+
+    monkeypatch.setattr(safety.os, "open", spy)
+    handle, name = safety.create_temporary(tmp_path, ".results.json.")
+    os.close(handle)
+    assert len(asked) == 2 and asked[1][0] == name and asked[1][2] == 0o666
+    assert asked[1][1] & os.O_EXCL and asked[1][1] & os.O_CREAT
+    assert (
+        re.fullmatch(r"\.results\.json\.[a-z0-9_]{8}\.tmp", Path(name).name) and Path(name).parent == tmp_path
+    )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_temporary_files_follow_the_umask_on_posix(tmp_path: Path) -> None:
+    previous = os.umask(0o027)
+    try:
+        handle, name = safety.create_temporary(tmp_path, ".manifest.json.")
+        os.close(handle)
+    finally:
+        os.umask(previous)
+    assert stat.S_IMODE(Path(name).stat().st_mode) == 0o640
 
 
 def test_work_directory_is_removed(tmp_path: Path) -> None:
