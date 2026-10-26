@@ -658,6 +658,52 @@ def test_gitee_mirror_is_switched_off_until_the_owner_enables_it() -> None:
     assert step["env"]["GITEE_SSH_KEY"] == "${{ secrets.GITEE_SSH_KEY }}"
 
 
+def test_gitee_release_files_are_prepared_from_the_signed_github_release() -> None:
+    """Review R15 (D-15: Gitee release with wheel, sdist, SHA256SUMS, signature and a link to the GitHub
+    release). No workflow prepared it. The job gitee-release takes exactly those four files from the published
+    GitHub release, checks the signature and the two checksums again, renders packaging/gitee-release.md with
+    the link and uploads files and text for the owner, who attaches them on Gitee: D-15 approves only the SSH
+    key for Gitee, so no API call and no further secret."""
+    mirror = _load("mirror-gitee")
+    assert mirror["on"]["workflow_dispatch"]["inputs"]["tag"]["default"] == ""
+    job = mirror["jobs"]["gitee-release"]
+    assert job["needs"] == "mirror" and job["environment"] == "gitee"
+    assert job["if"] == "vars.GITEE_MIRROR == 'true' && (github.event_name == 'release' || inputs.tag != '')"
+    assert "permissions" not in job  # the workflow's contents: read
+    (step,) = [s for s in _steps(job) if "run" in s]
+    assert step["env"] == {
+        "GH_TOKEN": "${{ github.token }}",
+        "TAG": "${{ inputs.tag || github.event.release.tag_name }}",
+    }
+    run = step["run"]
+    for needle in (
+        'gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir gitee-release --pattern "$wheel"',
+        '--pattern "$sdist" --pattern SHA256SUMS --pattern SHA256SUMS.sigstore.json',
+        'test "$(find gitee-release -type f | wc -l)" -eq 4',
+        "cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json",
+        '--certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com',
+        'identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${TAG}"',
+        'sha256sum --check --strict "$RUNNER_TEMP/wanted"',
+        'url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"',
+        "packaging/gitee-release.md > gitee-release-text.md",
+        "$GITHUB_STEP_SUMMARY",
+    ):
+        assert needle in run, needle
+    assert "gitee.com" not in run and "curl" not in run and "secrets" not in str(job)
+    assert "offline" not in run  # the bundles stay on GitHub
+    (upload,) = [s for s in _steps(job) if "upload-artifact" in str(s.get("uses"))]
+    assert upload["with"]["path"].split() == ["gitee-release/", "gitee-release-text.md"]
+    template = (ROOT / "packaging" / "gitee-release.md").read_text(encoding="utf-8")
+    assert set(re.findall(r"\{\{(\w+)\}\}", template)) == {"version", "github_release", "identity"}
+    for name in (
+        "neurogrid-{{version}}-py3-none-any.whl",
+        "neurogrid-{{version}}.tar.gz",
+        "SHA256SUMS.sigstore.json",
+    ):
+        assert name in template, name
+    assert "release.yml" in _text("release") and "Gitee release" in _text("release")
+
+
 def test_docs_and_corpus_workflows() -> None:
     docs = _load("docs")
     assert set(docs["on"]) == {"push", "pull_request", "workflow_dispatch"}

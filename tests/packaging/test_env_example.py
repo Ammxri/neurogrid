@@ -32,6 +32,7 @@ PROVIDED = {
     "GITHUB_REF",
     "GITHUB_REF_NAME",
     "GITHUB_REPOSITORY",
+    "GITHUB_STEP_SUMMARY",
     "HOME",
     "LOCALAPPDATA",
     "PATH",
@@ -85,7 +86,16 @@ THIRD_PARTY = {
 # Defined inside one workflow for its own steps, or by one of the project's scripts for another
 # (cleanroom_linux.sh -> cleanroom_inside.sh, the docker build argument of pdf_debian12.sh); never set from
 # outside.
-INTERNAL = {"BUNDLES", "NG_EXPECT_REFUSAL", "NG_PDF_SHA", "NG_PDF_ZIP", "NG_TRACE", "PACKAGES", "UV_VERSION"}
+INTERNAL = {
+    "BUNDLES",
+    "NG_EXPECT_REFUSAL",
+    "NG_PDF_SHA",
+    "NG_PDF_ZIP",
+    "NG_TRACE",
+    "PACKAGES",
+    "TAG",
+    "UV_VERSION",
+}
 # Listed for the owner although nothing uses it yet: only if Trusted Publishing is declined (D-07).
 RESERVED = {"PYPI_API_TOKEN"}
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")

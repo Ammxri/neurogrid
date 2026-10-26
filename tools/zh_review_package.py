@@ -192,6 +192,7 @@ def sources(root: Path = ROOT) -> list[Source]:
         Source("tools/install_pdf_browser.py", "messages of the PDF browser installer", python_messages),
         Source("packaging/README.bundle.txt", "README of the offline bundle", zh_lines, keyed=False),
         Source("packaging/release-notes.md", "release notes", zh_lines, keyed=False),
+        Source("packaging/gitee-release.md", "Gitee release text", zh_lines, keyed=False),
         Source(
             "src/neurogrid/report/wording/forbidden.yaml",
             "word list: forbidden phrases (not displayed)",

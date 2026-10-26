@@ -1,11 +1,20 @@
-# Gitee mirror for China (TECH-08; D-07: the owner's Gitee account). Does nothing until the owner sets the
+# Gitee mirror for China (TECH-08; D-07: the owner's Gitee account; D-15). Does nothing until the owner sets the
 # repository variable GITEE_MIRROR=true, the variables GITEE_REPOSITORY (owner/repo on Gitee) and GITEE_KNOWN_HOSTS
 # (Gitee's SSH host key, checked by the owner) and the secret GITEE_SSH_KEY (a key used only for this mirror).
 # Runs by hand or after a published release; pushes main and the v* tags only - never dev, never --force/--mirror.
+# For a published release (or by hand with a tag) it also prepares the Gitee release that D-15 requires: wheel,
+# sdist, SHA256SUMS and the signature of the GitHub release, checked again, and the release text with the link
+# to the GitHub release. D-15 approves only the SSH key for Gitee, no API token: the owner creates the Gitee
+# release on the mirrored tag and attaches the prepared files (steps in the job summary).
 name: mirror-gitee
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "release tag (v...) whose Gitee release files to prepare; empty = only mirror"
+        type: string
+        default: ""
   release:
     types: [published]
 
@@ -41,3 +50,57 @@ jobs:
           (umask 077 && printf '%s\n' "$GITEE_SSH_KEY" > "$key")
           export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
           git push "git@gitee.com:${GITEE_REPOSITORY}.git" "refs/remotes/origin/main:refs/heads/main" "refs/tags/v*:refs/tags/v*"
+
+  # The offline bundles stay on GitHub only (Gitee's attachment size limits are not verified).
+  gitee-release:
+    name: files and text of the Gitee release (checked; the owner attaches them)
+    needs: mirror
+    if: vars.GITEE_MIRROR == 'true' && (github.event_name == 'release' || inputs.tag != '')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: gitee
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Download, verify and describe the files of the published GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9][0-9A-Za-z.+-]*$ ]] || { echo "the tag must look like v0.1.0, got: $TAG"; exit 1; }
+          version="${TAG#v}"
+          wheel="neurogrid-${version}-py3-none-any.whl"
+          sdist="neurogrid-${version}.tar.gz"
+          mkdir gitee-release
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir gitee-release --pattern "$wheel" \
+            --pattern "$sdist" --pattern SHA256SUMS --pattern SHA256SUMS.sigstore.json
+          for file in "$wheel" "$sdist" SHA256SUMS SHA256SUMS.sigstore.json; do
+            test -f "gitee-release/$file" || { echo "missing in the GitHub release: $file"; exit 1; }
+          done
+          test "$(find gitee-release -type f | wc -l)" -eq 4
+          identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@refs/tags/${TAG}"
+          cd gitee-release
+          cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
+            --certificate-identity "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          awk -v w="$wheel" -v s="$sdist" '$2 == w || $2 == s' SHA256SUMS > "$RUNNER_TEMP/wanted"
+          test "$(wc -l < "$RUNNER_TEMP/wanted")" -eq 2
+          sha256sum --check --strict "$RUNNER_TEMP/wanted"
+          cd ..
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+          sed -e "s|{{version}}|${version}|g" -e "s|{{github_release}}|${url}|g" -e "s|{{identity}}|${identity}|g" \
+            packaging/gitee-release.md > gitee-release-text.md
+          if grep -q "{{" gitee-release-text.md; then echo "gitee-release.md has an unknown placeholder"; exit 1; fi
+          {
+            echo "## Gitee release ${TAG}: steps of the owner"
+            echo
+            echo "1. On Gitee, create a release on the tag ${TAG} (pushed by the job mirror), title NeuroGrid ${version}."
+            echo "2. Release text: gitee-release-text.md of the artifact gitee-release (it links to ${url})."
+            echo "3. Attach the four files of gitee-release/: ${wheel}, ${sdist}, SHA256SUMS, SHA256SUMS.sigstore.json."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gitee-release
+          path: |
+            gitee-release/
+            gitee-release-text.md
+          retention-days: 7

@@ -20,6 +20,7 @@ DOCS = ROOT / "docs"
 COPIES = {
     "README.bundle.txt": "{}",
     "release-notes.md": "{}",
+    "gitee-release.md": "{}",
     "install.ps1": "'{}'",
     "install.sh": '"{}"',
 }
