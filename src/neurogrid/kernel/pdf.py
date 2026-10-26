@@ -332,7 +332,11 @@ def preflight(
         [ldd, str(shell.executable)],
         env={"LC_ALL": "C", "PATH": os.environ.get("PATH", "/usr/bin:/bin")},
         capture_output=True,
+        # explicit: with LC_ALL=C ldd writes ASCII, and a text-mode run without an encoding raises an
+        # EncodingWarning under PYTHONWARNDEFAULTENCODING (CI turns it into an error on Linux)
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=30,
         check=False,
     )

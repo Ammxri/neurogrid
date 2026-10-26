@@ -227,6 +227,7 @@ def test_preflight(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         def fake(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
             calls.append(args)
             assert kwargs["env"]["LC_ALL"] == "C" and kwargs["check"] is False and "shell" not in kwargs
+            assert kwargs["text"] is True and kwargs["encoding"] == "utf-8"  # no locale default (Linux CI)
             return subprocess.CompletedProcess(args, 0, output, "")
 
         return fake
@@ -251,6 +252,58 @@ def test_preflight(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(PdfError) as info:
         pdf.preflight(shell)
     assert info.value.message_key == "pdf.playwright_version" and info.value.params["found"] == "1.64.1"
+
+
+def test_preflight_ldd_run_raises_no_encoding_warning(tmp_path: Path) -> None:
+    """Linux CI (PYTHONWARNDEFAULTENCODING=1, pytest's filterwarnings error::EncodingWarning:neurogrid): the
+    ldd run of the start check used text mode without an encoding, so every PDF report on Linux ended as an
+    internal error (exit 2). Simulated here with the real subprocess.run under -X warn_default_encoding:
+    a Python script stands in for ldd and prints the synthetic Debian 12 output."""
+    fake_ldd = tmp_path / "ldd.py"
+    fake_ldd.write_text(f"import sys\nsys.stdout.write({LDD_DEBIAN12_SYNTHETIC!r})\n", encoding="utf-8")
+    release = tmp_path / "os-release"
+    release.write_text("ID=debian\nVERSION_ID=12\n", encoding="utf-8")
+    code = "\n".join(
+        (
+            "import sys",
+            "from pathlib import Path",
+            "from neurogrid.kernel import pdf",
+            "from neurogrid.kernel.errors import PdfError",
+            "pdf.shutil.which = lambda name: sys.executable",
+            "shell = pdf.ShellInstall(Path(sys.argv[1]), Path(sys.argv[1]), Path(sys.argv[2]), 'linux64')",
+            "try:",
+            "    pdf.preflight(shell, os_release=Path(sys.argv[3]))",
+            "except PdfError as exc:",
+            "    print(exc.message_key, exc.params['libraries'])",
+        )
+    )
+    done = subprocess.run(
+        [sys.executable, "-X", "warn_default_encoding", "-W", "error::EncodingWarning", "-c", code]
+        + [str(tmp_path), str(fake_ldd), str(release)],
+        capture_output=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert done.stdout.strip() == "pdf.linux_libraries libasound.so.2, libnss3.so, libnssutil3.so"
+
+
+def test_no_text_mode_subprocess_without_an_encoding_in_the_package() -> None:
+    """ruff's PLW1514 covers open() only: a subprocess call in text mode (text=True, universal_newlines=True)
+    must name its encoding too, or it raises EncodingWarning under PYTHONWARNDEFAULTENCODING on a code path
+    that may only run on Linux (the ldd start check did)."""
+    offenders: list[str] = []
+    for file in sorted((ROOT / "src" / "neurogrid").rglob("*.py")):
+        for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            names = {keyword.arg: keyword.value for keyword in node.keywords if keyword.arg}
+            flags = [names.get(name) for name in ("text", "universal_newlines")]
+            text_mode = any(isinstance(flag, ast.Constant) and flag.value is True for flag in flags)
+            if text_mode and "encoding" not in names:
+                offenders.append(f"{file.relative_to(ROOT).as_posix()}:{node.lineno}")
+    assert offenders == []
 
 
 def test_playwright_version_matches_pin_and_browsers_json_revision_1243() -> None:
