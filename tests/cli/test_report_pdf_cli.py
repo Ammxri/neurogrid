@@ -209,12 +209,30 @@ def test_temporary_folder_too_long_for_the_browser_exits_2_with_its_own_hint(
 
 
 def _kill_tree(process: subprocess.Popen[bytes]) -> None:
-    """End a run hard, with the driver and the browser it started (no finally runs anywhere)."""
-    if os.name == "nt":
-        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
-    else:
+    """End a run hard, with the driver and the browser it started (no finally runs anywhere), and wait
+    until every killed process has ended. On Windows taskkill returns before the processes are gone and a
+    browser process keeps its profile files open for a moment (seen: a cleanup right after taskkill left
+    profile files in TEMP); taskkill names each process it killed ("PID <n>" in every language), and a
+    process object is signalled only after all its handles are closed."""
+    if os.name != "nt":
         os.killpg(process.pid, signal.SIGKILL)
+        process.wait()
+        return
+    import ctypes
+
+    done = subprocess.run(
+        ["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False
+    )
     process.wait()
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    synchronize = 0x00100000
+    named = {int(n) for n in re.findall(rb"PID (\d+)", done.stdout)}  # killed ones and their parents
+    for pid in named - {process.pid, os.getpid()}:  # the run itself has ended, this process is its parent
+        handle = kernel32.OpenProcess(synchronize, False, pid)
+        if handle:  # else it has ended already
+            kernel32.WaitForSingleObject(ctypes.c_void_p(handle), 30_000)
+            kernel32.CloseHandle(ctypes.c_void_p(handle))
 
 
 @pytest.mark.pdf
