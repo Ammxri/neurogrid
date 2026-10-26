@@ -20,22 +20,31 @@ _NICE_STEPS = (1.0, 2.0, 2.5, 5.0, 10.0)
 
 
 def nice_ceiling(value: float) -> float:
-    """The smallest m · 10^k with m in {1, 2, 2.5, 5} that is at least ``value``; 1.0 for values <= 0."""
+    """The smallest m · 10^k with m in {1, 2, 2.5, 5} that is at least ``value``; 1.0 for values <= 0 and
+    for a value that is not finite. Near the largest float, where that number would overflow to infinity,
+    ``value`` itself (the result is always finite and at least ``value``)."""
     if not math.isfinite(value) or value <= 0:
         return 1.0
     exponent = math.floor(math.log10(value))
     for step in _NICE_STEPS:
         candidate = step * 10.0**exponent
+        if not math.isfinite(candidate):
+            return value
         if candidate >= value * (1 - 1e-12):
             return float(f"{candidate:.12g}")
-    return float(f"{10.0 ** (exponent + 1):.12g}")
+    return value
 
 
 def bin_index(value: float, lo: float, hi: float, bins: int = CHART_BINS) -> int:
     """Bin of ``value`` for ``bins`` equal bins over [lo, hi]; values outside fall into the first or last
-    bin, the upper edge belongs to the last bin."""
-    width = (hi - lo) / bins
-    return min(bins - 1, max(0, math.floor((value - lo) / width)))
+    bin, the upper edge belongs to the last bin. A position too large to represent (a huge value over a
+    small domain) also falls into the last bin, so floor() never sees an infinity."""
+    position = (value - lo) / ((hi - lo) / bins)
+    if position < 0:
+        return 0
+    if not position < bins:  # also an infinite (or undefined) position
+        return bins - 1
+    return min(bins - 1, math.floor(position))
 
 
 def bin_counts(values: Sequence[float], lo: float, hi: float, bins: int = CHART_BINS) -> list[int]:
@@ -54,7 +63,8 @@ def _tick(value: float) -> str:
 
 def threshold_x(threshold: float, lo: float, hi: float) -> float:
     plot = WIDTH - PLOT_LEFT - PLOT_RIGHT
-    return PLOT_LEFT + plot * (threshold - lo) / (hi - lo)
+    # the fraction first: plot * (threshold - lo) overflows near the largest float
+    return PLOT_LEFT + plot * ((threshold - lo) / (hi - lo))
 
 
 def histogram_svg(

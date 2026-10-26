@@ -253,7 +253,11 @@ def chart_data(results: Results, failed: dict[tuple[str, str], set[str]]) -> lis
         if metric.hi is not None:
             data.hi = metric.hi
         else:
-            limits = [2 * t for _, t, _ in data.thresholds] + data.values
+            # twice each threshold, so its line sits inside the chart; a threshold so large that twice it
+            # overflows (a rule 'switched off' by a huge value) does not count, so the domain still covers
+            # the measured values
+            doubled = [2 * t for _, t, _ in data.thresholds]
+            limits = [limit for limit in doubled if math.isfinite(limit)] + data.values
             data.hi = nice_ceiling(max(limits)) if limits else 1.0
         charts.append(data)
     return charts

@@ -688,6 +688,36 @@ def test_charts_one_value_per_recording_with_thresholds(quality: Results, scaled
     assert 'data-metric="kappa"' not in metrics
 
 
+def test_huge_threshold_and_values_keep_the_chart_domain(quality: Results) -> None:
+    """Review R03 (REP-04, A-26): an M07 threshold 'switched off' by 1e308 (twice it overflows to infinity)
+    no longer collapses the chart domain to [0, 1], where the recordings piled up in the last bin and no
+    threshold line was drawn; the domain covers the measured values. A channel ratio of 1e307 on top
+    renders too (it raised OverflowError: 'Internal error', exit 2, also for --format html)."""
+    from neurogrid.report import tables
+
+    changed = quality.model_copy(deep=True)
+    params = changed.config.effective_params["CORE-M07-01"]
+    params["max_ratio"] = params["max_ratio"].model_copy(update={"value": 1e308})
+    values = [
+        value
+        for rec in changed.recordings
+        if (value := tables.recording_metrics(rec)["m07"].value) is not None
+    ]
+    assert values and max(values) < 100
+    (m07,) = [data for data in tables.chart_data(changed, {}) if data.metric.key == "m07"]
+    assert m07.hi == charts.nice_ceiling(max(values)) and m07.hi >= max(values)
+    rec = next(rec for rec in changed.recordings if tables._channels(rec.metrics, "M07"))
+    channels = rec.metrics["M07"]["channels"]
+    channels[sorted(channels)[0]]["ratio"] = 1e307
+    for lang in REPORT_LANGS:
+        figure = re.search(
+            r'<figure class="chart" data-metric="m07">(.*?)</figure>',
+            section(render_report(changed, lang), "metrics"),
+            flags=re.S,
+        )
+        assert figure is not None and "inf" not in figure.group(1) and "nan" not in figure.group(1)
+
+
 @pytest.mark.parametrize("lang", REPORT_LANGS)
 def test_kappa_chart_when_kappa_was_measured(annotated: Results, lang: str) -> None:
     """REP-04: the M10 chart on the domain [-1, 1] with the threshold of CORE-M10-01, one mean kappa per
