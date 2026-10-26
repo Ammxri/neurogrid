@@ -1097,9 +1097,19 @@ metadata_url = "https://registry.npmjs.org/hash-wasm/4.12.0"
 archive_url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz"
 archive_sha256 = "1db32a125fb46177932ec8ac438d3cd8214ebdfaccb5d6611b657d88eb586f92"
 archive_integrity = "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
-note = "The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. spdx is the expression of all stored texts: MIT (LICENSE, sm3, whirlpool), 0BSD (tslib helpers; sha256, sha3, sha512 by Aleksey Kravchenko), Zlib (adler32), BSD-2-Clause (scrypt, xxhash3, xxhash128), Apache-2.0 (ripemd160, mbed TLS), CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), CC0-1.0 OR Apache-2.0 (blake3), LicenseRef-Public-Domain (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid), LicenseRef-Brumme-Disclaimer (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme: 'All rights reserved', terms only on http://create.stephan-brumme.com/disclaimer.html) and LicenseRef-Not-Stated (argon2, based on Go's implementation, states no licence). The texts of the last two are missing, and the parts outside BUNDLED_ALLOWED wait for the owner's decision (known_missing.toml)."
+note = "The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. spdx is the expression of all stored texts: MIT (LICENSE, sm3, whirlpool), 0BSD (tslib helpers; sha256, sha3, sha512 by Aleksey Kravchenko), Zlib (adler32), BSD-2-Clause (scrypt, xxhash3, xxhash128), Apache-2.0 (ripemd160, mbed TLS), CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), CC0-1.0 OR Apache-2.0 (blake3), LicenseRef-Public-Domain (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid), LicenseRef-Brumme-Disclaimer (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme: 'All rights reserved', terms only on http://create.stephan-brumme.com/disclaimer.html) and LicenseRef-Not-Stated (argon2, based on Go's implementation, states no licence). D-16: the public-domain dedications count as permissive, and of both choices NeuroGrid uses Apache-2.0 (LICENSES/Apache-2.0.txt is attached). The texts of the Brumme and argon2 parts are missing; their licences wait with that gap (known_missing.toml)."
 pending = "bids-validator-deno:hash-wasm@4.12.0/src"
-owner_decision = "bids-validator-deno:hash-wasm@4.12.0/licences"
+pending_licences = ["LicenseRef-Brumme-Disclaimer", "LicenseRef-Not-Stated"]
+
+[[package.choice]]
+expression = "CC0-1.0 OR OpenSSL OR Apache-2.0"
+chosen = "Apache-2.0"
+parts = "blake2b, blake2s"
+
+[[package.choice]]
+expression = "CC0-1.0 OR Apache-2.0"
+chosen = "Apache-2.0"
+parts = "blake3"
 
 [[package.text]]
 file = "npm/hash-wasm@4.12.0/LICENSE"
@@ -1292,6 +1302,14 @@ kind = "source header"
 url = "bids_validator_deno-3.0.2-py3-none-any.whl#bids_validator_deno/bids-validator.js.map:../../node_modules/.deno/hash-wasm@4.12.0/node_modules/hash-wasm/dist/index.esm.js"
 size = 806
 sha256 = "f8b254da37e08406ccb6c9d8321ef584d1b22f44f9e12d5436325aeea0e6d60b"
+
+[[package.text]]
+repository_file = "LICENSES/Apache-2.0.txt"
+origin = "Apache License 2.0 (ripemd160 and the option NeuroGrid uses of the choices of blake2b, blake2s and blake3, D-16; the package has no Apache text)"
+kind = "standard text"
+url = ""
+size = 11357
+sha256 = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
 
 [[package]]
 registry = "npm"

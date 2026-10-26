@@ -319,6 +319,24 @@ def test_license_expression_order(metadata: str, expected: str) -> None:
     assert notices.license_expression(metadata) == expected
 
 
+def test_spdx_clauses_split_and_or() -> None:
+    clauses = notices.spdx_clauses(
+        "MIT AND (CC0-1.0 OR OpenSSL OR Apache-2.0) AND GPL-3.0-or-later WITH GCC-exception-3.1 AND MIT"
+    )
+    assert clauses == [
+        frozenset({"MIT"}),
+        frozenset({"CC0-1.0", "OpenSSL", "Apache-2.0"}),
+        frozenset({"GPL-3.0-or-later WITH GCC-exception-3.1"}),
+    ]
+    # a choice between a licence and two that must both hold: each clause keeps its choice
+    assert notices.spdx_clauses("A OR (B AND C)") == [frozenset({"A", "B"}), frozenset({"A", "C"})]
+    assert notices.spdx_clauses("MIT OR Apache-2.0") == [frozenset({"MIT", "Apache-2.0"})]
+    assert notices.spdx_clauses("") == []
+    for broken in ("(MIT", "MIT AND", "MIT OR OR BSD-3-Clause", "MIT WITH", "MIT BSD-3-Clause", ")"):
+        with pytest.raises(ValueError):
+            notices.spdx_clauses(broken)
+
+
 def test_spdx_units_keep_exceptions() -> None:
     units = notices.spdx_units("BSD-3-Clause AND (MIT OR GPL-3.0-or-later WITH GCC-exception-3.1)")
     assert units == {"BSD-3-Clause", "MIT", "GPL-3.0-or-later WITH GCC-exception-3.1"}
@@ -530,6 +548,15 @@ def _third_party(folder: Path, packages: list[dict[str, Any]]) -> Path:
         for key in ("registry", "name", "version", "found", "spdx", "note", "pending", "owner_decision"):
             if key in package:
                 lines.append(f"{key} = {json.dumps(package[key])}")
+        if "pending_licences" in package:
+            lines.append(f"pending_licences = {json.dumps(package['pending_licences'])}")
+        for expression, chosen in package.get("choices", []):
+            lines += [
+                "[[package.choice]]",
+                f"expression = {json.dumps(expression)}",
+                f"chosen = {json.dumps(chosen)}",
+                'parts = "x.c"',
+            ]
         for text in package.get("texts", []):
             if "repository_file" in text:  # a text of this repository (LICENSES/), recorded as it is
                 kept = (ROOT / text["repository_file"]).read_bytes()
@@ -805,6 +832,114 @@ def test_a_package_without_review_may_state_permissive_licences_only(tmp_path: P
     )
 
 
+def _policy_problems(tmp_path: Path, package: dict[str, Any], known: list[dict[str, str]]) -> list[str]:
+    folder = _third_party(tmp_path / str(len(list(tmp_path.iterdir()))), [package])
+    wheel = _validator_wheel([("npm", "a", "1.0.0")], {})
+    return notices.check_validator_texts(wheel, notices.load_validator_texts("9.9.9", folder), known)
+
+
+def test_public_domain_counts_as_permissive(tmp_path: Path) -> None:
+    """D-16: a public-domain dedication (LicenseRef-Public-Domain) is permissive, another LicenseRef not."""
+    assert "LicenseRef-Public-Domain" in notices.BUNDLED_ALLOWED
+    assert _policy_problems(tmp_path, _mit("a", spdx="MIT AND LicenseRef-Public-Domain"), []) == []
+    other = _policy_problems(tmp_path, _mit("a", spdx="MIT AND LicenseRef-Brumme-Disclaimer"), [])
+    assert len(other) == 1 and "is not permissive" in other[0]
+
+
+def test_a_choice_with_a_permissive_option_is_permissive(tmp_path: Path) -> None:
+    """D-16: 'CC0-1.0 OR OpenSSL OR Apache-2.0' is permissive once the manifest names the permissive option
+    NeuroGrid uses; a choice without a permissive option is not, and a recorded choice must be in the
+    licence."""
+    spdx = "MIT AND (CC0-1.0 OR OpenSSL OR Apache-2.0)"
+    choice = ("CC0-1.0 OR OpenSSL OR Apache-2.0", "Apache-2.0")
+    assert _policy_problems(tmp_path, _mit("a", spdx=spdx, choices=[choice]), []) == []
+    reordered = ("Apache-2.0 OR CC0-1.0 OR OpenSSL", "Apache-2.0")  # the same choice in another order
+    assert _policy_problems(tmp_path, _mit("a", spdx=spdx, choices=[reordered]), []) == []
+    unnamed = _policy_problems(tmp_path, _mit("a", spdx=spdx), [])
+    assert unnamed == [
+        "linux_x86_64: bids-validator-deno 9.9.9: npm a 1.0.0: the choice Apache-2.0 OR CC0-1.0 OR OpenSSL "
+        "names no chosen permissive option (D-16)"
+    ]
+    openssl = _policy_problems(tmp_path, _mit("a", spdx=spdx, choices=[(choice[0], "OpenSSL")]), [])
+    assert len(openssl) == 1 and "OpenSSL is no permissive option of the choice" in openssl[0]
+    no_permissive = _mit(
+        "a", spdx="MIT AND (GPL-2.0-only OR OpenSSL)", choices=[("GPL-2.0-only OR OpenSSL", "OpenSSL")]
+    )
+    assert any("is not permissive" in p for p in _policy_problems(tmp_path, no_permissive, []))
+    stale = _policy_problems(tmp_path, _mit("a", choices=[choice]), [])
+    assert len(stale) == 1 and "is not part of the licence MIT" in stale[0]
+    single = _policy_problems(tmp_path, _mit("a", choices=[("MIT", "MIT")]), [])
+    assert len(single) == 1 and "is no choice of licences" in single[0]
+    broken = _policy_problems(tmp_path, _mit("a", spdx="MIT AND (Zlib"), [])
+    assert any("is no SPDX expression" in p for p in broken)
+
+
+def test_licences_of_parts_without_texts_wait_with_their_gap(tmp_path: Path) -> None:
+    """A licence of parts whose texts are missing (pending_licences) passes only together with the text
+    gap (pending), which keeps --check failing; it is no decision of its own."""
+    spdx = "MIT AND LicenseRef-Brumme-Disclaimer"
+    waiting = _mit("a", spdx=spdx, pending="gap:a", pending_licences=["LicenseRef-Brumme-Disclaimer"])
+    known = [{"component": "gap:a", "what": "texts of LicenseRef-Brumme-Disclaimer"}]
+    assert _policy_problems(tmp_path, waiting, known) == []
+    without_gap = _mit("a", spdx=spdx, pending_licences=["LicenseRef-Brumme-Disclaimer"])
+    found = _policy_problems(tmp_path, without_gap, [])
+    assert any("pending_licences without a gap" in p for p in found)
+    assert any("is not permissive" in p for p in found)
+    stale = _mit("a", pending="gap:a", pending_licences=["LicenseRef-Brumme-Disclaimer"])
+    assert any(
+        "pending licence LicenseRef-Brumme-Disclaimer is not part" in p
+        for p in _policy_problems(tmp_path, stale, known)
+    )
+    # a pending licence never excuses one that is outside the policy and not listed as pending
+    other = _mit(
+        "a",
+        spdx=spdx + " AND GPL-3.0-only",
+        pending="gap:a",
+        pending_licences=["LicenseRef-Brumme-Disclaimer"],
+    )
+    assert any("is not permissive" in p for p in _policy_problems(tmp_path, other, known))
+
+
+def test_the_notices_name_the_chosen_option(tmp_path: Path) -> None:
+    spdx = "MIT AND (CC0-1.0 OR OpenSSL OR Apache-2.0)"
+    package = _mit("a", spdx=spdx, choices=[("CC0-1.0 OR OpenSSL OR Apache-2.0", "Apache-2.0")])
+    folder = _third_party(tmp_path, [package])
+    text = notices.render([_validator_wheel([("npm", "a", "1.0.0")], {})], [], [], third_party=folder)
+    section = text.split("\n3. ", 1)[1].split("\n6. ", 1)[0]
+    assert f"{spdx} (choice: below)" in section
+    assert notices.CHOICES_HEADING in section
+    assert "- npm a 1.0.0: CC0-1.0 OR OpenSSL OR Apache-2.0 (x.c) - chosen: Apache-2.0" in section
+    assert "LicenseRef-Public-Domain" in " ".join(section.split())  # the policy names it
+
+
+def test_committed_hash_wasm_follows_the_licence_policy() -> None:
+    """D-16 applied to hash-wasm 4.12.0: no owner decision is pending any more, both choices name Apache-2.0
+    (whose text is attached), and only the licences of the parts without texts wait with the text gap."""
+    locked = next(
+        p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
+    )
+    packages = {p.name: p for p in notices.load_validator_texts(locked.version) or []}
+    hash_wasm = packages["hash-wasm"]
+    assert not hash_wasm.owner_decision
+    assert {(c.expression, c.chosen) for c in hash_wasm.choices} == {
+        ("CC0-1.0 OR OpenSSL OR Apache-2.0", "Apache-2.0"),
+        ("CC0-1.0 OR Apache-2.0", "Apache-2.0"),
+    }
+    assert "LICENSES/Apache-2.0.txt" in {t.label for t in hash_wasm.texts}
+    assert set(hash_wasm.pending_licences) == {"LicenseRef-Brumme-Disclaimer", "LicenseRef-Not-Stated"}
+    outside, problems = notices.licence_policy(hash_wasm, notices.BUNDLED_ALLOWED)
+    assert outside == set() and problems == []
+    gaps = {item["component"]: item for item in notices.load_known_missing()}
+    assert hash_wasm.pending in gaps and not gaps[hash_wasm.pending].get("decision")
+    assert not [c for c, item in gaps.items() if "hash-wasm" in c and item.get("decision")]
+    committed = _committed()
+    assert (
+        "- npm hash-wasm 4.12.0: CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s) - chosen: Apache-2.0"
+        in (committed)
+    )
+    assert "- npm hash-wasm 4.12.0: CC0-1.0 OR Apache-2.0 (blake3) - chosen: Apache-2.0" in committed
+
+
 def test_gaps_name_what_they_wait_for() -> None:
     assert notices.gap_status({"component": "x", "what": "y"}) == notices.PENDING
     decided = {"component": "x", "what": "y", "decision": "owner decision required (D-05 forbids LGPL)"}
@@ -850,12 +985,17 @@ def test_committed_validator_texts_match_their_manifest() -> None:
         if e.dist_version == locked.version
     }
     for package in packages:
-        outside = notices.spdx_units(package.spdx) - notices.BUNDLED_ALLOWED
+        outside, policy = notices.licence_policy(package, notices.BUNDLED_ALLOWED)  # D-16 choices
+        assert policy == [], (package.name, policy)
         outside -= excepted.get((package.registry, package.name, package.version), set())  # D-16
         if outside:  # only with the owner's decision pending: the gap names each licence, the release fails
             assert package.owner_decision in decisions, package
             what = decisions[package.owner_decision]["what"]
             assert all(unit.split()[-1] in what for unit in outside), (package.name, outside)
+        if package.pending_licences:  # licences of parts without texts: the text gap names each of them
+            assert package.pending in known and not package.owner_decision, package
+            what = next(item["what"] for item in gaps if item["component"] == package.pending)
+            assert all(unit in what for unit in package.pending_licences), package.name
         assert not package.owner_decision or package.owner_decision in decisions, package
         assert package.texts or package.pending in known, package
         assert not package.pending or package.pending in known, package

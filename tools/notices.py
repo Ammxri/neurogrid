@@ -136,9 +136,22 @@ VALIDATOR = "bids-validator-deno"
 VALIDATOR_MAP = "bids_validator_deno/bids-validator.js.map"
 # Licence texts of the packages compiled into the validator bundle (D-15): <folder>/bids-validator-<version>/
 THIRD_PARTY = ROOT / "license-gate" / "third_party"
-# Licences a package compiled into the validator bundle may have: permissive ones only.
+# Licences a package compiled into the validator bundle may have: permissive ones only. A public-domain
+# dedication counts as permissive, and so does a choice of licences with at least one permissive option, of
+# which the manifest names the one NeuroGrid uses (D-16, licence_policy).
 BUNDLED_ALLOWED = frozenset(
-    {"0BSD", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "CC-BY-4.0", "CC0-1.0", "ISC", "MIT", "Zlib"}
+    {
+        "0BSD",
+        "Apache-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "CC-BY-4.0",
+        "CC0-1.0",
+        "ISC",
+        "LicenseRef-Public-Domain",
+        "MIT",
+        "Zlib",
+    }
 )
 # A components.toml notice that starts with one of these is a text kept in this repository, not in the wheel.
 REPOSITORY_NOTICE = ("LICENSES/", "license-gate/")
@@ -166,6 +179,12 @@ VALIDATOR_INTRO = (
     "manifest.toml; their texts are in section 6. Texts still missing, and licences outside the permissive "
     "ones that wait for the owner's decision ('decision: section 5'), are listed in section 5."
 )
+POLICY_INTRO = (
+    "Permissive means: {allowed}. A public-domain dedication (LicenseRef-Public-Domain) counts as "
+    "permissive, and so does a choice of licences with at least one permissive option; NeuroGrid uses the "
+    "option named under 'Licence choices' (D-16)."
+)
+CHOICES_HEADING = "Licence choices (D-16): the permissive option NeuroGrid uses of each choice of licences."
 TEXTS_INTRO = "Each text once (SHA-256 of the LF-normalized text), with the files that carry it."
 EXCEPTIONS_HEADING = "Version-bound exceptions to the permissive-only policy (D-05):"
 EXCEPTIONS_INTRO = (
@@ -693,6 +712,15 @@ class BundledText:
 
 
 @dataclass(frozen=True)
+class LicenceChoice:
+    """The option NeuroGrid uses of a choice of licences ('A OR B') in a bundled package (D-16)."""
+
+    expression: str  # the choice as the reviewed licence states it
+    chosen: str  # the permissive option NeuroGrid uses
+    parts: str  # the parts of the package under that choice
+
+
+@dataclass(frozen=True)
 class BundledPackage:
     registry: str
     name: str
@@ -705,6 +733,9 @@ class BundledPackage:
     texts: tuple[BundledText, ...]
     # the known_missing.toml entry (with a decision) for a licence outside BUNDLED_ALLOWED, "" if none
     owner_decision: str = ""
+    choices: tuple[LicenceChoice, ...] = ()
+    # licences of parts whose texts are still missing (the gap 'pending'); reviewed once the texts are there
+    pending_licences: tuple[str, ...] = ()
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -757,6 +788,11 @@ def load_validator_texts(version: str, folder: Path = THIRD_PARTY) -> list[Bundl
                 pending=str(item.get("pending", "")),
                 texts=tuple(texts),
                 owner_decision=str(item.get("owner_decision", "")),
+                choices=tuple(
+                    LicenceChoice(str(c["expression"]), str(c["chosen"]), str(c.get("parts", "")))
+                    for c in item.get("choice", [])
+                ),
+                pending_licences=tuple(str(unit) for unit in item.get("pending_licences", [])),
             )
         )
     return packages
@@ -811,7 +847,9 @@ def check_validator_texts(
         if package.texts and not package.spdx:
             problems.append(f"{label}: licence texts without a reviewed licence")
         units = spdx_units(package.spdx)
-        outside = units - permitted - excused.get(package.key, set())
+        outside, policy = licence_policy(package, permitted)
+        outside -= excused.get(package.key, set())
+        problems += [f"{label}: {problem}" for problem in policy]
         if outside and not package.owner_decision:
             problems.append(f"{label}: licence {package.spdx} is not permissive (not in BUNDLED_ALLOWED)")
         if package.owner_decision and package.owner_decision not in decisions:
@@ -882,6 +920,115 @@ def check_exceptions(
         if len(problems) == before:
             excused.setdefault(package.key, set()).update(units)
     return problems, excused
+
+
+def licence_policy(package: BundledPackage, permitted: Iterable[str]) -> tuple[set[str], list[str]]:
+    """The licences of a bundled package outside the permissive policy, and what is wrong with its choices
+    and pending licences. D-16: a choice of licences ('A OR B') with at least one permissive option counts
+    as permissive, and the manifest names the permissive option NeuroGrid uses; a licence of parts whose
+    texts are still missing (pending_licences) waits with the package's text gap instead."""
+    allowed = set(permitted)
+    try:
+        clauses = spdx_clauses(package.spdx)
+    except ValueError as exc:
+        return spdx_units(package.spdx) - allowed, [f"licence {package.spdx} is no SPDX expression ({exc})"]
+    problems: list[str] = []
+    outside: set[str] = set()
+    recorded: dict[frozenset[str], LicenceChoice] = {}
+    for choice in package.choices:
+        try:
+            (options,) = spdx_clauses(choice.expression)
+        except ValueError:
+            options = frozenset()
+        if len(options) < 2:
+            problems.append(f"recorded choice {choice.expression} is no choice of licences")
+            continue
+        recorded[options] = choice
+    single = {unit for clause in clauses if len(clause) == 1 for unit in clause}
+    for clause in clauses:
+        if len(clause) == 1:
+            outside |= clause - allowed
+            continue
+        if not clause & allowed:
+            outside |= clause  # a choice without a permissive option is not permissive
+            continue
+        named = recorded.get(clause)
+        expression = " OR ".join(sorted(clause))
+        if named is None:
+            problems.append(f"the choice {expression} names no chosen permissive option (D-16)")
+        elif named.chosen not in clause & allowed:
+            problems.append(f"{named.chosen} is no permissive option of the choice {expression}")
+    for key, named in recorded.items():
+        if key not in clauses:
+            problems.append(f"recorded choice {named.expression} is not part of the licence {package.spdx}")
+    pending = set(package.pending_licences)
+    if pending and not package.pending:
+        problems.append("pending_licences without a gap for the missing texts (pending)")
+    for unit in sorted(pending - single):
+        problems.append(f"pending licence {unit} is not part of the licence {package.spdx}")
+    if package.pending:
+        outside -= pending
+    return outside, problems
+
+
+def spdx_clauses(expression: str) -> list[frozenset[str]]:
+    """An SPDX expression as the clauses that must all hold (AND), each the set of licences it may be
+    chosen from (OR; one licence for a plain term); 'X WITH Y' stays one licence. '' has no clause. A
+    malformed expression raises ValueError."""
+    tokens = re.findall(r"[()]|[^\s()]+", expression)
+    position = 0
+
+    def peek() -> str:
+        return tokens[position] if position < len(tokens) else ""
+
+    def take() -> str:
+        nonlocal position
+        token = peek()
+        position += 1
+        return token
+
+    def any_of() -> list[frozenset[str]]:
+        clauses = all_of()
+        while peek() == "OR":
+            take()
+            right = all_of()
+            clauses = [left | other for left in clauses for other in right]
+        return clauses
+
+    def all_of() -> list[frozenset[str]]:
+        clauses = term()
+        while peek() == "AND":
+            take()
+            clauses = clauses + term()
+        return clauses
+
+    def term() -> list[frozenset[str]]:
+        token = take()
+        if token == "(":
+            clauses = any_of()
+            if take() != ")":
+                raise ValueError("unbalanced parentheses")
+            return clauses
+        if token in ("", ")", "AND", "OR", "WITH"):
+            raise ValueError(f"licence expected, found {token or 'the end'}")
+        if peek() == "WITH":
+            take()
+            exception = take()
+            if exception in ("", "(", ")", "AND", "OR", "WITH"):
+                raise ValueError("exception expected after WITH")
+            token = f"{token} WITH {exception}"
+        return [frozenset({token})]
+
+    if not tokens:
+        return []
+    found = any_of()
+    if position != len(tokens):
+        raise ValueError(f"unexpected {tokens[position]}")
+    unique: list[frozenset[str]] = []
+    for clause in found:
+        if clause not in unique:
+            unique.append(clause)
+    return unique
 
 
 def spdx_units(expression: str) -> set[str]:
@@ -1161,6 +1308,7 @@ def render(
             f"3. Packages compiled into the BIDS validator bundle ({wheel.name} {wheel.version})",
             "",
             *paragraph(VALIDATOR_INTRO.format(version=wheel.version)),
+            *paragraph(POLICY_INTRO.format(allowed=", ".join(sorted(BUNDLED_ALLOWED, key=str.casefold)))),
             "",
         ]
         rows = []
@@ -1175,12 +1323,25 @@ def render(
                 exception = excepted.get((package.registry, package.name, package.version))
                 if exception is not None:
                     licence += f" (exception {exception.decision}: below)"
+                if package.choices:
+                    licence += " (choice: below)"
+                if package.pending_licences:
+                    licence += " (pending: section 5)"
                 rows.append((kind, name, package.version or version, licence, _text_kinds(package)))
         out += _table(rows, ("Registry", "Package", "Version", "Licence", "Licence texts"))
         noted = [p for p in bundled if p.note]
         if noted:
             out += ["", "Review notes (manifest.toml):"]
             out += [f"- {p.registry} {p.name} {p.version or p.found}: {p.note}" for p in noted]
+        chosen = [(p, c) for p in bundled for c in p.choices]
+        if chosen:
+            out += ["", CHOICES_HEADING]
+            out += [
+                f"- {p.registry} {p.name} {p.version or p.found}: {c.expression}"
+                + (f" ({c.parts})" if c.parts else "")
+                + f" - chosen: {c.chosen}"
+                for p, c in chosen
+            ]
         if valid:
             out += ["", EXCEPTIONS_HEADING, *paragraph(EXCEPTIONS_INTRO)]
             for exception in sorted(valid, key=lambda e: (e.package.casefold(), e.version, e.source)):

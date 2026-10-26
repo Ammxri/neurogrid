@@ -13,12 +13,7 @@ what = "Eight packages that the prebuilt dist of hed-validator 4.2.0 carries ins
 
 [[missing]]
 component = "bids-validator-deno:hash-wasm@4.12.0/src"
-what = "hash-wasm 4.12.0 inside the BIDS validator bundle compiles C code whose headers carry no licence text: crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme, 'All rights reserved') only refer to http://create.stephan-brumme.com/disclaimer.html, and argon2 is based on Go's implementation without its licence."
-
-[[missing]]
-component = "bids-validator-deno:hash-wasm@4.12.0/licences"
-what = "hash-wasm 4.12.0 inside the BIDS validator bundle carries C code under terms outside BUNDLED_ALLOWED of tools/notices.py: public-domain dedications (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid; LicenseRef-Public-Domain), the choice CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), 'All rights reserved' with terms only on a web page (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme; LicenseRef-Brumme-Disclaimer) and no stated licence (argon2; LicenseRef-Not-Stated)."
-decision = "owner decision required (D-05 allows permissive licences only)"
+what = "hash-wasm 4.12.0 inside the BIDS validator bundle compiles C code whose headers carry no licence text: crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme, 'All rights reserved') only refer to http://create.stephan-brumme.com/disclaimer.html (LicenseRef-Brumme-Disclaimer), and argon2 is based on Go's implementation without its licence (LicenseRef-Not-Stated). Both licences are reviewed once the texts are there."
 
 [[missing]]
 component = "bids-validator-deno:node-modules-polyfills/@jspm/core"
