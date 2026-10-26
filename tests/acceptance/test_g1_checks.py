@@ -860,3 +860,45 @@ def test_raw_file_and_folder_names_are_searched(results: Results, tmp_path: Path
         f"report.en.pdf: contains a {label}",
         f"results.json: contains a {label}",
     ]
+
+
+def test_integer_ages_are_searched_in_context(results: Results, tmp_path: Path) -> None:
+    """A-21/A-51: a raw integer age is the normal case (ds002778: sub-hc1 54). It is no searchable token on
+    its own (counts), so it is searched next to its own participant ID or after an age label or before an
+    age unit, in every output; a bare count, an age group (50-59) or another participant's number is no
+    hit."""
+    (tmp_path / "participants.tsv").write_text(
+        "participant_id\tage\tsex\nsub-hc1\t54\tF\nsub-hc2\t50\tM\nsub-03\tn/a\tF\nsub-04\t34.5\tM\n",
+        encoding="utf-8",
+    )
+    assert g1.raw_age_rows(tmp_path) == [("sub-hc1", "54"), ("sub-hc2", "50"), ("sub-04", "34.5")]
+    forbidden = g1.forbidden_values(tmp_path, tmp_path / "out")
+    context = sorted((item.context, item.value) for item in forbidden if item.kind == "age_context")
+    assert context == [("sub-hc1", "54"), ("sub-hc2", "50")]
+    assert [item.value for item in forbidden if item.label == "raw age" and item.kind == "number"] == ["34.5"]
+    leaks = {
+        "html": "<p>sub-hc1 age 54, sub-hc2 age 50</p>",
+        "table": "<tr><td>sub-hc1</td><td>54</td></tr>",
+        "label": "Alter: 54",
+        "zh": "年龄：50",
+        "unit": "a participant of 54 years",
+        "zh unit": "受试者 54 岁",
+    }
+    for name, text in leaks.items():
+        problems = g1.check_privacy([g1.Output(f"{name}.html", text)], forbidden, results)
+        assert problems == [f"{name}.html: contains a raw integer age"], name
+    clean = {
+        "count": "<td>54</td>",
+        "group": "<p>Age groups: 50-59: 2</p>",
+        "other row": "<tr><td>sub-hc1</td><td>3</td></tr><tr><td>x</td><td>54</td></tr>",
+        "other subject": "sub-hc10 54",
+        "decimal": "sub-hc1 54.2 s",
+        "documented": "Subjects with documented age 54",
+        "time": "sub-hc1 0.000–54.000 s",
+    }
+    for name, text in clean.items():
+        assert g1.check_privacy([g1.Output(name, text)], forbidden, results) == [], name
+    pdf = g1.Output("report.en.pdf", "", raw=b"BT (sub-hc1 age 54) ET")
+    assert g1.check_privacy([pdf], forbidden, results) == []  # no bytes search: a context needs the text
+    pdf = g1.Output("report.en.pdf", "sub-hc1 age 54")
+    assert g1.check_privacy([pdf], forbidden, results) == ["report.en.pdf: contains a raw integer age"]

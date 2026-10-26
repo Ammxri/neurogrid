@@ -31,7 +31,9 @@ reading of the files (not the product's code that wrote them):
   console and file list are checked);
 - privacy (NG-N05, A-51): no path of the corpus or the output folder, no home folder, user or host name, no
   identifying EDF/BDF header value, recording date or time, no real file or folder name of a raw (non-BIDS)
-  data set (shown only with --show-paths), no raw age, no digest other than those
+  data set (shown only with --show-paths), no raw age (a non-integer age as a number of its own, an integer
+  age next to its participant ID, an age label or an age unit; in results.json and scan.json every value
+  under an age key a count or 10-year groups), no digest other than those
   results.json declares (finding keys, manifest, rule pack, configuration and evidence SHA-256: so no signal
   hash) in the console, results.json, scan.json, HTML, PDF text, PDF bytes (ASCII and UTF-16BE) and /Info.
   The manifest names the data set's own files by design (A-82); it is scanned for paths, user and host only;
@@ -880,11 +882,14 @@ def check_pdf(data: bytes, lang: str, results: Results, document: str) -> PdfChe
 @dataclass(frozen=True)
 class Forbidden:
     """A value that must not leave the process. ``kind``: path (any spelling, case-insensitive), word (whole
-    word, case-insensitive) or literal (exact). ``label`` names it in problems; the value is never shown."""
+    word, case-insensitive), number (a number of its own), age_context (an integer age as a number of its
+    own next to ``context``, its participant ID, or next to an age label or unit; see _age_in_context) or
+    literal (exact). ``label`` names it in problems; the value is never shown."""
 
     label: str
     value: str
     kind: str
+    context: str = ""
 
 
 def _path_forms(path: Path) -> set[str]:
@@ -960,6 +965,12 @@ def header_values(path: Path, as_of: date = AS_OF) -> list[Forbidden]:
 
 def raw_ages(dataset: Path) -> list[str]:
     """The raw values of the age column(s) of participants.tsv (n/a and empty cells left out)."""
+    return [age for _participant, age in raw_age_rows(dataset)]
+
+
+def raw_age_rows(dataset: Path) -> list[tuple[str, str]]:
+    """(participant_id, raw age) of every age cell of participants.tsv (n/a and empty cells left out; the
+    participant ID is '' when the table has no participant_id column)."""
     table = dataset / "participants.tsv"
     if not table.is_file():
         return []
@@ -968,13 +979,37 @@ def raw_ages(dataset: Path) -> list[str]:
         return []
     header = [name.strip() for name in lines[0].split("\t")]
     columns = [i for i, name in enumerate(header) if AGE_KEY.fullmatch(name.lower())]
-    values = []
+    ids = header.index("participant_id") if "participant_id" in header else None
+    rows = []
     for line in lines[1:]:
         cells = line.split("\t")
+        participant = cells[ids].strip() if ids is not None and ids < len(cells) else ""
         for i in columns:
             if i < len(cells) and cells[i].strip() and cells[i].strip().lower() != "n/a":
-                values.append(cells[i].strip())
-    return values
+                rows.append((participant, cells[i].strip()))
+    return rows
+
+
+# An integer age is no token of its own (counts look the same), so it is searched in context: next to its
+# participant ID (within AGE_REACH characters, never across a table row or a line), after an age label
+# with a separator ('age: 54', 'Alter = 54', '年龄：54', 'aged 54') or before an age unit ('54 years',
+# '54 岁'). All case-insensitive.
+AGE_REACH = 40
+AGE_NUMBER = r"(?<![\d.,\-–]){age}(?![\d.,\-–])"
+AGE_LABEL = r"(?:(?<![A-Za-z])(?:ages?|alter)\s*[:：=]\s*|(?<![A-Za-z])aged\s+|年龄\s*[:：=]?\s*)"
+AGE_UNIT = r"\s*(?:岁|years?(?![A-Za-z])|yrs?(?![A-Za-z])|jahre(?![A-Za-z]))"
+
+
+def _age_in_context(text: str, item: Forbidden) -> bool:
+    number = AGE_NUMBER.format(age=re.escape(item.value))
+    flags = re.IGNORECASE | re.DOTALL
+    if re.search(AGE_LABEL + number, text, flags) or re.search(number + AGE_UNIT, text, flags):
+        return True
+    if len(item.context) < 3:
+        return False
+    near = rf"(?:(?!<tr|</tr|\n).){{0,{AGE_REACH}}}?"
+    subject = rf"(?<![A-Za-z0-9]){re.escape(item.context)}(?![A-Za-z0-9])"
+    return re.search(subject + near + number, text, flags) is not None
 
 
 RAW_NAME = "raw file or folder name"
@@ -1041,9 +1076,11 @@ def forbidden_values(
     for path in sorted(dataset.rglob("*")):
         if path.suffix.lower() in (".edf", ".bdf") and path.is_file():
             found += header_values(path, as_of)
-    for age in raw_ages(dataset):
-        if not age.isdigit():  # a plain integer is no searchable token (counts); see age_problems
+    for participant, age in raw_age_rows(dataset):
+        if not age.isdigit():
             found.append(Forbidden("raw age", age, "number"))
+        else:  # a plain integer is no searchable token of its own (counts): searched in context
+            found.append(Forbidden("raw integer age", age, "age_context", participant))
     if not show_paths and not os.path.lexists(dataset / "dataset_description.json"):
         found += raw_names(dataset)
     return sorted(set(found), key=lambda item: (item.label, item.value))
@@ -1056,6 +1093,8 @@ def _matches(text: str, item: Forbidden) -> bool:
         return re.search(rf"(?i)(?<![A-Za-z0-9]){re.escape(item.value)}(?![A-Za-z0-9])", text) is not None
     if item.kind == "number":
         return re.search(rf"(?<![\d.,]){re.escape(item.value)}(?![\d.,])", text) is not None
+    if item.kind == "age_context":
+        return _age_in_context(text, item)
     return item.value in text
 
 
@@ -1141,7 +1180,7 @@ def check_privacy(
                 continue
             texts = [output.text, *output.info.values()]
             hit = any(_matches(text, item) for text in texts)
-            if not hit and output.raw and item.kind != "word":
+            if not hit and output.raw and item.kind not in ("word", "age_context"):
                 for encoding in ("latin-1", "utf-16-be"):
                     try:
                         needle = item.value.encode(encoding)
@@ -1400,7 +1439,10 @@ def evaluate_run(
         outputs.append(Output("manifest.json", manifest_text, manifest=True))
     outputs += consoles
     result.add("privacy", check_privacy(outputs, forbidden, results, extra=manifest_digests))
-    result.add("privacy", age_problems(json.loads((folder / "results.json").read_text(encoding="utf-8"))))
+    for name in ("results.json", "scan.json"):
+        if (folder / name).is_file():
+            data = json.loads((folder / name).read_text(encoding="utf-8"))
+            result.add("privacy", (f"{name}: {problem}" for problem in age_problems(data)))
     result.add("v06", v06_problems(results, [o.text for o in outputs if not o.manifest]))
     summary = results.summary
     failed_reads = [f for f in results.findings if f.rule_id in READ_RULES and f.status.value == "failed"]
