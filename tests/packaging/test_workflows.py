@@ -17,22 +17,6 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 NAMES = ("ci", "offline", "corpus", "docs", "release", "publish-pypi", "mirror-gitee")
-# The argparse options of the tools that other P5 areas bring with the merge, read from their branches: docs
-# (dev at 7c99a82: tools/build_docs.py, tools/notices.py) and pdf (p5-pdf at 1dbb23e:
-# tools/install_pdf_browser.py, tools/linux_pdf_packages.py). They stand in for a tool only while it is
-# missing from the tree; in the merged tree the tool itself is read (see _options_of).
-MERGED_OPTIONS = {
-    "build_docs.py": {"--site-dir"},
-    "notices.py": {"--list", "--wheelhouse", "--download", "--cache", "--bundle-lock", "--out", "--check",
-                   "--components"},
-    "install_pdf_browser.py": {"--dir", "--from-zip", "--sha256", "--download-only", "--platform", "--out",
-                               "--force", "--check", "--print-info"},
-    "linux_pdf_packages.py": {"--list", "--check", "--write"},
-}  # fmt: skip
-# Written by the acceptance phase after the merge (corpus.yml calls it with --corpus and --out); its options
-# can be checked only once it exists.
-LATER = {"acceptance_g1.py"}
-OTHER_AREAS = set(MERGED_OPTIONS) | LATER
 PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
     "astral-sh/setup-uv": "07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",  # v10.3.2
@@ -143,7 +127,7 @@ def test_scripts_and_tools_called_by_the_workflows_exist() -> None:
         for script in re.findall(r"packaging/ci/[A-Za-z0-9_.-]+", text):
             assert (ROOT / script).is_file(), (name, script)
         for tool in set(re.findall(r"tools/([A-Za-z0-9_]+\.py)", text)):
-            assert (ROOT / "tools" / tool).is_file() or tool in OTHER_AREAS, (name, tool)
+            assert (ROOT / "tools" / tool).is_file(), (name, tool)
 
 
 # A call of a repository tool: tools/<name>.py (also "$root/tools/..." or tools\<name>.py in PowerShell). Its
@@ -191,16 +175,12 @@ def _defined_options(tool: Path) -> set[str]:
     return found
 
 
-def _options_of(name: str) -> set[str] | None:
-    """The options of a tool in the merged tree: the file if it is here, else the record of its area; None
-    for a tool that does not exist yet (LATER)."""
+def _options_of(name: str) -> set[str]:
+    """The options of a tool, read from the tool itself: every P5 area is merged, so a tool that a workflow,
+    CI script or installer calls must be in the tree."""
     tool = ROOT / "tools" / name
-    if tool.is_file():
-        return _defined_options(tool)
-    if name in MERGED_OPTIONS:
-        return MERGED_OPTIONS[name] | {"--help"}
-    assert name in LATER, name
-    return None
+    assert tool.is_file(), name
+    return _defined_options(tool)
 
 
 def _command_texts() -> dict[str, tuple[str, str]]:
@@ -212,23 +192,25 @@ def _command_texts() -> dict[str, tuple[str, str]]:
 
 def test_every_option_passed_to_a_tool_exists() -> None:
     """A workflow, CI script or installer that passes a tool an option the tool does not define fails on every
-    run: release.yml once called `tools/licenses.py --release`, which no area defines (argparse exits 2)."""
+    run: release.yml once passed --release to `tools/licenses.py`, which no area defines (argparse exit 2)."""
     checked = 0
     for where, (text, kind) in _command_texts().items():
         for name, options in _tool_calls(text, kind):
             defined = _options_of(name)
-            if defined is None:
-                continue
             assert options <= defined, (where, name, sorted(options - defined))
             checked += 1
     assert checked >= 25, checked
 
 
+# The release.yml line this check caught, as a negative example. It is split like the one of
+# tests/docs/test_notices.py::test_every_named_option_of_the_gate_tools_exists: that test reads every tool
+# call named in the tests as well and would take the example for a real call.
+UNKNOWN_OPTION_CALL = "uv run --no-sync python tools/" + "licenses.py --release\n"
+
+
 def test_the_option_check_finds_an_unknown_option() -> None:
-    assert _tool_calls("uv run --no-sync python tools/licenses.py --release\n") == [
-        ("licenses.py", {"--release"})
-    ]
-    assert "--release" not in (_options_of("licenses.py") or set())
+    assert _tool_calls(UNKNOWN_OPTION_CALL) == [("licenses.py", {"--release"})]
+    assert "--release" not in _options_of("licenses.py")
     text = (
         'uv run python tools/bundle.py build --platform "$p" \\\n  --wheel w --sign sigstore | tee log\n'
         "# python tools/bundle.py --commented-out\n"
