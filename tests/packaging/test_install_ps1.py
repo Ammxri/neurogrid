@@ -687,3 +687,62 @@ def test_a_failed_installation_leaves_the_target_as_it_was(
     code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix), env=failing, cwd=cwd)
     assert code == 2, text
     assert [p.name for p in (shared / "NeuroGrid").iterdir()] == ["pdf-browser"]
+
+
+def test_readme_windows_commands_run_as_printed_in_powershell(folder: Path, short_root: Path) -> None:
+    """Review R18: README.txt headed its Windows section PowerShell but printed cmd.exe syntax ('install.cmd'
+    is not found in the current folder, %LOCALAPPDATA% is not expanded). Its install, check and report lines
+    run as printed in Windows PowerShell 5.1 in the unpacked folder (placeholders filled in), with the working
+    stand-in uv and stand-ins of the check and report commands (the launcher's interpreter runs the packages
+    check/ and report/ of the current folder)."""
+    import os
+
+    if not (Path(sys.prefix) / "pyvenv.cfg").is_file():
+        pytest.skip("the tests do not run in a virtual environment: no venv launcher to copy")
+    assert POWERSHELL is not None
+    shutil.copyfile(sys.executable, folder / "uv" / "uv.exe")
+    shutil.copyfile(Path(sys.prefix) / "pyvenv.cfg", folder / "uv" / "pyvenv.cfg")
+    command = 'import sys\nprint("ran", sys.argv[1:])\n'
+    for name, text in (
+        ("venv", STAND_IN_VENV),
+        ("pip", STAND_IN_PIP),
+        ("check", command),
+        ("report", command),
+    ):
+        (folder / name).mkdir()
+        (folder / name / "__main__.py").write_text(text, encoding="utf-8")
+    _resum(folder)
+    readme = (folder / "README.txt").read_text(encoding="utf-8")
+    lines = [line.strip() for line in readme.splitlines() if line.startswith("     ")]
+    (install,) = [line for line in lines if line.startswith(".\\install.cmd -SkipSignatureCheck")]
+    install = install.split("   ")[0]  # the explanation after the command
+    check = next(line for line in lines if 'neurogrid.cmd" check' in line)
+    report = next(line for line in lines if 'neurogrid.cmd" report' in line)
+    data = folder / "数据 集"
+    check = check.replace("<数据集 / dataset>", f"'{data}'")
+    local = Path(tempfile.mkdtemp(prefix="l", dir=short_root))
+    script = "\n".join(
+        [
+            f"Set-Location -LiteralPath '{folder}'",
+            install,
+            "'install=' + $LASTEXITCODE",
+            check,
+            "'check=' + $LASTEXITCODE",
+            report,
+            "'report=' + $LASTEXITCODE",
+        ]
+    )
+    env = {**os.environ, "LOCALAPPDATA": str(local), "PYTHONIOENCODING": "utf-8"}
+    result = subprocess.run(
+        [POWERSHELL, "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+        capture_output=True,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        timeout=300,
+        check=False,
+    )
+    text = result.stdout.decode("utf-8", "replace") + result.stderr.decode("utf-8", "replace")
+    assert "install=0" in text and "check=0" in text and "report=0" in text, text
+    assert f"ran {[str(data), '--out', 'results.json']}" in text, text
+    assert "ran ['results.json', '--lang', 'zh,en', '--format', 'html']" in text, text
+    assert (local / "NeuroGrid" / "9.8.7" / "neurogrid.cmd").is_file()

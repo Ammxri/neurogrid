@@ -10,9 +10,9 @@ This bundle needs neither network nor a preinstalled Python. Results stay on thi
 where --out points; without --out, check writes results.json in the current folder, report writes next to
 results.json and manifest writes .neurogrid/manifest.json inside the dataset. Nothing is uploaded.
 
-1. 传输前在联网电脑上核验签名 / Before the transfer, verify the signature on a connected machine:
-     cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity {{identity}}
-       --certificate-oidc-issuer https://token.actions.githubusercontent.com
+1. 传输前在联网电脑上核验签名（一行命令）/ Before the transfer, verify the signature on a connected machine (one
+   command line):
+     cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity {{identity}} --certificate-oidc-issuer https://token.actions.githubusercontent.com
    签名者身份为 "-" 表示未签名的开发版本 / a signer identity "-" means an unsigned development build.
    请先将此签名者身份与项目发布页面（https://github.com/Ammxri/neurogrid/releases）发布说明中的身份核对：本文件和
    安装包中写明的身份可能随安装包一起被改动，单独不能证明来源。安装程序核验后也会显示该身份。
@@ -20,11 +20,13 @@ results.json and manifest writes .neurogrid/manifest.json inside the dataset. No
    (https://github.com/Ammxri/neurogrid/releases): the identity written here and in the bundle can be changed
    together with the bundle, so on its own it proves nothing. The installer shows it again after verifying.
 
-2. Windows 10/11 x64 (PowerShell 5.1):
-     install.cmd -SkipSignatureCheck          签名已在联网电脑上核验 / signature verified on a connected machine
-     install.cmd -Cosign C:\path\cosign.exe   在本机核验 / verify on this machine
-     %LOCALAPPDATA%\NeuroGrid\{{version}}\neurogrid.cmd check <数据集 / dataset> --out results.json
-     %LOCALAPPDATA%\NeuroGrid\{{version}}\neurogrid.cmd report results.json --lang zh,en --format html
+2. Windows 10/11 x64，在 PowerShell 中、于解压后的文件夹内 / in PowerShell, in the unpacked folder:
+     .\install.cmd -SkipSignatureCheck          签名已在联网电脑上核验 / signature verified on a connected machine
+     .\install.cmd -Cosign C:\path\cosign.exe   在本机核验 / verify on this machine
+     & "$env:LOCALAPPDATA\NeuroGrid\{{version}}\neurogrid.cmd" check <数据集 / dataset> --out results.json
+     & "$env:LOCALAPPDATA\NeuroGrid\{{version}}\neurogrid.cmd" report results.json --lang "zh,en" --format html
+   在 cmd.exe 中去掉 ".\" 和 "& "，并写 %LOCALAPPDATA% / in cmd.exe drop ".\" and "& " and write %LOCALAPPDATA%.
+   安装程序本身用 Windows PowerShell 5.1 运行 / the installer itself runs with Windows PowerShell 5.1.
    安装文件夹路径须较短，安装程序会给出上限 / the install folder path must be short; the installer names the limit.
 
 3. Linux x86_64, glibc >= 2.28 (Debian 12, Ubuntu 22.04+):
@@ -36,7 +38,7 @@ results.json and manifest writes .neurogrid/manifest.json inside the dataset. No
 
 4. PDF 报告（可选）需要单独的 PDF 浏览器，它不在本安装包内 / PDF reports (optional) need a separate PDF browser,
    which is not part of this bundle:
-     install.cmd -PdfBrowserZip <zip> -PdfBrowserSha256 <hex>
+     .\install.cmd -PdfBrowserZip <zip> -PdfBrowserSha256 <hex>
      ./install.sh --pdf-browser-zip <zip> --pdf-browser-sha256 <hex>
 
 5. 卸载：删除安装文件夹；若装过 PDF 浏览器，另删其文件夹（%LOCALAPPDATA%\NeuroGrid\pdf-browser 或

@@ -284,3 +284,28 @@ def test_signer_identity_is_compared_with_the_published_one() -> None:
         ("zh", "发布说明中的身份核对"),
     ):
         assert needle in _page(lang), lang
+
+
+def test_readme_commands_are_complete_lines_in_the_named_shell() -> None:
+    """Review R18: the cosign command of README.txt was split over two lines without a continuation (pasted,
+    cosign ran without --certificate-oidc-issuer), and the section headed PowerShell used cmd.exe syntax.
+    Every command line (indented by five spaces) is complete, and the Windows lines are PowerShell lines
+    (tests/packaging/test_install_ps1.py runs them)."""
+    lines = _read(PACKAGING / "README.bundle.txt").splitlines()
+    commands = [line.strip() for line in lines if line.startswith("     ")]
+    for line, following in zip(lines, lines[1:], strict=False):
+        if line.startswith("     "):
+            assert not following.lstrip().startswith("--"), (line, following)  # an option left over
+            assert not line.rstrip().endswith(("\\", "`")), line  # no continuation in either shell
+    (cosign,) = [line for line in commands if line.startswith("cosign ")]
+    assert "--certificate-identity {{identity}}" in cosign
+    assert cosign.endswith("--certificate-oidc-issuer https://token.actions.githubusercontent.com")
+    windows = [line for line in commands if "install.cmd" in line or "neurogrid.cmd" in line]
+    assert len(windows) == 5, windows
+    launcher = '& "$env:LOCALAPPDATA\\NeuroGrid\\{{version}}\\neurogrid.cmd" '
+    for line in windows:
+        assert line.startswith((".\\install.cmd ", launcher)), line
+        assert "%LOCALAPPDATA%" not in line, line
+        assert not re.search(r"\s--(lang|format) [^\"\s]*,", line), line  # a bare a,b: an array in PowerShell
+    heading = lines.index(next(line for line in lines if line.startswith("2. ")))
+    assert "PowerShell" in lines[heading] and "cmd.exe" in "\n".join(lines[heading : heading + 8])
