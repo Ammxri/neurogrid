@@ -57,7 +57,18 @@ jobs:
           uv run --no-sync mypy --strict src/neurogrid/kernel
           uv run --no-sync mypy src/neurogrid tools
       - name: Tests with coverage
-        run: uv run --no-sync pytest -q --cov=neurogrid --cov-report=json:coverage.json --cov-report=term
+        run: >-
+          uv run --no-sync pytest -q --cov=neurogrid --cov-report=json:coverage.json --cov-report=term
+          --junitxml=pytest-junit.xml
+      # On failure: the failed tests as error annotations of the check run, which the public API serves
+      # without a login (TECH-05). GitHub keeps 10 error annotations per step: the tests and the counts
+      # come from two steps.
+      - name: Failed tests as annotations (at most 10)
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --limit 10
+      - name: Test counts as an annotation
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary
       - name: Coverage gates (Kern >= 90 %, Prüfer >= 80 %)
         run: uv run --no-sync python tools/coverage_gates.py coverage.json
       - name: Determinism sample for cross-platform comparison

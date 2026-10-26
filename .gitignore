@@ -16,6 +16,7 @@ dist/
 .coverage
 .coverage.*
 coverage.xml
+pytest-junit.xml
 htmlcov/
 
 # Docs build output

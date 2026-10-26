@@ -665,6 +665,34 @@ def test_docs_and_corpus_workflows() -> None:
     assert [u["with"]["path"] for u in uploads] == ["acceptance-summary/"]
 
 
+# A step that runs pytest (not the name of its report file).
+PYTEST_CALL = re.compile(r"(?:python -m |uv run --no-sync )pytest(?![-\w])")
+JUNIT = "pytest-junit.xml"
+
+
+def test_every_pytest_step_annotates_its_failed_tests() -> None:
+    """TECH-05: a failed test must be readable without a login. Every step that runs pytest writes a JUnit
+    report, and the two steps right after it run only on failure: tools/junit_annotations.py prints at most
+    10 failed tests as error annotations (GitHub keeps 10 per step), then, in its own step, one annotation
+    with the counts."""
+    found = []
+    for name, job_id, job in _all_jobs():
+        steps = _steps(job)
+        for index, step in enumerate(steps):
+            if not PYTEST_CALL.search(str(step.get("run", ""))):
+                continue
+            found.append(f"{name}/{job_id}")
+            assert f"--junitxml={JUNIT}" in step["run"], (name, job_id)
+            failed, counts = steps[index + 1 : index + 3]
+            for after in (failed, counts):
+                assert after["if"] == f"failure() && hashFiles('{JUNIT}') != ''", (name, job_id)
+            tool = f"uv run --no-sync python tools/junit_annotations.py {JUNIT}"
+            assert failed["run"] == f"{tool} --limit 10", (name, job_id)
+            assert counts["run"] == f"{tool} --summary", (name, job_id)
+    assert sorted(found) == ["ci/test", "docs/browser", "offline/build"]
+    assert JUNIT in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+
 @pytest.mark.parametrize("name", NAMES)
 def test_workflows_are_lf_utf8(name: str) -> None:
     raw = (WORKFLOWS / f"{name}.yml").read_bytes()

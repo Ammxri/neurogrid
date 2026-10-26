@@ -58,4 +58,13 @@ jobs:
       - name: PDF browser (Chrome Headless Shell 1243 into NeuroGrid's folder, pinned SHA-256; D-08)
         run: uv run --no-sync python tools/install_pdf_browser.py
       - run: uv run --no-sync python tools/build_docs.py --site-dir site
-      - run: uv run --no-sync pytest -m browser tests/docs
+      - run: uv run --no-sync pytest -m browser tests/docs --junitxml=pytest-junit.xml
+      # On failure: the failed tests as error annotations of the check run, which the public API serves
+      # without a login (TECH-05). GitHub keeps 10 error annotations per step: the tests and the counts
+      # come from two steps.
+      - name: Failed tests as annotations (at most 10)
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --limit 10
+      - name: Test counts as an annotation
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary
