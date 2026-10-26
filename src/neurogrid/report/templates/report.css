@@ -3,7 +3,8 @@
    a monospace look comes from letter spacing. The @page rules with the margin boxes follow (render.py). */
 *, *::before, *::after { font-family: 'NG Sans' !important; font-synthesis: none; font-style: normal; }
 html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-body { font-size: 9pt; color: #1b1b1b; margin: 24px; line-height: 1.4; background: #fff; }
+body { font-size: 9pt; color: #1b1b1b; margin: 24px; line-height: 1.4; background: #fff;
+       overflow-wrap: anywhere; }
 h1 { font-size: 17pt; font-weight: 700; margin: 0 0 8px 0; }
 h2 { font-size: 13pt; font-weight: 700; border-bottom: 1px solid #999; padding-bottom: 3px; margin: 0 0 8px 0;
      break-before: page; break-after: avoid; }
@@ -34,22 +35,37 @@ tr.total th, tr.total td { font-weight: 700; background: #f4f4f4; }
 .rule-group > h4, .rule-group > .aggregate { break-after: avoid; }
 .aggregate { font-size: 8pt; color: #333; margin: 0 0 2px 0; }
 .more { font-size: 8pt; font-weight: 700; }
-/* Wide tables: fixed column shares (each table's shares sum to 100 %), so that no column is squeezed to one
-   character per line. A rule ID and a date never break: their columns hold the longest rule ID of the shipped
-   packs and an ISO date in the report font on the landscape page (measured, A-84). */
+/* Nothing is wider than its page (review R01): a line that is too wide makes Chromium shrink EVERY page of
+   the print to fit it. So text breaks anywhere when it must (overflow-wrap: anywhere on body, inherited by
+   every cell; it also lowers the min-content width of auto-layout tables, so a long value wraps instead of
+   widening its table), and a word that fits its line is never broken. NeuroGrid's own words in the auto-layout
+   tables (every header, the labels of key/value tables, and the body cells td.own: source status,
+   phase, light, coverage, origin, used/expired) stay on one line: anywhere also lowers THEIR min-content
+   width, and a long column (a SHA-256, a long value) then squeezed them mid-word ('Versio|n' on the cover).
+   Only headers that hold dataset values (th.value: AI label scopes) and the headers of the fixed-layout
+   tables below wrap like text.
+   Wide tables: fixed column shares (each table's shares sum to 100 %), so that no column is squeezed to one
+   character per line. Every word NeuroGrid writes into these tables (headers in bold, phases, statuses,
+   severities, verification kinds, clause texts, the labels of measured values except BIDS field names such as
+   EEGChannelCount, written as they are) fits its column in both report languages, so it never breaks
+   mid-word (review R04); a rule ID and a date never break either: their columns hold the longest rule ID of
+   the shipped packs and an ISO date (measured in the report font on the landscape page, A-84). Only dataset
+   values (file names, identifiers) can be longer than their column and break. */
 table.findings, table.rules, table.metrics, table.evidence, table.sample { table-layout: fixed; }
-table.findings td, table.rules td, table.metrics td, table.evidence td, table.sample td { overflow-wrap: anywhere; }
+th, td.own { white-space: nowrap; }
+table.findings th, table.rules th, table.metrics th, table.evidence th, table.sample th, th.value {
+  white-space: normal; }
 table.findings td.c-rule, .nowrap { white-space: nowrap; }
-col.w-rule { width: 12%; } col.w-clause { width: 5%; } col.w-title { width: 12%; } col.w-status { width: 7%; }
-col.w-file { width: 11%; } col.w-channel { width: 6%; } col.w-measured { width: 7%; } col.w-threshold { width: 10%; }
-col.w-time { width: 13%; } col.w-reason { width: 17%; }
-col.w-pack { width: 6%; } col.w-rtitle { width: 22%; } col.w-phase { width: 6%; } col.w-severity { width: 10%; }
-col.w-kind { width: 6%; } col.w-count { width: 5.5%; }
-col.w-recording { width: 13%; } col.w-format { width: 6%; } col.w-num { width: 5%; } col.w-line { width: 8%; }
+col.w-rule { width: 12%; } col.w-clause { width: 6.5%; } col.w-title { width: 12%; } col.w-status { width: 7%; }
+col.w-file { width: 11%; } col.w-channel { width: 6%; } col.w-measured { width: 8%; } col.w-threshold { width: 10%; }
+col.w-time { width: 11.5%; } col.w-reason { width: 16%; }
+col.w-pack { width: 6%; } col.w-rtitle { width: 16.5%; } col.w-phase { width: 7%; } col.w-severity { width: 7%; }
+col.w-kind { width: 6%; } col.w-count { width: 6.5%; }
+col.w-recording { width: 11.5%; } col.w-format { width: 6%; } col.w-num { width: 5.5%; } col.w-line { width: 8%; }
 col.w-metric { width: 7%; } col.w-metric2 { width: 9%; }
 col.w-erule { width: 12%; } col.w-etitle { width: 12%; } col.w-ekind { width: 8%; } col.w-estatus { width: 9%; }
-col.w-ereason { width: 11%; } col.w-edoc { width: 10%; } col.w-echeck { width: 9%; } col.w-esha { width: 10%; }
-col.w-ereviewer { width: 6%; } col.w-edate { width: 7%; } col.w-ecomment { width: 6%; }
+col.w-ereason { width: 9.5%; } col.w-edoc { width: 10%; } col.w-echeck { width: 9%; } col.w-esha { width: 10%; }
+col.w-ereviewer { width: 6%; } col.w-edate { width: 7%; } col.w-ecomment { width: 7.5%; }
 col.w-srec { width: 11%; } col.w-smode { width: 6%; } col.w-sseg { width: 50%; } col.w-sseed { width: 7%; }
 col.w-sch { width: 6%; } col.w-spos { width: 12%; } col.w-snotch { width: 8%; }
 table.metrics, table.sample { font-size: 7pt; }

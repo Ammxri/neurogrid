@@ -137,6 +137,44 @@ def test_glyph_twins_in_the_dataset_name_exit_0_with_the_name_as_written(
     assert all(lowest in _plain(_pdf_text(kept / f"report.{lang}.pdf")) for lang in ("zh", "en"))
 
 
+LIGATURE_NAME = "Classiﬁcation of ﬂankers ⸺ ―"
+# presentation forms and the dash glyphs that a substitution of NeuroGrid's own text can produce
+SUBSTITUTED = re.compile("[ﬀ-ﬆ⸺⸻―]")
+
+
+@pytest.mark.pdf
+def test_substitution_twins_in_the_dataset_name_leave_the_report_text_unchanged(
+    results_file: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Review R02 (A-27): a dataset name with ligature presentation forms (copied from a PDF paper) and
+    U+2E3A/U+2015 used to make the subsets map those code points to the glyphs that 'liga', 'ccmp' and the
+    zh 'locl' produce, so every 'fi' and 'fl' of NeuroGrid's own words extracted as U+FB01/U+FB02
+    ('Conﬁguration', 'edﬁo'). Now the PDF text holds the name as written and none of these characters
+    anywhere else, while 'fi' occurs. Negative control with the rule switched off: U+FB01 in own words."""
+    results = Results.model_validate_json(results_file.read_bytes())
+    results.dataset.name = LIGATURE_NAME
+    source = tmp_path / "results.json"
+    source.write_bytes(canonical.dumps(results))
+    args = ["report", str(source), "--lang", "zh,en", "--format", "pdf", "--out"]
+    code, _, err = run([*args, str(tmp_path / "out")], capsys)
+    assert code == 0, err
+    for lang in ("zh", "en"):
+        text = _plain(_pdf_text(tmp_path / "out" / f"report.{lang}.pdf"))
+        assert _plain(LIGATURE_NAME) in text, lang
+        rest = text.replace(_plain(LIGATURE_NAME), "")
+        assert SUBSTITUTED.findall(rest) == [] and "fi" in rest and "fl" in rest.lower(), lang
+    fonts._subset.cache_clear()
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(fonts, "substituted_glyphs", lambda font: {})
+            code, _, err = run([*args, str(tmp_path / "kept")], capsys)
+    finally:
+        fonts._subset.cache_clear()  # no other test sees a subset with the twins
+    assert code == 0, err
+    before = _plain(_pdf_text(tmp_path / "kept" / "report.en.pdf")).replace(_plain(LIGATURE_NAME), "")
+    assert "ﬁ" in before
+
+
 def _child_log_state(executable: Path) -> int | None:
     log = executable.parent / "debug.log"
     return log.stat().st_size if log.is_file() else None
@@ -325,24 +363,76 @@ def test_bundle_installation_hint_names_its_own_installer_command(
     results_file: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """B2: in an offline-bundle installation (marker file in the prefix) the hint is the command with the
-    bundled interpreter and script, the home folder shown as ~ (A-51)."""
+    bundled interpreter and script. Review R07: it runs as printed and holds no user name (A-51), so the
+    home folder is not written as '~' (neither Command Prompt nor PowerShell expands it in an argument):
+    on Windows one command for Command Prompt and one for PowerShell with LOCALAPPDATA, on Linux "$HOME".
+    Both are run here as printed; a stub interpreter (the real one, copied) and a stub script answer."""
     from neurogrid.kernel import pdf
 
-    prefix = tmp_path / "NeuroGrid 0.1"
-    python = prefix / "python" / ("python.exe" if os.name == "nt" else "bin/python3.12")
+    windows = os.name == "nt"
+    base = tmp_path / ("Local" if windows else "home")
+    if windows:
+        monkeypatch.setenv("LOCALAPPDATA", str(base))
+    else:
+        monkeypatch.setenv("HOME", str(base))
+    prefix = base / "NeuroGrid 0.1"
+    python = prefix / "python" / ("python.exe" if windows else "bin/python3.12")
     script = prefix / "tools" / "install_pdf_browser.py"
-    for path in (prefix / pdf.BUNDLE_MARKER, python, script):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"")
+    python.parent.mkdir(parents=True)
+    script.parent.mkdir(parents=True)
+    (prefix / pdf.BUNDLE_MARKER).write_bytes(b"{}")
+    script.write_text("import sys\nprint('stub installer', *sys.argv[1:])\n", encoding="utf-8")
+    env = {**os.environ}
+    if windows:  # the interpreter and its DLLs, with its standard library through PYTHONHOME
+        base_python = Path(getattr(sys, "_base_executable", sys.executable))
+        for file in [
+            base_python,
+            *base_python.parent.glob("python*.dll"),
+            *base_python.parent.glob("vc*.dll"),
+        ]:
+            shutil.copy2(file, python.parent / ("python.exe" if file == base_python else file.name))
+        env["PYTHONHOME"] = sys.base_prefix
+    else:
+        python.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n', encoding="utf-8")
+        python.chmod(0o755)
     monkeypatch.setattr(pdf.sys, "prefix", str(prefix / "venv"))
     monkeypatch.setenv(ENV_BROWSER_DIR, str(tmp_path / "no-browser"))
     out = tmp_path / "out"
     code, _, err = run(["report", str(results_file), "--format", "pdf", "--out", str(out)], capsys)
     assert code == 2 and not out.exists()
-    assert "Install it with: " in err and "--from-zip <zip file> --sha256 <SHA-256>" in err
-    home = str(Path.home())
-    command = f'"{str(python).replace(home, "~")}" "{str(script).replace(home, "~")}"'
-    assert command in err and home not in err
+    assert "--from-zip <zip file> --sha256 <SHA-256>" in err
+    (hint,) = [line for line in err.splitlines() if "--from-zip" in line]
+    assert str(Path.home()) not in err and str(base) not in hint and "~" not in hint
+    if windows:
+        found = re.search(
+            r"Install it in Command Prompt with: (.+?)   or in PowerShell with: (.+?)   \(", err
+        )
+        assert found is not None, err
+        cmd, powershell = found.groups()
+        assert cmd == (
+            '"%LOCALAPPDATA%\\NeuroGrid 0.1\\python\\python.exe" '
+            '"%LOCALAPPDATA%\\NeuroGrid 0.1\\tools\\install_pdf_browser.py"'
+        )
+        runs = [
+            subprocess.run(f'cmd /d /s /c "{cmd} --check"', capture_output=True, env=env, check=False),
+            subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", f"{powershell} --check"],
+                capture_output=True,
+                env=env,
+                check=False,
+            ),
+        ]
+    else:
+        found = re.search(r"Install it with: (.+?)   \(", err)
+        assert found is not None, err
+        (command,) = found.groups()
+        assert command == (
+            '"$HOME/NeuroGrid 0.1/python/bin/python3.12" "$HOME/NeuroGrid 0.1/tools/install_pdf_browser.py"'
+        )
+        runs = [subprocess.run(["sh", "-c", f"{command} --check"], capture_output=True, env=env, check=False)]
+    for done in runs:
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert done.stdout.decode("utf-8").strip() == "stub installer --check"
 
 
 def test_html_only_works_without_shell(results_file: Path, tmp_path: Path) -> None:

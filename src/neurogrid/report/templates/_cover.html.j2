@@ -14,7 +14,7 @@
     <thead><tr><th>{{ t('report.label.rulepacks') }}</th><th>{{ t('report.label.version') }}</th><th>{{ t('report.label.source_status') }}</th><th>SHA-256</th></tr></thead>
     <tbody>
     {% for pack in results.rulepacks %}
-    <tr><td>{{ pack.name }} ({{ pack.source }})</td><td>{{ pack.version }}</td><td>{{ fmt.label('source_status', pack.source_status.value) }}</td><td class="mono">{{ pack.sha256 }}</td></tr>
+    <tr><td>{{ pack.name }} ({{ pack.source }})</td><td>{{ pack.version }}</td><td class="own">{{ fmt.label('source_status', pack.source_status.value) }}</td><td class="mono">{{ pack.sha256 }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

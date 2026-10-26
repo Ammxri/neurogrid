@@ -12,7 +12,7 @@ import subprocess
 import sys
 import tempfile
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
 import pypdf
@@ -165,7 +165,25 @@ def test_install_hint_bundle_command_otherwise_docs_page(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"")
     monkeypatch.setattr(pdf.sys, "prefix", str(prefix / "venv"))
-    assert pdf.install_hint() == ("pdf.install.command", {"command": f'"{python}" "{script}"'})
+    # review R07: written so that it runs as printed and holds no user name (no '~', no home folder)
+    if os.name == "nt":
+        assert pdf.install_hint({"LOCALAPPDATA": str(tmp_path)}) == (
+            "pdf.install.command_windows",
+            {
+                "cmd": '"%LOCALAPPDATA%\\Neuro Grid\\python\\python.exe" '
+                '"%LOCALAPPDATA%\\Neuro Grid\\tools\\install_pdf_browser.py"',
+                "powershell": '& "$env:LOCALAPPDATA\\Neuro Grid\\python\\python.exe" '
+                '"$env:LOCALAPPDATA\\Neuro Grid\\tools\\install_pdf_browser.py"',
+            },
+        )
+    else:
+        assert pdf.install_hint({"HOME": str(tmp_path)}) == (
+            "pdf.install.command",
+            {
+                "command": '"$HOME/Neuro Grid/python/bin/python3.12" '
+                '"$HOME/Neuro Grid/tools/install_pdf_browser.py"'
+            },
+        )
     plain = tmp_path / "plain"
     for path in (
         plain / pdf.BUNDLE_MARKER,
@@ -181,6 +199,52 @@ def test_install_hint_bundle_command_otherwise_docs_page(
         (prefix / missing).unlink()
         assert pdf.install_hint() == ("pdf.install.docs", {})
         (prefix / missing).write_bytes(b"")
+
+
+def test_install_commands_for_each_shell_and_prefix() -> None:
+    """Review R07: the offline-bundle hint printed '~\\AppData\\Local\\...\\python\\python.exe ~\\...' (the
+    home folder redacted on the console), which neither Command Prompt nor PowerShell can run. Windows: a
+    prefix below LOCALAPPDATA, else below the user profile, is written with that variable for both shells
+    (in any letter case; $ and ` escaped for PowerShell); a prefix elsewhere as it is (PowerShell: literal
+    single quotes). Linux: "$HOME/..." inside double quotes, \\ " $ ` escaped; a prefix elsewhere as it is."""
+    local, profile = r"C:\Users\lin.wei\AppData\Local", r"C:\Users\lin.wei"
+    env = {"LOCALAPPDATA": local, "USERPROFILE": profile}
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(local.upper(), "NeuroGrid", "0.1.0"), env, None)
+    assert cmd == (
+        '"%LOCALAPPDATA%\\NeuroGrid\\0.1.0\\python\\python.exe" '
+        '"%LOCALAPPDATA%\\NeuroGrid\\0.1.0\\tools\\install_pdf_browser.py"'
+    )
+    assert powershell == (
+        '& "$env:LOCALAPPDATA\\NeuroGrid\\0.1.0\\python\\python.exe" '
+        '"$env:LOCALAPPDATA\\NeuroGrid\\0.1.0\\tools\\install_pdf_browser.py"'
+    )
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(profile, "tools", "N$G`1"), env, None)
+    assert cmd.startswith('"%USERPROFILE%\\tools\\N$G`1\\python\\python.exe" ')
+    assert powershell.startswith('& "$env:USERPROFILE\\tools\\N`$G``1\\python\\python.exe" ')
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(profile, "NG"), {}, profile)  # no variables set
+    assert cmd.startswith('"%USERPROFILE%\\NG\\python\\python.exe" ')
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(r"D:\Tools\Neuro Grid's"), env, profile)
+    assert cmd == (
+        '"D:\\Tools\\Neuro Grid\'s\\python\\python.exe" '
+        '"D:\\Tools\\Neuro Grid\'s\\tools\\install_pdf_browser.py"'
+    )
+    assert powershell == (
+        "& 'D:\\Tools\\Neuro Grid''s\\python\\python.exe' "
+        "'D:\\Tools\\Neuro Grid''s\\tools\\install_pdf_browser.py'"
+    )
+    for text in (cmd, powershell):
+        assert "lin.wei" not in text and "~" not in text
+    assert pdf._posix_command(PurePosixPath("/home/lin/.local/share/neurogrid/0.1.0"), "/home/lin") == (
+        '"$HOME/.local/share/neurogrid/0.1.0/python/bin/python3.12" '
+        '"$HOME/.local/share/neurogrid/0.1.0/tools/install_pdf_browser.py"'
+    )
+    assert pdf._posix_command(PurePosixPath('/home/lin/a$b"c'), "/home/lin/") == (
+        '"$HOME/a\\$b\\"c/python/bin/python3.12" "$HOME/a\\$b\\"c/tools/install_pdf_browser.py"'
+    )
+    assert pdf._posix_command(PurePosixPath("/opt/ng"), "/home/lin") == (
+        '"/opt/ng/python/bin/python3.12" "/opt/ng/tools/install_pdf_browser.py"'
+    )
+    assert pdf._posix_command(PurePosixPath("/home/linda/ng"), "/home/lin").startswith('"/home/linda/')
 
 
 def test_ldd_parser_maps_missing_libraries_to_packages() -> None:
@@ -227,6 +291,7 @@ def test_preflight(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         def fake(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
             calls.append(args)
             assert kwargs["env"]["LC_ALL"] == "C" and kwargs["check"] is False and "shell" not in kwargs
+            assert kwargs["text"] is True and kwargs["encoding"] == "utf-8"  # no locale default (Linux CI)
             return subprocess.CompletedProcess(args, 0, output, "")
 
         return fake
@@ -251,6 +316,58 @@ def test_preflight(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(PdfError) as info:
         pdf.preflight(shell)
     assert info.value.message_key == "pdf.playwright_version" and info.value.params["found"] == "1.64.1"
+
+
+def test_preflight_ldd_run_raises_no_encoding_warning(tmp_path: Path) -> None:
+    """Linux CI (PYTHONWARNDEFAULTENCODING=1, pytest's filterwarnings error::EncodingWarning:neurogrid): the
+    ldd run of the start check used text mode without an encoding, so every PDF report on Linux ended as an
+    internal error (exit 2). Simulated here with the real subprocess.run under -X warn_default_encoding:
+    a Python script stands in for ldd and prints the synthetic Debian 12 output."""
+    fake_ldd = tmp_path / "ldd.py"
+    fake_ldd.write_text(f"import sys\nsys.stdout.write({LDD_DEBIAN12_SYNTHETIC!r})\n", encoding="utf-8")
+    release = tmp_path / "os-release"
+    release.write_text("ID=debian\nVERSION_ID=12\n", encoding="utf-8")
+    code = "\n".join(
+        (
+            "import sys",
+            "from pathlib import Path",
+            "from neurogrid.kernel import pdf",
+            "from neurogrid.kernel.errors import PdfError",
+            "pdf.shutil.which = lambda name: sys.executable",
+            "shell = pdf.ShellInstall(Path(sys.argv[1]), Path(sys.argv[1]), Path(sys.argv[2]), 'linux64')",
+            "try:",
+            "    pdf.preflight(shell, os_release=Path(sys.argv[3]))",
+            "except PdfError as exc:",
+            "    print(exc.message_key, exc.params['libraries'])",
+        )
+    )
+    done = subprocess.run(
+        [sys.executable, "-X", "warn_default_encoding", "-W", "error::EncodingWarning", "-c", code]
+        + [str(tmp_path), str(fake_ldd), str(release)],
+        capture_output=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert done.stdout.strip() == "pdf.linux_libraries libasound.so.2, libnss3.so, libnssutil3.so"
+
+
+def test_no_text_mode_subprocess_without_an_encoding_in_the_package() -> None:
+    """ruff's PLW1514 covers open() only: a subprocess call in text mode (text=True, universal_newlines=True)
+    must name its encoding too, or it raises EncodingWarning under PYTHONWARNDEFAULTENCODING on a code path
+    that may only run on Linux (the ldd start check did)."""
+    offenders: list[str] = []
+    for file in sorted((ROOT / "src" / "neurogrid").rglob("*.py")):
+        for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call):
+                continue
+            names = {keyword.arg: keyword.value for keyword in node.keywords if keyword.arg}
+            flags = [names.get(name) for name in ("text", "universal_newlines")]
+            text_mode = any(isinstance(flag, ast.Constant) and flag.value is True for flag in flags)
+            if text_mode and "encoding" not in names:
+                offenders.append(f"{file.relative_to(ROOT).as_posix()}:{node.lineno}")
+    assert offenders == []
 
 
 def test_playwright_version_matches_pin_and_browsers_json_revision_1243() -> None:

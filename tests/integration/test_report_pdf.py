@@ -18,6 +18,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -152,6 +154,140 @@ def test_metadata_title_dates_and_no_other_keys(results: Results, written: dict[
         assert info["/Creator"] == "Chromium" and info["/Producer"].startswith("Skia/PDF")
         root = reader.root_object
         assert "/Metadata" not in root and "/ID" not in reader.trailer
+
+
+# Chromium's page content: the page's own flip (0.24 = 72/300) and then the CSS-pixel scale of the body,
+# 3.125 x 0.24 = 0.75 pt per px (96 dpi). Shrink-to-fit (content wider than the page) lowers the latter.
+_CM = re.compile(rb"(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) -?[\d.]+ -?[\d.]+ cm")
+DESIGNED_SCALE = b"3.125"
+
+
+def _page_scales(data: bytes) -> list[set[bytes]]:
+    """Per page the scale factors of every transformation of the content (test oracle), the page flip
+    left out."""
+    scales = []
+    for page in pypdf.PdfReader(io.BytesIO(data)).pages:
+        found = set()
+        contents = page.get_contents()
+        assert contents is not None
+        for match in _CM.finditer(contents.get_data()):
+            a, b, c, d = match.groups()
+            assert b == c == b"0" and abs(float(a)) == abs(float(d)), match.group(0)
+            if float(d) > 0:
+                found.add(a)
+        scales.append(found)
+    return scales
+
+
+@pytest.mark.pdf
+def test_every_page_keeps_the_designed_scale(written: dict[str, Path]) -> None:
+    """Review R01: nothing in the report is wider than its page, so Chromium never shrinks the print to fit.
+    Before the repair the header 'Comment / justification' of the evidence table overflowed its column,
+    the table its page, and every page of these reports was printed at 99.5 %."""
+    for lang in ("zh", "en"):
+        scales = _page_scales(written[f"report.{lang}.pdf"].read_bytes())
+        assert scales and all(found == {DESIGNED_SCALE} for found in scales), (lang, scales)
+
+
+@pytest.mark.pdf
+def test_long_unbreakable_values_wrap_and_keep_the_page_scale(
+    results: Results, written: dict[str, Path], tmp_path: Path
+) -> None:
+    """Review R01 (REP-00): a dataset name of 200 characters without a break (the limit of a real check
+    run), a licence URL of 180 and a version of 120 (a hand-edited results.json) wrap in the cover table.
+    Every page keeps the designed scale, the report keeps its page count, and every value is in the PDF in
+    full. Before the repair the cover table widened the page: every page shrank to 2/3, the en report had 12
+    pages instead of 21, and the name and the licence were clipped."""
+    long_values = {
+        "name": "N" * 200,
+        "license": "https://example.org/" + "l" * 160,
+        "version": "v" * 120,
+    }
+    changed = results.model_copy(deep=True)
+    changed.dataset = changed.dataset.model_copy(update=long_values)
+    paths = write_reports(changed, ["zh", "en"], ["pdf"], tmp_path, environ=os.environ)
+    for lang, path in zip(("zh", "en"), paths, strict=True):
+        data = path.read_bytes()
+        scales = _page_scales(data)
+        assert all(found == {DESIGNED_SCALE} for found in scales), (lang, scales)
+        baseline = pypdf.PdfReader(io.BytesIO(written[f"report.{lang}.pdf"].read_bytes())).pages
+        assert len(scales) == len(baseline), lang
+        text = _squeeze("".join(_texts(data)))
+        assert all(value in text for value in long_values.values()), lang
+
+
+# The body cells of the auto-layout tables that hold NeuroGrid's own words, by table and column: the source
+# status of a rule pack, the phase and its light, the coverage, the origin of a threshold, 'used'/'expired'.
+# Every header holds own words too, except the AI label scopes (names from the dataset) after the first.
+OWN_BODY_COLUMNS = {"rulepacks": [2], "phases": [0, 1], "coverage": [1], "params": [3], "exceptions": [5, 6]}
+# The content width of the portrait page and of the landscape page 'wide' in CSS px (A4, 13 mm side margins,
+# render.page_css), rounded down; the sections of the landscape page (report.css).
+PAGE_WIDTHS = {False: int((210 - 26) / 25.4 * 96), True: int((297 - 26) / 25.4 * 96)}
+WIDE_SECTIONS = "section#findings, section#metrics, section#evidence, section#appendix"
+_OWN_WORDS_JS = """
+([wide, sections, own]) => {
+  const broken = [], checked = [];
+  for (const table of document.querySelectorAll('table')) {
+    if (getComputedStyle(table).tableLayout !== 'auto' || !!table.closest(sections) !== wide) continue;
+    const name = table.className;
+    for (const row of table.rows) {
+      Array.from(row.cells).forEach((cell, index) => {
+        const header = cell.tagName === 'TH';
+        if (header ? name === 'labels' && row.parentElement.tagName === 'THEAD' && index > 0
+                   : !(own[name] || []).includes(index)) return;
+        const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          for (const match of node.data.matchAll(/\\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            const lines = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0)
+                                  .map((r) => Math.round(r.top)));
+            checked.push(name + ': ' + match[0]);
+            if (lines.size > 1) broken.push(name + ': ' + match[0]);
+          }
+        }
+      });
+    }
+  }
+  return [broken, checked];
+}
+"""
+
+
+@pytest.mark.pdf
+def test_own_words_never_break_in_the_auto_layout_tables(
+    results: Results, written: dict[str, Path], pdf_shell: ShellInstall, tmp_path: Path
+) -> None:
+    """Review R01 follow-up (REP-00): overflow-wrap: anywhere on body lowers the min-content width of every
+    cell, so in an auto-layout table a long column squeezed the others below NeuroGrid's own words: the
+    rule-pack table on the cover printed 'Versio|n' in every en report (base and with long dataset values),
+    c3be509 did not. Every whitespace-separated word of every header and of the own-vocabulary cells of the
+    auto-layout tables stands on one line, laid out by the real shell at the content width of its page in
+    print media, for the reports of ``results`` and with long dataset values, in zh and en."""
+    long_values = {"name": "N" * 200, "license": "https://example.org/" + "l" * 160, "version": "v" * 120}
+    changed = results.model_copy(deep=True)
+    changed.dataset = changed.dataset.model_copy(update=long_values)
+    extra = write_reports(changed, ["zh", "en"], ["html"], tmp_path / "long", environ=os.environ)
+    documents = [written["report.zh.html"], written["report.en.html"], *extra]
+    broken: list[tuple[str, bool, str]] = []
+    with _measuring_page(pdf_shell) as (page, _work):
+        page.emulate_media(media="print")
+        for document in documents:
+            lang = document.name.split(".")[1]
+            for wide, width in PAGE_WIDTHS.items():
+                page.set_viewport_size({"width": width, "height": 1200})
+                page.goto(document.as_uri())
+                page.evaluate("document.fonts.ready")
+                assert page.evaluate("document.fonts.check(\"8pt 'NG Sans'\")"), document
+                found, checked = page.evaluate(_OWN_WORDS_JS, [wide, WIDE_SECTIONS, OWN_BODY_COLUMNS])
+                broken += [(document.parent.name + "/" + document.name, wide, word) for word in found]
+                if not wide:  # the header the verifier saw broken is among the words checked
+                    version = translator(lang).t("report.label.version")
+                    assert f"rulepacks: {version.split()[0]}" in checked, (document, checked)
+                else:
+                    assert any(word.startswith("params: ") for word in checked), (document, checked)
+    assert not broken, broken
 
 
 def _page_counter(number: int, total: int) -> re.Pattern[str]:
@@ -495,6 +631,61 @@ LONG_BASETEMP_TESTS = (
 )
 
 
+@contextlib.contextmanager
+def _entries_seen(folder: Path) -> Iterator[dict[str, set[str]]]:
+    """Every name that appears in a folder below ``folder`` while the block runs, also one that is gone again
+    at its end (polled every 20 ms in a thread), by folder (as in conftest.folder_content), and under the key
+    'debug.log' the first line of each debug.log seen (who wrote it and why). A diagnostic: a created and
+    removed entry changes only its folder's modification time, which folder_content cannot explain."""
+
+    def names() -> dict[str, set[str]]:
+        return {here: set(folders) | set(files) for here, folders, files in os.walk(folder)}
+
+    known = names()
+    seen: dict[str, set[str]] = {}
+    stop = threading.Event()
+
+    def poll() -> None:
+        while not stop.wait(0.02):
+            for here, now in names().items():
+                new = now - known.get(here, set())
+                if not new:
+                    continue
+                seen.setdefault(Path(here).relative_to(folder).as_posix() + "/", set()).update(new)
+                if pdf.CHILD_LOG in new:
+                    with contextlib.suppress(OSError):
+                        text = (Path(here) / pdf.CHILD_LOG).read_bytes()[:400].decode("utf-8", "replace")
+                        seen.setdefault(pdf.CHILD_LOG, set()).add(text.splitlines()[0] if text else "(empty)")
+
+    thread = threading.Thread(target=poll, daemon=True)
+    thread.start()
+    try:
+        yield seen
+    finally:
+        stop.set()
+        thread.join()
+
+
+def test_entries_seen_names_a_debug_log_written_and_removed_again(tmp_path: Path) -> None:
+    """The diagnostic of the long-basetemp check (CI run 40355705974: only the modification time of the
+    executable's folder, the fourth entry of folder_content, differed, so an entry was created and removed
+    there): a debug.log that exists only for a moment is named with its folder and first line."""
+    shell = tmp_path / "chrome-headless-shell-win64"
+    shell.mkdir()
+    (shell / "kept.pak").write_bytes(b"x")
+    with _entries_seen(tmp_path) as seen:
+        log = shell / pdf.CHILD_LOG
+        log.write_bytes(b"[1026/120000.000:ERROR:example.cc(1)] child error\nsecond line\n")
+        deadline = time.monotonic() + 10
+        while pdf.CHILD_LOG not in seen and time.monotonic() < deadline:
+            threading.Event().wait(0.01)
+        log.unlink()
+    assert seen == {
+        "chrome-headless-shell-win64/": {pdf.CHILD_LOG},
+        pdf.CHILD_LOG: {"[1026/120000.000:ERROR:example.cc(1)] child error"},
+    }
+
+
 @pytest.mark.pdf
 def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: Path) -> None:
     """P2: the browser's work folder never follows the paths a caller uses (kernel.pdf.browser_work; the
@@ -508,25 +699,43 @@ def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: 
     basetemp.parent.mkdir(parents=True)  # pytest creates the basetemp itself, not its parents
     with fresh_shell(pdf_shell) as shell:
         before = folder_content(shell.folder)
-        done = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--basetemp={basetemp}"]
-            + list(LONG_BASETEMP_TESTS),
-            capture_output=True,
-            cwd=Path(__file__).parent.parent.parent,
-            env={
-                **os.environ,
-                pdf.ENV_BROWSER_DIR: str(shell.folder),
-                "NEUROGRID_REQUIRE_PDF": "1",
-                "PYTHONIOENCODING": "utf-8",
-            },
-            check=False,
-        )
+        with _entries_seen(shell.folder) as seen:
+            done = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--basetemp={basetemp}"]
+                + list(LONG_BASETEMP_TESTS),
+                capture_output=True,
+                cwd=Path(__file__).parent.parent.parent,
+                env={
+                    **os.environ,
+                    pdf.ENV_BROWSER_DIR: str(shell.folder),
+                    "NEUROGRID_REQUIRE_PDF": "1",
+                    "PYTHONIOENCODING": "utf-8",
+                },
+                check=False,
+            )
         after = folder_content(shell.folder)
     report = done.stdout.decode("utf-8", "replace")
     assert done.returncode == 0, report[-3000:]
     summary = report.strip().splitlines()[-1]
     assert re.match(r"^6 passed\b", summary) and "skipped" not in summary, summary
-    assert after == before
+
+    # the differing entries first, on one line: CI shows only the first line of a failure without a login
+    def change(key: str) -> str:
+        old, new = before.get(key), after.get(key)
+        if old is None or new is None:
+            return f"{key} {'added' if old is None else 'removed'}"
+        if key.endswith("/"):  # (entries, size, mtime): name the entries that differ
+            entries = sorted(set(old[0]) ^ set(new[0]))
+            return f"{key} entries {entries}, size {old[1]} -> {new[1]}, mtime {old[2]} -> {new[2]}"
+        return f"{key} (size, mtime, sha256) {old} -> {new}"
+
+    changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))
+    transient = "; ".join(f"{key} {sorted(names)}" for key, names in sorted(seen.items()))
+    assert after == before, (
+        "changed in the browser folder: "
+        + "; ".join(change(key) for key in changed)
+        + f" | seen during the run: {transient or 'nothing'}"
+    )
 
 
 @pytest.mark.pdf
@@ -908,6 +1117,105 @@ def test_output_that_cannot_be_written_ends_before_the_browser_starts(
     assert not new_folder.exists()  # created by the check, removed again
     paths = write_reports(results, ["en"], ["html", "pdf"], new_folder, environ={})
     assert len(started) == 1 and sorted(p.name for p in new_folder.iterdir()) == [p.name for p in paths]
+
+
+REPORT_NAMES = ("report.zh.html", "report.zh.pdf", "report.en.html", "report.en.pdf")
+
+
+def _earlier_reports(folder: Path, names: tuple[str, ...] = REPORT_NAMES) -> dict[str, bytes]:
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        (folder / name).write_bytes(f"earlier {name}".encode())
+    return {path.name: path.read_bytes() for path in folder.iterdir()}
+
+
+def _new_reports(folder: Path) -> dict[Path, bytes]:
+    return {folder / name: f"new {name}".encode() for name in REPORT_NAMES}
+
+
+@pytest.mark.parametrize("failing_call", range(1, 9))
+def test_write_all_restores_the_earlier_reports_when_a_rename_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing_call: int
+) -> None:
+    """Review R00 (B1 all-or-nothing): a rename that fails part way (the 1st to 4th moves an earlier report
+    aside, the 5th to 8th moves a new one in) restores every earlier report byte for byte and leaves no new,
+    staged or backup file behind. Before the repair the renames had no rollback: report.zh.html was new and
+    the other three old."""
+    before = _earlier_reports(tmp_path)
+    real_replace = os.replace
+    calls: list[str] = []
+
+    def replace(source: Any, target: Any) -> None:
+        calls.append(Path(source).name)
+        if len(calls) == failing_call:
+            raise PermissionError(13, "in use by another process")
+        real_replace(source, target)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "replace", replace)
+        with pytest.raises(InputError) as info:
+            output.write_all(_new_reports(tmp_path))
+    assert info.value.message_key == "output.not_writable"
+    assert len(calls) >= failing_call
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+def test_write_all_without_earlier_reports_leaves_nothing_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Some targets are new: a failure while moving in removes the new files already placed."""
+    before = _earlier_reports(tmp_path, ("report.en.pdf",))
+    real_replace = os.replace
+
+    def replace(source: Any, target: Any) -> None:
+        if Path(target).name == "report.en.pdf" and Path(source).suffix == ".tmp":
+            raise PermissionError(13, "in use by another process")
+        real_replace(source, target)
+
+    monkeypatch.setattr(os, "replace", replace)
+    with pytest.raises(InputError):
+        output.write_all(_new_reports(tmp_path))
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+def test_write_all_replaces_every_report_and_removes_the_backups(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Success: the new bytes, no backup or staged file; a backup that cannot be deleted afterwards does
+    not fail the run (the new reports are complete)."""
+    _earlier_reports(tmp_path)
+    files = _new_reports(tmp_path)
+    output.write_all(files)
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == {
+        path.name: data for path, data in files.items()
+    }
+    real_unlink = Path.unlink
+
+    def unlink(self: Path, missing_ok: bool = False) -> None:
+        if self.suffix == ".bak":
+            raise PermissionError(13, "in use by another process")
+        real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    newer = {path: data + b" again" for path, data in files.items()}
+    output.write_all(newer)
+    assert all(path.read_bytes() == data for path, data in newer.items())
+    backups = [path for path in tmp_path.iterdir() if path.suffix == ".bak"]
+    assert len(backups) == 4 and all(path.name.startswith(".report.") for path in backups)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows locks a file that a program holds open")
+@pytest.mark.parametrize("locked", REPORT_NAMES)
+def test_write_all_with_a_report_open_in_a_viewer_changes_nothing(tmp_path: Path, locked: str) -> None:
+    """Review R00, the real case: a report held open like a PDF viewer does (Python's open() shares no
+    delete access, so the file cannot be renamed). Exit 2 (output.not_writable) and all four earlier
+    reports unchanged, whichever one is open."""
+    before = _earlier_reports(tmp_path)
+    with (tmp_path / locked).open("rb"):
+        with pytest.raises(InputError) as info:
+            output.write_all(_new_reports(tmp_path))
+    assert info.value.message_key == "output.not_writable"
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
 
 
 @pytest.mark.pdf

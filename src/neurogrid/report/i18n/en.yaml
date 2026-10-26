@@ -230,6 +230,7 @@ errors:
     temp_unusable_hint: "Set TEMP and TMP (Linux: TMPDIR) to an existing local folder you can write to and run the command again."
     install:
       command: "Install it with: {command}   (offline: add --from-zip <zip file> --sha256 <SHA-256>; see the documentation)."
+      command_windows: "Install it in Command Prompt with: {cmd}   or in PowerShell with: {powershell}   (offline: add --from-zip <zip file> --sha256 <SHA-256>; see the documentation)."
       docs: "How to install it: documentation, installation page, section 'PDF browser'. The installer install_pdf_browser.py is attached to every NeuroGrid release (address and SHA-256 there); run it with Python 3.11 or later."
       apt: "On {distribution}, install them with: apt-get install --no-install-recommends {packages}"
       apt_other: "This Linux distribution is not verified; the packages for {distribution} are: apt-get install --no-install-recommends {packages}"
@@ -692,6 +693,9 @@ report:
     title_missing: "– (rule not listed in the rules block of results.json)"
   text:
     no_findings: "No findings with these severities."
+    severity_heading: "{severity}: {findings} finding(s), {counted} of them counted in the summary ({failed} not passed, {open} evidence open)"
+    severity_heading_none: "{severity}: {findings} finding(s), none of them counted in the summary"
+    severity_heading_info: "{severity}: {findings} finding(s), not counted in the summary"
     no_recordings: "No recordings."
     no_manual_rules: "The loaded rule packs contain no rules evaluated from evidence."
     no_exceptions: "No exceptions configured."

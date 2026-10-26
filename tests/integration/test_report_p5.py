@@ -284,6 +284,54 @@ def test_findings_grouped_by_severity_then_rule(rich: Results, lang: str) -> Non
             assert {row["rule"] for row in finding_rows(group)} == {rule}
 
 
+@pytest.mark.parametrize("lang", REPORT_LANGS)
+def test_severity_headings_name_the_numbers_of_the_summary(
+    rich: Results, quality: Results, ai: Results, scaled: Results, lang: str
+) -> None:
+    """Review R05 (REP-02/REP-03, REP-00): a section 3 heading paired the bare severity with the number of
+    all its findings ('Error (392)' next to '15 error(s)' in the summary, 377 of them not applicable). Now
+    an error or warning heading names its findings and, from them, the number the summary counts (not
+    passed plus open evidence), equal to summary.errors and summary.warnings; the open evidence of both adds
+    up to summary.open_evidence. A note heading says that notes are not counted."""
+    tr = _tr(lang)
+    for results in (rich, quality, ai, scaled):
+        findings = section(render_report(results, lang), "findings")
+        headings = dict(re.findall(r'<h3 class="sev-(\w+)">(.*?)</h3>', findings))
+        assert list(headings) == [s.value for s in Severity]
+        evaluated = [f for f in results.findings if f.source_status is not SourceStatus.PLACEHOLDER]
+        counted = {"error": results.summary.errors, "warning": results.summary.warnings}
+        open_total = 0
+        for severity in Severity:
+            items = [f for f in evaluated if f.severity is severity]
+            label = tr(f"severity.{severity.value}")
+            heading = html_lib.unescape(headings[severity.value])
+            if severity is Severity.INFO:
+                assert heading == tr("report.text.severity_heading_info", severity=label, findings=len(items))
+                continue
+            failed = sum(1 for f in items if f.status is Status.FAILED)
+            open_evidence = sum(1 for f in items if f.status is Status.EVIDENCE_OPEN)
+            assert failed + open_evidence == counted[severity.value]
+            open_total += open_evidence
+            if not counted[severity.value]:  # no status words when nothing is counted
+                assert heading == tr("report.text.severity_heading_none", severity=label, findings=len(items))
+                continue
+            assert heading == tr(
+                "report.text.severity_heading",
+                severity=label,
+                findings=len(items),
+                counted=counted[severity.value],
+                failed=failed,
+                open=open_evidence,
+            )
+            assert f"{label} ({len(items)})" not in heading
+        assert open_total == results.summary.open_evidence
+    # at least one fixture where the findings outnumber the counted ones (the case of the review)
+    assert any(
+        sum(1 for f in r.findings if f.severity is Severity.ERROR) > r.summary.errors
+        for r in (rich, quality, ai, scaled)
+    )
+
+
 def test_rows_inside_a_rule_follow_status_then_object(rich: Results) -> None:
     order = [
         Status.FAILED,
@@ -686,6 +734,36 @@ def test_charts_one_value_per_recording_with_thresholds(quality: Results, scaled
     assert "0.407669" in visible_text(m07) and 'class="thr"' in m07
     # M10 kappa only when a recording has a value (several annotators, A-80): no chart and no 'no values' line
     assert 'data-metric="kappa"' not in metrics
+
+
+def test_huge_threshold_and_values_keep_the_chart_domain(quality: Results) -> None:
+    """Review R03 (REP-04, A-26): an M07 threshold 'switched off' by 1e308 (twice it overflows to infinity)
+    no longer collapses the chart domain to [0, 1], where the recordings piled up in the last bin and no
+    threshold line was drawn; the domain covers the measured values. A channel ratio of 1e307 on top
+    renders too (it raised OverflowError: 'Internal error', exit 2, also for --format html)."""
+    from neurogrid.report import tables
+
+    changed = quality.model_copy(deep=True)
+    params = changed.config.effective_params["CORE-M07-01"]
+    params["max_ratio"] = params["max_ratio"].model_copy(update={"value": 1e308})
+    values = [
+        value
+        for rec in changed.recordings
+        if (value := tables.recording_metrics(rec)["m07"].value) is not None
+    ]
+    assert values and max(values) < 100
+    (m07,) = [data for data in tables.chart_data(changed, {}) if data.metric.key == "m07"]
+    assert m07.hi == charts.nice_ceiling(max(values)) and m07.hi >= max(values)
+    rec = next(rec for rec in changed.recordings if tables._channels(rec.metrics, "M07"))
+    channels = rec.metrics["M07"]["channels"]
+    channels[sorted(channels)[0]]["ratio"] = 1e307
+    for lang in REPORT_LANGS:
+        figure = re.search(
+            r'<figure class="chart" data-metric="m07">(.*?)</figure>',
+            section(render_report(changed, lang), "metrics"),
+            flags=re.S,
+        )
+        assert figure is not None and "inf" not in figure.group(1) and "nan" not in figure.group(1)
 
 
 @pytest.mark.parametrize("lang", REPORT_LANGS)
@@ -1157,6 +1235,149 @@ def test_rule_ids_and_dates_fit_their_landscape_columns() -> None:
         ("w-edate", date, 0.0),
     ):
         assert width_mm(text, spacing) <= shares[column] / 100 * content_mm, (column, text)
+
+
+# the fixed-layout tables and their font size in pt (report.css)
+FIXED_TABLES = {"findings": 8.0, "rules": 8.0, "metrics": 7.0, "evidence": 8.0, "sample": 7.0}
+# body cells that hold only NeuroGrid's own words (labels from the i18n tables, counts)
+VOCABULARY_COLUMNS = frozenset(
+    {"w-clause", "w-status", "w-phase", "w-severity", "w-kind", "w-count", "w-ekind", "w-estatus", "w-smode"}
+)
+# BIDS field names used as labels of measured values: written as they are, they may break (report.css)
+FIELD_NAME_LABELS = frozenset({"EEGChannelCount:"})
+_CJK = re.compile(r"[⺀-鿿豈-﫿＀-￯　-〿]")
+
+
+def _unbreakable(text: str) -> list[str]:
+    """The pieces of ``text`` a line never breaks inside: words split at spaces, after hyphens, dashes and
+    slashes, and at every CJK character (each one a piece of its own)."""
+    pieces: list[str] = []
+    for word in text.split():
+        for part in re.split(r"(?<=[-–/])", word):
+            pieces.extend(piece for piece in _CJK.split(part) if piece)
+            pieces.extend(_CJK.findall(part))
+    return pieces
+
+
+def _fixed_table_cells(html: str) -> list[tuple[str, str, str, str, bool]]:
+    """(table, column class, tag, text, mono) of every cell of the fixed-layout tables, by column index
+    (colspan counted)."""
+    from html.parser import HTMLParser
+
+    cells: list[tuple[str, str, str, str, bool]] = []
+
+    class Reader(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self.table: str | None = None
+            self.columns: list[str] = []
+            self.index = 0
+            self.cell: tuple[str, str, bool] | None = None
+            self.text: list[str] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            values = dict(attrs)
+            classes = (values.get("class") or "").split()
+            if tag == "table":
+                self.table = values.get("class") if values.get("class") in FIXED_TABLES else None
+                self.columns = []
+            elif self.table is None:
+                return
+            elif tag == "col":
+                self.columns.append(values.get("class") or "")
+            elif tag == "tr":
+                self.index = 0
+            elif tag in ("td", "th"):
+                self.cell = (tag, self.columns[self.index], "mono" in classes)
+                self.text = []
+                self.index += int(values.get("colspan") or 1)
+
+        def handle_data(self, data: str) -> None:
+            if self.cell is not None:
+                self.text.append(data)
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag in ("td", "th") and self.cell is not None and self.table is not None:
+                cells.append((self.table, self.cell[1], self.cell[0], "".join(self.text), self.cell[2]))
+                self.cell = None
+            elif tag == "table":
+                self.table = None
+
+    reader = Reader()
+    reader.feed(html)
+    reader.close()
+    return cells
+
+
+def test_own_words_never_break_in_the_fixed_columns(
+    rich: Results, quality: Results, annotated: Results, ai: Results
+) -> None:
+    """Review R04 (REP-00): every header (bold) and every body cell that holds NeuroGrid's own words (phase,
+    status, severity, verification kind, clause text, counts), and every word of the labels of measured
+    values, fits its fixed column on the landscape page in both report languages, so overflow-wrap never
+    breaks it mid-word ('Acquisitio|n' in 6.1, 'documente|d' in the measured column, 'exception
+    (justified)' headers overlapping their neighbours). Measured with the report fonts' advance widths, the
+    table font size, the cell padding and the border; mono cells with their letter spacing."""
+    regular, bold = texts.FONT_FILES[400], texts.FONT_FILES[700]
+    if not regular.is_file() or not bold.is_file():
+        pytest.skip("the report fonts are not part of this build (src/neurogrid/report/fonts, PDF area B2)")
+    from fontTools.ttLib import TTFont
+
+    css = (SRC / "report" / "templates" / "report.css").read_text(encoding="utf-8")
+    assert "table.metrics td, table.sample td { padding: 1px 3px; }" in css
+    shares = _col_shares()
+    margins = re.search(r"margin: (\d+)mm (\d+)mm (\d+)mm (\d+)mm", page_css("en", "2026-10-11"))
+    assert margins is not None
+    content_px = (297.0 - float(margins.group(2)) - float(margins.group(4))) / 25.4 * 96
+    border_px = 0.5 * 96 / 72
+    fonts = {700: TTFont(bold, lazy=True), 400: TTFont(regular, lazy=True)}
+    try:
+
+        def width_px(text: str, weight: int, size_pt: float, spacing_em: float) -> float:
+            font = fonts[weight]
+            cmap = font.getBestCmap()
+            units = font["head"].unitsPerEm
+            em = sum(font["hmtx"][cmap[ord(char)]][0] for char in text) / units + spacing_em * len(text)
+            return em * size_pt * 96 / 72
+
+        too_wide: list[tuple[str, str, str, str]] = []
+
+        def check(table: str, column: str, tag: str, text: str, mono: bool) -> None:
+            padding = 6 if tag == "td" and table in ("metrics", "sample") else 8
+            room = shares[column] / 100 * content_px - padding - border_px
+            for piece in _unbreakable(text):
+                weight = 700 if tag == "th" else 400
+                if width_px(piece, weight, FIXED_TABLES[table], 0.03 if mono else 0.0) > room:
+                    too_wide.append((table, column, tag, piece))
+
+        seen: set[str] = set()
+        for results in (rich, quality, annotated, ai):
+            for lang in REPORT_LANGS:
+                for table, column, tag, text, mono in _fixed_table_cells(render_report(results, lang)):
+                    if tag == "th" or column in VOCABULARY_COLUMNS:
+                        seen.add(column)
+                        check(table, column, tag, text, mono)
+        for lang in REPORT_LANGS:
+            tr = translator(lang)
+            data = load_yaml((SRC / "report" / "i18n" / f"{lang}.yaml").read_text(encoding="utf-8"))
+            assert isinstance(data, dict)
+            labels = [f"{label}:" for label in data["report"]["measure"].values()]
+            values = [
+                tr.t(f"report.value.{key}")
+                for key in ("measured_see_reason", "measured_presence", "not_applicable_value")
+            ]
+            for text in labels + values:
+                kept = " ".join(piece for piece in text.split() if piece not in FIELD_NAME_LABELS)
+                check("findings", "w-measured", "td", kept, False)
+            for phase in Phase:  # every phase, also one no fixture has a rule of
+                check("rules", "w-phase", "td", tr.t(f"phase.{phase.value}"), False)
+            for status in Status:
+                check("findings", "w-status", "td", tr.t(f"status.{status.value}"), False)
+    finally:
+        for font in fonts.values():
+            font.close()
+    assert VOCABULARY_COLUMNS - {"w-smode", "w-ekind", "w-estatus"} <= seen
+    assert too_wide == []
 
 
 def test_css_string_escapes_quotes_backslashes_and_markup() -> None:

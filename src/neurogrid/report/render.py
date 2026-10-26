@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -572,6 +573,27 @@ def _group_view(
     }
 
 
+def _severity_heading(fmt: _Formatter, severity: Severity, items: Sequence[Finding]) -> str:
+    """The heading of one severity in section 3 (review R05): the number of findings next to the number the
+    summary counts (not passed and open evidence, A-16), so the total of all findings, most of them often
+    not applicable, never reads as an error count that contradicts the summary. Notes are never counted."""
+    label = fmt.label("severity", severity.value)
+    if severity is Severity.INFO:
+        return fmt.tr("report.text.severity_heading_info", severity=label, findings=len(items))
+    failed = sum(1 for f in items if f.status is Status.FAILED)
+    open_evidence = sum(1 for f in items if f.status is Status.EVIDENCE_OPEN)
+    if not failed + open_evidence:  # no status words then: nothing of this severity is counted
+        return fmt.tr("report.text.severity_heading_none", severity=label, findings=len(items))
+    return fmt.tr(
+        "report.text.severity_heading",
+        severity=label,
+        findings=len(items),
+        counted=failed + open_evidence,
+        failed=failed,
+        open=open_evidence,
+    )
+
+
 def _findings(
     results: Results, fmt: _Formatter, titles: dict[str, str], see_also: dict[str, list[str]]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
@@ -584,6 +606,7 @@ def _findings(
             {
                 "severity": severity.value,
                 "count": len(items),
+                "heading": _severity_heading(fmt, severity, items),
                 "groups": [
                     _group_view(g, fmt, titles, see_also, placeholder=False)
                     for g in tables.rule_groups(items)

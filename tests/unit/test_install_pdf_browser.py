@@ -334,6 +334,35 @@ def test_print_info_lists_addresses_checksums_and_linux_packages(capsys: pytest.
     assert ipb.package_lists(Path("/nowhere/tools/x.py")) is None
 
 
+def test_console_shows_the_home_folder_as_tilde(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Review R06 (A-51): the installer printed the absolute folder with the user name in it ('Installation
+    folder: C:/Users/<name>/AppData/Local/NeuroGrid/pdf-browser' in Windows spelling), also in --check,
+    --print-info, the installed and the error messages. Now the home folder is '~' in every message, as in
+    the neurogrid CLI: the default folder below the home folder (Windows: LOCALAPPDATA, Linux:
+    ~/.local/share), on Windows in any letter case."""
+    home = tmp_path / "home" / "lin.wei"
+    monkeypatch.setattr(ipb.Path, "home", classmethod(lambda cls: home))
+    monkeypatch.delenv(ipb.ENV_DIR, raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(home / "AppData" / "Local"))
+    folder = ipb.default_browser_dir(os.environ)
+    assert folder.is_relative_to(home)
+    assert ipb.main(["--print-info"]) == 0
+    assert ipb.main(["--check"]) == 1  # not installed
+    other = str(folder).upper() if os.name == "nt" else str(folder)
+    assert ipb.main(["--dir", other, "--check"]) == 1
+    shown = str(folder).replace(str(home), "~", 1)
+    out = capsys.readouterr().out
+    assert "lin.wei" not in out.lower() and home.as_posix() not in out
+    assert f"Installation folder: {shown}" in out and f"The PDF browser is not installed in {shown}." in out
+    assert ipb.shown(f"'{home}'") == "'~'" and ipb.shown(home.as_posix() + "/x") == "~/x"
+    assert ipb.shown(str(home) + "2") == str(home) + "2"  # only the whole folder name
+    monkeypatch.setattr(ipb.Path, "home", classmethod(lambda cls: Path(home.anchor)))
+    assert ipb.shown(str(folder)) == str(folder)  # a root folder as home is not replaced
+
+
 def test_unsupported_platform(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr(ipb.sys, "platform", "darwin")
     assert ipb.main(["--check"]) == 2

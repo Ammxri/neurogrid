@@ -9,7 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
@@ -26,13 +26,24 @@ def _function(name: str) -> str:
     return found
 
 
-def _shown(path: str, home: str | None) -> subprocess.CompletedProcess[str]:
-    """Shown <path> in a PowerShell whose USERPROFILE is `home` (None: not set at all)."""
+_HOME_VARIABLES = ("USERPROFILE", "HOMEDRIVE", "HOMEPATH", "LOCALAPPDATA")
+LOCAL = r"C:\Users\x\AppData\Local"
+
+
+def _hint(prefix: str, environ: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    """Hint-Commands and Pdf-Hint for `prefix` in a PowerShell whose LOCALAPPDATA, USERPROFILE, HOMEDRIVE and
+    HOMEPATH are exactly those of `environ` (missing ones not set at all): three lines, the Command Prompt
+    command, the PowerShell command and the hint as the clean room expects it in NeuroGrid's output."""
     assert POWERSHELL is not None
-    env = {key: value for key, value in os.environ.items() if key.upper() != "USERPROFILE"}
-    if home is not None:
-        env["USERPROFILE"] = home
-    script = f"$ErrorActionPreference = 'Stop'\n{_function('Shown')}Shown '{path}'\n"
+    env = {key: value for key, value in os.environ.items() if key.upper() not in _HOME_VARIABLES}
+    env.update(environ)
+    quoted = prefix.replace("'", "''")
+    script = (
+        "$ErrorActionPreference = 'Stop'\n"
+        "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false\n"
+        f"{_function('Below')}{_function('Hint-Commands')}{_function('Pdf-Hint')}"
+        f"$c = Hint-Commands '{quoted}'\n$c[0]\n$c[1]\nPdf-Hint '{quoted}'\n"
+    )
     return subprocess.run(
         [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
         capture_output=True,
@@ -45,19 +56,45 @@ def _shown(path: str, home: str | None) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.mark.parametrize(
-    ("path", "home", "expected"),
+    ("prefix", "environ"),
     [
-        ("C:\\Users\\x\\a b\\c", "C:\\Users\\x", '"~\\a b\\c"'),  # quoted (a space), then the home as ~
-        ("C:\\Users\\x\\abc", "C:\\Users\\x\\", "~\\abc"),  # a trailing separator of the home is ignored
-        ("C:\\users\\X\\abc", "C:\\Users\\x", "~\\abc"),  # Windows paths ignore case
-        ("C:\\Users\\xy\\abc", "C:\\Users\\x", "C:\\Users\\xy\\abc"),  # only the whole folder name
-        ("C:\\Users\\x\\a b\\c", None, '"C:\\Users\\x\\a b\\c"'),  # no USERPROFILE: no ~, no error
+        # below LOCALAPPDATA (install.ps1's default; it wins over the user profile), a Chinese name, a space
+        (
+            r"C:\Users\x\AppData\Local\安装 目录\NeuroGrid",
+            {"LOCALAPPDATA": LOCAL, "USERPROFILE": r"C:\Users\x"},
+        ),
+        (LOCAL, {"LOCALAPPDATA": LOCAL}),  # the folder itself
+        (r"C:\Users\x\abc", {"USERPROFILE": "C:\\Users\\x\\"}),  # a trailing separator of the base is ignored
+        (r"C:\users\X\a$b`c", {"USERPROFILE": r"C:\Users\x"}),  # Windows paths ignore case; $ and ` escaped
+        (r"C:\Users\xy\abc", {"USERPROFILE": r"C:\Users\x"}),  # only the whole folder name
+        (r"D:\a\_temp\ngcr1\安装 目录\Neuro'Grid", {"USERPROFILE": r"C:\Users\x"}),  # elsewhere (CI's room)
+        (r"C:\Users\x\a b\c", {}),  # no USERPROFILE and no LOCALAPPDATA: as it is, no error
+        (
+            r"C:\Users\x\a b\c",
+            {"HOMEDRIVE": "C:", "HOMEPATH": r"\Users\x"},
+        ),  # Path.home() without USERPROFILE
+        (r"C:\Users\x\a b\c", {"LOCALAPPDATA": r"AppData\Local"}),  # a relative base is no base
     ],
 )
-def test_shown_writes_paths_as_neurogrid_shows_them(path: str, home: str | None, expected: str) -> None:
-    """The clean room compares NeuroGrid's install hint with Shown(...) of the expected paths. Without
-    USERPROFILE the function used to call a method on $null, a terminating error under ErrorActionPreference
-    Stop, so its own guard for a missing home folder was never reached."""
-    done = _shown(path, home)
+def test_clean_room_expects_the_hint_neurogrid_prints(prefix: str, environ: dict[str, str]) -> None:
+    """Review R07 follow-up: since the exit-2 hint for a missing PDF browser is a runnable Command Prompt and
+    PowerShell command (kernel/pdf.py install_hint), the clean room has to expect exactly that. It expected
+    the old 'Install it with: <~ path> <~ path>' form (Shown), which Windows no longer prints, so the
+    cleanroom-windows job would have thrown 'the hint does not name the installation's PDF browser
+    installer'. Hint-Commands is compared with kernel/pdf.py's own commands for the same prefix and
+    variables, and Pdf-Hint with the start of the English message (errors.pdf.install.command_windows)."""
+    from neurogrid.kernel import pdf
+    from neurogrid.report.texts import translator
+
+    home = environ.get("USERPROFILE") or (
+        environ["HOMEDRIVE"] + environ["HOMEPATH"]
+        if "HOMEDRIVE" in environ and "HOMEPATH" in environ
+        else None
+    )
+    cmd, powershell = pdf._windows_commands(PureWindowsPath(prefix), environ, home)
+    done = _hint(prefix, environ)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == expected
+    shown_cmd, shown_powershell, hint = done.stdout.splitlines()
+    assert (shown_cmd, shown_powershell) == (cmd, powershell)
+    message = translator("en").t("errors.pdf.install.command_windows", cmd=cmd, powershell=powershell)
+    assert hint.endswith("   (") and message.startswith(hint), (hint, message)
