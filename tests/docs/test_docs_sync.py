@@ -3,6 +3,7 @@ registry, the rule packs, the configuration model, the CLI, the schemas and the 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -483,3 +484,30 @@ def test_privacy_pages_state_the_strace_rule_of_the_offline_gate(tmp_path: Path)
     (tmp_path / "strace-check.txt").write_text(f"{loopback}\n{loopback6}\n", encoding="utf-8")
     _summary, attempts = strace_check.check(tmp_path)
     assert attempts == []  # what the page allows, the gate allows
+
+
+INSTALLER = ROOT / "tools" / "install_pdf_browser.py"
+INSTALLER_ADDRESS = "<REPO_URL>/releases/download/v<version>/install_pdf_browser.py"
+PDF_SECTION = {"en": "PDF browser", "zh": "PDF 浏览器", "de": "PDF-Browser"}
+
+
+def test_pdf_browser_section_gives_the_installers_address_and_sha256() -> None:
+    """p5_decisions B2, NG-N06: PyPI and source users take install_pdf_browser.py from the release; the docs
+    section that the exit-2 hint names gives its address and its SHA-256 (the script of this version, kept
+    current by tools/gen_docs.py) and how to compare it, and the hint of every language says so."""
+    digest = hashlib.sha256(INSTALLER.read_bytes()).hexdigest()
+    for lang in LANGUAGES:
+        section = _anchored(_page(lang, "installation.md"))["pdf-browser"]
+        assert INSTALLER_ADDRESS in section, lang
+        assert digest in section, lang
+        assert "sha256sum install_pdf_browser.py" in section, lang
+        assert "Get-FileHash -Algorithm SHA256 install_pdf_browser.py" in section, lang
+        assert "`SHA256SUMS`" in section and "(#verify)" in section, lang  # the signed list of the release
+    for lang, texts in tables().items():
+        hint = texts["errors.pdf.install.docs"]
+        assert PDF_SECTION[lang] in hint and "install_pdf_browser.py" in hint, lang
+    # every hint points to the documentation section for the address and the SHA-256, not elsewhere
+    assert "(address and SHA-256 there)" not in tables()["en"]["errors.pdf.install.docs"]
+    assert "that section gives its address and SHA-256" in tables()["en"]["errors.pdf.install.docs"]
+    assert "该节给出其地址和 SHA-256" in tables()["zh"]["errors.pdf.install.docs"]
+    assert "dieser Abschnitt nennt Adresse und SHA-256" in tables()["de"]["errors.pdf.install.docs"]

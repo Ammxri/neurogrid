@@ -139,8 +139,24 @@ python tools/install_pdf_browser.py --check
 
 `--platform` 为 `win64` 或 `linux64`。只接受锁定的压缩包。在离线安装包中，该脚本位于 `tools/`，用随附的 Python
 运行（Windows 上为 `python\python.exe`，Linux 上为 `python/bin/python3.12`）；安装脚本也可以代为运行
-（`-PdfBrowserZip`、`--pdf-browser-zip`）。从 PyPI 或源代码安装时，请从仓库的发布页面获取该脚本，其 SHA-256 列在
-发布版本的 `SHA256SUMS` 中。
+（`-PdfBrowserZip`、`--pdf-browser-zip`）。
+
+从 PyPI 或源代码安装时，请从您所用 NeuroGrid 版本的发布页面下载该脚本。本版本脚本的地址和 SHA-256：
+
+<!-- BEGIN GENERATED pdf installer -->
+```text
+<REPO_URL>/releases/download/v<version>/install_pdf_browser.py
+SHA-256: bc76c134aa790bac433c35cdcedf3f1472b23fef4f08dca48bdd2f3b8f9a8f95
+```
+<!-- END GENERATED -->
+
+该值与发布版本 `SHA256SUMS` 中 `install_pdf_browser.py` 一行相同，其签名按[校验下载的文件](#verify)中的方法校验。运行脚本
+（需要 Python 3.11 或更高版本）之前，请先比对：
+
+```bash
+sha256sum install_pdf_browser.py                         # Linux
+Get-FileHash -Algorithm SHA256 install_pdf_browser.py    # Windows PowerShell
+```
 
 没有浏览器时，`neurogrid report --format pdf` 以退出码 2 结束并给出提示；`--format html` 始终可用。在 Linux 上，浏览器
 需要系统库；NeuroGrid 在打印前检查这些库，并列出缺少的软件包。Debian 12、Ubuntu 22.04 和 Ubuntu 24.04 的软件包列表

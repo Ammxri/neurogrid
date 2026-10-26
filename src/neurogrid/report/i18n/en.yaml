@@ -230,7 +230,7 @@ errors:
     temp_unusable_hint: "Set TEMP and TMP (Linux: TMPDIR) to an existing local folder you can write to and run the command again."
     install:
       command: "Install it with: {command}   (offline: add --from-zip <zip file> --sha256 <SHA-256>; see the documentation)."
-      docs: "How to install it: documentation, installation page, section 'PDF browser'. The installer install_pdf_browser.py is attached to every NeuroGrid release (address and SHA-256 there); run it with Python 3.11 or later."
+      docs: "How to install it: documentation, installation page, section 'PDF browser'. The installer install_pdf_browser.py is attached to every NeuroGrid release; that section gives its address and SHA-256. Run it with Python 3.11 or later."
       apt: "On {distribution}, install them with: apt-get install --no-install-recommends {packages}"
       apt_other: "This Linux distribution is not verified; the packages for {distribution} are: apt-get install --no-install-recommends {packages}"
   output:

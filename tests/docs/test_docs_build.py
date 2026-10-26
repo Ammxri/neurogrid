@@ -274,3 +274,15 @@ def test_builds_are_byte_identical(built_site: Any, site_builder: Any, tmp_path:
         }
 
     assert digest(built_site.site) == digest(second.site)
+
+
+def test_installer_block_follows_the_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """B2: the address and SHA-256 of install_pdf_browser.py on the installation pages are generated from the
+    script itself; a changed script makes --check fail until the pages are generated again."""
+    assert gen_docs.main(["--check"]) == 0
+    changed = tmp_path / "install_pdf_browser.py"
+    changed.write_bytes(gen_docs.INSTALLER.read_bytes() + b"# changed\n")
+    monkeypatch.setattr(gen_docs, "INSTALLER", changed)
+    assert gen_docs.main(["--check"]) == 1
+    digest = hashlib.sha256(changed.read_bytes()).hexdigest()
+    assert gen_docs.installer_block() == (f"```text\n{gen_docs.INSTALLER_ADDRESS}\nSHA-256: {digest}\n```\n")
