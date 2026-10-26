@@ -670,3 +670,24 @@ def test_v01_evidence_names_existing_tests() -> None:
         path, _sep, name = reference.partition("::")
         source = (root / path).read_text(encoding="utf-8")
         assert not name or re.search(rf"^def {re.escape(name)}\(", source, re.M), reference
+
+
+def test_summary_names_what_the_run_covers_and_what_it_does_not(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """KONZEPT §6 G1: the run checks only part of the G1 criterion. summary.md says 'criteria of this run'
+    and names the parts with evidence of their own (scaling test, Linux offline + strace, clean room,
+    coverage), so 'ja' never reads as the whole G1 criterion being met; summary.json lists them as well."""
+    summary = _summary()
+    markdown = g1.summary_markdown(summary)
+    assert "- Alle Kriterien erfüllt:" not in markdown
+    assert "- Alle Kriterien dieses Laufs erfüllt: nein" in markdown
+    outside = [line for line in markdown.splitlines() if line.startswith("- Nicht Teil dieses Laufs")]
+    assert len(outside) == 1
+    for part in ("1000 × 64", "strace", "debian:12-slim --network none", "Kern ≥ 90 %", "Prüfer ≥ 80 %"):
+        assert part in outside[0], part
+    assert summary["g1"]["outside_this_run"] == list(g1.OUTSIDE_THIS_RUN)
+    monkeypatch.setattr(g1, "run_acceptance", lambda *args, **kwargs: summary)
+    assert g1.main(["--corpus", str(tmp_path), "--out", str(tmp_path / "out")]) == 1
+    printed = capsys.readouterr().out
+    assert "all criteria of this run NOT met" in printed and "outside this run:" in printed

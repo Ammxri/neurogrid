@@ -34,7 +34,10 @@ reading of the files (not the product's code that wrote them):
 
 The summary goes to <out>/summary.json (machine-readable: numbers, exit codes, durations, problem texts that
 quote no value from the data) and <out>/summary.md (German table for the phase report, with the V-01
-checklist). Raw data never enter the summary; the outputs of the runs stay below <out>.
+checklist). Raw data never enter the summary; the outputs of the runs stay below <out>. "Criteria met" means
+the criteria of this run: the scaling test, the Linux offline run under strace, the clean room and the
+coverage gates belong to the G1 criterion as well but have evidence of their own (OUTSIDE_THIS_RUN, named in
+both summary files).
 
 Usage:
     python tools/acceptance_g1.py --corpus .local/corpus --out .local/acceptance/g1
@@ -93,6 +96,13 @@ BUILTIN_PACKS = ("core", "bids", "gxdsl008")
 JOBS1_DATASET = "ds004148-1.0.1"
 FORMATS = ("EDF", "BDF", "BrainVision", "EEGLAB", "FIF")  # the five formats of V-01
 MIN_DATASETS, MIN_FORMATS = 3, 2  # PRD §19 G1: at least 3 data sets in at least 2 formats
+# Parts of the G1 criterion (KONZEPT §6, P5 row) that this run does not check: each has evidence of its own.
+OUTSIDE_THIS_RUN = (
+    "Skalierungstest 1000 × 64 (tests/perf/test_report_scaling.py)",
+    "Linux-Lauf ohne Netz + strace ohne connect (offline.yml)",
+    "Bündel-Installation in debian:12-slim --network none ohne vorinstalliertes Python (offline.yml)",
+    "Abdeckung Kern ≥ 90 %, Prüfer ≥ 80 % (tools/coverage_gates.py)",
+)
 COMMANDS = ("scan", "check", "report", "manifest", "verify")
 PRODUCT_FILES = (
     "results.json",
@@ -1372,7 +1382,8 @@ def _summary(
             "formats_ok": formats,
             "minimum_met": minimum,
             "all_met": all_met,
-            "criteria_met": criteria,
+            "criteria_met": criteria,  # the criteria of this run, not the whole G1 criterion
+            "outside_this_run": list(OUTSIDE_THIS_RUN),
         },
         "v01_checklist": checklist,
         "v01_fulfilled": criteria and all(item["status"] == "fulfilled" for item in checklist),
@@ -1439,7 +1450,8 @@ def summary_markdown(summary: Mapping[str, Any]) -> str:
         f"- `--jobs 1` = `--jobs {summary['jobs']}` ({JOBS1_DATASET}): "
         + (_yes(jobs1["identical"]) if jobs1 else "nicht gelaufen"),
         f"- Korpus unverändert: {_yes(summary['corpus_unchanged'])}",
-        f"- Alle Kriterien erfüllt: {_yes(g1['criteria_met'])}",
+        f"- Alle Kriterien dieses Laufs erfüllt: {_yes(g1['criteria_met'])}",
+        f"- Nicht Teil dieses Laufs (eigene Nachweise): {'; '.join(g1['outside_this_run'])}",
         "",
         "## V-01-Checkliste",
         "",
@@ -1512,8 +1524,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         f"G1: {g1['datasets_ok']}/{g1['datasets']} data sets passed, formats {', '.join(g1['formats_ok'])}; "
         f"minimum {'met' if g1['minimum_met'] else 'NOT met'}; "
-        f"all criteria {'met' if g1['criteria_met'] else 'NOT met'}"
+        f"all criteria of this run {'met' if g1['criteria_met'] else 'NOT met'}"
     )
+    print(f"  outside this run: {'; '.join(g1['outside_this_run'])}")
     for entry in summary["datasets"]:
         for problem in entry["problems"]:
             print(f"  {entry['name']}: {problem}")
