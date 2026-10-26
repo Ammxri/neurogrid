@@ -42,6 +42,7 @@ PROVIDED = {
     "TMP",
     "TMPDIR",
     "USERNAME",
+    "USERPROFILE",
     "WINDIR",
     "XDG_DATA_HOME",
 }
