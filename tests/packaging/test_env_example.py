@@ -33,6 +33,8 @@ PROVIDED = {
     "GITHUB_REF_NAME",
     "GITHUB_REPOSITORY",
     "HOME",
+    "HOMEDRIVE",
+    "HOMEPATH",
     "LOCALAPPDATA",
     "PATH",
     "PRETTY_NAME",
