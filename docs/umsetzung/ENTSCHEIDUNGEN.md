@@ -138,6 +138,20 @@ Phasenmeldung zu P3:
 - **DM-02:** Diagnoseähnliche Spalten dürfen Labelquelle von M11 sein, nur aggregiert nach der Tabellenregel.
 - **Arbeitsweise ab sofort (Tempo):** volle Testsuite nur nach dem Merge; Agenten auf Stufe high, xhigh nur für Prüfungen zu Datenschutz und Regulatorik; ein Review je Phase mit vier Prüfrichtungen; das Nachbau-Dokument entsteht parallel; P6 wird vor G1 spezifiziert (ohne Commit).
 - **Bei G1 offen:** muttersprachliche zh-Prüfung, Push-Freigabe mit Repo-URL und die Bestätigung der übrigen vorgemerkten Annahmen.
+- **Repository-URL** (26.10.2026): `https://github.com/Ammxri/neurogrid`; seither wird nach D-09 nur `dev` gepusht.
+
+**D-16 Lizenzen im mitgelieferten BIDS-Validator (26.10.2026).** Befund: bids-validator-deno 3.0.2 enthält in
+`isomorphic-git` 1.41.9 eine aus `@zenfs/core/path` kopierte Funktion `path.join` (rund 90 Zeilen) unter
+LGPL-3.0-or-later. Jede Version ohne diesen Abschnitt (bis 2.2.1) erfüllt die Pins nicht (BIDS 1.11.1, Schema 1.2.7,
+Aufruf nach A-06). Entscheidung nach Empfehlung:
+- **Versionsgebundene Ausnahme zu D-05** nur für diesen Abschnitt in bids-validator-deno 3.0.2 (Muster D-08): Die Texte
+  LGPL-3.0 und GPL-3.0 werden einmalig geladen (Download freigegeben) und mitgeliefert; die Notices nennen Bauteil,
+  Lizenz, Urheber und Fundstelle; der Quelltext liegt lesbar im Wheel und im Bündel. Jede andere Version des
+  Validators braucht eine neue Prüfung.
+- **Anfrage an die Entwickler** des Validators, den Abschnitt zu ersetzen: NeuroGrid entwirft den Text, der
+  Projektverantwortliche sendet ihn.
+- **Lizenzpolitik für gebündelte Teile:** Public Domain gilt als freizügig; bei einer Wahl-Lizenz mit mindestens einer
+  freizügigen Option (z. B. „CC0-1.0 oder OpenSSL oder Apache-2.0“) gilt die freizügige Wahl, und NeuroGrid nennt sie.
 
 ## Annahmen (Nicht-Blocker)
 
