@@ -166,7 +166,9 @@ def _page_scales(data: bytes) -> list[set[bytes]]:
     scales = []
     for page in pypdf.PdfReader(io.BytesIO(data)).pages:
         found = set()
-        for match in _CM.finditer(page.get_contents().get_data()):
+        contents = page.get_contents()
+        assert contents is not None
+        for match in _CM.finditer(contents.get_data()):
             a, b, c, d = match.groups()
             assert b == c == b"0" and abs(float(a)) == abs(float(d)), match.group(0)
             if float(d) > 0:
@@ -584,7 +586,19 @@ def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: 
     assert done.returncode == 0, report[-3000:]
     summary = report.strip().splitlines()[-1]
     assert re.match(r"^6 passed\b", summary) and "skipped" not in summary, summary
-    assert after == before
+
+    # the differing entries first, on one line: CI shows only the first line of a failure without a login
+    def change(key: str) -> str:
+        old, new = before.get(key), after.get(key)
+        if old is None or new is None:
+            return f"{key} {'added' if old is None else 'removed'}"
+        if key.endswith("/"):  # (entries, size, mtime): name the entries that differ
+            entries = sorted(set(old[0]) ^ set(new[0]))
+            return f"{key} entries {entries}, size {old[1]} -> {new[1]}, mtime {old[2]} -> {new[2]}"
+        return f"{key} (size, mtime, sha256) {old} -> {new}"
+
+    changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))
+    assert after == before, "changed in the browser folder: " + "; ".join(change(key) for key in changed)
 
 
 @pytest.mark.pdf
