@@ -11,38 +11,51 @@ reviewer can check them too). Each string is marked when it was added or changed
 the scaffold whose texts the earlier review rounds saw): "new" = the key, or for line sources the line, is
 not in the file of that commit (or the file did not exist), "changed" = same key, other text.
 
-Usage:
-    python tools/zh_review_package.py [--out .local/acceptance/zh_review.md] [--since a44d592]
+The package also holds two example reports as zh PDF (design H.2 of the acceptance), so the reviewer sees
+the texts in the printed layout: report.zh.pdf of run 1 of a G1 run (tools/acceptance_g1.py), copied byte
+for byte next to the Markdown file as <data set>.report.zh.pdf and listed there with pages and SHA-256.
+Only a data set that passed that run is taken, and only while its PDF still has the size the run recorded.
 
-The file is deterministic for a given working tree and baseline (no time stamp). Exit code: 0 written,
-2 when git cannot read the baseline commit.
+Usage:
+    python tools/zh_review_package.py [--out .local/acceptance/zh_review/zh_review.md] [--since a44d592]
+        [--g1 .local/acceptance/g1] [--examples ds002778-1.0.5 psg-ipa-1.0.0]
+
+The files are deterministic for a given working tree, baseline and G1 run (no time stamp). Exit code:
+0 written, 2 when git cannot read the baseline commit or the G1 run lacks an example (nothing is written).
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import json
 import re
 import subprocess
 import sys
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from acceptance_g1 import SUMMARY_SCHEMA, sha256_file
 from neurogrid.kernel.i18n import flatten
 from neurogrid.kernel.safety import load_yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 P1_COMMIT = "a44d592"  # feat: P1 scaffold and end-to-end check
-DEFAULT_OUT = ROOT / ".local" / "acceptance" / "zh_review.md"
+DEFAULT_OUT = ROOT / ".local" / "acceptance" / "zh_review" / "zh_review.md"
+DEFAULT_G1 = ROOT / ".local" / "acceptance" / "g1"  # the --out of tools/acceptance_g1.py
+# The two example reports: the BIDS data set with the most findings (BDF; errors and warnings of core, bids
+# and gxdsl008, validator rows) and the raw EDF folder (not BIDS; the line beyond 50 rows of a rule).
+EXAMPLES = ("ds002778-1.0.5", "psg-ipa-1.0.0")
+EXAMPLE_PDF = "report.zh.pdf"
 # Han ideographs, CJK punctuation and full-width forms: a string or line holding one of them is Chinese text
 CJK = re.compile(r"[\u3000-\u303f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]")
 QUOTED = re.compile(r"'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\"")
 
 
 class PackageError(Exception):
-    """The baseline cannot be read (exit 2)."""
+    """The baseline cannot be read, or the G1 run lacks an example (exit 2)."""
 
 
 @dataclass(frozen=True)
@@ -239,6 +252,76 @@ def collect(root: Path, baseline: Callable[[str], str | None]) -> list[tuple[Sou
     return collected
 
 
+# --- the example reports of a G1 run -----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Example:
+    """One example report: the zh PDF of a data set in run 1 of a G1 run."""
+
+    dataset: str
+    formats: tuple[str, ...]
+    source: Path
+    pages: int
+    size: int
+    sha256: str
+    run: str  # NeuroGrid version and reference date of the G1 run
+
+    @property
+    def name(self) -> str:
+        """The file name in the package."""
+        return f"{self.dataset}.{EXAMPLE_PDF}"
+
+
+def example_pdfs(g1: Path, names: Sequence[str]) -> list[Example]:
+    """The zh PDFs of ``names`` in the G1 run in ``g1`` (its summary.json and run1/<data set>/): each data set
+    must have passed that run, and its PDF must still have the size the run recorded."""
+    summary_file = g1 / "summary.json"
+    if not summary_file.is_file():
+        raise PackageError("no G1 run in the --g1 folder (summary.json missing): run tools/acceptance_g1.py")
+    try:
+        summary = json.loads(summary_file.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise PackageError(f"the summary.json of the G1 run cannot be read ({type(exc).__name__})") from exc
+    if not isinstance(summary, dict) or summary.get("schema") != SUMMARY_SCHEMA:
+        raise PackageError(f"the summary.json in the --g1 folder is not a {SUMMARY_SCHEMA} summary")
+    entries = {entry.get("name"): entry for entry in summary.get("datasets", []) if isinstance(entry, dict)}
+    run = f"NeuroGrid {summary.get('tool_version')}, reference date {summary.get('as_of')}"
+    examples = []
+    for name in dict.fromkeys(names):
+        entry = entries.get(name)
+        if entry is None:
+            raise PackageError(f"data set {name} is not in the G1 run")
+        if entry.get("ok") is not True:
+            raise PackageError(f"data set {name} did not pass the G1 run")
+        source = g1 / "run1" / name / EXAMPLE_PDF
+        if not source.is_file():
+            raise PackageError(f"the G1 run has no run1/{name}/{EXAMPLE_PDF}")
+        size = source.stat().st_size
+        if size != entry.get("bytes", {}).get(EXAMPLE_PDF):
+            raise PackageError(f"run1/{name}/{EXAMPLE_PDF} changed after the G1 run (size)")
+        examples.append(
+            Example(
+                dataset=name,
+                formats=tuple(entry.get("formats", [])),
+                source=source,
+                pages=int(entry.get("pdf_pages", {}).get("zh", 0)),
+                size=size,
+                sha256=sha256_file(source),
+                run=run,
+            )
+        )
+    return examples
+
+
+def write_package(out: Path, document: str, examples: Sequence[Example]) -> None:
+    """The Markdown file and, next to it, a byte copy of every example PDF."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    for example in examples:
+        (out.parent / example.name).write_bytes(example.source.read_bytes())
+    out.write_text(document, encoding="utf-8", newline="\n")
+
+
 # --- the Markdown file -------------------------------------------------------------------------------------
 
 
@@ -251,7 +334,7 @@ def _counts(entries: Iterable[Entry]) -> tuple[int, int, int]:
     return len(items), sum(e.mark == "new" for e in items), sum(e.mark == "changed" for e in items)
 
 
-def render(collected: list[tuple[Source, list[Entry]]], since: str) -> str:
+def render(collected: list[tuple[Source, list[Entry]]], since: str, examples: Sequence[Example] = ()) -> str:
     lines = [
         "# NeuroGrid – zh review package",
         "",
@@ -262,7 +345,26 @@ def render(collected: list[tuple[Source, list[Entry]]], since: str) -> str:
         "Line sources (pages, scripts, notes) have no stable key: a line is **new** when the P1 file did not",
         "hold it. Corrections come back as a file with source, key and corrected text; they are taken over",
         "with the wording test (src/neurogrid/report/wording, tests/unit/test_language_and_wording.py).",
+        "The fixed sentence (A-08) is the key `disclaimer` of the language table.",
         "",
+    ]
+    if examples:
+        lines += [
+            "## Example reports (zh PDF)",
+            "",
+            "The zh report of data sets of the public test corpus as printed, in the folder of this file:",
+            "the texts in their layout, the fixed sentence at the foot of every page.",
+            "",
+            "| File | Data set | Format | Pages | Bytes | SHA-256 | Source |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        lines += [
+            f"| {e.name} | {e.dataset} | {', '.join(e.formats)} | {e.pages} | {e.size} | {e.sha256} | "
+            f"run1/{e.dataset}/{EXAMPLE_PDF} of the G1 run ({e.run}) |"
+            for e in examples
+        ]
+        lines.append("")
+    lines += [
         "## Overview",
         "",
         "| Source | What | Strings | new | changed |",
@@ -295,21 +397,33 @@ def render(collected: list[tuple[Source, list[Entry]]], since: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0] if __doc__ else None)
-    parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="the review file to write")
+    parser.add_argument(
+        "--out", type=Path, default=DEFAULT_OUT, help="the review file to write (the PDFs go next to it)"
+    )
     parser.add_argument("--since", default=P1_COMMIT, help="baseline commit of the marks (default: P1)")
+    parser.add_argument(
+        "--g1", type=Path, default=DEFAULT_G1, help="folder of a G1 run of tools/acceptance_g1.py"
+    )
+    parser.add_argument(
+        "--examples",
+        nargs="+",
+        default=list(EXAMPLES),
+        metavar="DATA_SET",
+        help="data sets of the G1 run whose zh PDF goes into the package (default: %(default)s)",
+    )
     args = parser.parse_args(argv)
     try:
         baseline = git_baseline(args.since)
+        examples = example_pdfs(args.g1, args.examples)
     except PackageError as exc:
         print(f"zh review package: {exc}", file=sys.stderr)
         return 2
     collected = collect(ROOT, baseline)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(render(collected, args.since), encoding="utf-8", newline="\n")
+    write_package(args.out, render(collected, args.since, examples), examples)
     strings, new, changed = _counts(e for _s, entries in collected for e in entries)
     print(
         f"{args.out.name}: {strings} zh strings from {len(collected)} files "
-        f"({new} new, {changed} changed since P1)"
+        f"({new} new, {changed} changed since P1), {len(examples)} example PDFs"
     )
     return 0
 

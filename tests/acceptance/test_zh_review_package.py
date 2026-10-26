@@ -5,12 +5,15 @@ list of non-displayed texts fails here."""
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import subprocess
 from pathlib import Path
 
 import pytest
 
+import acceptance_g1 as g1  # type: ignore[import-not-found]
 import zh_review_package as zh  # type: ignore[import-not-found]
 from neurogrid.kernel.i18n import flatten
 from neurogrid.kernel.safety import load_yaml
@@ -114,13 +117,101 @@ def test_cells_keep_the_table_intact() -> None:
     assert zh._cell("a|b\\c\nd") == "a\\|b\\\\c<br>d"
 
 
+def _g1_run(folder: Path, pdfs: dict[str, bytes], **changes: object) -> Path:
+    """A G1 run folder as tools/acceptance_g1.py writes it, reduced to what the package reads: summary.json
+    and run1/<data set>/report.zh.pdf of every data set in ``pdfs`` (all passed)."""
+    datasets = [
+        {
+            "name": name,
+            "formats": ["EDF"],
+            "ok": True,
+            "pdf_pages": {"zh": 3, "en": 4},
+            "bytes": {"report.zh.pdf": len(data), "report.en.pdf": 1},
+        }
+        for name, data in pdfs.items()
+    ]
+    summary = {"schema": g1.SUMMARY_SCHEMA, "tool_version": "0.1.0rc1", "as_of": "2026-10-11"}
+    summary.update({"datasets": datasets, **changes})
+    folder.mkdir(parents=True)
+    (folder / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    for name, data in pdfs.items():
+        (folder / "run1" / name).mkdir(parents=True)
+        (folder / "run1" / name / "report.zh.pdf").write_bytes(data)
+    return folder
+
+
+PDFS = {name: f"%PDF-1.4 zh report of {name}\n".encode() for name in zh.EXAMPLES}
+
+
+def test_default_examples_are_corpus_data_sets() -> None:
+    """The package holds two example reports (design H.2), of data sets the G1 run covers."""
+    names = {entry["local_dir"] for entry in g1.corpus_datasets()}
+    assert len(zh.EXAMPLES) == 2 and set(zh.EXAMPLES) <= names
+    is_bids = {entry["local_dir"]: entry["source"] == "openneuro" for entry in g1.corpus_datasets()}
+    # one BIDS data set (OpenNeuro hosts BIDS data sets only) and the raw PhysioNet folder
+    assert sorted(is_bids[name] for name in zh.EXAMPLES) == [False, True]
+
+
+def test_example_pdfs_come_from_a_passed_g1_run(tmp_path: Path) -> None:
+    run = _g1_run(tmp_path / "g1", PDFS)
+    examples = zh.example_pdfs(run, list(zh.EXAMPLES))
+    assert [e.dataset for e in examples] == list(zh.EXAMPLES)
+    for example in examples:
+        data = PDFS[example.dataset]
+        assert example.name == f"{example.dataset}.report.zh.pdf"
+        assert example.sha256 == hashlib.sha256(data).hexdigest() and example.size == len(data)
+        assert example.pages == 3 and example.formats == ("EDF",)
+        assert example.run == "NeuroGrid 0.1.0rc1, reference date 2026-10-11"
+    assert zh.example_pdfs(run, [zh.EXAMPLES[0], zh.EXAMPLES[0]]) == examples[:1]  # named twice: once
+    first = zh.EXAMPLES[0]
+    with pytest.raises(zh.PackageError, match="summary.json missing"):
+        zh.example_pdfs(tmp_path / "absent", [first])
+    with pytest.raises(zh.PackageError, match="not in the G1 run"):
+        zh.example_pdfs(run, ["ds-unknown"])
+    other = _g1_run(tmp_path / "other", PDFS, schema="something-else/1")
+    with pytest.raises(zh.PackageError, match="is not a neurogrid-acceptance-g1/1 summary"):
+        zh.example_pdfs(other, [first])
+    failed = _g1_run(tmp_path / "failed", PDFS)
+    summary = json.loads((failed / "summary.json").read_text(encoding="utf-8"))
+    summary["datasets"][0]["ok"] = False
+    (failed / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    with pytest.raises(zh.PackageError, match=f"data set {first} did not pass the G1 run"):
+        zh.example_pdfs(failed, [first])
+    (run / "run1" / first / "report.zh.pdf").write_bytes(PDFS[first] + b"%changed")
+    with pytest.raises(zh.PackageError, match="changed after the G1 run"):
+        zh.example_pdfs(run, [first])
+    (run / "run1" / first / "report.zh.pdf").unlink()
+    with pytest.raises(zh.PackageError, match=f"no run1/{first}/report.zh.pdf"):
+        zh.example_pdfs(run, [first])
+    (tmp_path / "broken").mkdir()
+    (tmp_path / "broken" / "summary.json").write_bytes(b"{not json")
+    with pytest.raises(zh.PackageError, match="cannot be read"):
+        zh.example_pdfs(tmp_path / "broken", [first])
+
+
 def test_command_line(tmp_path: Path) -> None:
     out = tmp_path / "review" / "zh_review.md"
     if subprocess.run(["git", "cat-file", "-e", f"{zh.P1_COMMIT}^{{commit}}"], cwd=ROOT).returncode != 0:
         pytest.skip(f"the P1 commit {zh.P1_COMMIT} is not in this clone (shallow checkout)")
-    assert zh.main(["--out", str(out)]) == 0
+    run = _g1_run(tmp_path / "g1", PDFS)
+    assert zh.main(["--out", str(out), "--g1", str(run)]) == 0
     text = out.read_text(encoding="utf-8")
     assert text.startswith("# NeuroGrid – zh review package\n")
     assert "| disclaimer |  | " in text  # the fixed sentence existed at P1
     assert re.search(r"\| cli\.help\.[a-z_.]+ \| new \|", text)  # the help texts came with P5
-    assert zh.main(["--out", str(out), "--since", "0000000"]) == 2
+    assert "## Example reports (zh PDF)\n" in text
+    for name, data in PDFS.items():  # byte copies next to the Markdown file, listed with their digest
+        assert (out.parent / f"{name}.report.zh.pdf").read_bytes() == data
+        digest = hashlib.sha256(data).hexdigest()
+        assert f"| {name}.report.zh.pdf | {name} | EDF | 3 | {len(data)} | {digest} | run1/{name}/" in text
+    assert sorted(path.name for path in out.parent.iterdir()) == sorted(
+        ["zh_review.md", *(f"{name}.report.zh.pdf" for name in PDFS)]
+    )
+    for machine in (tmp_path, Path.home()):
+        assert str(machine) not in text and machine.as_posix() not in text
+    assert zh.main(["--out", str(out), "--g1", str(run)]) == 0
+    assert out.read_text(encoding="utf-8") == text  # deterministic
+    assert zh.main(["--out", str(out), "--since", "0000000", "--g1", str(run)]) == 2
+    elsewhere = tmp_path / "none" / "zh_review.md"
+    assert zh.main(["--out", str(elsewhere), "--g1", str(tmp_path / "no-run")]) == 2
+    assert not elsewhere.parent.exists()  # nothing written without the example PDFs
