@@ -425,18 +425,18 @@ def test_identity_names_are_the_login_and_the_computer_name(monkeypatch: pytest.
     monkeypatch.setenv("USERNAME", "ngtester")
     monkeypatch.setenv("COMPUTERNAME", "NG-LAB-PC")
     monkeypatch.setattr(safety.getpass, "getuser", lambda: "ab")  # too short to search: no word of its own
-    monkeypatch.setattr(safety.socket, "gethostname", lambda: "ng-lab-pc.example.org")
+    monkeypatch.setattr(safety, "_host_name", lambda: "ng-lab-pc.example.org")
     names = safety.identity_names()
     assert "ngtester" in names["<user>"] and "ab" not in names["<user>"]
     assert {"ng-lab-pc.example.org", "ng-lab-pc"} <= {name.casefold() for name in names["<host>"]}
-    monkeypatch.setattr(safety.socket, "gethostname", lambda: "neurogrid")  # the product, not a person
+    monkeypatch.setattr(safety, "_host_name", lambda: "neurogrid")  # the product, not a person
     assert "neurogrid" not in safety.identity_names()["<host>"]
 
     def fails() -> str:
         raise OSError("no login name")
 
     monkeypatch.setattr(safety.getpass, "getuser", fails)
-    monkeypatch.setattr(safety.socket, "gethostname", fails)
+    monkeypatch.setattr(safety, "_host_name", fails)
     assert "ngtester" in safety.identity_names()["<user>"]  # never an error in the output filter
 
 

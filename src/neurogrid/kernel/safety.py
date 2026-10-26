@@ -10,7 +10,6 @@ import os
 import re
 import secrets
 import shutil
-import socket
 import stat
 import sys
 import tempfile
@@ -121,7 +120,7 @@ def create_temporary(folder: Path, prefix: str, suffix: str = ".tmp") -> tuple[i
     0600. NeuroGrid writes every output to such a file and renames it to the target, and the rename keeps
     the mode: on POSIX results.json, the manifest handed over with the dataset, the reports and the mapping
     template were readable by their writer only, whatever the umask says (access rights are the operating
-    system's, KONZEPT 6). On Windows the mode only sets the read-only flag, which 0666 leaves off."""
+    system's, KONZEPT 2.8). On Windows the mode only sets the read-only flag, which 0666 leaves off."""
     directory = Path(folder).absolute()
     for _attempt in range(tempfile.TMP_MAX):
         name = "".join(secrets.choice(_TEMPORARY_CHARACTERS) for _ in range(8))
@@ -328,9 +327,16 @@ def identity_names() -> dict[str, tuple[str, ...]]:
             users.append(pwd.getpwuid(os.getuid()).pw_name)
     hosts = [os.environ.get("COMPUTERNAME", "")]
     with suppress(Exception):
-        host = socket.gethostname()
+        host = _host_name()
         hosts += [host, host.split(".")[0]]
     return {"<user>": _names(users), "<host>": _names(hosts)}
+
+
+def _host_name() -> str:
+    """The host name the kernel reports (POSIX uname, no socket API outside netguard); Windows names the
+    computer in COMPUTERNAME."""
+    uname = getattr(os, "uname", None)
+    return str(uname().nodename) if uname is not None else ""
 
 
 def _root_text(path: Path) -> str:
