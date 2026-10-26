@@ -20,7 +20,9 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   with a path too long for the profile ends with exit 2 and its own hint before anything is rendered.
   Driver and browser run with the work folder as their current folder (a debug.log Chromium writes there
   goes with it); the GPU runs inside the browser process, and a debug.log that a child process appends
-  next to the executable is undone.
+  next to the executable is undone. What a run could not remove because it was killed is removed at the
+  next start of a browser run: its work folder (lock file next to it, kernel.safety.remove_leftovers) and
+  a debug.log next to the executable (also one an older version left).
 - **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
   report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a
   same-length byte replacement of the two fields Chromium writes; the result is byte-identical for the same
@@ -60,7 +62,7 @@ from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, PdfObje
 
 from neurogrid.kernel.errors import InputError, PdfError, UnsafePathError
 from neurogrid.kernel.fonts import is_radical_or_compat
-from neurogrid.kernel.safety import check_operator_path
+from neurogrid.kernel.safety import WorkFolder, check_operator_path, remove_leftovers
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, Playwright, Request, Route
@@ -466,17 +468,20 @@ def work_base(*, windows: bool | None = None) -> Path:
 @contextmanager
 def browser_work(*, windows: bool | None = None) -> Iterator[Path]:
     """A private work folder for one browser run in the computer's temporary folder (work_base),
-    independent of the output folder; removed afterwards, also after errors. A temporary folder that cannot
-    be used or whose path is too long ends with exit 2 and the hint, before anything is created."""
+    independent of the output folder; removed afterwards, also after errors. Work folders of earlier
+    browser runs that could not remove theirs (killed, the computer stopped; they hold the printed HTML)
+    are removed first (kernel.safety.remove_leftovers, A-54). A temporary folder that cannot be used or
+    whose path is too long ends with exit 2 and the hint, before anything is created."""
     base = work_base(windows=windows)
+    remove_leftovers(base, WORK_PREFIX)
     try:
-        path = Path(tempfile.mkdtemp(prefix=WORK_PREFIX, dir=base))
+        folder = WorkFolder.create(base, WORK_PREFIX)
     except OSError:
         raise _unusable() from None
     try:
-        yield path
+        yield folder.path
     finally:
-        shutil.rmtree(path, ignore_errors=True)
+        folder.remove()
 
 
 def _change_folder(folder: str) -> bool:
@@ -560,7 +565,11 @@ def launch_arguments(work: Path, extra_flags: Sequence[str] = ()) -> list[str]:
 
 
 class _ChildLog:
-    """debug.log next to the executable as a run found it: absent, or with its size (A-51, A-54)."""
+    """debug.log next to the executable (A-51, A-54). It is never part of the installation
+    (install_pdf_browser.py --check fails while it is there) and holds local paths, so one that is there
+    at the start is a leftover of a run that could not undo it (killed, or a version that wrote it below a
+    long work folder) and is removed. If it cannot be removed (the browser of a run still going holds it
+    open), the run remembers its size and cuts back only what it appends."""
 
     def __init__(self, executable: Path) -> None:
         self.path = executable.parent / CHILD_LOG
@@ -569,9 +578,18 @@ class _ChildLog:
         try:
             self.size = self.path.stat().st_size
         except FileNotFoundError:
-            pass
+            return
         except OSError:  # state unknown: leave the file alone
             self.known = False
+            return
+        try:
+            self.path.unlink()
+        except FileNotFoundError:
+            self.size = None
+        except OSError:
+            pass
+        else:
+            self.size = None
 
     def restore(self) -> None:
         """Remove a debug.log the run created, or cut the lines it appended. Never fails the run."""

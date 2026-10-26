@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -140,3 +141,39 @@ def long_path(base: Path, length: int) -> Path:
         room = length - len(path) - 1
         path += os.sep + "d" * max(min(40, room if room != 41 else 39), 10)
     return Path(path)
+
+
+@contextlib.contextmanager
+def holding_process(code: str, *args: str, **env: str) -> Iterator[tuple[subprocess.Popen[str], Path]]:
+    """Another NeuroGrid process that runs ``code`` (it prints the path of the work folder it holds, then
+    waits for its input) until it is killed: hard, no finally runs (A-54). Yields the process and the path."""
+    process = subprocess.Popen(
+        [sys.executable, "-c", code, *args],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8", **env},
+    )
+    try:
+        assert process.stdout is not None
+        yield process, Path(process.stdout.readline().strip())
+    finally:
+        process.kill()
+        process.wait()
+        for stream in (process.stdin, process.stdout):
+            if stream is not None:
+                stream.close()
+
+
+def wait_released(lock: Path) -> None:
+    """Windows releases the locks of a killed process shortly after it ended (measured: up to about 6 ms
+    after wait() returned); taking the lock with waiting (msvcrt.LK_LOCK tries again every second, up to 10
+    times; flock blocks) and closing it again waits for that."""
+    from neurogrid.kernel import safety
+
+    handle = os.open(lock, os.O_RDWR | getattr(os, "O_BINARY", 0))
+    try:
+        assert safety._lock(handle, wait=True)
+    finally:
+        os.close(handle)

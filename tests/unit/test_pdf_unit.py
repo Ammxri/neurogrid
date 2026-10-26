@@ -24,8 +24,8 @@ from pypdf.generic import (
     NameObject,
 )
 
-from conftest import short_folder  # type: ignore[import-not-found]
-from neurogrid.kernel import pdf
+from conftest import holding_process, short_folder, wait_released  # type: ignore[import-not-found]
+from neurogrid.kernel import pdf, safety
 from neurogrid.kernel.errors import InputError, PdfError
 from neurogrid.kernel.pdf import (
     CHROMIUM_FLAGS,
@@ -492,6 +492,42 @@ def test_browser_work_lies_in_the_temporary_folder_and_is_removed(monkeypatch: p
         monkeypatch.undo()
 
 
+HOLD_BROWSER_WORK = """
+from neurogrid.kernel import pdf
+
+with pdf.browser_work() as work:
+    (work / "report.zh.html").write_text("<title>dataset-derived</title>", encoding="utf-8")
+    (work / "playwright_chromiumdev_profile-x" / "Default").mkdir(parents=True)
+    print(work, flush=True)
+    input()  # until it is killed
+"""
+
+
+def test_browser_work_of_a_killed_run_is_removed_at_the_next_browser_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verification of P2: a run killed while it prints (no finally runs) leaves its work folder with the
+    printed HTML in the computer's temporary folder. The next browser run removes it (A-54 "at the next
+    start"), but never the work folder of a run that is still going."""
+    with short_folder("ng-temp-") as base:  # stands in for the computer's temporary folder
+        monkeypatch.setattr(tempfile, "tempdir", str(base))
+        env = {"TEMP": str(base), "TMP": str(base), "TMPDIR": str(base)}
+        with holding_process(HOLD_BROWSER_WORK, **env) as (process, held):
+            lock = held.with_name(held.name + safety.WORK_LOCK_SUFFIX)
+            assert held.parent == base and held.name.startswith(pdf.WORK_PREFIX) and lock.is_file()
+            with pdf.browser_work() as work:  # the other run is still going
+                assert (held / "report.zh.html").is_file() and work != held
+            assert not work.exists() and (held / "report.zh.html").is_file()
+            process.kill()
+            process.wait()
+            wait_released(lock)
+            assert (held / "report.zh.html").is_file()  # the killed run removed nothing
+            with pdf.browser_work() as work:
+                assert not held.exists() and not lock.exists()
+            assert list(base.iterdir()) == []
+        monkeypatch.undo()
+
+
 def test_temporary_folder_too_long_or_unusable_ends_with_its_own_hint(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -526,12 +562,22 @@ def test_temporary_folder_too_long_or_unusable_ends_with_its_own_hint(
     assert info.value.message_key == "pdf.temp_unusable"
 
 
-@pytest.mark.parametrize("before", [None, b"older lines\n"])
+@pytest.mark.parametrize(
+    ("before", "removable", "after"),
+    [(None, True, None), (b"older lines\n", True, None), (b"older lines\n", False, b"older lines\n")],
+)
 def test_child_log_next_to_the_executable_is_undone(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, before: bytes | None
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    before: bytes | None,
+    removable: bool,
+    after: bytes | None,
 ) -> None:
     """A-51/A-54: a debug.log the shell's child processes write next to the executable during a run is
-    removed (or cut back to what was there before) when the printer closes, also after a launch failure."""
+    removed when the printer closes, also after a launch failure. One that is there at the start is a
+    leftover of a run that could not undo it (killed, or an older version that wrote it below a long work
+    folder: seen in the installed shell while P2 was verified) and is removed at the start; if it cannot
+    be removed (held open by the browser of a run still going), the run cuts back only what it appended."""
     import playwright.sync_api
     from playwright.sync_api import Error
 
@@ -540,6 +586,14 @@ def test_child_log_next_to_the_executable_is_undone(
     log = executable.parent / "debug.log"
     if before is not None:
         log.write_bytes(before)
+    real_unlink = Path.unlink
+
+    def unlink(self: Path, missing_ok: bool = False) -> None:
+        if self == log and not removable:
+            raise PermissionError(13, "held open by a running browser")
+        real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
 
     class Browser:
         def close(self) -> None:
@@ -568,11 +622,11 @@ def test_child_log_next_to_the_executable_is_undone(
     shell = ShellInstall(tmp_path, tmp_path / "shell", executable, "win64")
     with pdf.browser_work() as work, PdfPrinter(shell, work):
         pass
-    assert (log.read_bytes() if log.exists() else None) == before
+    assert (log.read_bytes() if log.exists() else None) == after
     Driver.chromium.fail = True
     with pytest.raises(PdfError), pdf.browser_work() as work:
         PdfPrinter(shell, work).__enter__()
-    assert (log.read_bytes() if log.exists() else None) == before
+    assert (log.read_bytes() if log.exists() else None) == after
 
 
 def test_child_log_of_unknown_state_is_left_alone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
