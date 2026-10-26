@@ -120,11 +120,66 @@ def test_operator_path_rejects_network_and_devices(raw: str) -> None:
 
 
 def test_operator_path_rejects_streams_and_accepts_local(tmp_path: Path) -> None:
-    with pytest.raises(UnsafePathError):
-        check_operator_path(str(tmp_path / "x.edf:hidden"))
+    stream = str(tmp_path / "x.edf:hidden")
+    if os.name == "nt":
+        with pytest.raises(UnsafePathError):
+            check_operator_path(stream)
+    else:  # A-67: a colon is an ordinary character on POSIX (test_operator_path_allows_colons_on_posix)
+        assert check_operator_path(stream) == Path(stream)
+    assert safety.operator_path_problem(stream, windows=True) == "path.colon"  # Windows' verdict, anywhere
     assert check_operator_path(tmp_path / "results.json") == tmp_path / "results.json"
     with pytest.raises(UnsafePathError):
         check_operator_path("")
+
+
+WINDOWS_FORMS = [
+    ("\\\\server\\share\\data", "path.unc"),
+    ("//server/share", "path.unc"),
+    ("\\/server/share/x", "path.unc"),
+    ("\\\\?\\C:\\x", "path.device"),
+    ("\\\\.\\COM1", "path.device"),
+    ("\\/?/UNC/server/share", "path.device"),
+    ("\\??\\UNC\\server\\share\\ds", "path.device"),
+]
+
+
+@pytest.mark.parametrize("windows", [True, False], ids=["windows", "posix"])
+@pytest.mark.parametrize(("raw", "key"), WINDOWS_FORMS)
+def test_windows_network_and_device_forms_are_refused_on_every_platform(
+    raw: str, key: str, windows: bool
+) -> None:
+    """Linux CI failures (test_single_file_target, test_operator_path_rejects_network_and_devices): on POSIX
+    only '//' was refused, so '\\\\server\\share' was taken for a relative name (input.not_found; with --out
+    a file of that name in the working folder). A root that starts with a backslash and another separator,
+    or the NT namespace prefix, is a Windows network or device path an operator typed or pasted: refused on
+    both platforms with the same key (A-52, A-67)."""
+    assert safety.operator_path_problem(raw, windows=windows) == key
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "/\\server\\share\\x",
+        "\\x.edf",
+        "a\\b\\c.edf",
+        "x.edf:hidden",
+        "/??/GLOBALROOT/x",
+        "CON",
+        "out/aux.json",
+    ],
+)
+def test_posix_keeps_names_that_are_legal_there(raw: str) -> None:
+    """A-67: on POSIX colons, reserved Windows device names and backslashes inside a name are ordinary
+    characters, and '/\\…' is an absolute POSIX path; only a backslash root and '//' are refused."""
+    assert safety.operator_path_problem(raw, windows=False) is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "key"),
+    [("C:\\data\\x.edf:hidden", "path.colon"), ("out\\aux.json", "path.reserved"), ("D:relative\\x", None)],
+)
+def test_windows_verdicts_are_checked_on_every_platform(raw: str, key: str | None) -> None:
+    assert safety.operator_path_problem(raw, windows=True) == key
 
 
 def test_work_directory_is_removed(tmp_path: Path) -> None:

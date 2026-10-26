@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ctypes
 import getpass
+import ntpath
 import os
 import re
 import shutil
@@ -191,31 +192,52 @@ def _is_network_drive(path: Path) -> bool:
     return int(get_drive_type(anchor)) == _DRIVE_REMOTE
 
 
-def check_operator_path(raw: str | os.PathLike[str]) -> Path:
-    """Validate a path given on the command line: local paths only, no UNC/device paths, no streams.
+_DEVICE_PREFIXES = ("\\\\?\\", "\\\\.\\", "\\??\\")
 
-    On Windows every root made of two separators (slashes and backslashes in any mix) is UNC or a device
-    path; the check is repeated on the resolved path so that links to network shares are refused as well.
-    Colons after the drive (alternate data streams) only exist on Windows; on POSIX they are legal.
+
+def operator_path_problem(text: str, *, windows: bool) -> str | None:
+    """The message key that refuses a command-line path by its spelling alone, before any file access, or
+    None (A-52, A-67); ``windows`` selects the platform's rules.
+
+    Windows: every root made of two separators (slashes and backslashes in any mix) is UNC or a device path;
+    colons after the drive (alternate data streams) and reserved device names in any part are refused.
+    POSIX: colons, device names and backslashes inside a name are ordinary characters, and '/\\…' is an
+    absolute path. A path that starts with '//' or with a backslash followed by another separator (or the
+    NT prefix '\\??\\') is a Windows network or device path the operator typed or pasted: refused with the
+    same key as on Windows instead of being taken for a relative name (with --out a file of that name).
     """
+    if windows:
+        native = text.replace("/", "\\")
+        if native.startswith(_DEVICE_PREFIXES):
+            return "path.device"
+        if native.startswith("\\\\"):
+            return "path.unc"
+        _drive, rest = ntpath.splitdrive(native)
+        if ":" in rest:
+            return "path.colon"
+        for part in rest.split("\\"):
+            if part.split(".")[0].strip().upper() in _WINDOWS_RESERVED:
+                return "path.reserved"
+        return None
+    if text.startswith("\\"):
+        native = text.replace("/", "\\")
+        if native.startswith(_DEVICE_PREFIXES):
+            return "path.device"
+        if native.startswith("\\\\"):
+            return "path.unc"
+    return "path.unc" if text.startswith("//") else None
+
+
+def check_operator_path(raw: str | os.PathLike[str]) -> Path:
+    """Validate a path given on the command line: local paths only, no UNC/device paths, no streams
+    (operator_path_problem); on Windows the check is repeated on the resolved path so that links to network
+    shares and mapped network drives are refused as well."""
     text = os.fspath(raw)
     if not text or len(text) > MAX_PATH_CHARS or any(ord(ch) < 32 for ch in text):
         raise UnsafePathError("path.invalid")
-    if os.name == "nt":
-        native = text.replace("/", "\\")
-        if native.startswith(("\\\\?\\", "\\\\.\\", "\\??\\")):
-            raise UnsafePathError("path.device")
-        if native.startswith("\\\\"):
-            raise UnsafePathError("path.unc")
-        _drive, rest = os.path.splitdrive(native)
-        if ":" in rest:
-            raise UnsafePathError("path.colon")
-        for part in rest.split("\\"):
-            stem = part.split(".")[0].strip().upper()
-            if stem in _WINDOWS_RESERVED:
-                raise UnsafePathError("path.reserved")
-    elif text.startswith("//"):
-        raise UnsafePathError("path.unc")
+    problem = operator_path_problem(text, windows=os.name == "nt")
+    if problem is not None:
+        raise UnsafePathError(problem)
     path = Path(text)
     try:
         resolved = path.resolve(strict=False)
