@@ -546,8 +546,16 @@ def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
     assert "FROM debian:12-slim" in strace and "tools/strace_check.py" in strace
     windows = (ROOT / "packaging" / "ci" / "cleanroom_windows.ps1").read_text(encoding="utf-8-sig")
     for needle in ("0CCE9226-69AE-11D9-BED3-505054503030", "New-NetFirewallRule", "Id = 5156, 5157",
-                   "http://127.0.0.1:9", "System32\\tar.exe", "'安装 目录\\NeuroGrid'", "temp-left.txt",
+                   "http://127.0.0.1:9", "System32\\tar.exe", "Join-Path $room '安装 目录'", "temp-left.txt",
                    "max_relative_install_path", "'BUNDLE.json', 'python\\python.exe'"):  # fmt: skip
+        assert needle in windows, needle
+    # The prefix has exactly install.ps1's limit and one character more is refused before anything exists;
+    # without a PDF browser the report writes nothing and names the installation's own installer (B2).
+    for needle in ("$limit = 249 - [int]$info.max_relative_install_path", "'install-over-limit' @(2)",
+                   "if (Test-Path -LiteralPath $parent) { throw", "characters, limit $limit)",
+                   '$env:NEUROGRID_PDF_BROWSER_DIR = "$room\\pdf-browser-empty"', "'report-pdf-without-shell' @(2)",
+                   "(Join-Path $work 'report-no-shell')) { throw", "'Install it with: ' + (Shown (Join-Path $prefix "
+                   "'python\\python.exe')) + ' ' + (Shown (Join-Path $prefix 'tools\\install_pdf_browser.py'))"):  # fmt: skip
         assert needle in windows, needle
 
 

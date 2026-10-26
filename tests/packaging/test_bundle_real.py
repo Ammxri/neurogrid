@@ -110,4 +110,12 @@ def test_windows_clean_room(bundles: dict[str, Path], tmp_path: Path) -> None:
     assert result.returncode == 0, codes + result.stderr.decode("utf-8", "replace")[-3000:]
     steps = dict(line.split(" ", 2)[:2] for line in codes.splitlines())
     assert steps["install"] == "0" and steps["report-html"] == "0" and steps["usage-error"] == "2"
-    assert "all steps passed" in (evidence / "summary.txt").read_text(encoding="utf-8")
+    # Installed at exactly the prefix limit, one character more refused; without a PDF browser exit 2 with the
+    # installation's own installer named (the script checks the hint and that nothing was written).
+    assert steps["install-over-limit"] == "2" and steps["report-pdf-without-shell"] == "2"
+    summary = (evidence / "summary.txt").read_text(encoding="utf-8")
+    with zipfile.ZipFile(bundles["win_amd64"]) as archive:
+        (name,) = [n for n in archive.namelist() if n.count("/") == 1 and n.endswith("/BUNDLE.json")]
+        limit = 249 - json.loads(archive.read(name))["max_relative_install_path"]
+    assert f"install prefix: {limit} characters = the limit {limit} " in summary
+    assert "tools\\install_pdf_browser.py" in summary and "all steps passed" in summary

@@ -45,6 +45,15 @@ function Quote([string]$text) {
     return $text
 }
 
+function Shown([string]$path) {
+    # A path as NeuroGrid's messages show it: quoted when it holds a space (kernel/pdf.py _quoted), then the home
+    # folder as ~ (A-51, cli.py _redact).
+    if ($path.Contains(' ')) { $path = '"' + $path + '"' }
+    $userHome = $env:USERPROFILE.TrimEnd('\')
+    if (-not $userHome) { return $path }
+    return [regex]::Replace($path, [regex]::Escape($userHome) + '(?=[\\/])', '~', 'IgnoreCase')
+}
+
 function Invoke-Step([string]$name, [int[]]$allowed, [string]$exe, [string[]]$arguments, [string]$cwd) {
     # Start-Process instead of "& ... *> log": under ErrorActionPreference Stop, Windows PowerShell 5.1 turns
     # redirected native stderr into a terminating error before the exit code can be read.
@@ -69,7 +78,7 @@ try {
     $auditStart = Get-Date
 
     # 1. Fresh folder, extraction with the tar.exe of Windows, nothing of the build machine on PATH.
-    New-Item -ItemType Directory -Path $room, "$room\tmp", "$room\pdf-browser" | Out-Null
+    New-Item -ItemType Directory -Path $room, "$room\tmp", "$room\pdf-browser", "$room\pdf-browser-empty" | Out-Null
     & "$env:SystemRoot\System32\tar.exe" -xf $Archive -C $room
     if ($LASTEXITCODE -ne 0) { throw "tar.exe failed with $LASTEXITCODE" }
     $bundle = @(Get-ChildItem -LiteralPath $room -Directory -Filter 'neurogrid-*-offline-win_amd64')
@@ -91,8 +100,20 @@ try {
 
     # 2. Install with the shipped installer: install.cmd (Windows PowerShell 5.1) or install.ps1 under PowerShell 7.
     # The default prefix lies below %LOCALAPPDATA%, which holds the user name: a Chinese folder name with a
-    # space is tested here.
-    $prefix = Join-Path $room '安装 目录\NeuroGrid'
+    # space is tested here. The prefix has exactly the length limit of install.ps1 (249 minus BUNDLE.json's
+    # longest relative path), so every command below runs from the deepest folder the installer accepts; one
+    # character more is refused with exit 2 before anything is created.
+    $info = [System.IO.File]::ReadAllText((Join-Path $bundle 'BUNDLE.json'), $utf8) | ConvertFrom-Json
+    $limit = 249 - [int]$info.max_relative_install_path
+    $parent = Join-Path $room '安装 目录'
+    $pad = $limit - $parent.Length - 1 - 'NeuroGrid'.Length
+    if ($pad -lt 0) { throw "the room $room is too deep for an install prefix of $limit characters" }
+    $prefix = Join-Path $parent ('NeuroGrid' + ('_' * $pad))
+    $over = $prefix + '_'
+    Invoke-Step 'install-over-limit' @(2) (Join-Path $bundle 'install.cmd') @('-Prefix', $over, '-SkipSignatureCheck') $room
+    if (Test-Path -LiteralPath $parent) { throw 'the refused installation created a folder' }
+    $refusal = [System.IO.File]::ReadAllText((Join-Path $Evidence 'install-over-limit.err.log'))
+    if (-not $refusal.Contains("($($over.Length) characters, limit $limit)")) { throw 'the refusal does not name the length and the limit' }
     # The signature of a release bundle is verified on the connected host before (release.yml); cosign could not
     # reach Sigstore's trust root from inside the room, exactly as on an offline customer machine.
     $options = @('-Prefix', $prefix, '-SkipSignatureCheck')
@@ -159,8 +180,16 @@ try {
         foreach ($lang in 'zh', 'en') {
             if (-not (Test-Path -LiteralPath (Join-Path $work "report-pdf\report.$lang.pdf"))) { throw "report.$lang.pdf missing" }
         }
-    } else {
-        Invoke-Step 'report-pdf-without-shell' @(2) $ng @('report', 'r-edf.json', '--lang', 'en', '--format', 'pdf', '--out', 'report-pdf') $work
+    }
+    # Without a PDF browser (an empty browser folder): exit 2, nothing written, and the hint names this
+    # installation's own interpreter and PDF browser installer (kernel/pdf.py install_hint, B2).
+    $env:NEUROGRID_PDF_BROWSER_DIR = "$room\pdf-browser-empty"
+    Invoke-Step 'report-pdf-without-shell' @(2) $ng @('report', 'r-edf.json', '--lang', 'en', '--format', 'pdf', '--out', 'report-no-shell') $work
+    $env:NEUROGRID_PDF_BROWSER_DIR = "$room\pdf-browser"
+    if (Test-Path -LiteralPath (Join-Path $work 'report-no-shell')) { throw 'the report without PDF browser wrote output' }
+    $hint = 'Install it with: ' + (Shown (Join-Path $prefix 'python\python.exe')) + ' ' + (Shown (Join-Path $prefix 'tools\install_pdf_browser.py'))
+    if (-not ([System.IO.File]::ReadAllText((Join-Path $Evidence 'report-pdf-without-shell.err.log'), $utf8)).Contains($hint)) {
+        throw "the hint does not name the installation's PDF browser installer: $hint"
     }
     Invoke-Step 'usage-error' @(2) $ng @('check') $work
 
@@ -191,7 +220,9 @@ try {
     $summary.Add("archive: $(Split-Path -Leaf $Archive) sha256 $((Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant())")
     $summary.Add("shell: PowerShell $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition)); installer: $Installer; OS: $([System.Environment]::OSVersion.VersionString)")
     $summary.Add("offline switches: PATH = System32 only, HTTP(S)_PROXY/ALL_PROXY = http://127.0.0.1:9, UV_OFFLINE=1 (installer), OS audit: $(-not $NoOsAudit)")
+    $summary.Add("install prefix: $($prefix.Length) characters = the limit $limit (249 - $predicted); $($over.Length) characters refused with exit 2, nothing created")
     $summary.Add("installed: $($installed.Count) files, $installedMiB MiB; longest path below the prefix $longest characters (BUNDLE.json: $predicted); $($modules.Count) modules, all with compiled bytecode")
+    $summary.Add("PDF report: $(if ($PdfBrowserZip) { 'exit 0 with the browser from -PdfBrowserZip; ' } else { '' })exit 2 with an empty browser folder, nothing written, hint: $hint")
     $summary.Add("entries left in the room's TEMP: $($left.Count) (temp-left.txt)")
     $summary.Add(("total {0:N0} s; all steps passed" -f ((Get-Date) - $started).TotalSeconds))
     [System.IO.File]::WriteAllText((Join-Path $Evidence 'summary.txt'), (($summary -join "`n") + "`n"), $utf8)
