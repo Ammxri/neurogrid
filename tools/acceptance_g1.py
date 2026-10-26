@@ -8,6 +8,8 @@ messages, run 2 with Chinese ones); ``check --jobs 1`` once more on ds004148. Th
 reading of the files (not the product's code that wrote them):
 
 - exit codes: no exit 2; ``check`` exits with ``summary.exit_code`` (0 or 1), the others with 0;
+- readability: no failed CORE-M01 finding; a data set with one does not count towards the G1 minimum, nor do
+  its formats (NG-F01);
 - console: strict UTF-8, the fixed sentence (A-08) as a line of stdout, stderr only translated library
   warnings, no traceback, no path of the data set, no home folder;
 - files: exactly the expected files, no work folder or temporary file left (A-54);
@@ -1316,6 +1318,10 @@ def _entry(
     if different:
         problems["determinism"].append(f"differs between the runs: {', '.join(different)}")
     stats = evaluations[0].stats
+    unread = stats.get("read_errors") or 0
+    if unread:  # a recording that cannot be read has not been checked (NG-F01, KONZEPT §6 G1)
+        rules = f"{READ_RULES[0]}..{READ_RULES[-1][-2:]}"
+        problems["read"].append(f"{unread} failed readability findings ({rules})")
     folder = out / "run1" / name
     sizes = {file: (folder / file).stat().st_size for file in PRODUCT_FILES if (folder / file).is_file()}
     flat = sorted(f"{category}: {item}" for category, items in problems.items() for item in items)
@@ -1356,7 +1362,9 @@ def _summary(
     jobs: int,
     as_of: date,
 ) -> dict[str, Any]:
-    passed = [entry for entry in entries if entry["ok"]]
+    # a data set and its formats count only when every recording was read (no failed CORE-M01 finding),
+    # as for item 1 of the V-01 checklist: a format that could not be read has not been checked
+    passed = [entry for entry in entries if entry["ok"] and entry.get("read_errors") == 0]
     formats = sorted({fmt for entry in passed for fmt in entry["formats"]})
     minimum = len(passed) >= MIN_DATASETS and len(formats) >= MIN_FORMATS
     all_met = bool(entries) and len(passed) == len(entries)

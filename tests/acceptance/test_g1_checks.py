@@ -691,3 +691,27 @@ def test_summary_names_what_the_run_covers_and_what_it_does_not(
     assert g1.main(["--corpus", str(tmp_path), "--out", str(tmp_path / "out")]) == 1
     printed = capsys.readouterr().out
     assert "all criteria of this run NOT met" in printed and "outside this run:" in printed
+
+
+def test_unreadable_recordings_do_not_count_towards_the_minimum(tmp_path: Path) -> None:
+    """KONZEPT §6 G1 / NG-F01: a data set whose recordings fail CORE-M01 has not been checked, so neither it
+    nor its formats count towards '≥ 3 data sets in ≥ 2 formats', and the entry names the reason."""
+    readable = {**_summary()["datasets"][0], "problems": [], "ok": True}  # type: ignore[index]
+    names = ("ds-a", "ds-b", "ds-c")
+    formats = ("EDF", "BDF", "EDF")
+    good = [{**readable, "name": n, "formats": [f]} for n, f in zip(names, formats, strict=True)]
+    summary = g1._summary(good, None, True, runs=2, jobs=4, as_of=AS_OF)
+    assert summary["g1"]["minimum_met"] and summary["g1"]["formats_ok"] == ["BDF", "EDF"]
+    unreadable = [{**entry, "read_errors": entry["recordings"]} for entry in good]
+    summary = g1._summary(unreadable, None, True, runs=2, jobs=4, as_of=AS_OF)
+    assert summary["g1"]["datasets_ok"] == 0 and summary["g1"]["formats_ok"] == []
+    assert summary["g1"]["minimum_met"] is False and summary["g1"]["criteria_met"] is False
+    one = [good[0], {**good[1], "read_errors": 1}, good[2]]  # the only BDF data set is not readable
+    summary = g1._summary(one, None, True, runs=2, jobs=4, as_of=AS_OF)
+    assert summary["g1"]["formats_ok"] == ["EDF"] and summary["g1"]["minimum_met"] is False
+    (tmp_path / "run1" / "ds-x").mkdir(parents=True)
+    evaluation = g1.DatasetEval(stats={"read_errors": 2, "formats": ["BDF"], "recordings": 2})
+    same = dict.fromkeys(g1.PRODUCT_FILES, True)
+    entry = g1._entry("ds-x", tmp_path, [evaluation], {}, {"check": 1}, same)
+    assert entry["ok"] is False
+    assert "read: 2 failed readability findings (CORE-M01-01..04)" in entry["problems"]
