@@ -997,12 +997,17 @@ def raw_age_rows(dataset: Path) -> list[tuple[str, str]]:
 
 # An integer age is no token of its own (counts look the same), so it is searched in context: next to its
 # participant ID (within AGE_REACH characters, never across a table row or a line), after an age label
-# with a separator ('age: 54', 'Alter = 54', '年龄：54', 'aged 54') or before an age unit ('54 years',
-# '54 岁'). All case-insensitive.
+# with a separator ('age: 54', 'Alter = 54', the Chinese label U+5E74 U+9F84 with a full-width
+# colon, 'aged 54') or before an age unit ('54 years', '54' plus the Chinese unit U+5C81). All
+# case-insensitive. The Chinese characters are escapes, so this file holds no CJK text (zh review
+# package, NG-N07).
 AGE_REACH = 40
 AGE_NUMBER = r"(?<![\d.,\-–]){age}(?![\d.,\-–])"
-AGE_LABEL = r"(?:(?<![A-Za-z])(?:ages?|alter)\s*[:：=]\s*|(?<![A-Za-z])aged\s+|年龄\s*[:：=]?\s*)"
-AGE_UNIT = r"\s*(?:岁|years?(?![A-Za-z])|yrs?(?![A-Za-z])|jahre(?![A-Za-z]))"
+AGE_LABEL = (
+    r"(?:(?<![A-Za-z])(?:ages?|alter)\s*[:\uff1a=]\s*"
+    r"|(?<![A-Za-z])aged\s+|\u5e74\u9f84\s*[:\uff1a=]?\s*)"
+)
+AGE_UNIT = r"\s*(?:\u5c81|years?(?![A-Za-z])|yrs?(?![A-Za-z])|jahre(?![A-Za-z]))"
 
 
 def _age_in_context(text: str, item: Forbidden) -> bool:
