@@ -15,8 +15,11 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from collections import defaultdict
+from collections.abc import Iterator
 from importlib import metadata
 from pathlib import Path
+from typing import Any
 
 import pytest
 from packaging.utils import canonicalize_name
@@ -64,24 +67,62 @@ def test_every_runtime_package_has_a_fitting_wheel(platform: str) -> None:
         assert all(w.filename.endswith(("-win_amd64.whl", "-none-any.whl")) for w in wheels)
 
 
+def _runtime_closure() -> set[str]:
+    """The packages the project's own dependencies need, read from the dependency graph in uv.lock (every
+    marker, the extras each requirement names) without its dependency groups: what the wheelhouse holds."""
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    entries: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for package in lock["package"]:  # a forked resolution lists a package once per version
+        entries[canonicalize_name(package["name"])].append(package)
+
+    def needs(name: str, extra: str) -> Iterator[tuple[str, str]]:
+        for package in entries[name]:
+            if extra:
+                requirements = package.get("optional-dependencies", {}).get(extra, [])
+            else:
+                requirements = package.get("dependencies", [])
+            for requirement in requirements:
+                needed = canonicalize_name(requirement["name"])
+                yield needed, ""
+                yield from ((needed, wanted) for wanted in requirement.get("extra", []))
+
+    (project,) = [n for n, found in entries.items() if any(p["source"].get("editable") == "." for p in found)]
+    seen: set[tuple[str, str]] = set()
+    todo = list(needs(project, ""))
+    while todo:
+        item = todo.pop()
+        if item not in seen:
+            seen.add(item)
+            todo += needs(*item)
+    return {name for name, _extra in seen}
+
+
 @needs_uv
 def test_runtime_export_holds_no_dev_or_docs_only_package() -> None:
-    """The bundle's export (--no-default-groups) holds no package that only a dependency group asks for:
-    with `default-groups = ["dev", "docs"]` the older --no-dev lets the docs group into the wheelhouse."""
+    """The bundle's export (--no-default-groups) holds exactly the packages the project's own dependencies
+    need (uv.lock's graph), so no package that only a dependency group asks for: with `default-groups =
+    ["dev", "docs"]` the older --no-dev lets the docs group into the wheelhouse. A group package that a
+    runtime package needs as well stays in it (psutil: dev group for the perf tests, needed by pyprep and
+    mne-icalabel)."""
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     runtime_direct = {
         canonicalize_name(r.split("==")[0].split("[")[0]) for r in project["project"]["dependencies"]
     }
     runtime = _export("--no-default-groups")
+    closure = _runtime_closure()
     assert runtime_direct <= runtime
+    assert runtime == closure, (sorted(runtime - closure), sorted(closure - runtime))
     groups = project.get("dependency-groups", {})
     assert "dev" in groups
     for group, requirements in groups.items():
         direct = {canonicalize_name(re.split(r"[=<>~!\[; ]", r, maxsplit=1)[0]) for r in requirements}
-        leaked = (direct - runtime_direct) & runtime
+        leaked = (direct & runtime) - closure
         assert not leaked, (group, leaked)
         assert direct <= _export("--only-group", group)
     assert not {"pytest", "ruff", "mypy", "mkdocs", "mkdocs-material"} & runtime
+    assert "psutil" in runtime and any(r.startswith("psutil==") for r in groups["dev"])  # both need it
+    # The check sees a leak: --no-dev keeps the docs group, whose packages no runtime package needs.
+    assert {"mkdocs", "mkdocs-material", "pymdown-extensions"} <= _export("--no-dev") - closure
 
 
 def _runtime_distributions() -> list[metadata.Distribution]:
