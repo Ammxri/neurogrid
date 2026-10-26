@@ -33,7 +33,10 @@ synchronised if that matters to you.
   has fewer than 5 subjects.
 - No raw signals, no signal hashes and no raw ages in any output.
 - No user accounts and no log files. Access to the files is governed by the rights of the operating system.
-- Each run uses its own work folder next to its output and removes it at the end.
+- Each run uses its own work folder next to its output and removes it at the end. The PDF browser's work folder
+  lies in the computer's temporary folder instead (Windows limits the length of its paths) and is removed the same
+  way. A work folder that a run ended by force could not remove is removed by the next run that works in the same
+  place.
 
 ## Check it yourself {#check-yourself}
 

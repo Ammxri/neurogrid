@@ -7,9 +7,10 @@ import ctypes
 import os
 import re
 import shutil
+import sys
 import tempfile
 from collections.abc import Hashable, Iterator, Mapping
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -239,19 +240,188 @@ def redact_paths(text: str, roots: Mapping[str, Path | None]) -> str:
     return text
 
 
+# A-54: a work folder ``<prefix><8 random characters>`` holds a lock file (WORK_LOCK). The run locks it before
+# it writes WORK_MARK into it and keeps it locked until the folder is removed; the operating system releases
+# the lock when the process ends, also when it is killed or crashes. A later start in the same base removes a
+# folder whose lock file holds the mark and is not locked any more: a leftover. The lock file lies inside the
+# folder, so whatever leaves the work folder out (manifest comparisons, A-82) leaves it out too, and it is
+# removed last, so a folder that could not be removed completely is found again by the next start.
+RUN_PREFIX = "run-"
+WORK_LOCK = "neurogrid-work.lock"
+WORK_MARK = b"NeuroGrid work folder\n"
+_RANDOM_PART = "[a-z0-9_]{8}"  # tempfile.mkdtemp's random characters
+_OPEN_FLAGS = os.O_RDWR | getattr(os, "O_BINARY", 0)
+# the lock files of this process's own folders: never taken for leftovers, also where the file system lets
+# a second lock of the same process through (Linux emulates flock on NFS with record locks)
+_OWN_LOCKS: set[str] = set()
+
+
+def _key(path: Path) -> str:
+    return os.path.normcase(str(Path(path).absolute()))
+
+
+def _lock(handle: int, *, wait: bool) -> bool:
+    """An exclusive lock on the first byte of the open file ``handle`` (msvcrt on Windows, flock elsewhere),
+    held until the handle is closed or the process ends. False when another open file holds it and
+    ``wait`` is false; OSError when the file system offers no locks."""
+    os.lseek(handle, 0, os.SEEK_SET)
+    if sys.platform == "win32":
+        import msvcrt
+
+        try:
+            msvcrt.locking(handle, msvcrt.LK_LOCK if wait else msvcrt.LK_NBLCK, 1)
+        except PermissionError:  # EACCES: the byte is locked through another handle
+            if wait:
+                raise
+            return False
+        return True
+    import fcntl
+
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | (0 if wait else fcntl.LOCK_NB))
+    except BlockingIOError:
+        return False
+    return True
+
+
+def _empty(folder: Path) -> bool:
+    """Remove everything in a work folder but its lock file (links are removed, never followed); True when
+    nothing else is left."""
+    try:
+        with os.scandir(folder) as entries:
+            children = [Path(entry.path) for entry in entries if entry.name != WORK_LOCK]
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    for child in children:
+        with suppress(OSError):
+            if not is_link(child) and child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink()  # also a junction on Windows (removed, not followed)
+    try:
+        with os.scandir(folder) as entries:
+            return all(entry.name == WORK_LOCK for entry in entries)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+
+
+def _drop(folder: Path) -> None:
+    with suppress(OSError):
+        (folder / WORK_LOCK).unlink(missing_ok=True)
+    with suppress(OSError):
+        folder.rmdir()
+
+
+class WorkFolder:
+    """A private folder for one run in a base folder, locked by this process while it exists (A-54)."""
+
+    def __init__(self, path: Path, handle: int) -> None:
+        self.path = path
+        self.lock = path / WORK_LOCK
+        self._handle = handle
+
+    @classmethod
+    def create(cls, base: Path, prefix: str) -> WorkFolder:
+        """A new folder ``<prefix><8 random characters>`` in ``base`` with its lock file, locked by this
+        process; OSError when the folder or its lock file cannot be created. On a file system without
+        locks the lock file gets no mark: the folder is still removed at the end of the run, only never by
+        a later start."""
+        path = Path(tempfile.mkdtemp(prefix=prefix, dir=base))
+        lock = path / WORK_LOCK
+        try:
+            handle = os.open(lock, _OPEN_FLAGS | os.O_CREAT | os.O_EXCL, 0o600)
+        except BaseException:
+            with suppress(OSError):
+                path.rmdir()
+            raise
+        _OWN_LOCKS.add(_key(lock))
+        try:
+            try:
+                locked = _lock(handle, wait=True)
+            except OSError:
+                locked = False
+            if locked:
+                os.write(handle, WORK_MARK)
+        except BaseException:
+            os.close(handle)
+            _OWN_LOCKS.discard(_key(lock))
+            _drop(path)
+            raise
+        return cls(path, handle)
+
+    def remove(self) -> None:
+        """Remove the folder's content while it is still locked, then release the lock and remove the lock
+        file and the folder. If something could not be removed (a file another process holds open), the
+        lock file with its mark stays, so that a later start removes the rest."""
+        emptied = _empty(self.path)
+        os.close(self._handle)
+        _OWN_LOCKS.discard(_key(self.lock))
+        if emptied:
+            _drop(self.path)
+
+
+def _remove_leftover(folder: Path) -> None:
+    lock = folder / WORK_LOCK
+    if _key(lock) in _OWN_LOCKS:
+        return
+    try:
+        if is_link(folder) or not folder.is_dir():
+            return
+        handle = os.open(lock, _OPEN_FLAGS)
+    except OSError:  # no lock file: not a work folder NeuroGrid can recognise (or one made without locks)
+        return
+    try:
+        if not _lock(handle, wait=False):  # its run is still going
+            return
+        os.lseek(handle, 0, os.SEEK_SET)
+        if os.read(handle, len(WORK_MARK) + 1) != WORK_MARK:  # not locked yet, or not NeuroGrid's
+            return
+        opened, current = os.fstat(handle), lock.stat()
+        if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):  # replaced meanwhile
+            return
+        emptied = _empty(folder)  # still locked: no other start takes the folder meanwhile
+    except OSError:
+        return
+    finally:
+        os.close(handle)
+    if emptied:
+        _drop(folder)
+
+
+def remove_leftovers(base: Path, prefix: str) -> None:
+    """A-54 "deleted at the next start": the work folders ``<prefix>*`` in ``base`` that their run could not
+    remove (it was killed, the computer stopped) are removed. Only a folder whose lock file holds WORK_MARK
+    and is no longer locked counts; folders of runs still going, other entries with the same prefix (without
+    such a lock file), links and anything that cannot be read are left alone. Never fails the run."""
+    pattern = re.compile(re.escape(prefix) + _RANDOM_PART)
+    try:
+        with os.scandir(base) as entries:
+            names = sorted(entry.name for entry in entries if pattern.fullmatch(entry.name))
+    except OSError:
+        return
+    for name in names:
+        _remove_leftover(base / name)
+
+
 @contextmanager
 def work_directory(base: Path) -> Iterator[Path]:
-    """A private directory for one run; removed afterwards, also after errors.
+    """A private directory for one run; removed afterwards, also after errors, and at the next start in the
+    same base when the run could not remove it (remove_leftovers).
 
     The work folder lies next to the output, so a folder that cannot be created there (a file in the way,
     no permission) is reported like an output that cannot be written.
     """
     try:
         base.mkdir(parents=True, exist_ok=True)
-        path = Path(tempfile.mkdtemp(prefix="run-", dir=base))
+        remove_leftovers(base, RUN_PREFIX)
+        folder = WorkFolder.create(base, RUN_PREFIX)
     except OSError:
         raise InputError("output.not_writable") from None
     try:
-        yield path
+        yield folder.path
     finally:
-        shutil.rmtree(path, ignore_errors=True)
+        folder.remove()

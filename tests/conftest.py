@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -78,3 +85,95 @@ def dir_link(link: Path, target: Path) -> None:
         _winapi.CreateJunction(str(target), str(link))
         return
     pytest.skip("directory links not permitted on this system")
+
+
+@contextlib.contextmanager
+def short_folder(prefix: str) -> Iterator[Path]:
+    """A new private folder in the computer's temporary folder, removed afterwards: a short path that does
+    not grow with pytest's basetemp (the PDF browser cannot use long paths on Windows, P2)."""
+    folder = Path(tempfile.mkdtemp(prefix=prefix)).absolute()
+    try:
+        yield folder
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def folder_content(folder: Path) -> dict[str, tuple[object, ...]]:
+    """Everything a run could change below ``folder``: each folder's entries, size and modification time,
+    each file's size, modification time and SHA-256 (byte for byte).
+
+    Each folder is listed before its own size is read. Windows reports a folder's size from NTFS's cache: 0
+    while nothing has read the folder for a while, the size of its index once something did (measured: a
+    snapshot that read the size of chrome-headless-shell-win64/hyphen-data before listing it saw 0, the
+    next one 12288, with nothing written in between; read after the listing it is the index size both
+    times). Creating or removing an entry changes the folder's modification time, also if it is undone."""
+    content: dict[str, tuple[object, ...]] = {}
+    for path, _folders, files in os.walk(folder):
+        here = Path(path)
+        names = tuple(sorted(entry.name for entry in here.iterdir()))
+        info = here.stat()
+        content[here.relative_to(folder).as_posix() + "/"] = (names, info.st_size, info.st_mtime_ns)
+        for name in files:
+            file = here / name
+            info = file.stat()
+            digest = hashlib.sha256(file.read_bytes()).hexdigest()
+            content[file.relative_to(folder).as_posix()] = (info.st_size, info.st_mtime_ns, digest)
+    return content
+
+
+@contextlib.contextmanager
+def fresh_shell(shell: Any) -> Iterator[Any]:
+    """A fresh installation of the PDF browser for one test: the installed shell (verified tree) copied into
+    a new short folder that no browser has run from, located like the product does; removed afterwards.
+    Its first print is the first print after an installation."""
+    from neurogrid.kernel.pdf import ENV_BROWSER_DIR, locate_shell
+
+    with short_folder("ng-shell-") as folder:
+        shutil.copytree(shell.shell_dir, folder / shell.shell_dir.name)
+        yield locate_shell({ENV_BROWSER_DIR: str(folder)})
+
+
+def long_path(base: Path, length: int) -> Path:
+    """A path below ``base`` of ``length`` characters (at least one 10-character folder more), in folders of
+    at most 40 characters."""
+    path = str(base)
+    while len(path) < length - 1 or path == str(base):
+        room = length - len(path) - 1
+        path += os.sep + "d" * max(min(40, room if room != 41 else 39), 10)
+    return Path(path)
+
+
+@contextlib.contextmanager
+def holding_process(code: str, *args: str, **env: str) -> Iterator[tuple[subprocess.Popen[str], Path]]:
+    """Another NeuroGrid process that runs ``code`` (it prints the path of the work folder it holds, then
+    waits for its input) until it is killed: hard, no finally runs (A-54). Yields the process and the path."""
+    process = subprocess.Popen(
+        [sys.executable, "-c", code, *args],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8", **env},
+    )
+    try:
+        assert process.stdout is not None
+        yield process, Path(process.stdout.readline().strip())
+    finally:
+        process.kill()
+        process.wait()
+        for stream in (process.stdin, process.stdout):
+            if stream is not None:
+                stream.close()
+
+
+def wait_released(lock: Path) -> None:
+    """Windows releases the locks of a killed process shortly after it ended (measured: up to about 6 ms
+    after wait() returned); taking the lock with waiting (msvcrt.LK_LOCK tries again every second, up to 10
+    times; flock blocks) and closing it again waits for that."""
+    from neurogrid.kernel import safety
+
+    handle = os.open(lock, os.O_RDWR | getattr(os, "O_BINARY", 0))
+    try:
+        assert safety._lock(handle, wait=True)
+    finally:
+        os.close(handle)

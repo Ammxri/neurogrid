@@ -13,8 +13,16 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   proactor creates one loopback socket pair. The network guard (kernel/netguard.py) allows loopback only
   and still blocks every other connection, datagram and name resolution (A-49). The driver starts without
   the caller's node, debug and Playwright variables; the browser gets a complete, minimal environment.
-- **Files (A-54):** temporary files, profile and logs in the run's work folder; the GPU runs inside the
-  browser process, and a debug.log that a child process appends next to the executable is undone.
+- **Files (A-54):** temporary files, profile, logs and the HTML files it prints in a private work folder in
+  the computer's temporary folder (browser_work), never below ``--out``: Chromium cannot create profile paths
+  longer than Windows allows (measured with the merged state: ``--out`` of 195 characters left a debug.log
+  with local paths in the current folder, 210 characters ended in pdf.launch_failed). A temporary folder
+  with a path too long for the profile ends with exit 2 and its own hint before anything is rendered.
+  Driver and browser run with the work folder as their current folder (a debug.log Chromium writes there
+  goes with it); the GPU runs inside the browser process, and a debug.log that a child process appends
+  next to the executable is undone. What a run could not remove because it was killed is removed at the
+  next start of a browser run: its work folder (its lock file, kernel.safety.remove_leftovers) and
+  a debug.log next to the executable (also one an older version left).
 - **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
   report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a
   same-length byte replacement of the two fields Chromium writes; the result is byte-identical for the same
@@ -54,7 +62,7 @@ from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, PdfObje
 
 from neurogrid.kernel.errors import InputError, PdfError, UnsafePathError
 from neurogrid.kernel.fonts import is_radical_or_compat
-from neurogrid.kernel.safety import check_operator_path
+from neurogrid.kernel.safety import WorkFolder, check_operator_path, remove_leftovers
 
 if TYPE_CHECKING:
     from playwright.sync_api import Browser, Playwright, Request, Route
@@ -100,6 +108,19 @@ DRIVER_ENV_PREFIXES = ("PLAYWRIGHT_", "PW_")
 # The GPU runs as a thread of the browser process instead; a debug.log a run causes is undone (A-51, A-54).
 IN_PROCESS_GPU = "--in-process-gpu"
 CHILD_LOG = "debug.log"
+# The browser's work folder lies in the computer's temporary folder (tempfile.gettempdir(): TMPDIR, TEMP or
+# TMP), independent of --out. Below it the driver's profile reaches 96 characters (measured, revision 1243,
+# both reports printed: playwright_chromiumdev_profile-XXXXXX\Default\blob_storage\<uuid>); the shell is not
+# long-path aware. Measured with work folders of exact lengths: up to 160 characters every print was clean;
+# from 170 Chromium could not create its disk cache folders and wrote the errors, with local paths, to
+# debug.log (next to the executable, and into its current folder: at 208 characters with the caller's
+# current folder there); at 215 characters the launch failed. The limit leaves 60 characters reserve; it
+# applies on Windows only (Linux has no such path limit).
+WORK_PREFIX = "ng-pdf-"
+WORK_PATH_LIMIT = 100
+# the temporary folder itself: the work folder adds a separator, the prefix and tempfile.mkdtemp's 8 random
+# characters
+TEMP_PATH_LIMIT = WORK_PATH_LIMIT - 1 - len(WORK_PREFIX) - 8
 LINUX_PACKAGES = Path(__file__).with_name("pdf_linux_packages.json")
 BUNDLE_MARKER = "BUNDLE.json"  # in the prefix of an offline-bundle installation (next to venv/, python/)
 # an embedded font subset: six capital letters, "+", the PostScript name of the face
@@ -289,13 +310,15 @@ def preflight(
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     os_release: Path = Path("/etc/os-release"),
 ) -> None:
-    """Before any rendering: the pinned Playwright and, on Linux, the shell's system libraries (ldd)."""
+    """Before any rendering: the pinned Playwright, the temporary folder for the browser's work folder
+    (work_base) and, on Linux, the shell's system libraries (ldd)."""
     try:
         found = metadata.version("playwright")
     except metadata.PackageNotFoundError:
         found = "none"
     if found != PLAYWRIGHT_VERSION:
         raise PdfError("pdf.playwright_version", found=found, required=PLAYWRIGHT_VERSION)
+    work_base()
     if shell.platform != "linux64":
         return
     ldd = shutil.which("ldd")
@@ -408,11 +431,73 @@ def browser_environment(work: Path, *, windows: bool | None = None) -> dict[str,
     return env
 
 
+def _too_long(length: int, limit: int) -> PdfError:
+    return PdfError(
+        "pdf.work_path_too_long",
+        length=length,
+        limit=limit,
+        hint=("pdf.temp_hint", {"limit": TEMP_PATH_LIMIT}),
+    )
+
+
+def _unusable() -> PdfError:
+    return PdfError("pdf.temp_unusable", hint=("pdf.temp_unusable_hint", {}))
+
+
+def check_work_path(work: Path, *, windows: bool | None = None) -> None:
+    """Windows: a work folder path longer than WORK_PATH_LIMIT characters is refused before the browser
+    starts (exit 2, with the hint to choose a shorter temporary folder)."""
+    length = len(str(Path(work).absolute()))
+    if (windows if windows is not None else os.name == "nt") and length > WORK_PATH_LIMIT:
+        raise _too_long(length, WORK_PATH_LIMIT)
+
+
+def work_base(*, windows: bool | None = None) -> Path:
+    """The computer's temporary folder, the base of the browser's work folders: PdfError (exit 2, with
+    the hint) when there is no usable one or, on Windows, its path is longer than TEMP_PATH_LIMIT
+    characters."""
+    try:
+        base = Path(tempfile.gettempdir()).absolute()
+    except OSError:  # tempfile found no writable folder among TMPDIR, TEMP, TMP and its fallbacks
+        raise _unusable() from None
+    if (windows if windows is not None else os.name == "nt") and len(str(base)) > TEMP_PATH_LIMIT:
+        raise _too_long(len(str(base)), TEMP_PATH_LIMIT)
+    return base
+
+
+@contextmanager
+def browser_work(*, windows: bool | None = None) -> Iterator[Path]:
+    """A private work folder for one browser run in the computer's temporary folder (work_base),
+    independent of the output folder; removed afterwards, also after errors. Work folders of earlier
+    browser runs that could not remove theirs (killed, the computer stopped; they hold the printed HTML)
+    are removed first (kernel.safety.remove_leftovers, A-54). A temporary folder that cannot be used or
+    whose path is too long ends with exit 2 and the hint, before anything is created."""
+    base = work_base(windows=windows)
+    remove_leftovers(base, WORK_PREFIX)
+    try:
+        folder = WorkFolder.create(base, WORK_PREFIX)
+    except OSError:
+        raise _unusable() from None
+    try:
+        yield folder.path
+    finally:
+        folder.remove()
+
+
+def _change_folder(folder: str) -> bool:
+    try:
+        os.chdir(folder)
+    except OSError:
+        return False
+    return True
+
+
 @contextmanager
 def driver_environment(work: Path) -> Iterator[None]:
-    """While Playwright's driver (node) starts: temporary files in the work folder, none of the variables
-    that change the driver or the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES). Restored right
-    afterwards."""
+    """While Playwright's driver (node) starts: temporary files in the work folder, the work folder as the
+    current folder (the driver keeps it and the browser and its child processes inherit it, so a debug.log
+    Chromium writes into its current folder lands there), none of the variables that change the driver or
+    the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES). Restored right afterwards."""
     removed = [
         name
         for name in os.environ
@@ -421,12 +506,21 @@ def driver_environment(work: Path) -> Iterator[None]:
     names = ("TMP", "TEMP", "TMPDIR", *DRIVER_ENV_REMOVED, *removed)
     saved = {name: os.environ.get(name) for name in names}
     try:
+        previous: str | None = str(Path.cwd())
+    except OSError:  # the current folder no longer exists: nothing to return to
+        previous = None
+    try:
         for name in ("TMP", "TEMP", "TMPDIR"):
             os.environ[name] = str(work)
         for name in (*DRIVER_ENV_REMOVED, *removed):
             os.environ.pop(name, None)
+        os.chdir(work)
         yield
     finally:
+        # back to the previous folder; if it is gone, out of the work folder so that it can be removed
+        for folder in (previous, str(Path(work).absolute().parent)):
+            if folder is not None and _change_folder(folder):
+                break
         for name, value in saved.items():
             if value is None:
                 os.environ.pop(name, None)
@@ -471,7 +565,11 @@ def launch_arguments(work: Path, extra_flags: Sequence[str] = ()) -> list[str]:
 
 
 class _ChildLog:
-    """debug.log next to the executable as a run found it: absent, or with its size (A-51, A-54)."""
+    """debug.log next to the executable (A-51, A-54). It is never part of the installation
+    (install_pdf_browser.py --check fails while it is there) and holds local paths, so one that is there
+    at the start is a leftover of a run that could not undo it (killed, or a version that wrote it below a
+    long work folder) and is removed. If it cannot be removed (the browser of a run still going holds it
+    open), the run remembers its size and cuts back only what it appends."""
 
     def __init__(self, executable: Path) -> None:
         self.path = executable.parent / CHILD_LOG
@@ -480,9 +578,18 @@ class _ChildLog:
         try:
             self.size = self.path.stat().st_size
         except FileNotFoundError:
-            pass
+            return
         except OSError:  # state unknown: leave the file alone
             self.known = False
+            return
+        try:
+            self.path.unlink()
+        except FileNotFoundError:
+            self.size = None
+        except OSError:
+            pass
+        else:
+            self.size = None
 
     def restore(self) -> None:
         """Remove a debug.log the run created, or cut the lines it appended. Never fails the run."""
@@ -499,7 +606,9 @@ class _ChildLog:
 
 
 class PdfPrinter:
-    """One driver and one browser for several documents (``with PdfPrinter(shell, work) as printer``).
+    """One driver and one browser for several documents (``with browser_work() as work, PdfPrinter(shell,
+    work) as printer``). ``work`` holds the driver's temporary files, the profile, the log and the printed
+    files; on Windows it must not be longer than WORK_PATH_LIMIT characters.
 
     Playwright's own error texts are never shown: they contain paths (A-07, A-51); only the type is."""
 
@@ -516,6 +625,7 @@ class PdfPrinter:
     def __enter__(self) -> PdfPrinter:
         from playwright.sync_api import Error, sync_playwright
 
+        check_work_path(self.work)
         self.work.mkdir(parents=True, exist_ok=True)
         environment: dict[str, str | float | bool] = dict(browser_environment(self.work))
         self._child_log = _ChildLog(self.shell.executable)

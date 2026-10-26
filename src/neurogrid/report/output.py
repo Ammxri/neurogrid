@@ -3,12 +3,15 @@ language, written all or nothing.
 
 1. ``pdf`` requested: the PDF browser is located and checked before anything is rendered, so a missing or
    wrong browser or missing Linux libraries end with exit 2 and nothing written (``html`` alone never needs
-   the browser, A-26).
+   the browser, A-26). Then the output folder is checked (check_output_folder): an output that cannot be
+   written ends with exit 2 before the browser starts, not after both PDFs were printed.
 2. Per language the report is rendered twice: once to learn its characters, once with the @font-face rules
    of the font subsets that cover them (fonts embedded in HTML and PDF alike). Characters the fonts cannot
    draw are written as ``[U+XXXX]`` (report.glyphs.glyph_safe), so dataset text never makes the browser
    use a system font.
-3. The PDF is a print of exactly the HTML that is delivered; every PDF passes the QA gate.
+3. The PDF is a print of exactly the HTML that is delivered; every PDF passes the QA gate. The browser works
+   in a private folder in the computer's temporary folder (kernel.pdf.browser_work), not below the output
+   folder, so a long output path never reaches the browser's profile.
 4. Only then are all files written, each atomically; a failure leaves none of them behind.
 """
 
@@ -27,12 +30,12 @@ from neurogrid.kernel.pdf import (
     PdfMeta,
     PdfPrinter,
     ShellInstall,
+    browser_work,
     html_title,
     locate_shell,
     preflight,
     qa_gate,
 )
-from neurogrid.kernel.safety import work_directory
 from neurogrid.model.results import Results
 from neurogrid.report.glyphs import glyph_safe
 from neurogrid.report.render import page_text, render_report
@@ -84,11 +87,9 @@ def pdf_expectation(results: Results, lang: str, document: str) -> PdfExpect:
     )
 
 
-def _print_all(
-    results: Results, documents: Mapping[str, str], folder: Path, shell: ShellInstall
-) -> dict[str, bytes]:
+def _print_all(results: Results, documents: Mapping[str, str], shell: ShellInstall) -> dict[str, bytes]:
     pdfs: dict[str, bytes] = {}
-    with work_directory(folder) as work, PdfPrinter(shell, work) as printer:
+    with browser_work() as work, PdfPrinter(shell, work) as printer:
         for lang, document in documents.items():
             source = work / f"report.{lang}.html"
             source.write_bytes(document.encode("utf-8"))
@@ -113,6 +114,23 @@ def _stage(target: Path, data: bytes) -> Path:
         temporary.unlink(missing_ok=True)
         raise
     return temporary
+
+
+def check_output_folder(folder: Path, targets: Sequence[Path]) -> None:
+    """Before the browser starts: no target is a folder (output.is_directory) and the output folder exists
+    or can be created and takes a new file (output.not_writable), the checks write_all makes when it
+    writes. The browser's work folder no longer lies below the output folder, so without this an output
+    that cannot be written would end the run only after both PDFs were printed."""
+    for target in targets:
+        if target.is_dir():
+            raise InputError("output.is_directory")
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        handle, name = tempfile.mkstemp(dir=folder, prefix=".report.", suffix=".tmp")
+        os.close(handle)
+        Path(name).unlink()
+    except OSError:
+        raise InputError("output.not_writable") from None
 
 
 def write_all(files: Mapping[Path, bytes]) -> None:
@@ -150,14 +168,15 @@ def write_reports(
         shell = locate_shell(environ)
         preflight(shell)
     existed = folder.exists()
+    targets = {(lang, name): folder / f"report.{lang}.{name}" for lang in languages for name in formats}
     try:
+        check_output_folder(folder, list(targets.values()))
         documents = {lang: html_document(results, lang) for lang in languages}
-        pdfs = _print_all(results, documents, folder, shell) if shell is not None else {}
-        files: dict[Path, bytes] = {}
-        for lang in languages:
-            for name in formats:
-                data = documents[lang].encode("utf-8") if name == "html" else pdfs[lang]
-                files[folder / f"report.{lang}.{name}"] = data
+        pdfs = _print_all(results, documents, shell) if shell is not None else {}
+        files = {
+            target: documents[lang].encode("utf-8") if name == "html" else pdfs[lang]
+            for (lang, name), target in targets.items()
+        }
         write_all(files)
     except BaseException:
         if not existed and folder.is_dir() and not any(folder.iterdir()):

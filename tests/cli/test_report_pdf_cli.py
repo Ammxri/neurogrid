@@ -8,19 +8,28 @@ import io
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
 import pypdf
 import pytest
 
+from conftest import (  # type: ignore[import-not-found]
+    fresh_shell,
+    long_path,
+    short_folder,
+    wait_released,
+)
 from neurogrid import pipeline
 from neurogrid.cli import main
 from neurogrid.kernel import canonical, fonts
 from neurogrid.kernel.errors import PdfError
-from neurogrid.kernel.pdf import ENV_BROWSER_DIR
+from neurogrid.kernel.pdf import ENV_BROWSER_DIR, WORK_PREFIX
+from neurogrid.kernel.safety import WORK_LOCK
 from neurogrid.model.results import Results
 from neurogrid.report.texts import disclaimer
 
@@ -128,6 +137,170 @@ def test_glyph_twins_in_the_dataset_name_exit_0_with_the_name_as_written(
     assert all(lowest in _plain(_pdf_text(kept / f"report.{lang}.pdf")) for lang in ("zh", "en"))
 
 
+def _child_log_state(executable: Path) -> int | None:
+    log = executable.parent / "debug.log"
+    return log.stat().st_size if log.is_file() else None
+
+
+@pytest.mark.pdf
+def test_long_out_path_writes_the_reports_and_leaves_nothing_behind(
+    results_file: Path, pdf_shell: object, tmp_path: Path
+) -> None:
+    """P2: an --out of 240 characters (measured with the merged state: at 195 characters a debug.log with
+    local paths stayed in the current folder, at 210 the run ended in pdf.launch_failed with the install
+    check as hint): exit 0, the four files; nothing in the current folder, in the temporary folder (the
+    browser's work folder lies there, removed) or next to the shell's executable."""
+    out = long_path(tmp_path / "o", 240)
+    assert len(str(out)) >= 240
+    executable = pdf_shell.executable  # type: ignore[attr-defined]
+    log_before = _child_log_state(executable)
+    with short_folder("ng-env-") as root:
+        temp, cwd = root / "temp", root / "cwd"
+        temp.mkdir()
+        cwd.mkdir()
+        done = subprocess.run(
+            [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "zh,en"]
+            + ["--format", "html,pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp)),
+            cwd=cwd,
+            check=False,
+        )
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert sorted(p.name for p in out.iterdir()) == FILES
+        assert list(cwd.iterdir()) == [] and list(temp.iterdir()) == []
+    assert _child_log_state(executable) == log_before
+
+
+@pytest.mark.pdf
+@pytest.mark.skipif(os.name != "nt", reason="the path limit is Windows' (MAX_PATH); Linux has none")
+def test_temporary_folder_too_long_for_the_browser_exits_2_with_its_own_hint(
+    results_file: Path, tmp_path: Path
+) -> None:
+    """P2: a temporary folder (TEMP, TMP, TMPDIR) whose path is too long for the shell's profile ends with
+    exit 2 before anything is rendered: the message names the length and the limit, the hint the
+    environment variables and the length they may have; nothing is written, also not into the temporary
+    folder or the current folder."""
+    from neurogrid.kernel import pdf
+
+    out = tmp_path / "out"
+    with short_folder("ng-env-") as root:
+        temp = root / ("t" * max(1, pdf.TEMP_PATH_LIMIT - len(str(root))))  # one character too many
+        cwd = root / "cwd"
+        temp.mkdir()
+        cwd.mkdir()
+        length = len(str(temp))
+        assert length > pdf.TEMP_PATH_LIMIT
+        done = subprocess.run(
+            [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "en"]
+            + ["--format", "html,pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp)),
+            cwd=cwd,
+            check=False,
+        )
+        err = done.stderr.decode("utf-8", "replace")
+        assert done.returncode == 2, err
+        assert f"has a path of {length} characters" in err
+        assert f"on Windows the browser can use at most {pdf.TEMP_PATH_LIMIT}" in err
+        assert f"with a path of at most {pdf.TEMP_PATH_LIMIT} characters" in err and "TEMP and TMP" in err
+        assert "installer" not in err  # not the misleading hint of a launch failure
+        assert not out.exists() and list(temp.iterdir()) == [] and list(cwd.iterdir()) == []
+
+
+def _kill_tree(process: subprocess.Popen[bytes]) -> None:
+    """End a run hard, with the driver and the browser it started (no finally runs anywhere), and wait
+    until every killed process has ended. On Windows taskkill returns before the processes are gone and a
+    browser process keeps its profile files open for a moment (seen: a cleanup right after taskkill left
+    profile files in TEMP); taskkill names each process it killed ("PID <n>" in every language), and a
+    process object is signalled only after all its handles are closed."""
+    if os.name != "nt":
+        os.killpg(process.pid, signal.SIGKILL)
+        process.wait()
+        return
+    import ctypes
+
+    done = subprocess.run(
+        ["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False
+    )
+    process.wait()
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    synchronize = 0x00100000
+    named = {int(n) for n in re.findall(rb"PID (\d+)", done.stdout)}  # killed ones and their parents
+    for pid in named - {process.pid, os.getpid()}:  # the run itself has ended, this process is its parent
+        handle = kernel32.OpenProcess(synchronize, False, pid)
+        if handle:  # else it has ended already
+            kernel32.WaitForSingleObject(ctypes.c_void_p(handle), 30_000)
+            kernel32.CloseHandle(ctypes.c_void_p(handle))
+
+
+@pytest.mark.pdf
+def test_report_html_a_killed_run_left_in_temp_is_removed_by_the_next_run(
+    results_file: Path, tmp_path: Path
+) -> None:
+    """Verification of P2: a run killed while it prints (hard, with its driver and browser) leaves its work
+    folder with the report HTML in the computer's temporary folder. The next PDF run removes it (A-54 "at
+    the next start"): the temporary folder is empty after it."""
+    command = [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "zh,en"]
+    command += ["--format", "pdf", "--out"]
+    with short_folder("ng-env-") as temp:
+        env = _env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp))
+        process = subprocess.Popen(
+            [*command, str(tmp_path / "killed")],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=os.name != "nt",
+        )
+        try:
+            deadline = time.monotonic() + 300
+            printing: list[Path] = []
+            while not printing and process.poll() is None and time.monotonic() < deadline:
+                printing = sorted(temp.glob(f"{WORK_PREFIX}*/report.zh.html"))
+                time.sleep(0.05)
+        finally:
+            _kill_tree(process)
+        assert printing, "the run ended before it printed"
+        held = printing[0].parent
+        lock = held / WORK_LOCK
+        wait_released(lock)
+        assert (held / "report.zh.html").is_file() and lock.is_file()  # left behind by the killed run
+        assert list((tmp_path / "killed").iterdir()) == []  # checked before printing, nothing written
+        done = subprocess.run([*command, str(tmp_path / "next")], capture_output=True, env=env, check=False)
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert sorted(p.name for p in (tmp_path / "next").iterdir()) == ["report.en.pdf", "report.zh.pdf"]
+        assert list(temp.iterdir()) == []
+
+
+@pytest.mark.pdf
+def test_debug_log_left_next_to_the_shell_is_removed_by_the_next_run(
+    results_file: Path, pdf_shell: object, tmp_path: Path
+) -> None:
+    """Verification of P2: code before P2 left a debug.log with local paths next to the installed shell's
+    executable (tests with a long basetemp); install_pdf_browser.py --check fails while it is there. The
+    next PDF run removes it (A-51, A-54): exit 0, the installation passes the check again."""
+    installer = Path(__file__).parent.parent.parent / "tools" / "install_pdf_browser.py"
+    with fresh_shell(pdf_shell) as shell:
+        leftover = shell.executable.parent / "debug.log"
+        line = f"[1026/124900.000:ERROR:disk_cache.cc(1)] {tmp_path / 'work' / 'profile'}: path too long\n"
+        leftover.write_text(line, encoding="utf-8")
+        check = [sys.executable, str(installer), "--check", "--dir", str(shell.folder)]
+        assert subprocess.run(check, capture_output=True, check=False).returncode == 1
+        out = tmp_path / "out"
+        done = subprocess.run(
+            [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "en"]
+            + ["--format", "pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(**{ENV_BROWSER_DIR: str(shell.folder)}),
+            check=False,
+        )
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert [p.name for p in out.iterdir()] == ["report.en.pdf"] and not leftover.exists()
+        checked = subprocess.run(check, capture_output=True, check=False)
+        assert checked.returncode == 0, checked.stdout.decode("utf-8", "replace")
+
+
 def test_pdf_without_shell_exits_2_with_hint_and_writes_nothing(
     results_file: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -189,6 +362,36 @@ def test_html_only_works_without_shell(results_file: Path, tmp_path: Path) -> No
     assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
     assert done.stdout.decode("utf-8").strip().splitlines()[-1] == "False 0"
     assert sorted(p.name for p in out.iterdir()) == ["report.en.html", "report.zh.html"]
+
+
+@pytest.mark.pdf
+def test_out_that_cannot_be_written_exits_2_before_the_browser_starts(
+    results_file: Path, tmp_path: Path
+) -> None:
+    """Repair of P2: with the browser installed, an --out below a file ends with exit 2 and the message of
+    an output that cannot be written before the browser is started (Playwright is not even imported) and
+    before the browser's work folder is created; nothing is written."""
+    probe = (
+        "import sys\nfrom neurogrid.cli import main\n"
+        "try:\n    main(sys.argv[1:])\nexcept SystemExit as exc:\n    code = exc.code\n"
+        "print('playwright' in sys.modules, code)\n"
+    )
+    blocker = tmp_path / "a file"
+    blocker.write_text("in the way", encoding="utf-8")
+    out = blocker / "out"
+    with short_folder("ng-env-") as temp:
+        done = subprocess.run(
+            [sys.executable, "-c", probe, "report", str(results_file), "--lang", "zh,en"]
+            + ["--format", "html,pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp)),
+            check=False,
+        )
+        assert list(temp.iterdir()) == []
+    err = done.stderr.decode("utf-8", "replace")
+    assert done.stdout.decode("utf-8").strip().splitlines()[-1] == "False 2", err
+    assert "The output cannot be written there" in err or "无法在该位置写入输出" in err
+    assert blocker.read_text(encoding="utf-8") == "in the way"
 
 
 def test_ms_playwright_shell_is_never_used(
