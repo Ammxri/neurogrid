@@ -45,14 +45,50 @@ function Quote([string]$text) {
     return $text
 }
 
-function Shown([string]$path) {
-    # A path as NeuroGrid's messages show it: quoted when it holds a space (kernel/pdf.py _quoted), then the home
-    # folder as ~ (A-51, cli.py _redact). Without USERPROFILE the path stays as it is ([string] of $null is '',
-    # so no method is called on a null value under ErrorActionPreference Stop).
-    if ($path.Contains(' ')) { $path = '"' + $path + '"' }
-    $userHome = ([string]$env:USERPROFILE).TrimEnd('\')
-    if (-not $userHome) { return $path }
-    return [regex]::Replace($path, [regex]::Escape($userHome) + '(?=[\\/])', '~', 'IgnoreCase')
+function Below([string]$path, [string]$base) {
+    # $path relative to the absolute folder $base, case-insensitively, its parts joined with '\'; '' for the
+    # folder itself, $null when it lies elsewhere or $base is empty or not absolute (kernel/pdf.py _below).
+    if (-not ($base -match '^([A-Za-z]:[\\/]|[\\/]{2}[^\\/])')) { return $null }
+    $parts = @(($path -replace '/', '\') -split '\\+' | Where-Object { $_ -ne '' -and $_ -ne '.' })
+    $head = @(($base -replace '/', '\') -split '\\+' | Where-Object { $_ -ne '' -and $_ -ne '.' })
+    if ($parts.Count -lt $head.Count) { return $null }
+    for ($i = 0; $i -lt $head.Count; $i++) {
+        if ($parts[$i].ToLowerInvariant() -ne $head[$i].ToLowerInvariant()) { return $null }
+    }
+    if ($parts.Count -eq $head.Count) { return '' }
+    return $parts[$head.Count..($parts.Count - 1)] -join '\'
+}
+
+function Hint-Commands([string]$prefix) {
+    # The PDF browser installer commands NeuroGrid prints for an installation in $prefix, for Command Prompt and
+    # for PowerShell (kernel/pdf.py _windows_commands, review R07): a prefix below LOCALAPPDATA, or else below the
+    # user profile, is written with that variable, so the command runs as printed and holds no user name (A-51);
+    # a prefix elsewhere as it is. Without USERPROFILE the home folder is HOMEDRIVE + HOMEPATH, as Path.home().
+    # [string] of a missing variable is '', so no method is called on $null under ErrorActionPreference Stop.
+    $tail = @('python\python.exe', 'tools\install_pdf_browser.py')
+    $userHome = [string]$env:USERPROFILE
+    if (-not $userHome -and $env:HOMEDRIVE -and $env:HOMEPATH) { $userHome = $env:HOMEDRIVE + $env:HOMEPATH }
+    foreach ($pair in @(@('LOCALAPPDATA', [string]$env:LOCALAPPDATA), @('USERPROFILE', $userHome))) {
+        $rest = Below $prefix $pair[1]
+        if ($null -eq $rest) { continue }
+        $inner = @($tail | ForEach-Object { if ($rest) { $rest + '\' + $_ } else { $_ } })
+        $cmd = ($inner | ForEach-Object { '"%' + $pair[0] + '%\' + $_ + '"' }) -join ' '
+        # PowerShell expands $ and ` inside double quotes
+        $escaped = @($inner | ForEach-Object { $_.Replace('`', '``').Replace('$', '`$') })
+        $powershell = '& ' + (($escaped | ForEach-Object { '"$env:' + $pair[0] + '\' + $_ + '"' }) -join ' ')
+        return @($cmd, $powershell)
+    }
+    $paths = @($tail | ForEach-Object { $prefix.TrimEnd('\') + '\' + $_ })
+    $cmd = ($paths | ForEach-Object { '"' + $_ + '"' }) -join ' '
+    $powershell = '& ' + (($paths | ForEach-Object { "'" + $_.Replace("'", "''") + "'" }) -join ' ')
+    return @($cmd, $powershell)
+}
+
+function Pdf-Hint([string]$prefix) {
+    # The start of NeuroGrid's English exit-2 hint for a missing PDF browser in a bundle installation in $prefix
+    # (errors.pdf.install.command_windows up to the offline note).
+    $commands = Hint-Commands $prefix
+    return 'Install it in Command Prompt with: ' + $commands[0] + '   or in PowerShell with: ' + $commands[1] + '   ('
 }
 
 function Invoke-Step([string]$name, [int[]]$allowed, [string]$exe, [string[]]$arguments, [string]$cwd) {
@@ -188,7 +224,7 @@ try {
     Invoke-Step 'report-pdf-without-shell' @(2) $ng @('report', 'r-edf.json', '--lang', 'en', '--format', 'pdf', '--out', 'report-no-shell') $work
     $env:NEUROGRID_PDF_BROWSER_DIR = "$room\pdf-browser"
     if (Test-Path -LiteralPath (Join-Path $work 'report-no-shell')) { throw 'the report without PDF browser wrote output' }
-    $hint = 'Install it with: ' + (Shown (Join-Path $prefix 'python\python.exe')) + ' ' + (Shown (Join-Path $prefix 'tools\install_pdf_browser.py'))
+    $hint = Pdf-Hint $prefix
     if (-not ([System.IO.File]::ReadAllText((Join-Path $Evidence 'report-pdf-without-shell.err.log'), $utf8)).Contains($hint)) {
         throw "the hint does not name the installation's PDF browser installer: $hint"
     }

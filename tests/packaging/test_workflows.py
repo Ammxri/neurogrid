@@ -576,10 +576,16 @@ def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
         '$env:NEUROGRID_PDF_BROWSER_DIR = "$room\\pdf-browser-empty"',
         "'report-pdf-without-shell' @(2)",
         "(Join-Path $work 'report-no-shell')) { throw",
-        "'Install it with: ' + (Shown (Join-Path $prefix 'python\\python.exe')) + ' ' + "
-        "(Shown (Join-Path $prefix 'tools\\install_pdf_browser.py'))",
+        # review R07: the runnable Command Prompt and PowerShell commands NeuroGrid prints (Pdf-Hint, checked
+        # against kernel/pdf.py in tests/packaging/test_cleanroom_windows.py), read from the step's stderr
+        "$hint = Pdf-Hint $prefix\n    if (-not ([System.IO.File]::ReadAllText((Join-Path $Evidence "
+        "'report-pdf-without-shell.err.log'), $utf8)).Contains($hint)) {",
+        "return 'Install it in Command Prompt with: ' + $commands[0] + '   or in PowerShell with: ' + "
+        "$commands[1]",
     ):
         assert needle in windows, needle
+    # the old form ('Install it with: <~ path> <~ path>') is printed on Windows no more
+    assert "'Install it with: '" not in windows and "function Shown(" not in windows
 
 
 def test_release_is_started_only_by_a_tag_and_creates_a_draft() -> None:
