@@ -408,10 +408,13 @@ def test_driver_environment_is_restored_and_cleaned(tmp_path: Path, monkeypatch:
         "PLAYWRIGHT_SKIP_NAVIGATION_CHECK",
         "PW_TEST_SCREENSHOT_NO_FONTS_READY",
     }
+    here = Path.cwd()
     with pytest.raises(ValueError), pdf.driver_environment(tmp_path):
         assert os.environ["TMP"] == os.environ["TEMP"] == os.environ["TMPDIR"] == str(tmp_path)
         assert not removed & set(os.environ) and os.environ["PWD_LIKE"] == "kept"
+        assert Path.cwd() == tmp_path  # the current folder of the driver and the browser (CHILD_LOG)
         raise ValueError
+    assert Path.cwd() == here
     assert os.environ["TMP"] == "before" and os.environ["PWDEBUG"] == "1" and "TMPDIR" not in os.environ
     assert os.environ["PLAYWRIGHT_NODEJS_PATH"] == str(tmp_path / "other-node.exe")
     assert os.environ["PW_TEST_SCREENSHOT_NO_FONTS_READY"] == "1" and os.environ["DEBUGP"] == "1"

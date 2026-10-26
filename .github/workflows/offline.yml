@@ -56,6 +56,14 @@ jobs:
           name: offline-bundles
           path: dist/neurogrid-*-offline-*
           retention-days: 1
+      # The real-bundle tests (marker bundle): both platforms built twice and byte-identical, verify passes,
+      # and the Windows prefix limit that the installation pages state is the one of the built bundle (a
+      # uv.lock change can move it without a version bump). The Windows clean room of that module needs
+      # Windows and is skipped here; the cleanroom-windows job below runs the real one.
+      - name: Real-bundle tests (reproducible, verify, documented Windows prefix limit)
+        run: |
+          NEUROGRID_BUNDLE_CACHE="$RUNNER_TEMP/bundle-cache" \
+            uv run --no-sync python -m pytest -m bundle -p no:cacheprovider tests/packaging/test_bundle_real.py
 
   offline-strace:
     name: every v0.1 command under strace, --network none (Linux)

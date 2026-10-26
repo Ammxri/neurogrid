@@ -86,6 +86,16 @@ sha256sum --check --ignore-missing SHA256SUMS
 `--skip-signature-check`）。脚本在安装目录中创建虚拟环境（预编译字节码），离线并按哈希值安装 wheel 文件，然后写入
 启动程序。退出码：0 已安装，2 用法或环境问题，3 完整性问题，4 签名问题。
 
+在 Windows 上，安装文件夹的路径必须较短：即使已启用长路径（`LongPathsEnabled`），
+Windows 也无法从更长的路径启动程序或加载部分模块，因此每个已安装文件的路径都不超过 250 个字符。
+安装程序接受的安装目录最多为 249 个字符减去其下最长的相对路径（`BUNDLE.json` 中记录为
+`max_relative_install_path`）；安装目录更长时，安装程序在创建任何内容之前以退出码 2 停止。
+NeuroGrid 0.1.0rc1 的最长相对路径为 148 个字符，因此上限为 101 个字符。默认安装目录
+`%LOCALAPPDATA%\NeuroGrid\<version>` 远短于此。
+
+Linux 安装包内置的 Python 不含 `dbm.ndbm` 模块（`_dbm`）：该模块链接 Berkeley DB（Sleepycat 许可），
+因此安装包不包含它，并在 `BUNDLE.json`（`python.removed`）中记录。NeuroGrid 不使用它。
+
 启动程序不会加入 `PATH`，请使用完整路径调用：
 
 === "Windows"

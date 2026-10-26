@@ -25,6 +25,11 @@ AS_OF = date(2026, 10, 11)
 # subject is something else use this configuration (also used by CI) so that only their subject decides the
 # exit code.
 DOCUMENTED_TOML = (FIXTURES.parent / "documented.toml").read_text(encoding="utf-8")
+# The browser's own work folder never follows pytest's folder (kernel.pdf.browser_work, P2). The documentation
+# site the browser tests open as file:// URLs does: on Windows such a page no longer loads once its path
+# passes 260 characters (measured with a 232-character --basetemp: ERR_FILE_NOT_FOUND), so the site is built
+# below one short folder of the system's temporary folder instead (browser_root).
+BROWSER_ROOT_LIMIT = 120
 
 
 def documented_config(folder: Path, extra: str = "", name: str = "documented.toml") -> Path:
@@ -64,6 +69,18 @@ def pdf_shell() -> object:
         if os.environ.get("NEUROGRID_REQUIRE_PDF") == "1":
             pytest.fail(reason)
         pytest.skip(reason)
+
+
+@pytest.fixture(scope="session")
+def browser_root() -> Iterator[Path]:
+    """The session's folder directly below the system's temporary folder for what the browser tests open
+    as file:// URLs (independent of --basetemp, BROWSER_ROOT_LIMIT), removed at the end."""
+    root = Path(tempfile.mkdtemp(prefix="ngpdf-"))
+    try:
+        assert len(str(root)) <= BROWSER_ROOT_LIMIT, f"temporary folder too long for the PDF tests: {root}"
+        yield root
+    finally:
+        shutil.rmtree(root)
 
 
 @pytest.fixture(autouse=True)

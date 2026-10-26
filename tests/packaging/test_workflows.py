@@ -6,33 +6,33 @@ triggers, pinned actions, permissions, the jobs and the commands they run, and t
 
 from __future__ import annotations
 
-import ast
+import argparse
+import contextlib
+import functools
+import importlib.util
+import inspect
+import io
+import itertools
 import re
+import sys
+from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
+from unittest import mock
 
 import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
+TOOLS = ROOT / "tools"
 WORKFLOWS = ROOT / ".github" / "workflows"
 NAMES = ("ci", "offline", "corpus", "docs", "release", "publish-pypi", "mirror-gitee")
-# The argparse options of the tools that other P5 areas bring with the merge, read from their branches: docs
-# (dev at 7c99a82: tools/build_docs.py, tools/notices.py) and pdf (p5-pdf at 1dbb23e:
-# tools/install_pdf_browser.py, tools/linux_pdf_packages.py). They stand in for a tool only while it is
-# missing from the tree; in the merged tree the tool itself is read (see _options_of).
-MERGED_OPTIONS = {
-    "build_docs.py": {"--site-dir"},
-    "notices.py": {"--list", "--wheelhouse", "--download", "--cache", "--bundle-lock", "--out", "--check",
-                   "--components"},
-    "install_pdf_browser.py": {"--dir", "--from-zip", "--sha256", "--download-only", "--platform", "--out",
-                               "--force", "--check", "--print-info"},
-    "linux_pdf_packages.py": {"--list", "--check", "--write"},
-}  # fmt: skip
-# Written by the acceptance phase after the merge (corpus.yml calls it with --corpus and --out); its options
-# can be checked only once it exists.
-LATER = {"acceptance_g1.py"}
-OTHER_AREAS = set(MERGED_OPTIONS) | LATER
+# Tools that the workflows call but that another P5 job is still writing, with exactly the options the
+# workflows pass them: tools/acceptance_g1.py comes from the acceptance phase (corpus.yml). Every other called
+# tool must be in the tree, and its real argparse parser is checked. A pending tool is checked the same way as
+# soon as its file exists; test_a_pending_tool_defines_the_options_the_workflows_pass then fails while it
+# lacks one of them.
+PENDING = {"acceptance_g1.py": frozenset({"--corpus", "--out"})}
 PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
     "astral-sh/setup-uv": "07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",  # v10.3.2
@@ -143,64 +143,191 @@ def test_scripts_and_tools_called_by_the_workflows_exist() -> None:
         for script in re.findall(r"packaging/ci/[A-Za-z0-9_.-]+", text):
             assert (ROOT / script).is_file(), (name, script)
         for tool in set(re.findall(r"tools/([A-Za-z0-9_]+\.py)", text)):
-            assert (ROOT / "tools" / tool).is_file() or tool in OTHER_AREAS, (name, tool)
+            assert (TOOLS / tool).is_file() or tool in PENDING, (name, tool)
 
 
 # A call of a repository tool: tools/<name>.py (also "$root/tools/..." or tools\<name>.py in PowerShell). Its
-# options are the --words up to a pipe, a separator, a redirection or the end of the line; in bash also up to
+# arguments are the words up to a pipe, a separator, a redirection or the end of the line; in bash also up to
 # the ")" that closes a command substitution (PowerShell lists its arguments after the closing parenthesis).
 TOOL_CALL = {
     "sh": re.compile(r"tools[/\\]([A-Za-z0-9_]+\.py)\b([^|;&>)\n]*)"),
     "ps1": re.compile(r"tools[/\\]([A-Za-z0-9_]+\.py)\b([^|;&>\n]*)"),
 }
-OPTION = re.compile(r"(?<![\w-])--[a-z][a-z0-9-]*")
+OPTION = re.compile(r"--[a-z][a-z0-9-]*")
+# Every --word of a call's argument text as a plain scan finds it, quoted or not. Each one must be an option
+# word of the call (_hidden_options), so a word split that joins an option into a longer word can never take
+# it out of the check.
+PLAIN_OPTION = re.compile(r"(?<![\w-])--[a-z][a-z0-9-]*")
+# A bash word: quoted parts and unquoted characters together.
+SH_WORD = re.compile(r"""(?:"[^"]*"|'[^']*'|[^\s"'])+""")
 CALLERS = [
     *sorted((ROOT / "packaging" / "ci").glob("*.sh")),
     *sorted((ROOT / "packaging" / "ci").glob("*.ps1")),
     ROOT / "packaging" / "install.sh",
     ROOT / "packaging" / "install.ps1",
 ]
+_MODULES = itertools.count()
 
 
-def _tool_calls(text: str, kind: str = "sh") -> list[tuple[str, set[str]]]:
-    """(tool file name, options passed) of every tool call in shell text; comment lines are left out and bash
+def _words(arguments: str, kind: str) -> list[str]:
+    """The argument words of a call without their quotes; PowerShell passes an argument array, whose words
+    are separated by commas and parentheses. In bash the argument text starts right after the tool's path, so
+    a quote there closes a quoted path ("$root/tools/x.py") and is dropped: paired with the next opening quote
+    it would make every option up to that quote part of one word."""
+    if kind == "ps1":
+        parts = re.split(r"[\s,()]+", arguments)
+    else:
+        parts = SH_WORD.findall(arguments[1:] if arguments[:1] in ('"', "'") else arguments)
+    return [word for word in (part.replace('"', "").replace("'", "") for part in parts) if word]
+
+
+def _call_arguments(text: str, kind: str = "sh") -> list[tuple[str, str]]:
+    """(tool file name, argument text) of every tool call in shell text; comment lines are left out and bash
     line continuations joined."""
     calls = []
     for line in re.sub(r"\\\n\s*", " ", text).splitlines():
         if line.lstrip().startswith("#"):
             continue
-        for match in TOOL_CALL[kind].finditer(line):
-            calls.append((match.group(1), set(OPTION.findall(match.group(2)))))
+        calls += [(match.group(1), match.group(2)) for match in TOOL_CALL[kind].finditer(line)]
     return calls
 
 
-def _defined_options(tool: Path) -> set[str]:
-    """Every --option the tool defines with argparse (all subcommands together), read statically."""
-    found = {"--help"}
-    for node in ast.walk(ast.parse(tool.read_text(encoding="utf-8"))):
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "add_argument"
-        ):
-            found.update(
-                arg.value
-                for arg in node.args
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str) and arg.value.startswith("--")
-            )
+def _tool_calls(text: str, kind: str = "sh") -> list[tuple[str, list[str]]]:
+    """(tool file name, argument words) of every tool call in shell text."""
+    return [(name, _words(arguments, kind)) for name, arguments in _call_arguments(text, kind)]
+
+
+def _hidden_options(arguments: str, kind: str) -> list[str]:
+    """The --words of a call's argument text that are no option word of the call: the word split joined them
+    into a longer word, so the check would not see them."""
+    return sorted(set(PLAIN_OPTION.findall(arguments)) - _options(_words(arguments, kind)))
+
+
+def _options(words: list[str]) -> set[str]:
+    return {word.partition("=")[0] for word in words if OPTION.fullmatch(word.partition("=")[0])}
+
+
+class _Parsed(BaseException):
+    """Stops a tool's main() where it parses its arguments and carries the parser it built (a BaseException,
+    so that the tool's own `except SystemExit` or `except Exception` lets it through)."""
+
+    def __init__(self, parser: argparse.ArgumentParser) -> None:
+        super().__init__(parser.prog)
+        self.parser = parser
+
+
+@functools.cache
+def _parser_of(tool: Path) -> argparse.ArgumentParser | None:
+    """The real argparse parser of a tool, exactly as its main() builds it: main() runs until it parses and is
+    stopped there, so the tool does nothing. None for a tool that reads sys.argv without argparse."""
+    if "argparse" not in tool.read_text(encoding="utf-8"):
+        return None
+    name = f"_workflow_tool_{next(_MODULES)}_{tool.stem}"
+    spec = importlib.util.spec_from_file_location(name, tool)
+    assert spec is not None and spec.loader is not None, tool
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+
+    def stop(self: argparse.ArgumentParser, *args: object, **kwargs: object) -> NoReturn:
+        raise _Parsed(self)
+
+    main = module.main
+    with (
+        mock.patch.object(argparse.ArgumentParser, "parse_args", stop),
+        mock.patch.object(argparse.ArgumentParser, "parse_known_args", stop),
+        contextlib.redirect_stdout(io.StringIO()),
+        contextlib.redirect_stderr(io.StringIO()),
+    ):
+        try:
+            if inspect.signature(main).parameters:
+                main([])
+            else:
+                main()
+        except _Parsed as parsed:
+            return parsed.parser
+    raise AssertionError(f"{tool.name}: main() returned without parsing its arguments")
+
+
+def _subcommands(parser: argparse.ArgumentParser) -> dict[str, argparse.ArgumentParser]:
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return dict(action.choices)
+    return {}
+
+
+def _positionals(parser: argparse.ArgumentParser) -> list[argparse.Action]:
+    return [
+        action
+        for action in parser._actions
+        if not action.option_strings and not isinstance(action, argparse._SubParsersAction)
+    ]
+
+
+def _defined_options(parser: argparse.ArgumentParser) -> set[str]:
+    """Every option of the parser and of its subcommands."""
+    found = set(parser._option_string_actions)
+    for sub in _subcommands(parser).values():
+        found |= _defined_options(sub)
     return found
 
 
-def _options_of(name: str) -> set[str] | None:
-    """The options of a tool in the merged tree: the file if it is here, else the record of its area; None
-    for a tool that does not exist yet (LATER)."""
-    tool = ROOT / "tools" / name
-    if tool.is_file():
-        return _defined_options(tool)
-    if name in MERGED_OPTIONS:
-        return MERGED_OPTIONS[name] | {"--help"}
-    assert name in LATER, name
-    return None
+def _literal(word: str) -> bool:
+    """A fixed word: no variable, expression, substitution or pattern of the calling shell or workflow."""
+    return not re.search(r"[$%*?`{}()\[\]]", word)
+
+
+def _call_problems(name: str, parser: argparse.ArgumentParser | None, words: list[str]) -> list[str]:
+    """What the tool's own parser rejects in a call: an unknown option (also one that only another subcommand
+    has, or one given before the subcommand), an unknown subcommand, and a fixed value outside the choices of
+    an option or a positional argument. Values from variables are not judged, and words beyond the positional
+    arguments are left alone (the tool's path can also be named by cp or in a for list)."""
+    if parser is None:
+        return [f"{name} takes no options: {option}" for option in sorted(_options(words))]
+    problems = []
+    subcommands = _subcommands(parser)
+    parsers, positionals = [parser], _positionals(parser)
+
+    def check_choice(action: argparse.Action, value: str, what: str) -> None:
+        if action.choices is not None and _literal(value) and value not in action.choices:
+            problems.append(f"{name}: {what} {value!r} is not one of {sorted(action.choices)}")
+
+    index = 0
+    while index < len(words):
+        word = words[index]
+        index += 1
+        option, equals, value = word.partition("=")
+        if OPTION.fullmatch(option):
+            known = [p._option_string_actions[option] for p in parsers if option in p._option_string_actions]
+            if not known:
+                problems.append(f"{name}: unknown option {option}")
+                continue
+            action = known[0]
+            if action.nargs == 0:
+                continue
+            if equals:
+                check_choice(action, value, option)
+                continue
+            while index < len(words) and not words[index].startswith("-"):
+                check_choice(action, words[index], option)
+                index += 1
+                if action.nargs not in ("+", "*"):
+                    break
+        elif subcommands:
+            if not _literal(word):  # chosen at run time: the options of any subcommand
+                parsers, positionals = list(subcommands.values()), []
+            elif word in subcommands:
+                parsers, positionals = [subcommands[word]], _positionals(subcommands[word])
+            else:
+                problems.append(f"{name}: unknown subcommand {word!r} (one of {sorted(subcommands)})")
+                parsers, positionals = [], []
+            subcommands = {}
+        elif positionals:
+            action = positionals[0]
+            if action.nargs in (None, "?"):
+                positionals = positionals[1:]
+            check_choice(action, word, action.dest)
+    return problems
 
 
 def _command_texts() -> dict[str, tuple[str, str]]:
@@ -211,40 +338,186 @@ def _command_texts() -> dict[str, tuple[str, str]]:
 
 
 def test_every_option_passed_to_a_tool_exists() -> None:
-    """A workflow, CI script or installer that passes a tool an option the tool does not define fails on every
-    run: release.yml once passed `--release` to `tools/licenses.py`, which no area defines (argparse exits
-    2)."""
+    """A workflow, CI script or installer that passes a tool an option or subcommand the tool does not define
+    fails on every run: release.yml once passed --release to tools/licenses.py, which no area defines
+    (argparse exits 2). Every called tool in the tree is checked against its own parser (_parser_of); only a
+    pending tool whose file does not exist yet is left out (PENDING)."""
     checked = 0
+    problems = []
     for where, (text, kind) in _command_texts().items():
-        for name, options in _tool_calls(text, kind):
-            defined = _options_of(name)
-            if defined is None:
+        for name, arguments in _call_arguments(text, kind):
+            hidden = _hidden_options(arguments, kind)
+            problems += [f"{where}: {name}: option inside another word, not checked: {o}" for o in hidden]
+            tool = TOOLS / name
+            if not tool.is_file():
+                assert name in PENDING, (where, name)
                 continue
-            assert options <= defined, (where, name, sorted(options - defined))
+            words = _words(arguments, kind)
+            problems += [f"{where}: {problem}" for problem in _call_problems(name, _parser_of(tool), words)]
             checked += 1
+    assert problems == []
     assert checked >= 25, checked
 
 
+def test_the_calls_handed_over_by_the_pdf_area_are_checked() -> None:
+    """The pdf area's hand-over: the installers call tools/install_pdf_browser.py with --from-zip and
+    --sha256, the offline workflow downloads the shell with --download-only --platform linux64|win64 --out.
+    The check reads exactly these options of these calls, so renaming or removing one of them in the tool
+    fails test_every_option_passed_to_a_tool_exists."""
+    passed: dict[str, set[str]] = defaultdict(set)
+    for where, (text, kind) in _command_texts().items():
+        for name, words in _tool_calls(text, kind):
+            if name == "install_pdf_browser.py":
+                passed[where.partition("/")[0]] |= _options(words)
+    assert passed["install.sh"] == passed["install.ps1"] == {"--from-zip", "--sha256"}
+    assert passed["offline.yml"] == {"--download-only", "--platform", "--out"}
+    shell = _parser_of(TOOLS / "install_pdf_browser.py")
+    assert shell is not None and set().union(*passed.values()) <= _defined_options(shell)
+
+
 def test_the_option_check_finds_an_unknown_option() -> None:
-    # split: tests/docs/test_notices.py reads every test file for calls of the gate tools and would take this
-    # negative control for a real call
-    call = "uv run --no-sync python tools/" + "licenses.py --release\n"
-    assert _tool_calls(call) == [("licenses.py", {"--release"})]
-    assert "--release" not in (_options_of("licenses.py") or set())
+    # Split, so that the option scan of the documentation tests (tests/docs/test_notices.py), which also reads
+    # this file, does not take the wrong call for a real one.
+    wrong = "uv run --no-sync python tools/" + "licenses.py --release\n"
+    assert _tool_calls(wrong) == [("licenses.py", ["--release"])]
+    assert _call_problems("licenses.py", _parser_of(TOOLS / "licenses.py"), ["--release"]) == [
+        "licenses.py: unknown option --release"
+    ]
     text = (
         'uv run python tools/bundle.py build --platform "$p" \\\n  --wheel w --sign sigstore | tee log\n'
         "# python tools/bundle.py --commented-out\n"
         'packages="$(python3 "$root/tools/linux_pdf_packages.py" debian12)" --not-an-option-of-it\n'
     )
     assert _tool_calls(text) == [
-        ("bundle.py", {"--platform", "--wheel", "--sign"}),
-        ("linux_pdf_packages.py", set()),
+        ("bundle.py", ["build", "--platform", "$p", "--wheel", "w", "--sign", "sigstore"]),
+        ("linux_pdf_packages.py", ["debian12"]),
     ]
     powershell = (
         "Invoke-Native $python @('-I', (Join-Path $Prefix 'tools\\install_pdf_browser.py'), '--from-zip', $z)"
     )
-    assert _tool_calls(powershell, "ps1") == [("install_pdf_browser.py", {"--from-zip"})]
-    assert _defined_options(ROOT / "tools" / "bundle.py") >= {"--platform", "--wheel", "--sign", "--cache"}
+    assert _tool_calls(powershell, "ps1") == [("install_pdf_browser.py", ["--from-zip", "$z"])]
+
+
+def test_options_between_quoted_arguments_are_their_own_words() -> None:
+    """A quoted tool path closes with a quote right after the file name; that quote must not pair with the
+    next opening quote, or every option in between becomes part of one word and goes unchecked (install.sh
+    passes --from-zip and --sha256 that way)."""
+    # Split like the calls above, so that the documentation tests do not take these for real calls.
+    quoted = 'x "$r/tools/' + 't.py" --a "$v" --b "$w"\n'
+    assert _tool_calls(quoted) == [("t.py", ["--a", "$v", "--b", "$w"])]
+    installer = (
+        '    "$prefix/python/bin/python3.12" -I "$prefix/tools/'
+        + 'install_pdf_browser.py" --from-zip "$pdf_zip" \\\n'
+        + "      --sha256 \"$(printf '%s' \"$pdf_sha\" | tr 'A-F' 'a-f')\" \\\n"
+        + '      || fail 2 "x" "y"\n'
+    )
+    ((name, words),) = _tool_calls(installer)
+    assert name == "install_pdf_browser.py" and _options(words) == {"--from-zip", "--sha256"}
+    shell = _parser_of(TOOLS / "install_pdf_browser.py")
+    renamed = installer.replace("--from-zip", "--from-zipp").replace("--sha256", "--sha-typo")
+    ((_, wrong),) = _tool_calls(renamed)
+    assert _call_problems("install_pdf_browser.py", shell, wrong) == [
+        "install_pdf_browser.py: unknown option --from-zipp",
+        "install_pdf_browser.py: unknown option --sha-typo",
+    ]
+    for text in (quoted, installer, renamed):
+        ((_, arguments),) = _call_arguments(text)
+        assert _hidden_options(arguments, "sh") == []
+    # the safety net: options that a split joins into a longer word are reported
+    assert _hidden_options(' "--a "$v" --b"', "sh") == ["--a", "--b"]
+
+
+@pytest.mark.parametrize(
+    "words, problem",
+    [
+        (["build", "--platform", "$p", "--wheel", "w", "--sign", "sigstore", "--cache", "c"], None),
+        (["verify", "--platform", "win_amd64", "x.zip"], "unknown option --platform"),  # only build has it
+        (["--sign", "none", "build"], "unknown option --sign"),  # before the subcommand: the main parser's
+        (["build", "--platform", "win32"], "--platform 'win32' is not one of ['linux_x86_64', 'win_amd64']"),
+        (["build", "--sign=gpg"], "--sign 'gpg' is not one of ['none', 'sigstore']"),
+        (["biuld", "--wheel", "w"], "unknown subcommand 'biuld'"),
+        (["$command", "--wheel", "w"], None),  # chosen at run time: the options of any subcommand
+        (["$command", "--release"], "unknown option --release"),
+    ],
+)
+def test_the_check_reads_subcommands_and_choices_from_the_real_parser(words: list[str], problem: str) -> None:
+    parser = _parser_of(TOOLS / "bundle.py")
+    assert parser is not None and set(_subcommands(parser)) == {"build", "verify", "sizes", "lock"}
+    found = _call_problems("bundle.py", parser, words)
+    if problem is None:
+        assert found == []
+    else:
+        assert any(problem in line for line in found), found
+
+
+def test_the_check_reads_positional_choices_and_tools_without_argparse() -> None:
+    corpus = _parser_of(TOOLS / "corpus.py")
+    assert _call_problems("corpus.py", corpus, ["verify", "--workers", "2"]) == []
+    assert _call_problems("corpus.py", corpus, ["fetchh"]) == [
+        "corpus.py: command 'fetchh' is not one of ['fetch', 'lock', 'verify']"
+    ]
+    shell = _parser_of(TOOLS / "install_pdf_browser.py")
+    assert _call_problems("install_pdf_browser.py", shell, ["--download-only", "--platform", "linux64"]) == []
+    assert _call_problems("install_pdf_browser.py", shell, ["--platform", "linux32"]) == [
+        "install_pdf_browser.py: --platform 'linux32' is not one of ['linux64', 'win64']"
+    ]
+    licenses = _parser_of(TOOLS / "licenses.py")
+    assert _call_problems("licenses.py", licenses, ["--groups", "runtime", "docs"]) == []
+    assert _call_problems("licenses.py", licenses, ["--groups", "runtime", "test", "--download"]) == [
+        "licenses.py: --groups 'test' is not one of ['dev', 'docs', 'runtime']"
+    ]
+    assert _parser_of(TOOLS / "strace_check.py") is None  # reads sys.argv itself
+    assert _call_problems("strace_check.py", None, ["evidence", "--verbose"]) == [
+        "strace_check.py takes no options: --verbose"
+    ]
+
+
+def _pending_problems(tools: Path) -> list[str]:
+    """The options the workflows pass to a pending tool that the tool, once its file exists in `tools`, does
+    not define (with its subcommands); nothing for a tool that does not exist yet."""
+    problems = []
+    for name, options in sorted(PENDING.items()):
+        if (tools / name).is_file():
+            parser = _parser_of(tools / name)
+            defined = set() if parser is None else _defined_options(parser)
+            problems += [f"{name} lacks {option}" for option in sorted(options - defined)]
+    return problems
+
+
+def test_a_pending_tool_defines_the_options_the_workflows_pass() -> None:
+    passed: dict[str, set[str]] = defaultdict(set)
+    for _where, (text, kind) in _command_texts().items():
+        for name, words in _tool_calls(text, kind):
+            if name in PENDING:
+                passed[name] |= _options(words)
+    assert dict(passed) == {name: set(options) for name, options in PENDING.items()}  # the record is exact
+    assert _pending_problems(TOOLS) == []
+
+
+FAKE_TOOL = """import argparse
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser()
+{arguments}
+    parser.parse_args(argv)
+    return 0
+"""
+
+
+def test_the_pending_check_fails_for_a_tool_that_lacks_the_options(tmp_path: Path) -> None:
+    assert _pending_problems(tmp_path) == []  # not written yet: nothing to check
+    for folder, arguments, expected in (
+        ("corpus-only", ['"--corpus"'], ["acceptance_g1.py lacks --out"]),
+        ("neither", ['"--datasets"'], ["acceptance_g1.py lacks --corpus", "acceptance_g1.py lacks --out"]),
+        ("both", ['"--corpus", required=True', '"--out"', '"--runs", type=int'], []),
+    ):
+        (tmp_path / folder).mkdir()
+        lines = "\n".join(f"    parser.add_argument({argument})" for argument in arguments)
+        (tmp_path / folder / "acceptance_g1.py").write_text(
+            FAKE_TOOL.format(arguments=lines), encoding="utf-8"
+        )
+        assert _pending_problems(tmp_path / folder) == expected, folder
 
 
 def test_ci_matrix_and_gates() -> None:
@@ -306,6 +579,13 @@ def test_offline_workflow_runs_every_offline_proof() -> None:
         "tools/build_docs.py --site-dir site" in build and "for platform in win_amd64 linux_x86_64" in build
     )
     assert "tools/bundle.py build" in build and "--sign" not in build  # development bundles are unsigned
+    # The real-bundle tests run here (marker bundle), among them the comparison of the Windows prefix limit
+    # that the installation pages state with the built bundle: no other workflow runs them.
+    assert "python -m pytest -m bundle -p no:cacheprovider tests/packaging/test_bundle_real.py" in build
+    real = (ROOT / "tests" / "packaging" / "test_bundle_real.py").read_text(encoding="utf-8")
+    assert "def test_documented_windows_prefix_limit_is_the_one_of_the_built_bundle(" in real
+    callers = [name for name in NAMES if "pytest -m bundle" in _text(name)]
+    assert callers == ["offline"]
     assert "offline_strace_linux.sh" in _runs(jobs["offline-strace"])
     images = [entry["image"] for entry in jobs["cleanroom-linux"]["strategy"]["matrix"]["include"]]
     assert images == ["debian:12-slim", "ubuntu:22.04", "ubuntu:24.04"]
@@ -339,8 +619,22 @@ def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
     assert "FROM debian:12-slim" in strace and "tools/strace_check.py" in strace
     windows = (ROOT / "packaging" / "ci" / "cleanroom_windows.ps1").read_text(encoding="utf-8-sig")
     for needle in ("0CCE9226-69AE-11D9-BED3-505054503030", "New-NetFirewallRule", "Id = 5156, 5157",
-                   "http://127.0.0.1:9", "System32\\tar.exe", "'安装 目录\\NeuroGrid'", "temp-left.txt",
+                   "http://127.0.0.1:9", "System32\\tar.exe", "Join-Path $room '安装 目录'", "temp-left.txt",
                    "max_relative_install_path", "'BUNDLE.json', 'python\\python.exe'"):  # fmt: skip
+        assert needle in windows, needle
+    # The prefix has exactly install.ps1's limit and one character more is refused before anything exists;
+    # without a PDF browser the report writes nothing and names the installation's own installer (B2).
+    for needle in (
+        "$limit = 249 - [int]$info.max_relative_install_path",
+        "'install-over-limit' @(2)",
+        "if (Test-Path -LiteralPath $parent) { throw",
+        "characters, limit $limit)",
+        '$env:NEUROGRID_PDF_BROWSER_DIR = "$room\\pdf-browser-empty"',
+        "'report-pdf-without-shell' @(2)",
+        "(Join-Path $work 'report-no-shell')) { throw",
+        "'Install it with: ' + (Shown (Join-Path $prefix 'python\\python.exe')) + ' ' + "
+        "(Shown (Join-Path $prefix 'tools\\install_pdf_browser.py'))",
+    ):
         assert needle in windows, needle
 
 

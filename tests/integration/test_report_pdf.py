@@ -530,6 +530,38 @@ def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: 
 
 
 @pytest.mark.pdf
+@pytest.mark.skipif(sys.platform != "win32", reason="the fallback to the current folder is Windows logging")
+def test_fallback_log_of_a_long_work_folder_stays_in_the_work_folder(
+    pdf_shell: ShellInstall, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A-51/A-54: from a work folder of 197 characters on, the paths of the browser's profile pass 260
+    characters and Chromium's logging falls back to debug.log in the current folder (measured with revision
+    1243; from 210 characters the shell no longer starts). That folder is the work folder, removed after the
+    run, never the user's current folder (it was, with the paths of the work folder in it).
+
+    The product never starts the browser in such a folder (WORK_PATH_LIMIT, P2); the limit is lifted here
+    to show that the driver's current folder still keeps such a log out of the caller's folder. A fresh copy
+    of the shell takes the debug.log that the network service then appends next to the executable."""
+    monkeypatch.setattr(pdf, "WORK_PATH_LIMIT", 10_000)
+    with short_folder("ng-fb-") as root, fresh_shell(pdf_shell) as shell:
+        here = root / "current"
+        here.mkdir()
+        monkeypatch.chdir(here)
+        work = root / "w"
+        work = work / ("w" * (204 - len(str(work)) - 1))
+        assert len(str(work)) == 204
+        source = root / "page.html"
+        source.write_text(_page("<p>x</p>"), encoding="utf-8")
+        with PdfPrinter(shell, work) as printer:
+            printed = printer.print(source, PdfMeta("t", AS_OF))
+        assert printed.data.startswith(b"%PDF-")
+        assert sorted(here.iterdir()) == []
+        assert (work / pdf.CHILD_LOG).is_file()  # the fallback happened, in the work folder
+        assert not (shell.executable.parent / pdf.CHILD_LOG).exists()
+        monkeypatch.chdir(root.parent)  # out of the folder before it is removed
+
+
+@pytest.mark.pdf
 def test_dataset_text_without_glyph_never_fails(results: Results, tmp_path: Path) -> None:
     """Dataset data never ends with exit 2: characters the fonts cannot draw become [U+XXXX] in HTML and
     PDF alike, so the browser never falls back to a system font."""

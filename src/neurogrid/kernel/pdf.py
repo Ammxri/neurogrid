@@ -106,6 +106,10 @@ DRIVER_ENV_PREFIXES = ("PLAYWRIGHT_", "PW_")
 # On Windows the shell's child processes do not use the log file of --log-file: an error is appended to
 # debug.log next to the executable, i.e. in NeuroGrid's browser folder (measured: the GPU process under load).
 # The GPU runs as a thread of the browser process instead; a debug.log a run causes is undone (A-51, A-54).
+# Where a process cannot open its log file, Chromium's logging falls back to debug.log in its current folder
+# (measured with revision 1243: from a work folder of 197 characters on, the profile paths pass 260
+# characters). The browser inherits the driver's current folder, so the driver starts in the work folder: that
+# debug.log is removed with it and never lands in the user's current folder (driver_environment).
 IN_PROCESS_GPU = "--in-process-gpu"
 CHILD_LOG = "debug.log"
 # The browser's work folder lies in the computer's temporary folder (tempfile.gettempdir(): TMPDIR, TEMP or

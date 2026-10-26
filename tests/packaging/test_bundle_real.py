@@ -9,18 +9,22 @@ Inputs as in offline.yml: wheel and sdist from `uv build`, the documentation sit
 (`python tools/build_docs.py --site-dir site`), THIRD_PARTY_NOTICES.txt and tools/install_pdf_browser.py. The
 build runs as its own process: it downloads the pinned interpreter, uv and the locked wheels into the bundle
 cache (NEUROGRID_BUNDLE_CACHE or .local/bundle-cache; D-06), while the network guard of this test process
-stays active. Run with: uv run pytest -m bundle tests/packaging/test_bundle_real.py
+stays active. Run with: uv run pytest -m bundle tests/packaging/test_bundle_real.py (the build job of
+offline.yml runs exactly that on Linux, with its bundle cache in NEUROGRID_BUNDLE_CACHE).
 """
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
+from test_packaging_texts import documented_prefix_limit
 
 ROOT = Path(__file__).resolve().parents[2]
 UV = os.environ.get("UV") or shutil.which("uv")
@@ -84,6 +88,16 @@ def test_real_bundle_builds_reproducibly_and_passes_verify(bundles: dict[str, Pa
     assert result.returncode == 0, result.stdout[-3000:]
 
 
+def test_documented_windows_prefix_limit_is_the_one_of_the_built_bundle(bundles: dict[str, Path]) -> None:
+    """The longest relative path the installation pages name (test_packaging_texts.py) is the one the built
+    Windows bundle's BUNDLE.json gives install.ps1, for this version."""
+    with zipfile.ZipFile(bundles["win_amd64"]) as archive:
+        (name,) = [n for n in archive.namelist() if n.count("/") == 1 and n.endswith("/BUNDLE.json")]
+        info = json.loads(archive.read(name))
+    for lang in ("en", "zh"):
+        assert documented_prefix_limit(lang)[:2] == (info["version"], info["max_relative_install_path"]), lang
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="the Windows clean room needs Windows")
 def test_windows_clean_room(bundles: dict[str, Path], tmp_path: Path) -> None:
     powershell = shutil.which("powershell")
@@ -97,4 +111,12 @@ def test_windows_clean_room(bundles: dict[str, Path], tmp_path: Path) -> None:
     assert result.returncode == 0, codes + result.stderr.decode("utf-8", "replace")[-3000:]
     steps = dict(line.split(" ", 2)[:2] for line in codes.splitlines())
     assert steps["install"] == "0" and steps["report-html"] == "0" and steps["usage-error"] == "2"
-    assert "all steps passed" in (evidence / "summary.txt").read_text(encoding="utf-8")
+    # Installed at exactly the prefix limit, one character more refused; without a PDF browser exit 2 with the
+    # installation's own installer named (the script checks the hint and that nothing was written).
+    assert steps["install-over-limit"] == "2" and steps["report-pdf-without-shell"] == "2"
+    summary = (evidence / "summary.txt").read_text(encoding="utf-8")
+    with zipfile.ZipFile(bundles["win_amd64"]) as archive:
+        (name,) = [n for n in archive.namelist() if n.count("/") == 1 and n.endswith("/BUNDLE.json")]
+        limit = 249 - json.loads(archive.read(name))["max_relative_install_path"]
+    assert f"install prefix: {limit} characters = the limit {limit} " in summary
+    assert "tools\\install_pdf_browser.py" in summary and "all steps passed" in summary
