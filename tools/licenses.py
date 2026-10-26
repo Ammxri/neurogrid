@@ -71,17 +71,22 @@ def _environment(group: str) -> Path:
     return venv
 
 
-def check(group: str) -> bool:
-    venv = _environment(group)
+def stage_commands(python: Path) -> list[tuple[str, list[str]]]:
+    """The two pip-licenses runs over the distributions installed for the interpreter ``python``."""
     allow = ";".join(_lines(GATE / "allowlist.txt"))
     exceptions = _lines(GATE / "exceptions.txt")
-    base = [sys.executable, "-m", "piplicenses", "--python", str(_python(venv)), "--from=mixed"]
+    base = [sys.executable, "-m", "piplicenses", "--python", str(python), "--from=mixed"]
     stage1 = base + [f"--allow-only={allow}"]
     if exceptions:
         stage1 += ["--ignore-packages", *exceptions]
     stage2 = base + ["--partial-match", "--fail-on=GPL;General Public License"]
+    return [("allowlist", stage1), ("copyleft", stage2)]
+
+
+def run_stages(group: str, python: Path) -> bool:
+    """Both stages for one environment; prints '<group> / <stage>: ok|FAIL' (and the tail of a failure)."""
     ok = True
-    for name, command in (("allowlist", stage1), ("copyleft", stage2)):
+    for name, command in stage_commands(python):
         result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
         status = "ok" if result.returncode == 0 else "FAIL"
         print(f"{group} / {name}: {status}")
@@ -89,6 +94,10 @@ def check(group: str) -> bool:
             ok = False
             print(result.stdout[-2000:], result.stderr[-2000:])
     return ok
+
+
+def check(group: str) -> bool:
+    return run_stages(group, _python(_environment(group)))
 
 
 def components(wheelhouses: list[Path], download: bool) -> int:

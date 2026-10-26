@@ -631,3 +631,15 @@ def test_tool_error_is_exit_2(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     assert "unknown data set(s): x" in capsys.readouterr().err
     with pytest.raises(SystemExit):
         g1.main(["--corpus", str(tmp_path / "corpus"), "--out", str(tmp_path / "o"), "--runs", "1"])
+
+
+def test_v01_evidence_names_existing_tests() -> None:
+    """Every test the V-01 checklist cites as evidence exists (no invented evidence)."""
+    root = Path(__file__).parent.parent.parent
+    cited = [part.strip() for *_rest, evidence in g1.V01_ITEMS for part in evidence.split(";")]
+    named = [part for part in cited if part.startswith("tests/")]
+    assert len(named) >= 7
+    for reference in named:
+        path, _sep, name = reference.partition("::")
+        source = (root / path).read_text(encoding="utf-8")
+        assert not name or re.search(rf"^def {re.escape(name)}\(", source, re.M), reference
