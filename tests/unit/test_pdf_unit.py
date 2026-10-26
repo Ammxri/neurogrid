@@ -320,6 +320,8 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     class Starter:
         def start(self) -> Driver:
             environment_at_start.update({name: os.environ.get(name) for name in ("TMP", "NODE_OPTIONS")})
+            # the driver's current folder, which the browser and its child processes inherit
+            environment_at_start["cwd"] = str(Path.cwd())
             return Driver()
 
     import playwright.sync_api
@@ -328,8 +330,9 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("NODE_OPTIONS", "--require=evil.js")
     shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
     work = tmp_path / "work"
+    here = Path.cwd()
     with PdfPrinter(shell, work, extra_flags=("--log-net-log=x",)):
-        pass
+        assert Path.cwd() == here
     assert launched["executable_path"] == str(tmp_path / "shell.exe") and "channel" not in launched
     log_file = f"--log-file={work / 'chromium.log'}"  # not next to the executable (A-54)
     expected = [*CHROMIUM_FLAGS, "--in-process-gpu", log_file, "--log-net-log=x"]
@@ -337,7 +340,7 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert launched["env"] == pdf.browser_environment(work) and launched["chromium_sandbox"] is False
     assert not (launched["handle_sigint"] or launched["handle_sigterm"] or launched["handle_sighup"])
     assert launched["closed"] and launched["stopped"]
-    assert environment_at_start == {"TMP": str(work), "NODE_OPTIONS": None}
+    assert environment_at_start == {"TMP": str(work), "NODE_OPTIONS": None, "cwd": str(work)}
     assert os.environ["NODE_OPTIONS"] == "--require=evil.js"  # restored after the driver start
 
 
@@ -405,10 +408,13 @@ def test_driver_environment_is_restored_and_cleaned(tmp_path: Path, monkeypatch:
         "PLAYWRIGHT_SKIP_NAVIGATION_CHECK",
         "PW_TEST_SCREENSHOT_NO_FONTS_READY",
     }
+    here = Path.cwd()
     with pytest.raises(ValueError), pdf.driver_environment(tmp_path):
         assert os.environ["TMP"] == os.environ["TEMP"] == os.environ["TMPDIR"] == str(tmp_path)
         assert not removed & set(os.environ) and os.environ["PWD_LIKE"] == "kept"
+        assert Path.cwd() == tmp_path  # the current folder of the driver and the browser (CHILD_LOG)
         raise ValueError
+    assert Path.cwd() == here
     assert os.environ["TMP"] == "before" and os.environ["PWDEBUG"] == "1" and "TMPDIR" not in os.environ
     assert os.environ["PLAYWRIGHT_NODEJS_PATH"] == str(tmp_path / "other-node.exe")
     assert os.environ["PW_TEST_SCREENSHOT_NO_FONTS_READY"] == "1" and os.environ["DEBUGP"] == "1"

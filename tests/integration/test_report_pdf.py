@@ -3,6 +3,9 @@
 The checks here use their own reading of the PDF (pypdf), not the QA gate they test (B2). Tests that print
 are marked ``pdf``: skipped without the browser, failing without it when NEUROGRID_REQUIRE_PDF=1. The
 others (HTML side of the pipeline, all-or-nothing without a browser) always run.
+
+Every folder of these tests lies below the short browser folder of tests/conftest.py (tmp_path is browser_tmp
+here), so that the browser's profile paths stay short whatever --basetemp is.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -52,6 +56,11 @@ REPORT_FONT = re.compile(r"^/[A-Z]{6}\+NotoSansSC-(Regular|Bold)$")
 FONTS = postscript_names(FONT_FILES)
 
 
+@pytest.fixture
+def tmp_path(browser_tmp: Path) -> Path:
+    return browser_tmp
+
+
 @pytest.fixture(scope="module")
 def results() -> Results:
     """bids_issues with core + bids + gxdsl008: errors, warnings, notes, dataset-level and manual findings;
@@ -69,11 +78,9 @@ def results() -> Results:
 
 
 @pytest.fixture(scope="module")
-def written(
-    results: Results, pdf_shell: ShellInstall, tmp_path_factory: pytest.TempPathFactory
-) -> dict[str, Path]:
+def written(results: Results, pdf_shell: ShellInstall, browser_root: Path) -> dict[str, Path]:
     """The four reports of ``results`` (needs the browser: skipped or failed like every pdf test)."""
-    folder = tmp_path_factory.mktemp("pdf") / "报告 out"
+    folder = Path(tempfile.mkdtemp(prefix="pdf-", dir=browser_root)) / "报告 out"
     paths = write_reports(results, ["zh", "en"], ["html", "pdf"], folder, environ=os.environ)
     assert [p.name for p in paths] == ["report.zh.html", "report.zh.pdf", "report.en.html", "report.en.pdf"]
     return {p.name: p for p in paths}
@@ -430,8 +437,39 @@ def test_netguard_blocks_nothing_and_counts_zero(results: Results, tmp_path: Pat
     assert (tmp_path / "out" / "report.zh.pdf").is_file()
 
 
-def _tree(folder: Path) -> dict[str, tuple[int, int]]:
-    return {str(p.relative_to(folder)): (p.stat().st_size, p.stat().st_mtime_ns) for p in folder.rglob("*")}
+def _tree(folder: Path, *, undone: Path) -> dict[str, tuple[int, int] | None]:
+    """Size and modification time of every file and folder below ``folder``; for the folder ``undone`` (the
+    one of the executable) only that it exists. A debug.log that a child process of the shell writes there
+    during a run is removed again when the printer closes (kernel/pdf.py, A-54), and other NeuroGrid runs on
+    the same browser folder do the same: that changes only the time of this one folder, never its content."""
+    return {
+        str(p.relative_to(folder)): None if p == undone else (p.stat().st_size, p.stat().st_mtime_ns)
+        for p in folder.rglob("*")
+    }
+
+
+def test_shell_folder_tree_ignores_only_the_time_of_the_executable_folder(tmp_path: Path) -> None:
+    shell = tmp_path / "chrome-headless-shell-1243"
+    exe_dir = shell / "chrome-headless-shell-win64"
+    (exe_dir / "locales").mkdir(parents=True)
+    (exe_dir / "chrome-headless-shell.exe").write_bytes(b"MZ")
+    (exe_dir / "locales" / "en-US.pak").write_bytes(b"pak")
+    before = _tree(shell, undone=exe_dir)
+    (exe_dir / "debug.log").write_bytes(b"[ERROR] line\n")  # written by a child process, undone at close
+    (exe_dir / "debug.log").unlink()
+    stamp = exe_dir.stat().st_mtime_ns + 10**9
+    os.utime(exe_dir, ns=(stamp, stamp))
+    assert _tree(shell, undone=exe_dir) == before
+    (exe_dir / "debug.log").write_bytes(b"left behind\n")
+    assert _tree(shell, undone=exe_dir) != before
+    (exe_dir / "debug.log").unlink()
+    (exe_dir / "chrome-headless-shell.exe").write_bytes(b"MZ!")
+    assert _tree(shell, undone=exe_dir) != before
+    (exe_dir / "chrome-headless-shell.exe").write_bytes(b"MZ")
+    os.utime(exe_dir / "chrome-headless-shell.exe", ns=(10**18, 10**18))
+    assert _tree(shell, undone=exe_dir) != before  # a file's time still counts
+    os.utime(exe_dir / "locales", ns=(stamp, stamp))
+    assert _tree(shell, undone=exe_dir) != before  # and the time of every other folder
 
 
 @pytest.mark.pdf
@@ -459,7 +497,7 @@ def test_no_files_left_in_temp_and_shell_folder_unchanged(
         pdf.ENV_BROWSER_DIR: str(pdf_shell.folder),
         "PYTHONIOENCODING": "utf-8",
     }
-    before_shell = _tree(pdf_shell.shell_dir)
+    before_shell = _tree(pdf_shell.shell_dir, undone=pdf_shell.executable.parent)
     out = tmp_path / "out"
     done = subprocess.run(
         [
@@ -484,7 +522,31 @@ def test_no_files_left_in_temp_and_shell_folder_unchanged(
     assert {name: sorted(p.name for p in folder.iterdir()) for name, folder in private.items()} == {
         name: [] for name in private
     }
-    assert _tree(pdf_shell.shell_dir) == before_shell
+    assert _tree(pdf_shell.shell_dir, undone=pdf_shell.executable.parent) == before_shell
+
+
+@pytest.mark.pdf
+@pytest.mark.skipif(sys.platform != "win32", reason="the fallback to the current folder is Windows logging")
+def test_fallback_log_of_a_long_work_folder_stays_in_the_work_folder(
+    pdf_shell: ShellInstall, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A-51/A-54: from a work folder of 198 characters on, the paths of the browser's profile pass 260
+    characters and Chromium's logging falls back to debug.log in the current folder (measured with revision
+    1243; from 210 characters the shell no longer starts). That folder is the work folder, removed after the
+    run, never the user's current folder (it was, with the paths of the work folder in it)."""
+    here = tmp_path / "current"
+    here.mkdir()
+    monkeypatch.chdir(here)
+    work = tmp_path / "w"
+    work = work / ("w" * (204 - len(str(work)) - 1))
+    assert len(str(work)) == 204
+    source = tmp_path / "page.html"
+    source.write_text(_page("<p>x</p>"), encoding="utf-8")
+    with PdfPrinter(pdf_shell, work) as printer:
+        printed = printer.print(source, PdfMeta("t", AS_OF))
+    assert printed.data.startswith(b"%PDF-")
+    assert sorted(here.iterdir()) == []
+    assert (work / pdf.CHILD_LOG).is_file()  # the fallback happened, in the work folder
 
 
 @pytest.mark.pdf

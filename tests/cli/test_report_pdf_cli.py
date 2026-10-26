@@ -1,6 +1,7 @@
 """`neurogrid report --format pdf` (CLI-05, A-08, A-26): four files for zh,en × html,pdf; without the PDF
 browser exit 2 with the install hint and nothing written; HTML works without it; the fixed sentence ends
-the output (REP-07)."""
+the output (REP-07). The output folders lie below the short browser folder of tests/conftest.py (tmp_path is
+browser_tmp here), so that the browser's profile paths stay short whatever --basetemp is."""
 
 from __future__ import annotations
 
@@ -26,6 +27,11 @@ from neurogrid.report.texts import disclaimer
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 FILES = ["report.en.html", "report.en.pdf", "report.zh.html", "report.zh.pdf"]
+
+
+@pytest.fixture
+def tmp_path(browser_tmp: Path) -> Path:
+    return browser_tmp
 
 
 @pytest.fixture(scope="module")

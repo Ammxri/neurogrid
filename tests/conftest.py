@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
+import tempfile
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
@@ -18,6 +21,12 @@ AS_OF = date(2026, 10, 11)
 # subject is something else use this configuration (also used by CI) so that only their subject decides the
 # exit code.
 DOCUMENTED_TOML = (FIXTURES.parent / "documented.toml").read_text(encoding="utf-8")
+# On Windows the PDF browser starts only while the paths of its profile, inside the run's work folder next to
+# the output (A-54), stay within 260 characters: measured with revision 1243, a work folder of 210 characters
+# no longer starts, and from 198 characters on Chromium's logging falls back to the current folder
+# (kernel/pdf.py). pytest's folder (--basetemp) can be of any length, so the tests that start the browser
+# write below one short folder of the system's temporary folder instead (browser_root, browser_tmp).
+BROWSER_ROOT_LIMIT = 120
 
 
 def documented_config(folder: Path, extra: str = "", name: str = "documented.toml") -> Path:
@@ -57,6 +66,24 @@ def pdf_shell() -> object:
         if os.environ.get("NEUROGRID_REQUIRE_PDF") == "1":
             pytest.fail(reason)
         pytest.skip(reason)
+
+
+@pytest.fixture(scope="session")
+def browser_root() -> Iterator[Path]:
+    """The session's folder directly below the system's temporary folder for the tests that start the PDF
+    browser (independent of --basetemp, BROWSER_ROOT_LIMIT), removed at the end."""
+    root = Path(tempfile.mkdtemp(prefix="ngpdf-"))
+    try:
+        assert len(str(root)) <= BROWSER_ROOT_LIMIT, f"temporary folder too long for the PDF tests: {root}"
+        yield root
+    finally:
+        shutil.rmtree(root)
+
+
+@pytest.fixture
+def browser_tmp(browser_root: Path) -> Path:
+    """A new folder of one test below browser_root."""
+    return Path(tempfile.mkdtemp(prefix="t", dir=browser_root))
 
 
 @pytest.fixture(autouse=True)

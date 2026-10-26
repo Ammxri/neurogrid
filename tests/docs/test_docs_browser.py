@@ -10,6 +10,7 @@ from __future__ import annotations
 import functools
 import http.server
 import os
+import tempfile
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -89,11 +90,13 @@ class ChildLog:
 
 
 @pytest.fixture(scope="module")
-def browser(built_site: Any, tmp_path_factory: pytest.TempPathFactory) -> Iterator[Any]:
+def browser(built_site: Any, browser_root: Path) -> Iterator[Any]:
     assert built_site.returncode == 0, built_site.output[-2000:]
     pdf = _pdf_module()
     shell = _shell(pdf)
-    work = tmp_path_factory.mktemp("browser")
+    work = Path(
+        tempfile.mkdtemp(prefix="browser-", dir=browser_root)
+    )  # short profile paths (tests/conftest.py)
     from playwright.sync_api import sync_playwright
 
     child_log = ChildLog(shell.executable.parent / pdf.CHILD_LOG)

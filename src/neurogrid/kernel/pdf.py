@@ -13,8 +13,9 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   proactor creates one loopback socket pair. The network guard (kernel/netguard.py) allows loopback only
   and still blocks every other connection, datagram and name resolution (A-49). The driver starts without
   the caller's node, debug and Playwright variables; the browser gets a complete, minimal environment.
-- **Files (A-54):** temporary files, profile and logs in the run's work folder; the GPU runs inside the
-  browser process, and a debug.log that a child process appends next to the executable is undone.
+- **Files (A-54):** temporary files, profile and logs in the run's work folder, which is also the current
+  folder of driver and browser; the GPU runs inside the browser process, and a debug.log that a child
+  process appends next to the executable is undone.
 - **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
   report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a
   same-length byte replacement of the two fields Chromium writes; the result is byte-identical for the same
@@ -39,7 +40,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import chdir, contextmanager
 from dataclasses import dataclass, field
 from datetime import date
 from html.parser import HTMLParser
@@ -98,6 +99,10 @@ DRIVER_ENV_PREFIXES = ("PLAYWRIGHT_", "PW_")
 # On Windows the shell's child processes do not use the log file of --log-file: an error is appended to
 # debug.log next to the executable, i.e. in NeuroGrid's browser folder (measured: the GPU process under load).
 # The GPU runs as a thread of the browser process instead; a debug.log a run causes is undone (A-51, A-54).
+# Where a process cannot open its log file, Chromium's logging falls back to debug.log in its current folder
+# (measured with revision 1243: from a work folder of 198 characters on, the profile paths pass 260
+# characters). The browser inherits the driver's current folder, so the driver starts in the work folder: that
+# debug.log is removed with it and never lands in the user's current folder (driver_environment).
 IN_PROCESS_GPU = "--in-process-gpu"
 CHILD_LOG = "debug.log"
 LINUX_PACKAGES = Path(__file__).with_name("pdf_linux_packages.json")
@@ -410,9 +415,10 @@ def browser_environment(work: Path, *, windows: bool | None = None) -> dict[str,
 
 @contextmanager
 def driver_environment(work: Path) -> Iterator[None]:
-    """While Playwright's driver (node) starts: temporary files in the work folder, none of the variables
-    that change the driver or the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES). Restored right
-    afterwards."""
+    """While Playwright's driver (node) starts: temporary files and the current folder in the work folder,
+    none of the variables that change the driver or the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES).
+    Restored right afterwards; the driver keeps the work folder as its current folder, and the browser and
+    its child processes inherit it (CHILD_LOG)."""
     removed = [
         name
         for name in os.environ
@@ -425,7 +431,8 @@ def driver_environment(work: Path) -> Iterator[None]:
             os.environ[name] = str(work)
         for name in (*DRIVER_ENV_REMOVED, *removed):
             os.environ.pop(name, None)
-        yield
+        with chdir(work):
+            yield
     finally:
         for name, value in saved.items():
             if value is None:
