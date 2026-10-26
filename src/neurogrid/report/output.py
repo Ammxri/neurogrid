@@ -12,7 +12,10 @@ language, written all or nothing.
 3. The PDF is a print of exactly the HTML that is delivered; every PDF passes the QA gate. The browser works
    in a private folder in the computer's temporary folder (kernel.pdf.browser_work), not below the output
    folder, so a long output path never reaches the browser's profile.
-4. Only then are all files written, each atomically; a failure leaves none of them behind.
+4. Only then are the files written, all or nothing (write_all): each is staged next to its target, the
+   earlier reports are moved aside, the new ones moved in. A failure at any step (a full disk, a missing
+   permission, a report open in a viewer that locks it) moves the earlier reports back and leaves none of
+   the new files behind: the folder never holds a mix of old and new reports.
 """
 
 from __future__ import annotations
@@ -133,21 +136,73 @@ def check_output_folder(folder: Path, targets: Sequence[Path]) -> None:
         raise InputError("output.not_writable") from None
 
 
+def _move_aside(target: Path) -> Path | None:
+    """Move an existing ``target`` to a free backup name next to it; None when there is no target. A target
+    that cannot be renamed (on Windows: open in a program that locks it) raises OSError here, before any new
+    file is in place."""
+    if not os.path.lexists(target):
+        return None
+    handle, name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".bak")
+    os.close(handle)
+    backup = Path(name)
+    try:
+        target.replace(backup)
+    except BaseException:
+        backup.unlink(missing_ok=True)
+        raise
+    return backup
+
+
+def _roll_back(placed: Sequence[Path], backups: Sequence[tuple[Path, Path]]) -> None:
+    """Undo a write that failed part way: remove the new files already moved in, move every earlier report
+    back. Best effort, never raises: a backup that cannot be moved back stays next to its target (it holds
+    the earlier report) rather than being deleted."""
+    for target in placed:
+        try:
+            target.unlink(missing_ok=True)
+        except OSError:
+            pass
+    for target, backup in reversed(backups):
+        try:
+            backup.replace(target)
+        except OSError:
+            pass
+
+
 def write_all(files: Mapping[Path, bytes]) -> None:
-    """Every file is staged next to its target first and renamed only when all were staged, so a full disk
-    or a missing permission leaves none of the new files behind."""
+    """All or nothing (B1): every file is staged next to its target; only when all were staged are the
+    existing targets moved aside and the staged files moved in. If any step fails (full disk, missing
+    permission, a target locked by a viewer) the new files already in place are removed and the earlier
+    files moved back, so the folder never mixes old and new reports; then output.not_writable (exit 2).
+    The earlier files are deleted only after every new file is in place (best effort)."""
     staged: list[tuple[Path, Path]] = []
+    backups: list[tuple[Path, Path]] = []
+    placed: list[Path] = []
     try:
         for target, data in files.items():
             target.parent.mkdir(parents=True, exist_ok=True)
             staged.append((_stage(target, data), target))
+        for _temporary, target in staged:
+            backup = _move_aside(target)
+            if backup is not None:
+                backups.append((target, backup))
         for temporary, target in staged:
             temporary.replace(target)
+            placed.append(target)
     except OSError:
+        _roll_back(placed, backups)
         raise InputError("output.not_writable") from None
+    except BaseException:
+        _roll_back(placed, backups)
+        raise
     finally:
         for temporary, _target in staged:
             temporary.unlink(missing_ok=True)
+    for _target, backup in backups:
+        try:
+            backup.unlink()
+        except OSError:
+            pass
 
 
 def write_reports(
@@ -159,7 +214,8 @@ def write_reports(
     environ: Mapping[str, str],
 ) -> list[Path]:
     """Write ``report.<lang>.<format>`` for every language and format into ``folder``; returns the paths in
-    the order languages × formats. PdfError (exit 2) or InputError leave no report file behind."""
+    the order languages × formats. PdfError (exit 2) or InputError leave no new report file behind and the
+    earlier reports in the folder unchanged (write_all)."""
     unknown = [name for name in formats if name not in FORMATS]
     if unknown:
         raise NeuroGridError("errors.report.format_unavailable", format=unknown[0])

@@ -910,6 +910,105 @@ def test_output_that_cannot_be_written_ends_before_the_browser_starts(
     assert len(started) == 1 and sorted(p.name for p in new_folder.iterdir()) == [p.name for p in paths]
 
 
+REPORT_NAMES = ("report.zh.html", "report.zh.pdf", "report.en.html", "report.en.pdf")
+
+
+def _earlier_reports(folder: Path, names: tuple[str, ...] = REPORT_NAMES) -> dict[str, bytes]:
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in names:
+        (folder / name).write_bytes(f"earlier {name}".encode())
+    return {path.name: path.read_bytes() for path in folder.iterdir()}
+
+
+def _new_reports(folder: Path) -> dict[Path, bytes]:
+    return {folder / name: f"new {name}".encode() for name in REPORT_NAMES}
+
+
+@pytest.mark.parametrize("failing_call", range(1, 9))
+def test_write_all_restores_the_earlier_reports_when_a_rename_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failing_call: int
+) -> None:
+    """Review R00 (B1 all-or-nothing): a rename that fails part way (the 1st to 4th moves an earlier report
+    aside, the 5th to 8th moves a new one in) restores every earlier report byte for byte and leaves no new,
+    staged or backup file behind. Before the repair the renames had no rollback: report.zh.html was new and
+    the other three old."""
+    before = _earlier_reports(tmp_path)
+    real_replace = os.replace
+    calls: list[str] = []
+
+    def replace(source: Any, target: Any) -> None:
+        calls.append(Path(source).name)
+        if len(calls) == failing_call:
+            raise PermissionError(13, "in use by another process")
+        real_replace(source, target)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "replace", replace)
+        with pytest.raises(InputError) as info:
+            output.write_all(_new_reports(tmp_path))
+    assert info.value.message_key == "output.not_writable"
+    assert len(calls) >= failing_call
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+def test_write_all_without_earlier_reports_leaves_nothing_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Some targets are new: a failure while moving in removes the new files already placed."""
+    before = _earlier_reports(tmp_path, ("report.en.pdf",))
+    real_replace = os.replace
+
+    def replace(source: Any, target: Any) -> None:
+        if Path(target).name == "report.en.pdf" and Path(source).suffix == ".tmp":
+            raise PermissionError(13, "in use by another process")
+        real_replace(source, target)
+
+    monkeypatch.setattr(os, "replace", replace)
+    with pytest.raises(InputError):
+        output.write_all(_new_reports(tmp_path))
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
+def test_write_all_replaces_every_report_and_removes_the_backups(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Success: the new bytes, no backup or staged file; a backup that cannot be deleted afterwards does
+    not fail the run (the new reports are complete)."""
+    _earlier_reports(tmp_path)
+    files = _new_reports(tmp_path)
+    output.write_all(files)
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == {
+        path.name: data for path, data in files.items()
+    }
+    real_unlink = Path.unlink
+
+    def unlink(self: Path, missing_ok: bool = False) -> None:
+        if self.suffix == ".bak":
+            raise PermissionError(13, "in use by another process")
+        real_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    newer = {path: data + b" again" for path, data in files.items()}
+    output.write_all(newer)
+    assert all(path.read_bytes() == data for path, data in newer.items())
+    backups = [path for path in tmp_path.iterdir() if path.suffix == ".bak"]
+    assert len(backups) == 4 and all(path.name.startswith(".report.") for path in backups)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows locks a file that a program holds open")
+@pytest.mark.parametrize("locked", REPORT_NAMES)
+def test_write_all_with_a_report_open_in_a_viewer_changes_nothing(tmp_path: Path, locked: str) -> None:
+    """Review R00, the real case: a report held open like a PDF viewer does (Python's open() shares no
+    delete access, so the file cannot be renamed). Exit 2 (output.not_writable) and all four earlier
+    reports unchanged, whichever one is open."""
+    before = _earlier_reports(tmp_path)
+    with (tmp_path / locked).open("rb"):
+        with pytest.raises(InputError) as info:
+            output.write_all(_new_reports(tmp_path))
+    assert info.value.message_key == "output.not_writable"
+    assert {path.name: path.read_bytes() for path in tmp_path.iterdir()} == before
+
+
 @pytest.mark.pdf
 def test_context_locale_leaves_the_pdf_bytes_unchanged(
     results: Results, written: dict[str, Path], pdf_shell: ShellInstall, tmp_path: Path
