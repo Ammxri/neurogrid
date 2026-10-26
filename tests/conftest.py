@@ -23,7 +23,7 @@ AS_OF = date(2026, 10, 11)
 DOCUMENTED_TOML = (FIXTURES.parent / "documented.toml").read_text(encoding="utf-8")
 # On Windows the PDF browser starts only while the paths of its profile, inside the run's work folder next to
 # the output (A-54), stay within 260 characters: measured with revision 1243, a work folder of 210 characters
-# no longer starts, and from 198 characters on Chromium's logging falls back to the current folder
+# no longer starts, and from 197 characters on Chromium's logging falls back to the current folder
 # (kernel/pdf.py). pytest's folder (--basetemp) can be of any length, so the tests that start the browser
 # write below one short folder of the system's temporary folder instead (browser_root, browser_tmp).
 BROWSER_ROOT_LIMIT = 120

@@ -535,7 +535,7 @@ def test_no_files_left_in_temp_and_shell_folder_unchanged(
 def test_fallback_log_of_a_long_work_folder_stays_in_the_work_folder(
     pdf_shell: ShellInstall, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A-51/A-54: from a work folder of 198 characters on, the paths of the browser's profile pass 260
+    """A-51/A-54: from a work folder of 197 characters on, the paths of the browser's profile pass 260
     characters and Chromium's logging falls back to debug.log in the current folder (measured with revision
     1243; from 210 characters the shell no longer starts). That folder is the work folder, removed after the
     run, never the user's current folder (it was, with the paths of the work folder in it)."""
