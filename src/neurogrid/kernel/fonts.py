@@ -189,15 +189,14 @@ class GlyphCopies:
     A copy stands for one code point (or, made by a ligature, for the code points of its components) and
     is named ``<original><suffix>``, the suffix naming them: ``.u2013``, or for a ligature one
     ``.L<length><suffix>`` per component (``.L0`` for an original), so different component sequences never
-    give the same copy. It gets the original's outline,
-    metrics and GDEF entries, and is added wherever the original is in GSUB and GPOS: coverage tables
-    with the records that belong to them, class definitions, pair sets (also as second glyph), substitution
-    inputs, ligature components and the glyph sequences of contextual rules (every combination of original
-    and copies). A substitution of a copy gives a copy of the substitute with the same suffix
-    (close_substitutions): Skia names a glyph that no code point maps to by the text it was shaped from
-    (measured: the locl form of U+2026 in English text extracts as U+2026), so a substitute shared by two
-    code points would again extract as one of them. Glyph order: copies after every glyph of the font, in
-    the order they were wanted."""
+    give the same copy. It gets the original's outline, metrics and GDEF entries, and is added wherever the
+    original is in GSUB and GPOS: coverage tables with the records that belong to them, class definitions,
+    pair sets (also as second glyph), substitution inputs, ligature components and the glyph sequences of
+    contextual rules (every combination of original and copies). A substitution of a copy gives a copy of
+    the substitute with the same suffix (close_substitutions): Skia names a glyph that no code point maps
+    to by the text it was shaped from (measured: the locl form of U+2026 in English text extracts as
+    U+2026), so a substitute shared by two code points would again extract as one of them. Glyph order:
+    copies after every glyph of the font, in the order they were wanted."""
 
     def __init__(self, font: TTFont) -> None:
         self.font = font

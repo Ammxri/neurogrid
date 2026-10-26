@@ -13,8 +13,8 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   proactor creates one loopback socket pair. The network guard (kernel/netguard.py) allows loopback only
   and still blocks every other connection, datagram and name resolution (A-49). The driver starts without
   the caller's node, debug and Playwright variables; the browser gets a complete, minimal environment.
-- **Files (A-54):** temporary files, profile, logs and the printed copies in a private work folder in the
-  computer's temporary folder (browser_work), never below ``--out``: Chromium cannot create profile paths
+- **Files (A-54):** temporary files, profile, logs and the HTML files it prints in a private work folder in
+  the computer's temporary folder (browser_work), never below ``--out``: Chromium cannot create profile paths
   longer than Windows allows (measured with the merged state: ``--out`` of 195 characters left a debug.log
   with local paths in the current folder, 210 characters ended in pdf.launch_failed). A temporary folder
   with a path too long for the profile ends with exit 2 and its own hint before anything is rendered.
