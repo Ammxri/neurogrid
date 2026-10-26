@@ -4,8 +4,9 @@ only; .env stays out of git (secrets only via environment variables).
 The scan covers the package and the tools (every name read, set or cleared, also through constants, loops and
 the environment handed to a child process), the names the tests read without setting them, the workflows
 (env blocks, vars/secrets/env expressions, the variables of their scripts) and the packaging scripts (bash,
-PowerShell, cmd). Every name found is either in .env.example or in one of the reviewed sets below, and every
-reviewed name is still in use."""
+PowerShell, cmd). In the workflows and scripts every word with one of NeuroGrid's own prefixes counts as well,
+whatever the scan makes of the line around it. Every name found is either in .env.example or in one of the
+reviewed sets below, and every reviewed name is still in use."""
 
 from __future__ import annotations
 
@@ -48,7 +49,8 @@ PROVIDED = {
 }
 # Variables of other programs that NeuroGrid, its scripts or its workflows set, clear or pass on for them:
 # dead proxies of the clean rooms; the Node.js and Playwright debug switches removed from the PDF driver's
-# environment; the environment of the validator (Deno) and of the PDF browser; gh, git, MNE, Python and uv.
+# environment; the environment of the validator (Deno) and of the PDF browser; bash's field separator for one
+# read (install.sh); gh, git, MNE, Python and uv.
 THIRD_PARTY = {
     "ALL_PROXY",
     "DEBUG",
@@ -61,6 +63,7 @@ THIRD_PARTY = {
     "GIT_SSH_COMMAND",
     "HTTPS_PROXY",
     "HTTP_PROXY",
+    "IFS",
     "LANG",
     "LC_ALL",
     "MNE_TQDM",
@@ -86,6 +89,11 @@ INTERNAL = {"BUNDLES", "NG_EXPECT_REFUSAL", "NG_PDF_SHA", "NG_PDF_ZIP", "NG_TRAC
 # Listed for the owner although nothing uses it yet: only if Trusted Publishing is declined (D-07).
 RESERVED = {"PYPI_API_TOKEN"}
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# NeuroGrid's own prefixes: in a workflow or script every such word is taken for a variable (as before the
+# scan below existed), so a name that the scan cannot see (a line it misreads, a snippet it does not parse)
+# still has to be listed in .env.example.
+OWN_PREFIXES = ("NEUROGRID", "GITEE", "PYPI")
+OWN_WORD = re.compile(rf"\b(?:{'|'.join(OWN_PREFIXES)})_[A-Z0-9_]+\b")
 
 
 def _example() -> dict[str, str]:
@@ -282,20 +290,58 @@ def _code_names() -> dict[str, set[str]]:
 
 SH_REFERENCE = re.compile(r"\$\{?([A-Z_][A-Z0-9_]*)")
 SH_EXPORT = re.compile(r"^\s*export\s+(.*)$", re.M)
-SH_ASSIGNMENT = re.compile(r"^\s*(?:local\s+|readonly\s+)?([A-Z_][A-Z0-9_]*)=", re.M)
+# One value of an assignment: quoted parts, a command substitution (one level of parentheses inside), a
+# backquoted command and unquoted characters, together.
+SH_VALUE = r"""(?:"(?:[^"\\]|\\.)*"|'[^']*'|\$\((?:[^()]|\([^()]*\))*\)|`[^`]*`|[^\s"'`;&|()<>])*"""
+# The assignments at the start of a simple command (the line start, a control operator, an opening
+# parenthesis or a reserved word that a command follows), optionally after local/readonly/declare/typeset or
+# env, and the rest of the line. Only the start is consumed, so a command that starts later on the line or
+# inside a value ("$(NAME=1 tool)") is found as well.
+SH_ASSIGNMENTS = re.compile(
+    r"(?:^|[;&|(]|\b(?:then|do|else|elif|if|while|until)\b)"
+    r"(?=[ \t]*(?:(?P<keyword>local|readonly|declare|typeset|env)[ \t]+)?"
+    rf"(?P<assignments>(?:[A-Za-z_][A-Za-z0-9_]*={SH_VALUE}[ \t]+)*[A-Za-z_][A-Za-z0-9_]*={SH_VALUE})"
+    r"(?P<rest>[^\n]*))",
+    re.M,
+)
+SH_ASSIGNED = re.compile(rf"([A-Za-z_][A-Za-z0-9_]*)={SH_VALUE}")
+# What may follow assignments without a command: the end of the line, an operator, a closing bracket or a
+# comment. Anything else is a command word, and the assignments are that command's environment.
+SH_NO_COMMAND = re.compile(r"\s*(?:$|[;&|)}#])")
 DOCKER_ENV = re.compile(r"""\s-e\s+["']?([A-Z_][A-Z0-9_]*)=""")
 POWERSHELL_ENV = re.compile(r"\$env:([A-Za-z_][A-Za-z0-9_]*)", re.I)
 CMD_VARIABLE = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
 EXPRESSION = re.compile(r"\b(?:vars|secrets|env)\.([A-Za-z_][A-Za-z0-9_]*)")
 
 
+def _sh_assignments(text: str) -> tuple[set[str], set[str]]:
+    """(variables of the shell, variables of a command's environment) of the assignments that start a simple
+    command: `NAME=value command` hands NAME to that command (also after env), `NAME=value` alone or after
+    local/readonly/declare/typeset sets a variable of the shell."""
+    shell, command = set(), set()
+    for match in SH_ASSIGNMENTS.finditer(re.sub(r"\\\n[ \t]*", " ", text)):
+        names = set(SH_ASSIGNED.findall(match["assignments"]))
+        keyword, rest = match["keyword"], match["rest"]
+        if keyword == "env" or (keyword is None and not SH_NO_COMMAND.match(rest)):
+            command |= names
+        else:
+            shell |= names
+    return shell, command
+
+
 def _bash_names(text: str) -> set[str]:
-    """Upper-case variables a bash script reads, exports or passes into a container; a variable the script
-    assigns without exporting is its own shell variable."""
+    """Upper-case variables a bash script reads, exports, hands to a command (`NAME=value command`) or passes
+    into a container; a variable the script only assigns without exporting is its own shell variable."""
     words = (word.partition("=")[0] for line in SH_EXPORT.findall(text) for word in line.split())
-    exported = {word for word in words if re.fullmatch(r"[A-Z_][A-Z0-9_]*", word)}
-    shell_only = set(SH_ASSIGNMENT.findall(text)) - exported
+    shell, command = _sh_assignments(text)
+    exported = {word for word in (*words, *command) if re.fullmatch(r"[A-Z_][A-Z0-9_]*", word)}
+    shell_only = shell - exported
     return (set(SH_REFERENCE.findall(text)) - shell_only) | exported | set(DOCKER_ENV.findall(text))
+
+
+def _own_words(text: str) -> set[str]:
+    """Every word with one of NeuroGrid's own prefixes (OWN_PREFIXES)."""
+    return set(OWN_WORD.findall(text))
 
 
 def _windows_names(text: str) -> set[str]:
@@ -331,16 +377,19 @@ def _workflow_names(text: str) -> set[str]:
 def _script_names() -> dict[str, set[str]]:
     found: dict[str, set[str]] = defaultdict(set)
     for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
-        for name in _workflow_names(path.read_text(encoding="utf-8")):
+        text = path.read_text(encoding="utf-8")
+        for name in _workflow_names(text) | _own_words(text):
             found[name].add(path.relative_to(ROOT).as_posix())
     for path in sorted((ROOT / "packaging").rglob("*")):
         if path.suffix == ".sh":
-            names = _bash_names(path.read_text(encoding="utf-8"))
+            text = path.read_text(encoding="utf-8")
+            names = _bash_names(text)
         elif path.suffix in (".ps1", ".cmd"):
-            names = _windows_names(path.read_text(encoding="utf-8-sig"))
+            text = path.read_text(encoding="utf-8-sig")
+            names = _windows_names(text)
         else:
             continue
-        for name in names:
+        for name in names | _own_words(text):
             found[name].add(path.relative_to(ROOT).as_posix())
     return found
 
@@ -446,6 +495,28 @@ def test_script_scanners_find_planted_names() -> None:
         'docker run -e A_DOCKER=1 -e "A_QUOTED=$y" image\nlower=1; echo "$lower"\n'
     )
     assert _bash_names(bash) == {"A_ONE", "A_TWO", "A_READ", "A_PLAIN", "A_DOCKER", "A_QUOTED"}
+    # An assignment in front of a command is that command's environment, wherever the command starts; alone,
+    # before an operator or after local it is a variable of the shell.
+    inline = (
+        "NEUROGRID_INLINE=1 uv run pytest\n"
+        'D_ONE=1 D_TWO="a b" D_SUB=$(date +%s) tool --x "$D_ONE"\n'
+        "cd x && D_AFTER=1 tool\n"
+        "if D_IF=1 tool; then D_THEN=1 tool; fi\n"
+        'value="$(D_INNER=1 tool)"\n'
+        "env D_ENV=1 tool\n"
+        'IFS=. read -r a b <<<"$v"\n'
+        "D_CONTINUED=1 \\\n  tool\n"
+        'S_ALONE=1\nS_TWO=1 S_THREE="$S_ALONE"; echo "$S_TWO $S_THREE"\n'
+        'S_AND=1 && echo "$S_AND"\nlocal S_LOCAL=1 S_LOCAL_2=2\necho "$S_LOCAL" # S_X=1 tool\n'
+    )
+    assert _bash_names(inline) == {
+        "NEUROGRID_INLINE", "D_ONE", "D_TWO", "D_SUB", "D_AFTER", "D_IF", "D_THEN", "D_INNER", "D_ENV", "IFS",
+        "D_CONTINUED",
+    }  # fmt: skip
+    assert _sh_assignments("lower=1 tool\nUPPER=2\n") == ({"UPPER"}, {"lower"})
+    # the own-prefix words count wherever they stand: also in a heredoc, a comment or a message
+    own = "cat <<X\nNEUROGRID_SNIPPET=1\nX\n# GITEE_NOTE\necho PYPI_WORD NEUROGRID_ x_NEUROGRID_Y"
+    assert _own_words(own) == {"NEUROGRID_SNIPPET", "GITEE_NOTE", "PYPI_WORD"}
     assert _windows_names("$env:B_One = 1; $ENV:B_TWO; $LASTEXITCODE; echo %B_CMD% %~dp0 %*") == {
         "B_One",
         "B_TWO",
