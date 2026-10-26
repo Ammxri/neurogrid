@@ -405,13 +405,35 @@ def test_single_file_ids_do_not_depend_on_typed_case() -> None:
     assert shown.recordings[0].id == "rec_a.edf"
 
 
+def _other_spellings(dataset: Path) -> list[str]:
+    """Command-line spellings of <dataset>/.neurogrid/lab.yaml from inside the dataset (A-66): a doubled
+    separator, a detour through '..', the absolute path; on Windows also backslashes and another case. On
+    POSIX a backslash is an ordinary character of a name, so '.\\.neurogrid\\lab.yaml' names another
+    (missing) file there: the Linux CI failure 'rulepack.not_found' was the test's, not the loader's."""
+    spellings = [
+        "./.neurogrid//lab.yaml",
+        ".neurogrid/../.neurogrid/lab.yaml",
+        str(dataset / ".neurogrid" / "lab.yaml"),
+    ]
+    if sys.platform == "win32":
+        spellings.append(".\\.neurogrid\\lab.yaml")
+        if Path(".NeuroGrid", "LAB.yaml").is_file():  # a case-insensitive folder (the usual one on Windows)
+            spellings.append(".NeuroGrid\\LAB.yaml")
+    return spellings
+
+
 def test_rule_packs_are_deduplicated_by_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     dataset = _dataset_with_config(tmp_path, '[check]\nrulepacks = ["core", ".neurogrid/lab.yaml"]\n')
     monkeypatch.chdir(dataset)
-    same = pipeline.run_check(
-        dataset, pipeline.CheckOptions(rulepacks=(".\\.neurogrid\\lab.yaml",), as_of=OPTIONS.as_of)
-    )
-    assert [p.name for p in same.rulepacks] == ["core", "lab"]
+    for spelling in _other_spellings(dataset):
+        same = pipeline.run_check(dataset, pipeline.CheckOptions(rulepacks=(spelling,), as_of=OPTIONS.as_of))
+        assert [p.name for p in same.rulepacks] == ["core", "lab"], spelling
+    if sys.platform != "win32":  # the backslash spelling is another file on POSIX, not the same pack again
+        with pytest.raises(RulepackError) as info:
+            pipeline.run_check(
+                dataset, pipeline.CheckOptions(rulepacks=(".\\.neurogrid\\lab.yaml",), as_of=OPTIONS.as_of)
+            )
+        assert info.value.message_key == "rulepack.not_found"
     elsewhere = tmp_path / "cwd"
     (elsewhere / ".neurogrid").mkdir(parents=True)
     (elsewhere / ".neurogrid" / "lab.yaml").write_text(
