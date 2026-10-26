@@ -284,6 +284,54 @@ def test_findings_grouped_by_severity_then_rule(rich: Results, lang: str) -> Non
             assert {row["rule"] for row in finding_rows(group)} == {rule}
 
 
+@pytest.mark.parametrize("lang", REPORT_LANGS)
+def test_severity_headings_name_the_numbers_of_the_summary(
+    rich: Results, quality: Results, ai: Results, scaled: Results, lang: str
+) -> None:
+    """Review R05 (REP-02/REP-03, REP-00): a section 3 heading paired the bare severity with the number of
+    all its findings ('Error (392)' next to '15 error(s)' in the summary, 377 of them not applicable). Now
+    an error or warning heading names its findings and, from them, the number the summary counts (not
+    passed plus open evidence), equal to summary.errors and summary.warnings; the open evidence of both adds
+    up to summary.open_evidence. A note heading says that notes are not counted."""
+    tr = _tr(lang)
+    for results in (rich, quality, ai, scaled):
+        findings = section(render_report(results, lang), "findings")
+        headings = dict(re.findall(r'<h3 class="sev-(\w+)">(.*?)</h3>', findings))
+        assert list(headings) == [s.value for s in Severity]
+        evaluated = [f for f in results.findings if f.source_status is not SourceStatus.PLACEHOLDER]
+        counted = {"error": results.summary.errors, "warning": results.summary.warnings}
+        open_total = 0
+        for severity in Severity:
+            items = [f for f in evaluated if f.severity is severity]
+            label = tr(f"severity.{severity.value}")
+            heading = html_lib.unescape(headings[severity.value])
+            if severity is Severity.INFO:
+                assert heading == tr("report.text.severity_heading_info", severity=label, findings=len(items))
+                continue
+            failed = sum(1 for f in items if f.status is Status.FAILED)
+            open_evidence = sum(1 for f in items if f.status is Status.EVIDENCE_OPEN)
+            assert failed + open_evidence == counted[severity.value]
+            open_total += open_evidence
+            if not counted[severity.value]:  # no status words when nothing is counted
+                assert heading == tr("report.text.severity_heading_none", severity=label, findings=len(items))
+                continue
+            assert heading == tr(
+                "report.text.severity_heading",
+                severity=label,
+                findings=len(items),
+                counted=counted[severity.value],
+                failed=failed,
+                open=open_evidence,
+            )
+            assert f"{label} ({len(items)})" not in heading
+        assert open_total == results.summary.open_evidence
+    # at least one fixture where the findings outnumber the counted ones (the case of the review)
+    assert any(
+        sum(1 for f in r.findings if f.severity is Severity.ERROR) > r.summary.errors
+        for r in (rich, quality, ai, scaled)
+    )
+
+
 def test_rows_inside_a_rule_follow_status_then_object(rich: Results) -> None:
     order = [
         Status.FAILED,

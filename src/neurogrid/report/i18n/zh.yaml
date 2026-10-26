@@ -693,6 +693,9 @@ report:
     title_missing: "–（results.json 的规则列表中没有该规则）"
   text:
     no_findings: "没有此类严重程度的结果。"
+    severity_heading: "{severity}：{findings} 项结果，其中 {counted} 项计入摘要（{failed} 项未通过，{open} 项证明材料待补）"
+    severity_heading_none: "{severity}：{findings} 项结果，均不计入摘要"
+    severity_heading_info: "{severity}：{findings} 项结果（提示不计入摘要）"
     no_recordings: "没有记录。"
     no_manual_rules: "已加载的规则包不含依据证明材料评价的规则。"
     no_exceptions: "未配置例外。"

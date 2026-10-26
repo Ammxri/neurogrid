@@ -692,6 +692,9 @@ report:
     title_missing: "– (Regel im Regelblock der results.json nicht aufgeführt)"
   text:
     no_findings: "Keine Befunde dieser Schweregrade."
+    severity_heading: "{severity}: {findings} Befund(e), davon {counted} in der Zusammenfassung gezählt ({failed} nicht bestanden, {open} Nachweis offen)"
+    severity_heading_none: "{severity}: {findings} Befund(e), keiner davon in der Zusammenfassung gezählt"
+    severity_heading_info: "{severity}: {findings} Befund(e), in der Zusammenfassung nicht gezählt"
     no_recordings: "Keine Aufnahmen."
     no_manual_rules: "Die geladenen Regelpakete enthalten keine Regeln, die aus Nachweisen bewertet werden."
     no_exceptions: "Keine Ausnahmen konfiguriert."

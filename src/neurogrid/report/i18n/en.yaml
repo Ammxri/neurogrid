@@ -692,6 +692,9 @@ report:
     title_missing: "– (rule not listed in the rules block of results.json)"
   text:
     no_findings: "No findings with these severities."
+    severity_heading: "{severity}: {findings} finding(s), {counted} of them counted in the summary ({failed} not passed, {open} evidence open)"
+    severity_heading_none: "{severity}: {findings} finding(s), none of them counted in the summary"
+    severity_heading_info: "{severity}: {findings} finding(s), not counted in the summary"
     no_recordings: "No recordings."
     no_manual_rules: "The loaded rule packs contain no rules evaluated from evidence."
     no_exceptions: "No exceptions configured."
