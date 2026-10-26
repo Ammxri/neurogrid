@@ -9,8 +9,9 @@ remainder named, one metrics row per recording), determinism, a passing QA gate 
 (A-88): each limit is the measurement on the real fonts and shell (MEASURED, the largest value of repeated
 runs) plus a 50 % reserve, rounded up.
 PRD and KONZEPT set no limit for the report; the limits guard against regressions and hold for a machine like
-the measuring one. The PDF tests need the PDF pipeline and the Chrome Headless Shell
-(tools/install_pdf_browser.py); without them they are skipped, unless NEUROGRID_REQUIRE_PDF=1.
+the measuring one, kept awake: in sleep or Modern Standby the wall time runs on while the processes are held
+(two such values are left out of MEASURED, see there). The PDF tests need the PDF pipeline and the Chrome
+Headless Shell (tools/install_pdf_browser.py); without them they are skipped, unless NEUROGRID_REQUIRE_PDF=1.
 """
 
 from __future__ import annotations
@@ -52,9 +53,14 @@ RESERVE = 1.5  # A-88: +50 % on the measurement
 # the larger value; bytes and pages per language (the same in every run).
 # Each time and memory value is the largest of the runs on 2026-10-26 (worst case 3 runs, typical case 4; the
 # last one while other jobs ran on the machine): one run alone left too little room, e.g. the QA gate of the
-# worst case took 29.9 s, 29.2 s and then 44.6 s. Two values of the typical case are left out: 8 370 s for
-# the report process and 14 937 s for one QA gate, in two night runs; the same stages took 77-92 s and
-# 29-36 s in every other run, and neither value came back in the reruns.
+# worst case took 29.9 s, 29.2 s and then 44.6 s. Two values of the typical case are left out: 8 370.2 s for
+# the report process and 14 936.9 s for the zh QA gate, in two night runs. Neither was a hang: the machine
+# slept inside each measurement. The Windows System log (Kernel-Power 506/507, one record per Modern Standby
+# session, local time UTC+1) shows sleep phases (SleepEntered, SleepDurationInUs) of 8 282.0 s from 02:31:45
+# and 14 907.0 s from 04:55:17, of them 8 251.9 s and 14 861.3 s in the deepest idle state (DRIPS), in which
+# no process runs while time.perf_counter runs on. Without them 88.2 s and 29.9 s remain, as in the other
+# runs (77-92 s, 29-36 s), and both PDFs passed the QA gate with the bytes and pages of every other run. The
+# standby of 10:47-12:52 never reached its sleep phase (SleepEntered false); the rerun in it took 92.1 s.
 MEASURED: dict[str, dict[str, Any]] = {
     "worst": {
         "html_wall_s": 21.4,  # 18.5, 20.9, 21.4
