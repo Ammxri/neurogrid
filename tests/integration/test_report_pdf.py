@@ -214,6 +214,80 @@ def test_long_unbreakable_values_wrap_and_keep_the_page_scale(
         assert all(value in text for value in long_values.values()), lang
 
 
+# The body cells of the auto-layout tables that hold NeuroGrid's own words, by table and column: the source
+# status of a rule pack, the phase and its light, the coverage, the origin of a threshold, 'used'/'expired'.
+# Every header holds own words too, except the AI label scopes (names from the dataset) after the first.
+OWN_BODY_COLUMNS = {"rulepacks": [2], "phases": [0, 1], "coverage": [1], "params": [3], "exceptions": [5, 6]}
+# The content width of the portrait page and of the landscape page 'wide' in CSS px (A4, 13 mm side margins,
+# render.page_css), rounded down; the sections of the landscape page (report.css).
+PAGE_WIDTHS = {False: int((210 - 26) / 25.4 * 96), True: int((297 - 26) / 25.4 * 96)}
+WIDE_SECTIONS = "section#findings, section#metrics, section#evidence, section#appendix"
+_OWN_WORDS_JS = """
+([wide, sections, own]) => {
+  const broken = [], checked = [];
+  for (const table of document.querySelectorAll('table')) {
+    if (getComputedStyle(table).tableLayout !== 'auto' || !!table.closest(sections) !== wide) continue;
+    const name = table.className;
+    for (const row of table.rows) {
+      Array.from(row.cells).forEach((cell, index) => {
+        const header = cell.tagName === 'TH';
+        if (header ? name === 'labels' && row.parentElement.tagName === 'THEAD' && index > 0
+                   : !(own[name] || []).includes(index)) return;
+        const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          for (const match of node.data.matchAll(/\\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            const lines = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0)
+                                  .map((r) => Math.round(r.top)));
+            checked.push(name + ': ' + match[0]);
+            if (lines.size > 1) broken.push(name + ': ' + match[0]);
+          }
+        }
+      });
+    }
+  }
+  return [broken, checked];
+}
+"""
+
+
+@pytest.mark.pdf
+def test_own_words_never_break_in_the_auto_layout_tables(
+    results: Results, written: dict[str, Path], pdf_shell: ShellInstall, tmp_path: Path
+) -> None:
+    """Review R01 follow-up (REP-00): overflow-wrap: anywhere on body lowers the min-content width of every
+    cell, so in an auto-layout table a long column squeezed the others below NeuroGrid's own words: the
+    rule-pack table on the cover printed 'Versio|n' in every en report (base and with long dataset values),
+    c3be509 did not. Every whitespace-separated word of every header and of the own-vocabulary cells of the
+    auto-layout tables stands on one line, laid out by the real shell at the content width of its page in
+    print media, for the reports of ``results`` and with long dataset values, in zh and en."""
+    long_values = {"name": "N" * 200, "license": "https://example.org/" + "l" * 160, "version": "v" * 120}
+    changed = results.model_copy(deep=True)
+    changed.dataset = changed.dataset.model_copy(update=long_values)
+    extra = write_reports(changed, ["zh", "en"], ["html"], tmp_path / "long", environ=os.environ)
+    documents = [written["report.zh.html"], written["report.en.html"], *extra]
+    broken: list[tuple[str, bool, str]] = []
+    with _measuring_page(pdf_shell) as (page, _work):
+        page.emulate_media(media="print")
+        for document in documents:
+            lang = document.name.split(".")[1]
+            for wide, width in PAGE_WIDTHS.items():
+                page.set_viewport_size({"width": width, "height": 1200})
+                page.goto(document.as_uri())
+                page.evaluate("document.fonts.ready")
+                assert page.evaluate("document.fonts.check(\"8pt 'NG Sans'\")"), document
+                found, checked = page.evaluate(_OWN_WORDS_JS, [wide, WIDE_SECTIONS, OWN_BODY_COLUMNS])
+                broken += [(document.parent.name + "/" + document.name, wide, word) for word in found]
+                if not wide:  # the header the verifier saw broken is among the words checked
+                    version = translator(lang).t("report.label.version")
+                    assert f"rulepacks: {version.split()[0]}" in checked, (document, checked)
+                else:
+                    assert any(word.startswith("params: ") for word in checked), (document, checked)
+    assert not broken, broken
+
+
 def _page_counter(number: int, total: int) -> re.Pattern[str]:
     """The page counter 'x / y' in the squeezed page text, with up to three characters of words around the
     slash ('1/19', '第1页/共19页'), whatever words the report's counter uses. The digit before 'x' is not

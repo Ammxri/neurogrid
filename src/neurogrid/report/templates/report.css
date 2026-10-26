@@ -38,8 +38,12 @@ tr.total th, tr.total td { font-weight: 700; background: #f4f4f4; }
 /* Nothing is wider than its page (review R01): a line that is too wide makes Chromium shrink EVERY page of
    the print to fit it. So text breaks anywhere when it must (overflow-wrap: anywhere on body, inherited by
    every cell; it also lowers the min-content width of auto-layout tables, so a long value wraps instead of
-   widening its table), and a word that fits its line is never broken. The labels of key/value tables stay on
-   one line, so a long value never squeezes them.
+   widening its table), and a word that fits its line is never broken. NeuroGrid's own words in the auto-layout
+   tables (every header, the labels of key/value tables, and the body cells td.own: source status,
+   phase, light, coverage, origin, used/expired) stay on one line: anywhere also lowers THEIR min-content
+   width, and a long column (a SHA-256, a long value) then squeezed them mid-word ('Versio|n' on the cover).
+   Only headers that hold dataset values (th.value: AI label scopes) and the headers of the fixed-layout
+   tables below wrap like text.
    Wide tables: fixed column shares (each table's shares sum to 100 %), so that no column is squeezed to one
    character per line. Every word NeuroGrid writes into these tables (headers in bold, phases, statuses,
    severities, verification kinds, clause texts, the labels of measured values except BIDS field names such as
@@ -48,7 +52,9 @@ tr.total th, tr.total td { font-weight: 700; background: #f4f4f4; }
    the shipped packs and an ISO date (measured in the report font on the landscape page, A-84). Only dataset
    values (file names, identifiers) can be longer than their column and break. */
 table.findings, table.rules, table.metrics, table.evidence, table.sample { table-layout: fixed; }
-table.cover th, table.configuration th, table.environment th, table.demographics th { white-space: nowrap; }
+th, td.own { white-space: nowrap; }
+table.findings th, table.rules th, table.metrics th, table.evidence th, table.sample th, th.value {
+  white-space: normal; }
 table.findings td.c-rule, .nowrap { white-space: nowrap; }
 col.w-rule { width: 12%; } col.w-clause { width: 6.5%; } col.w-title { width: 12%; } col.w-status { width: 7%; }
 col.w-file { width: 11%; } col.w-channel { width: 6%; } col.w-measured { width: 8%; } col.w-threshold { width: 10%; }

@@ -51,7 +51,7 @@
   <h4>{{ t('report.label.labels') }}</h4>
   <p>{{ labels.source }}</p>
   <table class="labels">
-    <thead><tr><th>{{ t('report.label.class') }}</th>{% for scope in labels.scopes %}<th class="num">{{ scope }}</th>{% endfor %}</tr></thead>
+    <thead><tr><th>{{ t('report.label.class') }}</th>{% for scope in labels.scopes %}<th class="num value">{{ scope }}</th>{% endfor %}</tr></thead>
     <tbody>
     {% for row in labels.rows %}
     <tr><td>{{ row[0] }}</td>{% for count in row[1:] %}<td class="num">{{ count }}</td>{% endfor %}</tr>
