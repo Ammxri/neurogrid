@@ -902,3 +902,36 @@ def test_integer_ages_are_searched_in_context(results: Results, tmp_path: Path) 
     assert g1.check_privacy([pdf], forbidden, results) == []  # no bytes search: a context needs the text
     pdf = g1.Output("report.en.pdf", "sub-hc1 age 54")
     assert g1.check_privacy([pdf], forbidden, results) == ["report.en.pdf: contains a raw integer age"]
+
+
+def test_output_paths_on_the_console_are_no_raw_name_leak(results: Results, tmp_path: Path) -> None:
+    """A-82: the console names the output files below the operator's --out folder, whose sub-folders the
+    G1 run names after the data set (run1/psg-ipa-1.0.0); a raw folder 'PSG' of the data set is no leak
+    there. The same name elsewhere on the console is one."""
+    raw = tmp_path / "corpus" / "psg-ipa-1.0.0"
+    (raw / "Sleep_stages" / "PSG").mkdir(parents=True)
+    write_edf(raw / "Sleep_stages" / "PSG" / "SN1.edf")
+    out = tmp_path / "g1"
+    forbidden = g1.forbidden_values(raw, out)
+    assert g1.Forbidden(g1.RAW_NAME, "PSG", "word") in forbidden
+    written = out / "run1" / "psg-ipa-1.0.0" / "results.json"
+    sentence = disclaimer("en")
+    clean = g1.CommandRun("check", 1, f"Results written to {written}\n{sentence}\n".encode(), b"", 0.0)
+    assert g1.check_privacy([g1.console_output("check", clean, out)], forbidden, results) == []
+    leak = g1.CommandRun("check", 1, f"Results written to {written}\nread PSG/SN1.edf\n".encode(), b"", 0.0)
+    assert g1.check_privacy([g1.console_output("check", leak, out)], forbidden, results) == [
+        f"check console: contains a {g1.RAW_NAME}"
+    ]
+
+
+def test_console_summary_line_is_plain_ascii(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tool's console lines stay ASCII, so a redirected stdout in a legacy code page (cp1252 on Windows)
+    never ends the run with an encoding error after the summary was written."""
+    summary = _summary()
+    monkeypatch.setattr(g1, "run_acceptance", lambda *args, **kwargs: summary)
+    g1.main(["--corpus", str(tmp_path), "--out", str(tmp_path / "out")])
+    printed = capsys.readouterr().out
+    assert printed.isascii(), [line for line in printed.splitlines() if not line.isascii()]
+    assert "outside this run:" in printed

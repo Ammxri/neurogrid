@@ -113,6 +113,11 @@ OUTSIDE_THIS_RUN = (
     "Bündel-Installation in debian:12-slim --network none ohne vorinstalliertes Python (offline.yml)",
     "Abdeckung Kern ≥ 90 %, Prüfer ≥ 80 % (tools/coverage_gates.py)",
 )
+# The same on the console, in ASCII: a redirected stdout may use a legacy code page (cp1252).
+OUTSIDE_THIS_RUN_CONSOLE = (
+    "scaling test 1000 x 64; Linux run without network under strace; bundle installed in debian:12-slim "
+    "--network none; coverage core >= 90 %, checkers >= 80 % (see summary.md)"
+)
 COMMANDS = ("scan", "check", "report", "manifest", "verify")
 PRODUCT_FILES = (
     "results.json",
@@ -1156,9 +1161,10 @@ class Output:
 
 def console_output(name: str, run: CommandRun, out: Path) -> Output:
     """Both console streams of one command, with the operator's own --out folder (named on the console by
-    design, A-82) taken out, so the rest is searched for everything else."""
+    design, A-82) taken out together with the output paths below it (the run folders that this tool names
+    after the data set, the product's file names), so the rest is searched for everything else."""
     text = "\n".join(data.decode("utf-8", "replace") for data in (run.stdout, run.stderr))
-    return Output(f"{name} console", _remove_forms(text, out))
+    return Output(f"{name} console", re.sub(r"<out>[^\s'\"]*", "<out>", _remove_forms(text, out)))
 
 
 def check_privacy(
@@ -1841,7 +1847,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"minimum {'met' if g1['minimum_met'] else 'NOT met'}; "
         f"all criteria of this run {'met' if g1['criteria_met'] else 'NOT met'}"
     )
-    print(f"  outside this run: {'; '.join(g1['outside_this_run'])}")
+    print(f"  outside this run: {OUTSIDE_THIS_RUN_CONSOLE}")
     for entry in summary["datasets"]:
         for problem in entry["problems"]:
             print(f"  {entry['name']}: {problem}")
