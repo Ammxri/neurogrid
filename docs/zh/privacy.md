@@ -43,8 +43,12 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
 - **Linux，无网络。** 在没有网络的容器中运行，例如对已安装的安装包使用
   `docker run --rm --network none -v "$PWD:/data:ro" <image>`，或以 root 权限执行 `sudo unshare -n`，再以自己的用户
   身份运行命令。
-- **Linux，系统调用。** `strace -f -e trace=connect,sendto,sendmsg -o trace.txt neurogrid check <dataset>` 记录
-  NeuroGrid 及其子进程的每次连接尝试；记录中不得出现 `AF_INET` 或 `AF_INET6`。
+- **Linux，系统调用。**
+  `strace -f -e trace=connect,sendto,sendmsg -o strace-check.txt neurogrid check <dataset>` 记录 NeuroGrid
+  及其子进程的每次连接尝试。记录中不得出现指向回环地址（127.0.0.0/8、`::1`）以外地址的 `AF_INET` 或 `AF_INET6`
+  调用；回环调用是允许的（PDF 步骤通过回环与其自己的浏览器进程通信）。源代码仓库中的
+  `python3 tools/strace_check.py <folder>` 对该文件夹中的每个 `strace-*.txt` 文件应用完全相同的规则，并列出其统计的
+  回环调用。
 - **Windows。** 为每个程序设置出站防火墙规则，例如
   `New-NetFirewallRule -Direction Outbound -Action Block -Program <path of neurogrid.exe>`，并对 `python.exe`、
   `deno.exe`、Playwright 的 `node.exe` 和 PDF 浏览器做同样设置。

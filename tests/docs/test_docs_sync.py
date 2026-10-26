@@ -459,3 +459,27 @@ def test_no_unmarked_placeholders() -> None:
             )
             for name in used:
                 assert any(f"<{name}>" in note for note in notes), (lang, page.name, name)
+
+
+def test_privacy_pages_state_the_strace_rule_of_the_offline_gate(tmp_path: Path) -> None:
+    """NG-N01, A-49: 'Check it yourself' states the criterion of tools/strace_check.py (the offline gate of
+    CI): no AF_INET/AF_INET6 call to an address other than loopback; loopback calls are allowed. A trace that
+    the gate accepts must not look like a failure to a user who follows the page."""
+    import strace_check  # type: ignore[import-not-found]
+
+    for lang in LANGUAGES:
+        section = _anchored(_page(lang, "privacy.md"))["check-yourself"]
+        flat = " ".join(section.split())
+        assert "127.0.0.0/8" in flat and "`::1`" in flat, lang
+        assert "tools/strace_check.py" in flat and "`strace-*.txt`" in flat, lang
+        assert "strace-check.txt" in flat, lang  # the trace file name the checker reads
+        assert not re.search(r"must not contain\s+`AF_INET` or `AF_INET6`\.", flat), lang
+        assert "记录中不得出现 `AF_INET` 或 `AF_INET6`。" not in flat, lang
+    loopback = 'connect(3, {sa_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("127.0.0.1")}, 16) = 0'
+    loopback6 = 'connect(3, {sa_family=AF_INET6, sin6_port=htons(9), inet_pton(AF_INET6, "::1", &x)}, 28) = 0'
+    outside = 'connect(3, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr("10.0.0.1")}, 16) = -1'
+    assert strace_check.classify(loopback)[0] == strace_check.classify(loopback6)[0] == "loopback"
+    assert strace_check.classify(outside)[0] == "network"
+    (tmp_path / "strace-check.txt").write_text(f"{loopback}\n{loopback6}\n", encoding="utf-8")
+    _summary, attempts = strace_check.check(tmp_path)
+    assert attempts == []  # what the page allows, the gate allows

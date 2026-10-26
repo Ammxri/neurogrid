@@ -50,9 +50,13 @@ on your own computer.
 - **Linux, without network.** In a container without network, for example
   `docker run --rm --network none -v "$PWD:/data:ro" <image>` with an installed bundle, or with root rights
   `sudo unshare -n` followed by the command as your own user.
-- **Linux, system calls.** `strace -f -e trace=connect,sendto,sendmsg -o trace.txt neurogrid check <dataset>`
-  records every connection attempt of NeuroGrid and of its child processes; the trace must not contain
-  `AF_INET` or `AF_INET6`.
+- **Linux, system calls.**
+  `strace -f -e trace=connect,sendto,sendmsg -o strace-check.txt neurogrid check <dataset>` records every
+  connection attempt of NeuroGrid and of its child processes. The trace must not contain an `AF_INET` or
+  `AF_INET6` call to an address other than loopback (127.0.0.0/8, `::1`); loopback calls are allowed (the PDF
+  step talks to its own browser process that way). `python3 tools/strace_check.py <folder>` of the source
+  repository applies exactly this rule to every `strace-*.txt` file of the folder and lists the loopback calls
+  it counted.
 - **Windows.** An outbound firewall rule per program, for example
   `New-NetFirewallRule -Direction Outbound -Action Block -Program <path of neurogrid.exe>`, and the same for
   `python.exe`, `deno.exe`, Playwright's `node.exe` and the PDF browser.
