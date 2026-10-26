@@ -312,8 +312,10 @@ def test_name_hint_notice(tmp_path: Path) -> None:
     assert "4711234" not in canonical.dumps(results).decode("utf-8")
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="lone surrogates in names are a Windows case here")
 def test_undecodable_name_does_not_crash_check(tmp_path: Path) -> None:
+    """Windows: a lone surrogate in the name. Linux: the byte 0x80, not valid UTF-8 (names from old
+    systems or archives); Python lists it as the same surrogate escape, so both take the same way through
+    pseudonyms and display (A-51). A file system that refuses the name skips the test (macOS)."""
     (tmp_path / "rec.edf").write_bytes((FIX / "edf_ok" / "rec_a.edf").read_bytes())
     try:
         (tmp_path / "notiz_\udc80.txt").write_bytes(b"x")

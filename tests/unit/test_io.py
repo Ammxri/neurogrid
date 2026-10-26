@@ -343,8 +343,9 @@ def test_suspicious_names_are_counted_not_shown(tmp_path: Path) -> None:
     assert all(f.display_id.startswith("rec-") for f in result.recordings)
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="lone surrogates in names are a Windows case here")
 def test_undecodable_file_name_does_not_stop_the_scan(tmp_path: Path) -> None:
+    """Windows: a lone surrogate in the name; Linux: the byte 0x80 (not valid UTF-8), listed by Python as
+    the same surrogate escape. A file system that refuses the name skips the test (macOS)."""
     (tmp_path / "rec.edf").write_bytes(SRC.read_bytes())
     try:
         (tmp_path / "notiz_\udc80.txt").write_bytes(b"x")
