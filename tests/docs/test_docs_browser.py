@@ -29,8 +29,10 @@ HINTS = {"en": "Search needs a local server (see Installation)", "zh": "搜索�
 
 
 @pytest.fixture(scope="session")
-def built_site(tmp_path_factory: pytest.TempPathFactory) -> docs_site.Build:
-    return docs_site.built(tmp_path_factory.getbasetemp())
+def built_site(browser_root: Path) -> docs_site.Build:
+    # below the short folder of tests/conftest.py: the browser tests open the pages as file:// URLs, which
+    # fail beyond 260 characters, whatever --basetemp is (the session builds the site once, for both modules)
+    return docs_site.built(browser_root)
 
 
 def _unavailable(reason: str) -> None:
