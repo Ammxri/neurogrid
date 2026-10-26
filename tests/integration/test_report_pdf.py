@@ -18,6 +18,8 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -629,6 +631,61 @@ LONG_BASETEMP_TESTS = (
 )
 
 
+@contextlib.contextmanager
+def _entries_seen(folder: Path) -> Iterator[dict[str, set[str]]]:
+    """Every name that appears in a folder below ``folder`` while the block runs, also one that is gone again
+    at its end (polled every 20 ms in a thread), by folder (as in conftest.folder_content), and under the key
+    'debug.log' the first line of each debug.log seen (who wrote it and why). A diagnostic: a created and
+    removed entry changes only its folder's modification time, which folder_content cannot explain."""
+
+    def names() -> dict[str, set[str]]:
+        return {here: set(folders) | set(files) for here, folders, files in os.walk(folder)}
+
+    known = names()
+    seen: dict[str, set[str]] = {}
+    stop = threading.Event()
+
+    def poll() -> None:
+        while not stop.wait(0.02):
+            for here, now in names().items():
+                new = now - known.get(here, set())
+                if not new:
+                    continue
+                seen.setdefault(Path(here).relative_to(folder).as_posix() + "/", set()).update(new)
+                if pdf.CHILD_LOG in new:
+                    with contextlib.suppress(OSError):
+                        text = (Path(here) / pdf.CHILD_LOG).read_bytes()[:400].decode("utf-8", "replace")
+                        seen.setdefault(pdf.CHILD_LOG, set()).add(text.splitlines()[0] if text else "(empty)")
+
+    thread = threading.Thread(target=poll, daemon=True)
+    thread.start()
+    try:
+        yield seen
+    finally:
+        stop.set()
+        thread.join()
+
+
+def test_entries_seen_names_a_debug_log_written_and_removed_again(tmp_path: Path) -> None:
+    """The diagnostic of the long-basetemp check (CI run 40355705974: only the modification time of the
+    executable's folder, the fourth entry of folder_content, differed, so an entry was created and removed
+    there): a debug.log that exists only for a moment is named with its folder and first line."""
+    shell = tmp_path / "chrome-headless-shell-win64"
+    shell.mkdir()
+    (shell / "kept.pak").write_bytes(b"x")
+    with _entries_seen(tmp_path) as seen:
+        log = shell / pdf.CHILD_LOG
+        log.write_bytes(b"[1026/120000.000:ERROR:example.cc(1)] child error\nsecond line\n")
+        deadline = time.monotonic() + 10
+        while pdf.CHILD_LOG not in seen and time.monotonic() < deadline:
+            threading.Event().wait(0.01)
+        log.unlink()
+    assert seen == {
+        "chrome-headless-shell-win64/": {pdf.CHILD_LOG},
+        pdf.CHILD_LOG: {"[1026/120000.000:ERROR:example.cc(1)] child error"},
+    }
+
+
 @pytest.mark.pdf
 def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: Path) -> None:
     """P2: the browser's work folder never follows the paths a caller uses (kernel.pdf.browser_work; the
@@ -642,19 +699,20 @@ def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: 
     basetemp.parent.mkdir(parents=True)  # pytest creates the basetemp itself, not its parents
     with fresh_shell(pdf_shell) as shell:
         before = folder_content(shell.folder)
-        done = subprocess.run(
-            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--basetemp={basetemp}"]
-            + list(LONG_BASETEMP_TESTS),
-            capture_output=True,
-            cwd=Path(__file__).parent.parent.parent,
-            env={
-                **os.environ,
-                pdf.ENV_BROWSER_DIR: str(shell.folder),
-                "NEUROGRID_REQUIRE_PDF": "1",
-                "PYTHONIOENCODING": "utf-8",
-            },
-            check=False,
-        )
+        with _entries_seen(shell.folder) as seen:
+            done = subprocess.run(
+                [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--basetemp={basetemp}"]
+                + list(LONG_BASETEMP_TESTS),
+                capture_output=True,
+                cwd=Path(__file__).parent.parent.parent,
+                env={
+                    **os.environ,
+                    pdf.ENV_BROWSER_DIR: str(shell.folder),
+                    "NEUROGRID_REQUIRE_PDF": "1",
+                    "PYTHONIOENCODING": "utf-8",
+                },
+                check=False,
+            )
         after = folder_content(shell.folder)
     report = done.stdout.decode("utf-8", "replace")
     assert done.returncode == 0, report[-3000:]
@@ -672,7 +730,12 @@ def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: 
         return f"{key} (size, mtime, sha256) {old} -> {new}"
 
     changed = sorted(key for key in before.keys() | after.keys() if before.get(key) != after.get(key))
-    assert after == before, "changed in the browser folder: " + "; ".join(change(key) for key in changed)
+    transient = "; ".join(f"{key} {sorted(names)}" for key, names in sorted(seen.items()))
+    assert after == before, (
+        "changed in the browser folder: "
+        + "; ".join(change(key) for key in changed)
+        + f" | seen during the run: {transient or 'nothing'}"
+    )
 
 
 @pytest.mark.pdf
