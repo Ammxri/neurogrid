@@ -154,6 +154,64 @@ def test_metadata_title_dates_and_no_other_keys(results: Results, written: dict[
         assert "/Metadata" not in root and "/ID" not in reader.trailer
 
 
+# Chromium's page content: the page's own flip (0.24 = 72/300) and then the CSS-pixel scale of the body,
+# 3.125 x 0.24 = 0.75 pt per px (96 dpi). Shrink-to-fit (content wider than the page) lowers the latter.
+_CM = re.compile(rb"(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) -?[\d.]+ -?[\d.]+ cm")
+DESIGNED_SCALE = b"3.125"
+
+
+def _page_scales(data: bytes) -> list[set[bytes]]:
+    """Per page the scale factors of every transformation of the content (test oracle), the page flip
+    left out."""
+    scales = []
+    for page in pypdf.PdfReader(io.BytesIO(data)).pages:
+        found = set()
+        for match in _CM.finditer(page.get_contents().get_data()):
+            a, b, c, d = match.groups()
+            assert b == c == b"0" and abs(float(a)) == abs(float(d)), match.group(0)
+            if float(d) > 0:
+                found.add(a)
+        scales.append(found)
+    return scales
+
+
+@pytest.mark.pdf
+def test_every_page_keeps_the_designed_scale(written: dict[str, Path]) -> None:
+    """Review R01: nothing in the report is wider than its page, so Chromium never shrinks the print to fit.
+    Before the repair the header 'Comment / justification' of the evidence table overflowed its column,
+    the table its page, and every page of these reports was printed at 99.5 %."""
+    for lang in ("zh", "en"):
+        scales = _page_scales(written[f"report.{lang}.pdf"].read_bytes())
+        assert scales and all(found == {DESIGNED_SCALE} for found in scales), (lang, scales)
+
+
+@pytest.mark.pdf
+def test_long_unbreakable_values_wrap_and_keep_the_page_scale(
+    results: Results, written: dict[str, Path], tmp_path: Path
+) -> None:
+    """Review R01 (REP-00): a dataset name of 200 characters without a break (the limit of a real check
+    run), a licence URL of 180 and a version of 120 (a hand-edited results.json) wrap in the cover table.
+    Every page keeps the designed scale, the report keeps its page count, and every value is in the PDF in
+    full. Before the repair the cover table widened the page: every page shrank to 2/3, the en report had 12
+    pages instead of 21, and the name and the licence were clipped."""
+    long_values = {
+        "name": "N" * 200,
+        "license": "https://example.org/" + "l" * 160,
+        "version": "v" * 120,
+    }
+    changed = results.model_copy(deep=True)
+    changed.dataset = changed.dataset.model_copy(update=long_values)
+    paths = write_reports(changed, ["zh", "en"], ["pdf"], tmp_path, environ=os.environ)
+    for lang, path in zip(("zh", "en"), paths, strict=True):
+        data = path.read_bytes()
+        scales = _page_scales(data)
+        assert all(found == {DESIGNED_SCALE} for found in scales), (lang, scales)
+        baseline = pypdf.PdfReader(io.BytesIO(written[f"report.{lang}.pdf"].read_bytes())).pages
+        assert len(scales) == len(baseline), lang
+        text = _squeeze("".join(_texts(data)))
+        assert all(value in text for value in long_values.values()), lang
+
+
 def _page_counter(number: int, total: int) -> re.Pattern[str]:
     """The page counter 'x / y' in the squeezed page text, with up to three characters of words around the
     slash ('1/19', '第1页/共19页'), whatever words the report's counter uses. The digit before 'x' is not
