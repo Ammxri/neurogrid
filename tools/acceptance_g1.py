@@ -16,8 +16,10 @@ reading of the files (not the product's code that wrote them):
 - results.json, scan.json and manifest.json valid against the shipped schemas (Draft 2020-12 with formats),
   results.json canonical (NG-F14);
 - every finding row of both HTML reports: the ten cells of report/render.py (FINDING_CELLS), every empty
-  value one of the explained texts (EXPLAINED_EMPTY), the threshold with the origin of every parameter, at
-  most MAX_ROWS_PER_RULE rows per rule with the exact remainder named (NG-F13, A-09, A-13, A-59);
+  value one of the explained texts (EXPLAINED_EMPTY), every cell compared with the finding (rule, status,
+  clause, title, measured value, threshold values with the origin of every parameter, file, channel, time
+  range, reason; _cell_problems), at most MAX_ROWS_PER_RULE rows per rule with the exact remainder named
+  (NG-F13, A-09, A-13, A-59);
 - both HTML reports: the fixed sentence as visible text of the cover and of the appendix and as the meta
   description; its copy in the print CSS does not count (REP-07, A-08);
 - every PDF: the runtime QA gate and an independent pypdf reading - only embedded Type0/CIDFontType2 subsets
@@ -414,6 +416,76 @@ def _plain(text: str) -> bool:
     return all(" " <= char <= "~" for char in text)
 
 
+def _shown_pattern(text: str) -> str:
+    """A regex for ``text`` as a cell may show it: white space as any run of it, every other character as
+    itself or, where the report fonts cannot draw it, as [U+XXXX] (report/glyphs.py writes that form)."""
+    parts = []
+    for char in " ".join(text.split()):
+        if char == " ":
+            parts.append(r"\s+")
+        elif " " < char <= "~":
+            parts.append(re.escape(char))
+        else:
+            parts.append(f"(?:{re.escape(char)}|\\[U\\+{ord(char):04X}\\])")
+    return "".join(parts)
+
+
+def _shows(cell: str, expected: str) -> bool:
+    """The cell shows exactly ``expected`` (see _shown_pattern)."""
+    return re.fullmatch(_shown_pattern(expected), cell.strip()) is not None
+
+
+def _starts(cell: str, expected: str) -> bool:
+    return re.match(_shown_pattern(expected), cell.strip()) is not None
+
+
+def _contains(cell: str, expected: str) -> bool:
+    return re.search(_shown_pattern(expected), cell) is not None
+
+
+PLAIN_TYPES = (bool, int, float, str)
+
+
+def _scalar_text(value: Any, tr: Any) -> str | None:
+    """The oracle's own reading of how the report shows a plain value from results.json: yes/no for a
+    boolean, at most six significant digits for a float, the text itself, the plain values of a list
+    joined by ', '. None for a mapping or a nested list (compared element by element instead)."""
+    if value is None:
+        return str(tr("report.value.none"))
+    if isinstance(value, bool):
+        return str(tr("report.value.yes" if value else "report.value.no"))
+    if isinstance(value, float):
+        return format(value, ".6g")
+    if isinstance(value, int | str):
+        return str(value)
+    if isinstance(value, list) and all(item is None or isinstance(item, PLAIN_TYPES) for item in value):
+        texts = [_scalar_text(item, tr) for item in value]
+        return ", ".join(text for text in texts if text is not None)
+    return None
+
+
+def _leaves(value: Any) -> Iterator[Any]:
+    """The plain values of a measured list or mapping that hold something (keys are labels, not values)."""
+    if isinstance(value, dict):
+        for item in value.values():
+            yield from _leaves(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _leaves(item)
+    elif _has_value(value):
+        yield value
+
+
+def _expected_clause(f: Finding, tr: Any) -> str:
+    """The clause cell by the oracle's own reading (A-40, A-41, A-83): no clause for a placeholder pack, the
+    translated 'unknown' of a pack without accessible norm text, the explained text for none."""
+    if f.source_status is SourceStatus.PLACEHOLDER:
+        return str(tr("report.value.placeholder_clause"))
+    if f.clause == "unknown":
+        return str(tr("report.value.clause_unknown"))
+    return f.clause or str(tr("report.value.clause_missing"))
+
+
 def _row_sections(findings: Iterable[Finding]) -> Counter[tuple[bool, str, str]]:
     """Findings per table of the findings section: placeholder or by severity, then by rule (A-59)."""
     counts: Counter[tuple[bool, str, str]] = Counter()
@@ -424,27 +496,56 @@ def _row_sections(findings: Iterable[Finding]) -> Counter[tuple[bool, str, str]]
 
 
 def _row_problems(
-    key: str, row: Mapping[str, str], finding: Finding, lang: str, explained: set[str]
+    key: str, row: Mapping[str, str], finding: Finding, lang: str, explained: set[str], title: str = ""
 ) -> list[str]:
     tr = translator(lang).t
     problems: list[str] = []
     missing = [cell for cell in FINDING_CELLS if cell not in row]
     if missing:
         problems.append(f"row {key}: cells missing: {', '.join(missing)}")
+    flagged: set[str] = set()
     for cell in FINDING_CELLS:
         value = row.get(cell, "").strip()
         if not value:
             problems.append(f"row {key}: cell {cell} is empty")
+            flagged.add(cell)
         elif value.startswith(DASH) and value not in explained:
             problems.append(f"row {key}: cell {cell} is a dash without an explained reason")
+            flagged.add(cell)
     if not missing:
-        problems.extend(_cell_problems(key, row, finding, tr, explained))
+        problems.extend(_cell_problems(key, row, finding, tr, explained, title=title, flagged=flagged))
     return problems
 
 
-def _cell_problems(key: str, row: Mapping[str, str], f: Finding, tr: Any, explained: set[str]) -> list[str]:
-    """The contents of the cells against the finding (NG-F13: rule, clause, measured value, threshold, file,
-    time range; A-09 empty values, A-10 time ranges, A-13 parameters with origin)."""
+def _cell_problems(
+    key: str,
+    row: Mapping[str, str],
+    f: Finding,
+    tr: Any,
+    explained: set[str],
+    *,
+    title: str = "",
+    flagged: set[str] | frozenset[str] = frozenset(),
+) -> list[str]:
+    """Every cell against the finding, by this module's own reading of results.json (NG-F13, KONZEPT §6 G1:
+    rule, clause, measured value, threshold, file, time range; A-09 empty values, A-10 time ranges, A-13
+    parameters with origin):
+
+    - rule and status exactly; clause exactly (the explained 'no clause' text only for a finding without
+      one, 'unknown' translated, no clause for a placeholder pack);
+    - title: the rule's title in this language (the explained text for a rule without one), then the
+      sub-key, optionally followed by the ' · ' note on related rules;
+    - measured: '–' with a reason exactly when there is no value; a plain value exactly as the report shows
+      it (_scalar_text), else every plain element of the list or mapping;
+    - threshold: every parameter as 'name = value (origin)' (the value compared when it is plain), the
+      threshold itself when no parameter carries it, or the explained text for a rule without one;
+    - file and channel exactly; the time cell starts with the first range or says dataset, recording or
+      file;
+    - reason: the translated reason and issue texts of the finding; the explained 'no details' text only
+      for a finding without any.
+
+    Text with characters the fonts cannot draw may show them as [U+XXXX]. A cell already named as empty or
+    as an unexplained dash (``flagged``) is not compared again."""
     problems = []
     if row["rule"].strip() != f.rule_id:
         problems.append(f"row {key}: rule cell differs from the finding's rule")
@@ -454,19 +555,49 @@ def _cell_problems(key: str, row: Mapping[str, str], f: Finding, tr: Any, explai
         status = tr(f"status.{f.status.value}")
     if row["status"].strip() != status:
         problems.append(f"row {key}: status cell differs from the finding's status")
+    if "clause" not in flagged and not _shows(row["clause"], _expected_clause(f, tr)):
+        problems.append(f"row {key}: clause cell differs from the finding's clause")
+    if "title" not in flagged:
+        expected_title = (title or str(tr("report.value.title_missing"))) + (
+            f" {DASH} {f.subkey}" if f.subkey else ""
+        )
+        pattern = _shown_pattern(expected_title) + r"(?:\s+·\s.*)?"
+        if re.fullmatch(pattern, row["title"].strip(), re.S) is None:
+            problems.append(f"row {key}: title cell differs from the rule's title")
     measured = row["measured"].strip()
     if _has_value(f.measured_value) == measured.startswith(DASH):
         problems.append(f"row {key}: measured cell does not match the measured value")
+    elif _has_value(f.measured_value) and "measured" not in flagged:
+        plain = None if isinstance(f.measured_value, dict) else _scalar_text(f.measured_value, tr)
+        if plain is None:
+            leaves = [_scalar_text(item, tr) for item in _leaves(f.measured_value)]
+            shown = all(text is None or _contains(measured, text) for text in leaves)
+        else:
+            shown = _shows(measured, plain)
+        if not shown:
+            problems.append(f"row {key}: measured cell differs from the measured value")
     threshold = row["threshold"]
     if f.params:
         for name in sorted(f.params):
             origin = tr(f"report.text.origin_{f.params[name].origin}")
             if f"{name} = " not in threshold or f"({origin})" not in threshold:
                 problems.append(f"row {key}: threshold cell lacks parameter {name} with its origin")
+                continue
+            value = _scalar_text(f.params[name].value, tr)
+            if value is not None and not _contains(threshold, f"{name} = {value} ({origin})"):
+                problems.append(f"row {key}: threshold cell shows another value of parameter {name}")
+        own = f.threshold is not None and not any(f.threshold == p.value for p in f.params.values())
+        value = _scalar_text(f.threshold, tr) if own else None
+        if value is not None and not _contains(threshold, value):
+            problems.append(f"row {key}: threshold cell lacks the threshold")
     elif f.threshold is None and threshold.strip() != tr("report.value.no_threshold"):
         problems.append(f"row {key}: threshold cell does not say that the rule has no threshold")
     elif f.threshold is not None and threshold.strip().startswith(DASH):
         problems.append(f"row {key}: threshold cell hides the threshold")
+    elif f.threshold is not None and "threshold" not in flagged:
+        value = _scalar_text(f.threshold, tr)
+        if value is not None and not _contains(threshold, value):
+            problems.append(f"row {key}: threshold cell lacks the threshold")
     file_cell = row["file"].strip()
     if f.file is None:
         if file_cell != tr("report.value.dataset_level"):
@@ -489,7 +620,24 @@ def _cell_problems(key: str, row: Mapping[str, str], f: Finding, tr: Any, explai
             problems.append(f"row {key}: time cell does not say dataset level")
     elif time_cell not in (tr("report.value.whole_recording"), tr("report.value.whole_file")):
         problems.append(f"row {key}: time cell names neither a range nor the whole recording or file")
+    if "reason" not in flagged:
+        problems.extend(_reason_problems(key, row["reason"], f, tr))
     return problems
+
+
+def _reason_problems(key: str, cell: str, f: Finding, tr: Any) -> list[str]:
+    """The reason cell names the finding's reason and issues in their translated texts, so the explained 'no
+    details' text stands only for a finding without either (other details, such as counts, may be shown
+    or not)."""
+    names = [f"reason.{f.reason}"] if f.reason else []
+    issues = f.details.get("issues", [])
+    if isinstance(issues, list):
+        names += [f"issue.{code}" for code in issues if isinstance(code, str)]
+    if isinstance(f.details.get("issue"), str):
+        names.append(f"issue.{f.details['issue']}")
+    if any(not _contains(cell, str(tr(name))) for name in names):
+        return [f"row {key}: reason cell lacks the finding's reason"]
+    return []
 
 
 @dataclass
@@ -504,6 +652,7 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
     tr = translator(lang).t
     explained = {tr(key) for key in EXPLAINED_EMPTY}
     by_key = {finding.key: finding for finding in results.findings}
+    titles = {rule.id: rule.title_zh if lang == "zh" else rule.title_en for rule in results.rules}
     rows, repeated = finding_rows(document)
     problems = [f"row {key}: a cell class appears twice" for key in sorted(set(repeated))]
     seen: Counter[str] = Counter()
@@ -516,7 +665,8 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
             continue
         placeholder = finding.source_status is SourceStatus.PLACEHOLDER
         shown[(placeholder, "" if placeholder else finding.severity.value, finding.rule_id)] += 1
-        problems.extend(_row_problems(key, row, finding, lang, explained))
+        title = titles.get(finding.rule_id, "")
+        problems.extend(_row_problems(key, row, finding, lang, explained, title))
     problems.extend(f"row {key}: shown {count} times" for key, count in sorted(seen.items()) if count > 1)
     text = html_lib.unescape(document)
     for section, total in sorted(_row_sections(results.findings).items()):

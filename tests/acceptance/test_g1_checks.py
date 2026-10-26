@@ -747,3 +747,69 @@ def test_html_reports_carry_the_fixed_sentence(results: Results, lang: str) -> N
     ]
     other = "zh" if lang == "en" else "en"
     assert "the fixed sentence is missing on the cover" in g1.check_html(document, other)
+
+
+def _cell(row: str, name: str) -> re.Match[str]:
+    match = re.search(rf'<td class="c-{name}[^"]*">(.*?)</td>', row, re.S)
+    assert match is not None, name
+    return match
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_finding_rows_compare_every_cell_with_the_finding(results: Results, lang: str) -> None:
+    """NG-F13 (KONZEPT §6 G1): clause, title, measured value, threshold values and reason of a row are the
+    finding's own, by the oracle's own reading; a wrong or hidden value in any of them is named."""
+    tr = translator(lang).t
+    document = render_report(results, lang)
+    assert g1.check_finding_rows(document, results, lang).problems == []
+
+    def changed(finding_key: str, name: str, text: str) -> list[str]:
+        row = _row(document, finding_key)
+        cell = _cell(row, name)
+        new_row = row.replace(cell.group(0), cell.group(0).replace(f">{cell.group(1)}<", f">{text}<"))
+        assert new_row != row
+        return g1.check_finding_rows(document.replace(row, new_row), results, lang).problems
+
+    with_clause = next(f for f in results.findings if f.clause and f.clause != "unknown")
+    key = with_clause.key
+    assert f"row {key}: clause cell differs from the finding's clause" in changed(key, "clause", "M99")
+    hidden = html_lib.escape(tr("report.value.clause_missing"), quote=False)
+    assert f"row {key}: clause cell differs from the finding's clause" in changed(key, "clause", hidden)
+    secondary = next(f for f in results.findings if f.clause == "unknown")
+    unknown = html_lib.escape(tr("report.value.clause_unknown"), quote=False)
+    assert unknown in _row(document, secondary.key)
+    problems = changed(secondary.key, "clause", "M01")
+    assert f"row {secondary.key}: clause cell differs from the finding's clause" in problems
+    problems = changed(key, "title", "Everything is fine")
+    assert f"row {key}: title cell differs from the rule's title" in problems
+    for kind in ("bool", "dict"):
+        measured = next(f for f in results.findings if type(f.measured_value).__name__ == kind)
+        problems = changed(measured.key, "measured", "12345")
+        assert f"row {measured.key}: measured cell differs from the measured value" in problems, kind
+    with_params = next(f for f in results.findings if f.params)
+    threshold = _cell(_row(document, with_params.key), "threshold").group(1)
+    wrong = re.sub(r"= [0-9.e+-]+ ", "= 999 ", threshold)
+    assert wrong != threshold
+    name = sorted(with_params.params)[0]
+    problems = changed(with_params.key, "threshold", wrong)
+    assert f"row {with_params.key}: threshold cell shows another value of parameter {name}" in problems
+    with_reason = next(f for f in results.findings if f.reason)
+    problems = changed(with_reason.key, "reason", "All good")
+    assert f"row {with_reason.key}: reason cell lacks the finding's reason" in problems
+    none = html_lib.escape(tr("report.value.no_details"), quote=False)
+    problems = changed(with_reason.key, "reason", none)
+    assert f"row {with_reason.key}: reason cell lacks the finding's reason" in problems
+
+
+def test_cell_text_allows_the_glyph_replacement() -> None:
+    """A character the report fonts cannot draw is shown as [U+XXXX] (report.glyphs); the comparison of
+    the oracle accepts exactly that spelling and nothing else."""
+    tr = translator("en").t
+    assert g1._shows("Kanal [U+2603] Fp1", "Kanal ☃ Fp1")
+    assert g1._shows("Kanal ☃ Fp1", "Kanal ☃ Fp1")
+    assert not g1._shows("Kanal [U+2604] Fp1", "Kanal ☃ Fp1")
+    assert g1._starts("采样频率 – sub-01 · see", "采样频率 – sub-01")
+    assert g1._scalar_text(0.1 + 0.2, tr) == "0.3"
+    assert g1._scalar_text(True, tr) == tr("report.value.yes")
+    assert g1._scalar_text([1, 2.5], tr) == "1, 2.5"
+    assert g1._scalar_text({"a": 1}, tr) is None
