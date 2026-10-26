@@ -340,6 +340,64 @@ def test_usage_and_environment_errors_exit_2(folder: Path, args: list[str], expe
     assert expected in text
 
 
+# A stand-in of New-Object for the next test: a session function takes precedence over the cmdlet, also for a
+# script started with & in that session. System.IO.DriveInfo reports the drive type NG_DRIVE_TYPE (a mapped
+# network drive cannot be created without changing the machine's configuration); everything else goes to the
+# cmdlet, a collection kept whole (the comma), as the installer's List[object] needs.
+DRIVE_STAND_IN = """function global:New-Object {
+    param([Parameter(Position = 0)][string]$TypeName, [Parameter(Position = 1)][object[]]$ArgumentList,
+        [string]$ComObject)
+    if ($TypeName -eq 'System.IO.DriveInfo' -and $env:NG_DRIVE_TYPE) {
+        $global:driveAsked += 1
+        return [pscustomobject]@{ DriveType = [System.IO.DriveType]$env:NG_DRIVE_TYPE }
+    }
+    if ($ComObject) { return ,(Microsoft.PowerShell.Utility\\New-Object -ComObject $ComObject) }
+    if ($PSBoundParameters.ContainsKey('ArgumentList')) {
+        return ,(Microsoft.PowerShell.Utility\\New-Object -TypeName $TypeName -ArgumentList $ArgumentList)
+    }
+    return ,(Microsoft.PowerShell.Utility\\New-Object -TypeName $TypeName)
+}
+$global:driveAsked = 0
+"""
+
+
+@pytest.mark.parametrize("drive_type", ["Network", ""])
+def test_a_mapped_network_drive_is_refused(folder: Path, work: Path, drive_type: str) -> None:
+    """Review R17: a prefix on a mapped network drive (Z:\\..., DriveInfo.DriveType Network) is not local and
+    is refused with exit 2 before anything is created. The run with the real DriveInfo (empty NG_DRIVE_TYPE)
+    shows that the refusal comes from the drive type: the same prefix on the local drive passes the check and
+    fails later, at the stand-in uv."""
+    import os
+
+    assert POWERSHELL is not None
+    prefix = work / "target"
+    escaped = str(prefix).replace("'", "''")
+    script = (
+        DRIVE_STAND_IN
+        + f"& '{folder / 'install.ps1'}' -SkipSignatureCheck -Prefix '{escaped}'\n"
+        + "[Console]::Out.WriteLine('asked=' + $global:driveAsked)\nexit $LASTEXITCODE\n"
+    )
+    env = {**os.environ, "NG_DRIVE_TYPE": drive_type}
+    result = subprocess.run(
+        [POWERSHELL, "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+        capture_output=True,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        timeout=300,
+        check=False,
+    )
+    text = result.stdout.decode("utf-8", "replace") + result.stderr.decode("utf-8", "replace")
+    assert result.returncode == 2, text
+    if drive_type:
+        assert "the install folder must be an absolute local path: " in text, text
+        assert "asked=1" in text, text
+        assert not prefix.exists()
+    else:
+        assert "absolute local path" not in text, text
+        assert "installation failed" in text or "creating the virtual environment failed" in text, text
+        assert "asked=0" in text, text
+
+
 def test_a_relative_cosign_is_the_named_file(folder: Path, work: Path) -> None:
     """Review R17: '-Cosign cosign.cmd' (a file in the current folder) passed Test-Path, but '& $Cosign'
     looked the bare name up on PATH: another cosign ran, or the run ended in 'installation failed'. The named
