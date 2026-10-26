@@ -29,7 +29,13 @@ from neurogrid.kernel import canonical, netguard
 from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError, PdfError
 from neurogrid.kernel.findings import Severity
 from neurogrid.kernel.i18n import DEFAULT_LANGUAGE, detect_language, normalize_language
-from neurogrid.kernel.safety import check_operator_path, read_limited, redact_paths
+from neurogrid.kernel.safety import (
+    check_operator_path,
+    home_folder,
+    identity_names,
+    read_limited,
+    redact_paths,
+)
 from neurogrid.metadata import NA_IS_MISSING
 from neurogrid.model.results import Results
 from neurogrid.report.texts import REPORT_LANGUAGES, translator
@@ -343,10 +349,13 @@ def _clean_lines(text: str) -> str:
     return "\n".join(_clean(line) for line in text.splitlines())
 
 
-def _redact(text: str) -> str:
-    """Output filter for console text (A-51): dataset root → <dataset>, home directory → ~."""
+def _redact(text: str, *, names: bool = True) -> str:
+    """Output filter for console text (A-51): dataset root → <dataset>, home directory → ~, then the login
+    and the computer name → <user>, <host> (they stand in paths outside the home folder, e.g. Linux's
+    /tmp/pytest-of-<user>). Without ``names`` for the PDF hint, a command that must run as printed (B2)."""
     root = _state["dataset_root"]
-    return redact_paths(text, {"<dataset>": root if isinstance(root, Path) else None, "~": Path.home()})
+    roots = {"<dataset>": root if isinstance(root, Path) else None, "~": home_folder()}
+    return redact_paths(text, roots, identity_names() if names else None)
 
 
 def _display_path(path: Path) -> str:
@@ -687,7 +696,7 @@ def _error_text(exc: NeuroGridError) -> str:
     text = f"{tr('cli.error.prefix')}: {tr(key, **params)}"
     if isinstance(exc, PdfError) and exc.hint is not None:
         hint_key, hint_params = exc.hint
-        cleaned = {name: _redact(_clean(str(value))) for name, value in hint_params.items()}
+        cleaned = {name: _redact(_clean(str(value)), names=False) for name, value in hint_params.items()}
         text += "\n" + tr(f"errors.{hint_key}", **cleaned)
     return text
 

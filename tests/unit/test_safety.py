@@ -231,6 +231,72 @@ def test_redact_paths_covers_all_spellings(tmp_path: Path) -> None:
     assert redact_paths(f"{root}_suffix", {"<dataset>": root}) == f"{root}_suffix"  # only whole segments
 
 
+NAMES = {"<user>": ("ngtester",), "<host>": ("ng-lab-pc",)}
+
+
+def test_redact_paths_replaces_login_and_computer_names_as_whole_words() -> None:
+    """A-51 'keine Rechner- oder Benutzernamen' outside the home folder, e.g. Linux's /tmp/pytest-of-<user>
+    and /media/<user>/<stick>: whole words without case, as the G1 privacy check searches them."""
+    text = "/tmp/pytest-of-NGTester/x | /media/ngtester/USB | /net/ng-lab-pc/eeg | ngtesters | xngtester"
+    assert redact_paths(text, {}, NAMES) == (
+        "/tmp/pytest-of-<user>/x | /media/<user>/USB | /net/<host>/eeg | ngtesters | xngtester"
+    )
+    home = Path.cwd() / "ngtester"
+    assert redact_paths(f"{home}{os.sep}a", {"~": home}, NAMES) == f"~{os.sep}a"  # the root first
+
+
+def test_redact_paths_keeps_its_own_labels() -> None:
+    names = {"<user>": ("dataset",), "<host>": ("user",)}
+    root = Path.cwd() / "ds"
+    shown = redact_paths(f"{root}{os.sep}dataset", {"<dataset>": root}, names)
+    assert shown == f"<dataset>{os.sep}<user>"
+
+
+def test_redact_paths_with_a_root_at_the_top_of_the_file_system_or_a_drive() -> None:
+    """Containers often run with HOME=/: '~' must not stand for every separator. A drive root (a dataset on
+    a stick, E:\\) is matched without its separator, which stays after the label."""
+    anchor = Path(Path.cwd().anchor)
+    text = f"a / b, {anchor}data{os.sep}x"
+    shown = redact_paths(text, {"~": anchor})
+    if os.name == "nt":
+        assert shown == f"a / b, ~{os.sep}data{os.sep}x"
+    else:
+        assert shown == text
+
+
+def test_home_folder_is_none_when_it_cannot_be_determined_or_is_the_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_home() -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr(Path, "home", no_home)
+    assert safety.home_folder() is None
+    monkeypatch.setattr(Path, "home", lambda: Path(Path.cwd().anchor))
+    assert safety.home_folder() is None
+    monkeypatch.setattr(Path, "home", lambda: Path.cwd() / "someone")
+    assert safety.home_folder() == Path.cwd() / "someone"
+
+
+def test_identity_names_are_the_login_and_the_computer_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("USERNAME", "ngtester")
+    monkeypatch.setenv("COMPUTERNAME", "NG-LAB-PC")
+    monkeypatch.setattr(safety.getpass, "getuser", lambda: "ab")  # too short to search: no word of its own
+    monkeypatch.setattr(safety.socket, "gethostname", lambda: "ng-lab-pc.example.org")
+    names = safety.identity_names()
+    assert "ngtester" in names["<user>"] and "ab" not in names["<user>"]
+    assert {"ng-lab-pc.example.org", "ng-lab-pc"} <= {name.casefold() for name in names["<host>"]}
+    monkeypatch.setattr(safety.socket, "gethostname", lambda: "neurogrid")  # the product, not a person
+    assert "neurogrid" not in safety.identity_names()["<host>"]
+
+    def fails() -> str:
+        raise OSError("no login name")
+
+    monkeypatch.setattr(safety.getpass, "getuser", fails)
+    monkeypatch.setattr(safety.socket, "gethostname", fails)
+    assert "ngtester" in safety.identity_names()["<user>"]  # never an error in the output filter
+
+
 def test_netguard_blocks_all_name_resolution() -> None:
     netguard.install()
     for call in (

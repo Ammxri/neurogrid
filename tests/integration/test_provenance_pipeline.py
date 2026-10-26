@@ -1110,6 +1110,47 @@ def test_real_subprocess_manifest_and_verify(tmp_path: Path) -> None:
     assert b"Missing: 1" in changed.stdout
 
 
+def test_output_outside_home_and_dataset_names_no_user_or_computer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A-51 on Linux (CI failure of test_real_subprocess_manifest_and_verify): pytest's folder
+    /tmp/pytest-of-<user> lies outside the home folder there, so '~' did not cover it and the console named
+    the user. Simulated on every platform: the home folder elsewhere, the login and the computer name as
+    words of the --out path. They are shown as <user> and <host>; the rest of the chosen path stays (A-82)."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    monkeypatch.setenv("USERNAME", "ngtester")
+    monkeypatch.setenv("COMPUTERNAME", "ng-lab-pc")
+    ds = _copy(tmp_path)
+    out = tmp_path / "pytest-of-ngtester" / "ng-lab-pc" / "清单" / "manifest.json"
+    out.parent.mkdir(parents=True)
+    code, stdout, err = run(["manifest", str(ds), "--out", str(out)], capsys)
+    assert code == 0 and out.is_file(), err
+    written = [line for line in stdout.splitlines() if line.startswith("Manifest written to ")]
+    shown = str(Path("pytest-of-<user>", "<host>", "清单", "manifest.json"))
+    assert len(written) == 1 and written[0].endswith(shown), written
+    assert "ngtester" not in stdout + err and "ng-lab-pc" not in stdout + err
+
+
+def test_output_is_named_when_the_home_folder_cannot_be_determined(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Linux: without HOME and without a passwd entry for the user (containers with an arbitrary uid)
+    Path.home() raises RuntimeError. The written manifest was then followed by 'Internal error' and exit 2;
+    now the path is shown without '~' and the run ends with exit 0."""
+
+    def no_home() -> Path:
+        raise RuntimeError("Could not determine home directory.")
+
+    monkeypatch.setattr(Path, "home", no_home)
+    ds = _copy(tmp_path)
+    out = tmp_path / "out" / "manifest.json"
+    out.parent.mkdir()
+    code, stdout, err = run(["manifest", str(ds), "--out", str(out)], capsys)
+    assert code == 0 and "Internal error" not in err and out.is_file()
+    written = [line for line in stdout.splitlines() if line.startswith("Manifest written to ")]
+    assert len(written) == 1 and written[0].endswith(str(Path("out", "manifest.json")))
+
+
 @pytest.mark.skipif(not WINDOWS or shutil.which("powershell.exe") is None, reason="Windows PowerShell 5.1")
 def test_windows_powershell_manifest_and_verify(tmp_path: Path) -> None:
     ds = _copy(tmp_path, "edf_ok", "数据 集")

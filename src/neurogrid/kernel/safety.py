@@ -4,12 +4,14 @@ the output filter for paths (A-51) and per-run work directories (A-54)."""
 from __future__ import annotations
 
 import ctypes
+import getpass
 import os
 import re
 import shutil
+import socket
 import sys
 import tempfile
-from collections.abc import Hashable, Iterator, Mapping
+from collections.abc import Hashable, Iterable, Iterator, Mapping
 from contextlib import contextmanager, suppress
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -224,19 +226,105 @@ def check_operator_path(raw: str | os.PathLike[str]) -> Path:
     return path
 
 
-def redact_paths(text: str, roots: Mapping[str, Path | None]) -> str:
-    """Output filter (A-51): replace known roots (e.g. the dataset root, the home directory) by a label.
+MIN_NAME_CHARS = 3  # shorter login or computer names are not searched (the G1 privacy check's limit too)
+_NOT_PERSONAL = frozenset({"neurogrid"})  # a service account or computer named after the product
+_WORD_EDGE = "A-Za-z0-9"
 
-    Covers the native, POSIX and repr (doubled backslash) spellings, case-insensitively on Windows.
-    Longer roots are replaced first so that the dataset root wins over the home directory around it.
+
+def home_folder() -> Path | None:
+    """The home folder the output filter writes as '~' (A-51), or None: when it cannot be determined (on
+    Linux without HOME and without a passwd entry for the user, as in containers with an arbitrary uid,
+    Path.home() raises) and when it is the top of the file system (containers often set HOME=/), which
+    would stand for every separator."""
+    try:
+        home = Path.home()
+    except (RuntimeError, KeyError, OSError):
+        return None
+    if not home.is_absolute() or home == Path(home.anchor):
+        return None
+    return home
+
+
+def _names(values: Iterable[str]) -> tuple[str, ...]:
+    kept: dict[str, str] = {}
+    for raw in values:
+        value = raw.strip()
+        if len(value) >= MIN_NAME_CHARS and value.casefold() not in _NOT_PERSONAL:
+            kept.setdefault(value.casefold(), value)
+    return tuple(sorted(kept.values(), key=lambda value: (-len(value), value)))
+
+
+def identity_names() -> dict[str, tuple[str, ...]]:
+    """The login name and the computer name, as the output filter replaces them: '<user>' and '<host>'
+    (A-51: no user or computer names). They stand in paths outside the home folder, e.g. Linux's
+    /tmp/pytest-of-<user> or /media/<user>/<stick>. Every source that answers counts (the login from the
+    environment, getpass and on POSIX the passwd entry; the computer from COMPUTERNAME and the host name, also
+    without its domain); one that fails is left out, never an error. Names shorter than MIN_NAME_CHARS and
+    the product's own name are kept as they are: they would garble paths without naming anyone."""
+    users = [os.environ.get("USERNAME", "")]
+    with suppress(Exception):
+        users.append(getpass.getuser())
+    if sys.platform != "win32":
+        with suppress(Exception):
+            import pwd
+
+            users.append(pwd.getpwuid(os.getuid()).pw_name)
+    hosts = [os.environ.get("COMPUTERNAME", "")]
+    with suppress(Exception):
+        host = socket.gethostname()
+        hosts += [host, host.split(".")[0]]
+    return {"<user>": _names(users), "<host>": _names(hosts)}
+
+
+def _root_text(path: Path) -> str:
+    """A root as the filter matches it: a drive or file system root without its separator ('' for '/')."""
+    text = str(path)
+    return text.rstrip("\\/") if text == path.anchor else text
+
+
+def _inside_label(match: re.Match[str], labels: Iterable[str]) -> bool:
+    start, end = match.span()
+    for label in labels:
+        for found in re.finditer(re.escape(label), match.string):
+            if found.start() <= start and end <= found.end():
+                return True
+    return False
+
+
+def redact_paths(
+    text: str, roots: Mapping[str, Path | None], names: Mapping[str, Iterable[str]] | None = None
+) -> str:
+    """Output filter (A-51): replace known roots (e.g. the dataset root, the home directory) by a label, then
+    the ``names`` (identity_names: the login and the computer name) by theirs.
+
+    Roots: the native, POSIX and repr (doubled backslash) spellings, case-insensitively on Windows, as whole
+    path segments. Longer roots are replaced first so that the dataset root wins over the home directory
+    around it. A root that ends with a separator (a drive root such as ``E:\\``, a dataset on a stick) is
+    matched without it, so that the separator stays after the label; the top of the POSIX file system ('/')
+    is no root, it would stand for every separator.
+    Names: whole words (no ASCII letter or digit before or after), without case, never inside a label.
     """
-    pairs = sorted(((str(path), label) for label, path in roots.items() if path), key=lambda p: -len(p[0]))
+    labels = [label for label in (*roots, *(names or {})) if label]
+    pairs = sorted(
+        ((_root_text(path), label) for label, path in roots.items() if path), key=lambda pair: -len(pair[0])
+    )
     flags = re.IGNORECASE if os.name == "nt" else 0
     for root, label in pairs:
+        if not root:
+            continue
         spellings = {root, root.replace("\\", "/"), root.replace("\\", "\\\\")}
         for spelling in sorted(spellings, key=len, reverse=True):
             pattern = re.escape(spelling) + r"(?=$|[\\/'\"\s:,;)\]])"
             text = re.sub(pattern, lambda _match, replacement=label: replacement, text, flags=flags)
+    for label, values in (names or {}).items():
+
+        def replace(match: re.Match[str], replacement: str = label) -> str:
+            return match.group(0) if _inside_label(match, labels) else replacement
+
+        for value in sorted(set(values), key=lambda value: (-len(value), value)):
+            if value:
+                pattern = rf"(?<![{_WORD_EDGE}]){re.escape(value)}(?![{_WORD_EDGE}])"
+                text = re.sub(pattern, replace, text, flags=re.IGNORECASE)
     return text
 
 
