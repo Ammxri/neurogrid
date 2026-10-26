@@ -15,7 +15,8 @@ not published, the fonts cover every character they are meant for; (7) the licen
 NG-N07, D-05): every file is NeuroGrid's own (OWN_SITE_FILES) or covered by the review of the installed
 theme version (license-gate/third_party/mkdocs-material-<version>/manifest.toml, also the source of the
 documentation-site part of THIRD_PARTY_NOTICES.txt), every licence of the review is permissive (MPL-2.0
-only unmodified) or waits in license-gate/known_missing.toml, no script or style sheet carries a copyleft
+only unmodified) or waits in license-gate/known_missing.toml (each such part is printed as 'licence pending';
+the release stops at tools/notices.py --check), no script or style sheet carries a copyleft
 licence header, and the licence files the review copied are still those of the installed theme.
 
 Usage: python tools/build_docs.py [--site-dir site]
@@ -470,6 +471,17 @@ def build_site(site: Path) -> tuple[list[str], NetworkGuard]:
     return problems, guard
 
 
+def pending_licences(review: Any) -> list[str]:
+    """The parts of the site whose licence waits for the owner's decision (their known_missing.toml entry):
+    the build passes with them, as each is attributed in the notices with its gap, while tools/notices.py
+    --check and so the release stop (STOPP G1). One line per part, sorted, for the build log."""
+    return sorted(
+        f"licence pending (blocks the release, STOPP G1): {package.name} ({package.pending})"
+        for package in review.packages
+        if package.pending
+    )
+
+
 def report(problems: Iterable[str]) -> int:
     problems = list(problems)
     for problem in problems:
@@ -488,6 +500,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"build_docs: {exc}", file=sys.stderr)
         return 2
     print(f"network events during the build: {len(guard.events)}")
+    for line in pending_licences(theme_review()):
+        print(line)
     code = report(problems)
     if code == 0:
         print(f"documentation built and checked: {site}")

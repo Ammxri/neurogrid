@@ -15,6 +15,7 @@ import yaml
 
 import build_docs  # type: ignore[import-not-found]
 import gen_docs  # type: ignore[import-not-found]
+import notices  # type: ignore[import-not-found]
 from neurogrid.report.texts import tables
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -322,6 +323,20 @@ def test_site_ships_only_reviewed_permissive_parts(built_site: Any, tmp_path: Pa
     assert "licence review: assets/images/favicon.png matches no file of the site (stale review)" in (
         build_docs.check_site_licences(copy, review)
     )
+
+
+def test_the_build_log_names_each_site_licence_still_pending(built_site: Any) -> None:
+    """R19: a part of the site whose licence waits for the owner (focus-visible, material-design-color) does
+    not fail the docs build, but every build names it, and its known_missing.toml entry stops the release."""
+    review = build_docs.theme_review()
+    lines = build_docs.pending_licences(review)
+    pending = {p.name: p.pending for p in review.packages if p.pending}
+    assert {"focus-visible", "material-design-color"} <= set(pending)
+    gaps = {item["component"] for item in notices.load_known_missing()}
+    assert set(pending.values()) <= gaps
+    assert lines == sorted(lines) and len(lines) == len(pending)
+    for line in lines:
+        assert line in built_site.output, line
 
 
 def test_prune_removes_the_reviewed_files_only(tmp_path: Path) -> None:
