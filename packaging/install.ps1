@@ -125,24 +125,29 @@ try {
     }
     Say "完整性已核对（$($listed.Count) 个文件）" "integrity verified ($($listed.Count) files)"
 
-    # 2. Signature (Sigstore keyless, D-10 g). A check inside the archive proves integrity; authenticity comes from
-    #    the check on a connected machine before the transfer (README.txt, docs/installation.html). cosign needs
-    #    Sigstore's trust root (network or a prepared cache), so an explicit -SkipSignatureCheck wins over a cosign
-    #    found on PATH; -Cosign always verifies.
+    # 2. Signature (Sigstore keyless, D-10 g, D-15): SHA256SUMS is always checked (above); the signature whenever
+    #    cosign is there: -Cosign, or a cosign on PATH, also with -SkipSignatureCheck, which only lets an
+    #    installation without cosign go on. A check inside the archive proves integrity; authenticity comes from
+    #    the check on a connected machine before the transfer and from comparing the signer identity with the one
+    #    the project publishes (README.txt, docs/installation.html).
     if ($Cosign -and $SkipSignatureCheck) { Fail 2 '-Cosign 与 -SkipSignatureCheck 不能同时使用' '-Cosign and -SkipSignatureCheck exclude each other' }
     $signature = Join-Path $Bundle 'SHA256SUMS.sigstore.json'
     $identity = [string]$info.release_identity
     if (Test-Path -LiteralPath $signature -PathType Leaf) {
         if (-not $identity) { Fail 4 'BUNDLE.json 未写明签名者身份' 'BUNDLE.json names no signer identity' }
-        if (-not $Cosign -and -not $SkipSignatureCheck) {
+        $onPath = $false
+        if (-not $Cosign) {
             $found = Get-Command cosign -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-            if ($found) { $Cosign = $found.Path }
+            if ($found) { $Cosign = $found.Path; $onPath = $true }
         }
         if ($Cosign) {
             if (-not (Test-Path -LiteralPath $Cosign -PathType Leaf)) { Fail 2 "找不到 cosign：$(Show $Cosign)" "cosign not found: $(Show $Cosign)" }
             $code = Invoke-Native $Cosign @('verify-blob', $sumsPath, '--bundle', $signature, '--certificate-identity', $identity, '--certificate-oidc-issuer', $Issuer)
+            if ($code -ne 0 -and $onPath -and $SkipSignatureCheck) {
+                Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。-SkipSignatureCheck 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的会话中加 -SkipSignatureCheck 运行' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). -SkipSignatureCheck does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with -SkipSignatureCheck in a session without cosign on PATH"
+            }
             if ($code -ne 0) {
-                Fail 4 '签名核验失败，未安装（cosign 需要 Sigstore 信任根：联网或已准备的缓存）' 'signature check failed; nothing installed (cosign needs the Sigstore trust root: network or a prepared cache)'
+                Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache)"
             }
             Say "签名已核验：$identity" "signature verified: $identity"
         } elseif ($SkipSignatureCheck) {

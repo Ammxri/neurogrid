@@ -53,10 +53,14 @@ def folder(built: Path, tmp_path: Path) -> Path:
     return Path(shutil.copytree(built, tmp_path / built.name))
 
 
-def _run(folder: Path, *args: str) -> tuple[int, str]:
+def _run(folder: Path, *args: str, env: dict[str, str] | None = None) -> tuple[int, str]:
     assert BASH is not None
     result = subprocess.run(
-        [BASH, (folder / "install.sh").as_posix(), *args], capture_output=True, timeout=300, check=False
+        [BASH, (folder / "install.sh").as_posix(), *args],
+        capture_output=True,
+        env=env,
+        timeout=300,
+        check=False,
     )
     return result.returncode, result.stdout.decode("utf-8", "replace") + result.stderr.decode(
         "utf-8", "replace"
@@ -176,6 +180,22 @@ def test_signature_branch(folder: Path, tmp_path: Path) -> None:
             assert code == 4 and "signature check failed" in text, text
     code, text = _run(folder, "--verify-only", "--skip-signature-check")
     assert code == 0 and "signature not verified here, as requested" in text, text
+    # D-15 (review R16): a cosign found on PATH verifies, also with --skip-signature-check, which only lets an
+    # installation without cosign go on; a rejection is no longer overridden by the switch.
+    for code_, name in ((1, "bad"), (0, "good")):
+        on_path = tmp_path / f"path-{name}"
+        on_path.mkdir()
+        shutil.copyfile(tmp_path / f"cosign-{name}", on_path / "cosign")
+        (on_path / "cosign").chmod(0o755)
+        env = {**os.environ, "PATH": os.pathsep.join([str(on_path), os.environ.get("PATH", "")])}
+        code, text = _run(folder, "--verify-only", "--skip-signature-check", env=env)
+        if code_ == 0:
+            assert code == 0 and "signature verified: https://github.com/owner/neurogrid/" in text, text
+            assert "stand-in cosign verify-blob" in text and "as requested" not in text
+        else:
+            assert code == 4 and "signature check failed; nothing installed" in text, text
+            assert "--skip-signature-check does not skip the check of a cosign found on PATH" in text
+            assert "verified only" not in text
 
 
 @pytest.mark.parametrize(

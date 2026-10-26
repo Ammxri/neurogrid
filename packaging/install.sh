@@ -136,23 +136,32 @@ main() {
   count="$(printf '%s\n' "$listed" | wc -l)"
   say "完整性已核对（${count// /} 个文件）" "integrity verified (${count// /} files)"
 
-  # 2. Signature (Sigstore keyless, D-10 g). A check inside the archive proves integrity; authenticity comes from
-  #    the check on a connected machine before the transfer (README.txt, docs/installation.html). cosign needs
-  #    Sigstore's trust root (network or a prepared cache), so an explicit --skip-signature-check wins over a cosign
-  #    found on PATH; --cosign always verifies.
+  # 2. Signature (Sigstore keyless, D-10 g, D-15): SHA256SUMS is always checked (above); the signature whenever
+  #    cosign is there: --cosign, or a cosign on PATH, also with --skip-signature-check, which only lets an
+  #    installation without cosign go on. A check inside the archive proves integrity; authenticity comes from the
+  #    check on a connected machine before the transfer and from comparing the signer identity with the one the
+  #    project publishes (README.txt, docs/installation.html).
   if [ -n "$cosign" ] && [ "$skip_signature" -eq 1 ]; then
     fail 2 "--cosign 与 --skip-signature-check 不能同时使用" "--cosign and --skip-signature-check exclude each other"
   fi
   if [ -f SHA256SUMS.sigstore.json ]; then
     [ -n "$identity" ] || fail 4 "BUNDLE.json 未写明签名者身份" "BUNDLE.json names no signer identity"
-    if [ -z "$cosign" ] && [ "$skip_signature" -eq 0 ]; then cosign="$(command -v cosign || true)"; fi
+    local on_path=0 verified=0
+    if [ -z "$cosign" ]; then
+      cosign="$(command -v cosign || true)"
+      [ -z "$cosign" ] || on_path=1
+    fi
     if [ -n "$cosign" ]; then
       shown="$(show "$cosign")"
       [ -x "$cosign" ] || fail 2 "找不到 cosign：$shown" "cosign not found: $shown"
       "$cosign" verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity "$identity" \
-        --certificate-oidc-issuer "$ISSUER" >&2 \
-        || fail 4 "签名核验失败，未安装（cosign 需要 Sigstore 信任根：联网或已准备的缓存）" \
-          "signature check failed; nothing installed (cosign needs the Sigstore trust root: network or a prepared cache)"
+        --certificate-oidc-issuer "$ISSUER" >&2 && verified=1
+      if [ "$verified" -eq 0 ] && [ "$on_path" -eq 1 ] && [ "$skip_signature" -eq 1 ]; then
+        fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。--skip-signature-check 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的环境中加 --skip-signature-check 运行" \
+          "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). --skip-signature-check does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with --skip-signature-check where cosign is not on PATH"
+      fi
+      [ "$verified" -eq 1 ] || fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）" \
+        "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache)"
       say "签名已核验：$identity" "signature verified: $identity"
     elif [ "$skip_signature" -eq 1 ]; then
       say "按要求未在本机核验签名；请确认已在联网电脑上核验" \

@@ -288,8 +288,17 @@ def test_signed_bundle_with_cosign(folder: Path, work: Path) -> None:
     on_path = {**_clean_env(), "PATH": f"{bad.parent};C:\\Windows\\System32"}
     code, text = _run(folder, "-VerifyOnly", env=on_path)
     assert code == 4, text  # a cosign on PATH is used
+    assert "does not skip the check of a cosign found on PATH" not in text
+    # D-15 (review R16): with cosign there the signature is checked; the switch only lets an installation
+    # without cosign go on, so it no longer overrides a cosign on PATH that rejected the bundle.
     code, text = _run(folder, "-VerifyOnly", "-SkipSignatureCheck", env=on_path)
-    assert code == 0, text  # an explicit skip wins over a cosign on PATH (it may lack Sigstore's trust root)
+    assert code == 4 and "signature check failed; nothing installed" in text, text
+    assert "-SkipSignatureCheck does not skip the check of a cosign found on PATH" in text
+    assert "verified only" not in text
+    good_on_path = {**_clean_env(), "PATH": f"{good.parent};C:\\Windows\\System32"}
+    code, text = _run(folder, "-VerifyOnly", "-SkipSignatureCheck", env=good_on_path)
+    assert code == 0 and "signature verified: https://github.com/owner/neurogrid/" in text, text
+    assert "stand-in cosign verify-blob" in text and "as requested" not in text
 
 
 @pytest.mark.parametrize(

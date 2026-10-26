@@ -87,7 +87,8 @@ before the transfer does that.
 
 Without `cosign` the script stops unless the signature check is skipped explicitly
 (`-SkipSignatureCheck` / `--skip-signature-check`) after the check on a connected computer described above.
-The script creates a virtual environment in the prefix (bytecode compiled), installs the wheels offline with
+When `cosign` is there (named with `-Cosign` / `--cosign` or found on `PATH`), the script always checks the
+signature, and the switch does not override a `cosign` that rejects it. The script creates a virtual environment in the prefix (bytecode compiled), installs the wheels offline with
 their hashes and writes a launcher. Exit codes: 0 installed, 2 usage or environment, 3 integrity, 4 signature.
 
 On Windows the install folder needs a short path: Windows cannot start programs or load some modules from

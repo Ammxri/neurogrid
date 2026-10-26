@@ -83,7 +83,8 @@ sha256sum --check --ignore-missing SHA256SUMS
     `--pdf-browser-zip <zip> --pdf-browser-sha256 <hex>`。不需要 root 权限。
 
 如果没有 `cosign`，脚本会停止，除非在完成上文所述的联网校验后明确跳过签名校验（`-SkipSignatureCheck` /
-`--skip-signature-check`）。脚本在安装目录中创建虚拟环境（预编译字节码），离线并按哈希值安装 wheel 文件，然后写入
+`--skip-signature-check`）。如果有 `cosign`（用 `-Cosign` / `--cosign` 指定或在 `PATH` 中找到），脚本总会校验签名，
+上述开关不能覆盖 `cosign` 的否定结果。脚本在安装目录中创建虚拟环境（预编译字节码），离线并按哈希值安装 wheel 文件，然后写入
 启动程序。退出码：0 已安装，2 用法或环境问题，3 完整性问题，4 签名问题。
 
 在 Windows 上，安装文件夹的路径必须较短：即使已启用长路径（`LongPathsEnabled`），
