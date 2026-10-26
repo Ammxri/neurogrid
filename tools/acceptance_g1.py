@@ -30,7 +30,8 @@ reading of the files (not the product's code that wrote them):
   content checks are not repeated on a later run whose files are byte-identical to run 1 (its exit codes,
   console and file list are checked);
 - privacy (NG-N05, A-51): no path of the corpus or the output folder, no home folder, user or host name, no
-  identifying EDF/BDF header value, recording date or time, no raw age, no digest other than those
+  identifying EDF/BDF header value, recording date or time, no real file or folder name of a raw (non-BIDS)
+  data set (shown only with --show-paths), no raw age, no digest other than those
   results.json declares (finding keys, manifest, rule pack, configuration and evidence SHA-256: so no signal
   hash) in the console, results.json, scan.json, HTML, PDF text, PDF bytes (ASCII and UTF-16BE) and /Info.
   The manifest names the data set's own files by design (A-82); it is scanned for paths, user and host only;
@@ -72,6 +73,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
+from functools import cache
 from html.parser import HTMLParser
 from importlib import resources
 from pathlib import Path
@@ -88,7 +90,7 @@ from neurogrid.kernel.pdf import PLAYWRIGHT_VERSION, SHELL_REVISION, qa_gate
 from neurogrid.model.results import Results
 from neurogrid.report.output import REQUIRED_ONCE, pdf_expectation
 from neurogrid.report.render import EXPLAINED_EMPTY, FINDING_CELLS, MAX_ROWS_PER_RULE
-from neurogrid.report.texts import disclaimer, translator
+from neurogrid.report.texts import disclaimer, tables, translator
 
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "tools" / "corpus_spec.json"
@@ -975,8 +977,56 @@ def raw_ages(dataset: Path) -> list[str]:
     return values
 
 
-def forbidden_values(dataset: Path, out: Path, *, as_of: date = AS_OF) -> list[Forbidden]:
-    """Everything that must not appear in the outputs of ``dataset`` (A-51, NG-N05)."""
+RAW_NAME = "raw file or folder name"
+WORD = re.compile(r"[^\W_]+")
+
+
+@cache
+def product_vocabulary() -> frozenset[str]:
+    """The words NeuroGrid writes whatever the data: its language tables (every language), the report
+    templates and style sheet, and the shipped schemas (casefolded). A folder or file stem that is one of
+    them ('Annotations', 'manual') is no searchable token: the report holds the word anyway."""
+    texts = [str(value) for table in tables().values() for value in table.values()]
+    package = resources.files("neurogrid")
+    for folder in (package.joinpath("report", "templates"), package.joinpath("schemas")):
+        texts += [item.read_text(encoding="utf-8") for item in folder.iterdir() if item.is_file()]
+    return frozenset(word.casefold() for text in texts for word in WORD.findall(text))
+
+
+def _searchable_name(value: str) -> bool:
+    """A raw name worth searching as a word: informative, with a letter, not a word of NeuroGrid's own."""
+    return (
+        _informative(value)
+        and any(char.isalpha() for char in value)
+        and value.casefold() not in product_vocabulary()
+    )
+
+
+def raw_names(dataset: Path) -> list[Forbidden]:
+    """The real names of a raw (non-BIDS) data set (A-51, D-10 f): the relative path of every file (both
+    separators), every file name, file stem and folder name below the data set. Dot entries such as
+    .neurogrid/ are NeuroGrid's control files and left out. A file name with its extension is always
+    searched; a stem or folder name only when _searchable_name says so."""
+    found: list[Forbidden] = []
+    for path in sorted(dataset.rglob("*")):
+        relative = path.relative_to(dataset)
+        if any(part.startswith(".") for part in relative.parts) or not path.is_file():
+            continue
+        posix = relative.as_posix()
+        found += [Forbidden(RAW_NAME, posix, "path"), Forbidden(RAW_NAME, posix.replace("/", "\\"), "path")]
+        if _informative(path.name) and any(char.isalpha() for char in path.name):
+            found.append(Forbidden(RAW_NAME, path.name, "word"))
+        names = [path.stem, *relative.parts[:-1]]
+        found += [Forbidden(RAW_NAME, name, "word") for name in names if _searchable_name(name)]
+    return found
+
+
+def forbidden_values(
+    dataset: Path, out: Path, *, as_of: date = AS_OF, show_paths: bool = False
+) -> list[Forbidden]:
+    """Everything that must not appear in the outputs of ``dataset`` (A-51, NG-N05). The real names of a
+    raw data set (raw_names) only without ``show_paths``: with --show-paths, and for a BIDS data set
+    (dataset_description.json at its root, as the product decides), the names are shown by design."""
     found = [Forbidden("data set path", form, "path") for form in _path_forms(dataset)]
     found += [Forbidden("output path", form, "path") for form in _path_forms(out)]
     found += [Forbidden("home folder", form, "path") for form in _path_forms(Path.home())]
@@ -994,6 +1044,8 @@ def forbidden_values(dataset: Path, out: Path, *, as_of: date = AS_OF) -> list[F
     for age in raw_ages(dataset):
         if not age.isdigit():  # a plain integer is no searchable token (counts); see age_problems
             found.append(Forbidden("raw age", age, "number"))
+    if not show_paths and not os.path.lexists(dataset / "dataset_description.json"):
+        found += raw_names(dataset)
     return sorted(set(found), key=lambda item: (item.label, item.value))
 
 

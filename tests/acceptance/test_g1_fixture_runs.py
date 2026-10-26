@@ -76,3 +76,26 @@ def test_planted_header_values_are_searched(two_runs: tuple[Path, Path, list[g1.
     evaluation = g1.evaluate_run(dataset, leaked, runs, "en", out)
     assert "report.en.html: contains a EDF/BDF header value" in evaluation.problems["privacy"]
     assert not g1.compare_runs(out / "run1" / dataset.name, leaked)["report.en.html"]
+
+
+@pytest.mark.pdf
+def test_planted_raw_file_name_is_found(two_runs: tuple[Path, Path, list[g1.DatasetEval]]) -> None:
+    """A-51: the product shows a raw data set's files only by pseudonymous IDs, so its real file name is
+    searched in every output: the clean runs pass (above), the name planted into a copy of a report is
+    found."""
+    dataset, out, _evaluations = two_runs
+    if dataset.name != "edf_identifying":
+        pytest.skip("edf_identifying is the raw (non-BIDS) fixture")
+    forbidden = g1.forbidden_values(dataset, out)
+    assert g1.Forbidden(g1.RAW_NAME, "rec_named.edf", "word") in forbidden
+    assert g1.Forbidden(g1.RAW_NAME, "rec_named", "word") in forbidden
+    leaked = out / "leak-name" / dataset.name
+    shutil.copytree(out / "run1" / dataset.name, leaked)
+    html = leaked / "report.zh.html"
+    document = html.read_text(encoding="utf-8")
+    html.write_text(document.replace("</body>", "<p>rec_named.edf</p></body>"), encoding="utf-8")
+    runs = {name: g1.CommandRun(name, 0, b"", b"", 0.0) for name in ("report",)}
+    runs["check"] = g1.CommandRun("check", 1, b"", b"", 0.0)
+    evaluation = g1.evaluate_run(dataset, leaked, runs, "en", out)
+    assert f"report.zh.html: contains a {g1.RAW_NAME}" in evaluation.problems["privacy"]
+    assert f"report.en.html: contains a {g1.RAW_NAME}" not in evaluation.problems["privacy"]

@@ -813,3 +813,50 @@ def test_cell_text_allows_the_glyph_replacement() -> None:
     assert g1._scalar_text(True, tr) == tr("report.value.yes")
     assert g1._scalar_text([1, 2.5], tr) == "1, 2.5"
     assert g1._scalar_text({"a": 1}, tr) is None
+
+
+def test_raw_file_and_folder_names_are_searched(results: Results, tmp_path: Path) -> None:
+    """A-51/NG-N05: the real names of a raw (non-BIDS) data set appear only with --show-paths, so every
+    relative path, file name, file stem and folder name below it is a forbidden value. Words of
+    NeuroGrid's own texts (a folder 'Annotations' or 'manual') and pure numbers are no searchable token;
+    the manifest names the files by design (A-82); a BIDS data set has its names shown by design."""
+    raw = tmp_path / "raw"
+    (raw / "WangFang").mkdir(parents=True)
+    write_edf(raw / "WangFang" / "WangFang_night.edf")
+    (raw / "Annotations" / "manual").mkdir(parents=True)
+    (raw / "Annotations" / "manual" / "001.txt").write_text("0 30 W\n", encoding="utf-8")
+    (raw / ".neurogrid").mkdir()
+    (raw / ".neurogrid" / "evidence.yaml").write_text("{}\n", encoding="utf-8")
+    label = "raw file or folder name"
+    found = {
+        (item.value, item.kind) for item in g1.forbidden_values(raw, tmp_path / "out") if item.label == label
+    }
+    assert {
+        ("WangFang", "word"),
+        ("WangFang_night", "word"),
+        ("WangFang_night.edf", "word"),
+        ("WangFang/WangFang_night.edf", "path"),
+        ("WangFang\\WangFang_night.edf", "path"),
+        ("001.txt", "word"),
+        ("Annotations/manual/001.txt", "path"),
+        ("Annotations\\manual\\001.txt", "path"),
+    } == found
+    assert not any(value in ("Annotations", "manual", "001", "evidence") for value, _kind in found)
+    assert not [i for i in g1.forbidden_values(raw, tmp_path / "out", show_paths=True) if i.label == label]
+    (raw / "dataset_description.json").write_text("{}", encoding="utf-8")  # now a BIDS data set
+    assert not [i for i in g1.forbidden_values(raw, tmp_path / "out") if i.label == label]
+    (raw / "dataset_description.json").unlink()
+    forbidden = g1.forbidden_values(raw, tmp_path / "out")
+    clean = [g1.Output("report.en.html", "<p>Annotations: manual scoring, 3 files</p>")]
+    assert g1.check_privacy(clean, forbidden, results) == []
+    leaks = [
+        g1.Output("report.en.html", "<p>source file WangFang_night.edf</p>"),
+        g1.Output("report.en.pdf", "recording wangfang", raw=b"BT (WangFang/WangFang_night.edf) ET"),
+        g1.Output("results.json", json.dumps({"file": "Annotations/manual/001.txt"})),
+        g1.Output("manifest.json", "WangFang/WangFang_night.edf", manifest=True),
+    ]
+    assert g1.check_privacy(leaks, forbidden, results) == [
+        f"report.en.html: contains a {label}",
+        f"report.en.pdf: contains a {label}",
+        f"results.json: contains a {label}",
+    ]
