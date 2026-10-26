@@ -348,18 +348,39 @@ def _inside_label(match: re.Match[str], labels: Iterable[str]) -> bool:
     return False
 
 
+# A path of the computer in console text: absolute (POSIX, a drive, a UNC or device root) or below the home
+# folder ('~'), up to a quote, a line end or a label such as '<dataset>'. Names relative to the dataset are
+# the dataset's (pseudonyms in raw folders, as stored in BIDS), not the computer's.
+_MACHINE_PATH = re.compile(r"""(?:^|(?<=[\s'"(=]))(?:[A-Za-z]:[\\/]|[\\/]|~(?=[\\/]|$))[^'"\n<]*""")
+
+
+def _redact_names(path: str, names: Mapping[str, Iterable[str]], labels: Iterable[str]) -> str:
+    for label, values in names.items():
+
+        def replace(match: re.Match[str], replacement: str = label) -> str:
+            return match.group(0) if _inside_label(match, labels) else replacement
+
+        for value in sorted(set(values), key=lambda value: (-len(value), value)):
+            if value:
+                pattern = rf"(?<![{_WORD_EDGE}]){re.escape(value)}(?![{_WORD_EDGE}])"
+                path = re.sub(pattern, replace, path, flags=re.IGNORECASE)
+    return path
+
+
 def redact_paths(
     text: str, roots: Mapping[str, Path | None], names: Mapping[str, Iterable[str]] | None = None
 ) -> str:
     """Output filter (A-51): replace known roots (e.g. the dataset root, the home directory) by a label, then
-    the ``names`` (identity_names: the login and the computer name) by theirs.
+    the ``names`` (identity_names: the login and the computer name) by theirs in the computer's paths.
 
     Roots: the native, POSIX and repr (doubled backslash) spellings, case-insensitively on Windows, as whole
     path segments. Longer roots are replaced first so that the dataset root wins over the home directory
     around it. A root that ends with a separator (a drive root such as ``E:\\``, a dataset on a stick) is
     matched without it, so that the separator stays after the label; the top of the POSIX file system ('/')
     is no root, it would stand for every separator.
-    Names: whole words (no ASCII letter or digit before or after), without case, never inside a label.
+    Names: whole words (no ASCII letter or digit before or after), without case, never inside a label, and
+    only in absolute or '~' paths: a login such as 'eeg' leaves 'sub-01_task-rest_eeg.edf' and the paths
+    below '<dataset>' alone.
     """
     labels = [label for label in (*roots, *(names or {})) if label]
     pairs = sorted(
@@ -373,15 +394,8 @@ def redact_paths(
         for spelling in sorted(spellings, key=len, reverse=True):
             pattern = re.escape(spelling) + r"(?=$|[\\/'\"\s:,;)\]])"
             text = re.sub(pattern, lambda _match, replacement=label: replacement, text, flags=flags)
-    for label, values in (names or {}).items():
-
-        def replace(match: re.Match[str], replacement: str = label) -> str:
-            return match.group(0) if _inside_label(match, labels) else replacement
-
-        for value in sorted(set(values), key=lambda value: (-len(value), value)):
-            if value:
-                pattern = rf"(?<![{_WORD_EDGE}]){re.escape(value)}(?![{_WORD_EDGE}])"
-                text = re.sub(pattern, replace, text, flags=re.IGNORECASE)
+    if names:
+        text = _MACHINE_PATH.sub(lambda match: _redact_names(match.group(0), names, labels), text)
     return text
 
 

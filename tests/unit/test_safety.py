@@ -372,13 +372,27 @@ def test_redact_paths_replaces_login_and_computer_names_as_whole_words() -> None
     )
     home = Path.cwd() / "ngtester"
     assert redact_paths(f"{home}{os.sep}a", {"~": home}, NAMES) == f"~{os.sep}a"  # the root first
+    trace = 'File "C:\\Users\\x\\ngtester.py", line 3\n  File "~/ng-lab-pc/y.py"'
+    assert redact_paths(trace, {}, NAMES) == 'File "C:\\Users\\x\\<user>.py", line 3\n  File "~/<host>/y.py"'
+
+
+def test_redact_paths_leaves_dataset_names_alone() -> None:
+    """Only the computer's paths (absolute or '~') carry its names: a login such as 'eeg' must not garble
+    BIDS names or names below '<dataset>' in notices and errors (they follow the pseudonym rules, A-51)."""
+    names = {"<user>": ("eeg",)}
+    root = Path.cwd() / "ds"
+    for text in ("sub-01_task-rest_eeg.edf", "eeg", f"{root}{os.sep}sub-01{os.sep}eeg{os.sep}x_eeg.edf"):
+        assert "<user>" not in redact_paths(text, {"<dataset>": root}, names), text
+    assert redact_paths("/srv/eeg/out/eeg.json", {}, names) == "/srv/<user>/out/<user>.json"
 
 
 def test_redact_paths_keeps_its_own_labels() -> None:
     names = {"<user>": ("dataset",), "<host>": ("user",)}
-    root = Path.cwd() / "ds"
-    shown = redact_paths(f"{root}{os.sep}dataset", {"<dataset>": root}, names)
-    assert shown == f"<dataset>{os.sep}<user>"
+    root, home = Path.cwd() / "ds", Path.cwd() / "h"
+    shown = redact_paths(
+        f"{home}{os.sep}dataset{os.sep}x | {root}{os.sep}dataset", {"<dataset>": root, "~": home}, names
+    )
+    assert shown == f"~{os.sep}<user>{os.sep}x | <dataset>{os.sep}dataset"
 
 
 def test_redact_paths_with_a_root_at_the_top_of_the_file_system_or_a_drive() -> None:
