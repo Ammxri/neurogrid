@@ -1480,9 +1480,8 @@ metadata_url = "https://registry.npmjs.org/isomorphic-git/1.41.9"
 archive_url = "https://registry.npmjs.org/isomorphic-git/-/isomorphic-git-1.41.9.tgz"
 archive_sha256 = "db81a97bb26c81f872fc7f569ab26c92c95c316c0cffd65d6c015bc87ce67e79"
 archive_integrity = "sha512-WOh4ujm5mznHphzQvwj9bVj+pQpV0oZ8H4lAnh4dSaie+lN/lJ2rb6rNOOcP+2m4z8IOQp186TkEULD28NMBJg=="
-note = "The bundled index.cjs (source-map entry ./node_modules/.deno/isomorphic-git@1.41.9/node_modules/isomorphic-git/index.cjs, compiled into bids_validator_deno/bids-validator.js, whose 'Bundled license information' trailer names it too) contains a path.join 'directly copied from @zenfs/core/path': SPDX-License-Identifier LGPL-3.0-or-later, 'Copyright (c) James Prevett and other ZenFS contributors.' D-05 forbids LGPL; the owner decides at G1 (known_missing.toml). The LGPL-3.0 and GPL-3.0 texts are LICENSES/LGPL-3.0-or-later.txt and LICENSES/GPL-3.0-or-later.txt (download approved by D-16). The same file carries isValidRef 'Adapted from is-git-ref-name-valid' (MIT, Copyright © Vincent Weevers). Both headers are kept as extracts from the sourcesContent of the source map in the wheel."
+note = "The bundled index.cjs (source-map entry ./node_modules/.deno/isomorphic-git@1.41.9/node_modules/isomorphic-git/index.cjs, compiled into bids_validator_deno/bids-validator.js, whose 'Bundled license information' trailer names it too) contains a path.join 'directly copied from @zenfs/core/path': SPDX-License-Identifier LGPL-3.0-or-later, 'Copyright (c) James Prevett and other ZenFS contributors.' D-05 forbids LGPL; D-16 allows exactly this part in this version as an exception (license-gate/components.toml). The LGPL-3.0 and GPL-3.0 texts are LICENSES/LGPL-3.0-or-later.txt and LICENSES/GPL-3.0-or-later.txt (download approved by D-16). The same file carries isValidRef 'Adapted from is-git-ref-name-valid' (MIT, Copyright © Vincent Weevers). Both headers are kept as extracts from the sourcesContent of the source map in the wheel."
 pending = ""
-owner_decision = "bids-validator-deno:isomorphic-git@1.41.9/index.cjs"
 
 [[package.text]]
 file = "npm/isomorphic-git@1.41.9/LICENSE"

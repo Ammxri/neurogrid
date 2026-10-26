@@ -472,7 +472,8 @@ def test_unattributed_entries_and_own_licences_are_problems(tmp_path: Path) -> N
 def test_committed_validator_wheel_is_fully_attributed() -> None:
     """With the locked validator wheel in .local/notices-wheels (or NEUROGRID_NOTICES_WHEELS): no entry of its
     source map is unattributed, the polyfills belong to @jspm/core, and the LGPL header that isomorphic-git
-    copied from @zenfs/core is found and blocked by a known_missing.toml entry with a decision."""
+    copied from @zenfs/core is found in exactly the source-map entry that the version-bound exception names
+    (D-16), which then holds."""
     locked = next(
         p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
     )
@@ -487,9 +488,17 @@ def test_committed_validator_wheel_is_fully_attributed() -> None:
     assert "LGPL-3.0-or-later" in licences[("isomorphic-git", "1.41.9")]
     packages = notices.load_validator_texts(locked.version) or []
     iso = next(p for p in packages if p.name == "isomorphic-git")
-    assert "LGPL-3.0-or-later" in notices.spdx_units(iso.spdx)
-    decisions = {i["component"]: i.get("decision", "") for i in notices.load_known_missing()}
-    assert "forbids LGPL" in decisions[iso.owner_decision]
+    assert "LGPL-3.0-or-later" in notices.spdx_units(iso.spdx) and not iso.owner_decision
+    exceptions = notices.load_bundled_exceptions()
+    (exception,) = [e for e in exceptions if e.package == "isomorphic-git"]
+    info = notices.read_wheel(path, locked, "linux_x86_64", [])
+    stating = [s for s, hints in info.source_statements.items() if "LGPL-3.0-or-later" in hints]
+    assert stating == [exception.source]
+    problems, excused = notices.check_exceptions(info, packages, exceptions)
+    assert problems == [] and excused == {iso.key: {"LGPL-3.0-or-later"}}
+    known = notices.load_known_missing()
+    assert notices.check_validator_texts(info, packages, known, exceptions=exceptions) == []
+    assert "is not permissive" in "\n".join(notices.check_validator_texts(info, packages, known))
 
 
 # --- licence texts of the packages inside the validator bundle (D-15) ---------------------------------------
@@ -522,6 +531,17 @@ def _third_party(folder: Path, packages: list[dict[str, Any]]) -> Path:
             if key in package:
                 lines.append(f"{key} = {json.dumps(package[key])}")
         for text in package.get("texts", []):
+            if "repository_file" in text:  # a text of this repository (LICENSES/), recorded as it is
+                kept = (ROOT / text["repository_file"]).read_bytes()
+                lines += [
+                    "[[package.text]]",
+                    f"repository_file = {json.dumps(text['repository_file'])}",
+                    'origin = "standard text"',
+                    'kind = "standard text"',
+                    f"size = {len(kept)}",
+                    f"sha256 = {json.dumps(hashlib.sha256(kept).hexdigest())}",
+                ]
+                continue
             data: bytes = text["data"]
             (base / text["file"]).parent.mkdir(parents=True, exist_ok=True)
             (base / text["file"]).write_bytes(data)
@@ -618,6 +638,159 @@ def test_a_licence_outside_the_permissive_ones_needs_an_owner_decision(tmp_path:
     )
 
 
+COPYLEFT_TEXTS = ("LICENSES/LGPL-3.0-or-later.txt", "LICENSES/GPL-3.0-or-later.txt")
+LGPL_SOURCE = "../../node_modules/.deno/a@1.0.0/node_modules/a/index.cjs"
+
+
+def _exception(**fields: Any) -> Any:
+    base: dict[str, Any] = {
+        "decision": "D-16",
+        "dist": "bids-validator-deno",
+        "dist_version": "9.9.9",
+        "registry": "npm",
+        "package": "a",
+        "version": "1.0.0",
+        "source": LGPL_SOURCE,
+        "spdx": "LGPL-3.0-or-later",
+        "component": "path.join copied from elsewhere",
+        "copyright": "Copyright (c) Example contributors",
+        "location": "bids_validator_deno/bids-validator.js, lines 1 to 9",
+        "source_code": "bids_validator_deno/bids-validator.js.map",
+        "texts": COPYLEFT_TEXTS,
+        "note": "",
+    }
+    return notices.BundledException(**(base | fields))
+
+
+def _lgpl_package(version: str = "1.0.0", texts: tuple[str, ...] = COPYLEFT_TEXTS) -> dict[str, Any]:
+    package = _mit("a", version=version, spdx="MIT AND LGPL-3.0-or-later")
+    package["texts"] = [{"file": f"npm/a@{version}/LICENSE", "data": b"MIT licence of a\n"}]
+    package["texts"] += [{"repository_file": name} for name in texts]
+    return package
+
+
+def _lgpl_wheel(version: str = "1.0.0", elsewhere: bool = False) -> Any:
+    wheel = _validator_wheel([("npm", "a", version)], {("a", version): "LGPL-3.0-or-later / MIT"})
+    source = LGPL_SOURCE.replace("1.0.0", version)
+    wheel.source_statements = {source: ("LGPL-3.0-or-later", "MIT")}
+    if elsewhere:
+        wheel.source_statements["../../node_modules/.deno/a@1.0.0/node_modules/a/other.js"] = (
+            "LGPL-3.0-or-later",
+        )
+    return wheel
+
+
+def test_a_version_bound_exception_admits_exactly_its_part(tmp_path: Path) -> None:
+    """D-16: an LGPL part passes only through an exception for exactly this validator version, package
+    version and source-map entry, with the LGPL and GPL texts attached to the package."""
+    packages = notices.load_validator_texts("9.9.9", _third_party(tmp_path, [_lgpl_package()]))
+    assert packages is not None
+    wheel = _lgpl_wheel()
+    assert notices.check_validator_texts(wheel, packages, [], exceptions=[_exception()]) == []
+    assert "is not permissive" in notices.check_validator_texts(wheel, packages, [])[0]
+    # an exception for another wheel is not this one's
+    other_dist = [_exception(dist="other-validator")]
+    assert "is not permissive" in notices.check_validator_texts(wheel, packages, [], exceptions=other_dist)[0]
+    # the review must name the licence, and the licence must be stated in exactly the named entry
+    found = notices.check_validator_texts(wheel, packages, [], exceptions=[_exception(spdx="LGPL-2.1-only")])
+    assert "the review of the package says MIT AND LGPL-3.0-or-later" in "\n".join(found)
+    moved = notices.check_validator_texts(wheel, packages, [], exceptions=[_exception(source="x.js")])
+    assert "the exception names x.js" in "\n".join(moved) and "is not permissive" in "\n".join(moved)
+    twice = notices.check_validator_texts(
+        _lgpl_wheel(elsewhere=True), packages, [], exceptions=[_exception()]
+    )
+    assert "a/other.js" in "\n".join(twice) and "is not permissive" in "\n".join(twice)
+    # both texts must be attached to the package
+    only_lgpl = _third_party(tmp_path / "lgpl", [_lgpl_package(texts=COPYLEFT_TEXTS[:1])])
+    found = notices.check_validator_texts(
+        wheel, notices.load_validator_texts("9.9.9", only_lgpl), [], exceptions=[_exception()]
+    )
+    assert "LICENSES/GPL-3.0-or-later.txt is not attached" in "\n".join(found)
+    assert "names no licence text" in "\n".join(
+        notices.check_validator_texts(wheel, packages, [], exceptions=[_exception(texts=())])
+    )
+
+
+def test_a_version_bound_exception_fails_for_any_other_version(tmp_path: Path) -> None:
+    """Another validator version or another version of the package fails the gate again (D-16)."""
+    packages = notices.load_validator_texts("9.9.9", _third_party(tmp_path, [_lgpl_package()]))
+    assert packages is not None
+    wheel = _lgpl_wheel()
+    older = notices.check_validator_texts(wheel, packages, [], exceptions=[_exception(dist_version="9.9.8")])
+    assert any("does not hold for bids-validator-deno 9.9.9: review it again" in p for p in older)
+    assert any("is not permissive" in p for p in older)
+    upgraded = notices.load_validator_texts("9.9.9", _third_party(tmp_path / "up", [_lgpl_package("1.1.0")]))
+    found = notices.check_validator_texts(_lgpl_wheel("1.1.0"), upgraded, [], exceptions=[_exception()])
+    assert any("the bundle carries no a 1.0.0" in p for p in found)
+    assert any(
+        p.endswith(
+            "npm a 1.1.0: licence MIT AND LGPL-3.0-or-later is not permissive (not in BUNDLED_ALLOWED)"
+        )
+        for p in found
+    )
+
+
+def test_the_committed_exception_is_bound_to_the_locked_versions() -> None:
+    """The one exception of components.toml (D-16) names the locked validator 3.0.2 and isomorphic-git
+    1.41.9, its texts are downloads approved by D-16, and the same review fails for any other validator
+    version."""
+    locked = next(
+        p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
+    )
+    (exception,) = notices.load_bundled_exceptions()
+    assert (exception.decision, exception.dist, exception.dist_version) == (
+        "D-16",
+        notices.VALIDATOR,
+        "3.0.2",
+    )
+    assert locked.version == exception.dist_version
+    assert (exception.registry, exception.package, exception.version) == ("npm", "isomorphic-git", "1.41.9")
+    assert exception.spdx == "LGPL-3.0-or-later" and exception.texts == COPYLEFT_TEXTS
+    assert "James Prevett and other ZenFS contributors" in exception.copyright
+    assert "bids-validator.js" in exception.location and "bids-validator.js.map" in exception.source_code
+    recorded = tomllib.loads((ROOT / "license-gate" / "licence_texts.toml").read_text(encoding="utf-8"))
+    decisions = {item["path"]: item["decision"] for item in recorded["text"]}
+    assert all(decisions[name] == "D-16" for name in exception.texts)
+    packages = notices.load_validator_texts(locked.version) or []
+    iso = next(p for p in packages if p.name == exception.package)
+    wheel = _validator_wheel([iso.key], {(iso.name, iso.found): "LGPL-3.0-or-later / MIT"})
+    wheel.version = locked.version
+    wheel.source_statements = {exception.source: ("LGPL-3.0-or-later", "MIT")}
+    assert notices.check_exceptions(wheel, packages, [exception]) == ([], {iso.key: {"LGPL-3.0-or-later"}})
+    wheel.version = "3.0.3"
+    problems, excused = notices.check_exceptions(wheel, packages, [exception])
+    assert excused == {} and "does not hold for bids-validator-deno 3.0.3" in problems[0]
+    gaps = {item["component"] for item in notices.load_known_missing()}
+    assert not {g for g in gaps if "isomorphic-git" in g or g == "LGPL-3.0-or-later"}
+
+
+def test_the_notices_name_the_exception_with_its_texts(tmp_path: Path) -> None:
+    folder = _third_party(tmp_path, [_lgpl_package()])
+    wheel = _lgpl_wheel()
+    text = notices.render([wheel], [], [], third_party=folder, exceptions=[_exception()])
+    section = " ".join(text.split("\n3. ", 1)[1].split("\n6. ", 1)[0].split())
+    assert "MIT AND LGPL-3.0-or-later (exception D-16: below)" in section
+    assert notices.EXCEPTIONS_HEADING in section
+    for value in ("Copyright (c) Example contributors", "lines 1 to 9", LGPL_SOURCE, "bids-validator.js.map"):
+        assert value in section, value
+    assert (
+        "Licence texts: LICENSES/LGPL-3.0-or-later.txt, LICENSES/GPL-3.0-or-later.txt (section 6)" in section
+    )
+    texts = list(notices.iter_texts(text))
+    assert any(t.startswith("GNU LESSER GENERAL PUBLIC LICENSE") for t in texts)
+    assert any(t.startswith("GNU GENERAL PUBLIC LICENSE") for t in texts)
+    other = notices.render([wheel], [], [], third_party=folder, exceptions=[_exception(dist_version="1")])
+    assert notices.EXCEPTIONS_HEADING not in other and "exception D-16" not in other
+
+
+def test_the_committed_notices_name_the_exception() -> None:
+    text = " ".join(_committed().split())
+    (exception,) = notices.load_bundled_exceptions()
+    for value in (exception.copyright, exception.location, exception.source, exception.source_code):
+        assert " ".join(value.split()) in text, value
+    assert "MIT AND LGPL-3.0-or-later (exception D-16: below)" in text
+
+
 def test_a_package_without_review_may_state_permissive_licences_only(tmp_path: Path) -> None:
     sources = [("npm", "@jspm/core", notices.POLYFILL_FOUND)]
     gap = {"registry": "npm", "name": "@jspm/core", "found": notices.POLYFILL_FOUND, "pending": "gap:jspm"}
@@ -671,8 +844,14 @@ def test_committed_validator_texts_match_their_manifest() -> None:
     known = {item["component"] for item in gaps}
     decisions = {item["component"]: item for item in gaps if item.get("decision")}
     listed = set()
+    excepted = {
+        (e.registry, e.package, e.version): notices.spdx_units(e.spdx)
+        for e in notices.load_bundled_exceptions()
+        if e.dist_version == locked.version
+    }
     for package in packages:
         outside = notices.spdx_units(package.spdx) - notices.BUNDLED_ALLOWED
+        outside -= excepted.get((package.registry, package.name, package.version), set())  # D-16
         if outside:  # only with the owner's decision pending: the gap names each licence, the release fails
             assert package.owner_decision in decisions, package
             what = decisions[package.owner_decision]["what"]

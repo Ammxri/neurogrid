@@ -21,11 +21,6 @@ what = "hash-wasm 4.12.0 inside the BIDS validator bundle carries C code under t
 decision = "owner decision required (D-05 allows permissive licences only)"
 
 [[missing]]
-component = "bids-validator-deno:isomorphic-git@1.41.9/index.cjs"
-what = "isomorphic-git 1.41.9 inside the BIDS validator bundle (bids_validator_deno/bids-validator.js, source-map entry isomorphic-git/index.cjs) contains a path.join copied from @zenfs/core/path under LGPL-3.0-or-later, Copyright (c) James Prevett and other ZenFS contributors. The LGPL-3.0 and GPL-3.0 texts are in LICENSES/ (D-16)."
-decision = "owner decision required (D-05 forbids LGPL)"
-
-[[missing]]
 component = "bids-validator-deno:node-modules-polyfills/@jspm/core"
 what = "@jspm/core, whose Node polyfills (buffer with ieee754 and base64 code, fs, path, punycode, url, process) the BIDS validator bundle inlines as node-modules-polyfills:node:fs/promises and node-modules-polyfills:node:path, has no version in the source map or in the bundle's licence trailer, so its licence file was not downloaded (D-15 covers exact versions only)."
 
