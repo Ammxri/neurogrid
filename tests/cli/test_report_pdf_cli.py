@@ -29,7 +29,7 @@ from neurogrid.cli import main
 from neurogrid.kernel import canonical, fonts
 from neurogrid.kernel.errors import PdfError
 from neurogrid.kernel.pdf import ENV_BROWSER_DIR, WORK_PREFIX
-from neurogrid.kernel.safety import WORK_LOCK_SUFFIX
+from neurogrid.kernel.safety import WORK_LOCK
 from neurogrid.model.results import Results
 from neurogrid.report.texts import disclaimer
 
@@ -245,7 +245,7 @@ def test_report_html_a_killed_run_left_in_temp_is_removed_by_the_next_run(
             _kill_tree(process)
         assert printing, "the run ended before it printed"
         held = printing[0].parent
-        lock = held.with_name(held.name + WORK_LOCK_SUFFIX)
+        lock = held / WORK_LOCK
         wait_released(lock)
         assert (held / "report.zh.html").is_file() and lock.is_file()  # left behind by the killed run
         assert list((tmp_path / "killed").iterdir()) == []  # checked before printing, nothing written

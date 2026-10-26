@@ -21,7 +21,7 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   Driver and browser run with the work folder as their current folder (a debug.log Chromium writes there
   goes with it); the GPU runs inside the browser process, and a debug.log that a child process appends
   next to the executable is undone. What a run could not remove because it was killed is removed at the
-  next start of a browser run: its work folder (lock file next to it, kernel.safety.remove_leftovers) and
+  next start of a browser run: its work folder (its lock file, kernel.safety.remove_leftovers) and
   a debug.log next to the executable (also one an older version left).
 - **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
   report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a

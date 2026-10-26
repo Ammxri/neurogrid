@@ -477,12 +477,14 @@ def test_printer_refuses_a_long_work_folder_before_the_driver_starts(
 
 def test_browser_work_lies_in_the_temporary_folder_and_is_removed(monkeypatch: pytest.MonkeyPatch) -> None:
     """P2: the browser's work folder is a private folder in the computer's temporary folder, independent
-    of --out; it is removed afterwards, also after an error."""
+    of --out; it is removed afterwards, also after an error. It holds nothing but its lock file (A-54,
+    kernel.safety.WorkFolder) when the browser gets it."""
     with short_folder("ng-temp-") as base:  # stands in for the computer's temporary folder
         monkeypatch.setattr(tempfile, "tempdir", str(base))
         assert pdf.work_base() == base
         with pdf.browser_work() as work:
-            assert work.parent == base and work.name.startswith(pdf.WORK_PREFIX) and not any(work.iterdir())
+            assert work.parent == base and work.name.startswith(pdf.WORK_PREFIX)
+            assert [p.name for p in work.iterdir()] == [safety.WORK_LOCK]
             (work / "profile").mkdir()
             (work / "profile" / "Local State").write_text("{}", encoding="utf-8")
         assert not work.exists()
@@ -513,7 +515,7 @@ def test_browser_work_of_a_killed_run_is_removed_at_the_next_browser_run(
         monkeypatch.setattr(tempfile, "tempdir", str(base))
         env = {"TEMP": str(base), "TMP": str(base), "TMPDIR": str(base)}
         with holding_process(HOLD_BROWSER_WORK, **env) as (process, held):
-            lock = held.with_name(held.name + safety.WORK_LOCK_SUFFIX)
+            lock = held / safety.WORK_LOCK
             assert held.parent == base and held.name.startswith(pdf.WORK_PREFIX) and lock.is_file()
             with pdf.browser_work() as work:  # the other run is still going
                 assert (held / "report.zh.html").is_file() and work != held
@@ -523,7 +525,7 @@ def test_browser_work_of_a_killed_run_is_removed_at_the_next_browser_run(
             wait_released(lock)
             assert (held / "report.zh.html").is_file()  # the killed run removed nothing
             with pdf.browser_work() as work:
-                assert not held.exists() and not lock.exists()
+                assert not held.exists() and [p.name for p in base.iterdir()] == [work.name]
             assert list(base.iterdir()) == []
         monkeypatch.undo()
 

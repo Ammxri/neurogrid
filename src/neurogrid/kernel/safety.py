@@ -240,12 +240,14 @@ def redact_paths(text: str, roots: Mapping[str, Path | None]) -> str:
     return text
 
 
-# A-54: a work folder ``<prefix><8 random characters>`` has its lock file next to it (``<folder>.lock``). The
-# run locks it before it writes WORK_MARK into it and keeps it locked until the folder is removed; the
-# operating system releases the lock when the process ends, also when it is killed or crashes. A later start
-# in the same base removes a folder whose lock file holds the mark and is not locked any more: a leftover.
+# A-54: a work folder ``<prefix><8 random characters>`` holds a lock file (WORK_LOCK). The run locks it before
+# it writes WORK_MARK into it and keeps it locked until the folder is removed; the operating system releases
+# the lock when the process ends, also when it is killed or crashes. A later start in the same base removes a
+# folder whose lock file holds the mark and is not locked any more: a leftover. The lock file lies inside the
+# folder, so whatever leaves the work folder out (manifest comparisons, A-82) leaves it out too, and it is
+# removed last, so a folder that could not be removed completely is found again by the next start.
 RUN_PREFIX = "run-"
-WORK_LOCK_SUFFIX = ".lock"
+WORK_LOCK = "neurogrid-work.lock"
 WORK_MARK = b"NeuroGrid work folder\n"
 _RANDOM_PART = "[a-z0-9_]{8}"  # tempfile.mkdtemp's random characters
 _OPEN_FLAGS = os.O_RDWR | getattr(os, "O_BINARY", 0)
@@ -282,71 +284,96 @@ def _lock(handle: int, *, wait: bool) -> bool:
     return True
 
 
+def _empty(folder: Path) -> bool:
+    """Remove everything in a work folder but its lock file (links are removed, never followed); True when
+    nothing else is left."""
+    try:
+        with os.scandir(folder) as entries:
+            children = [Path(entry.path) for entry in entries if entry.name != WORK_LOCK]
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    for child in children:
+        with suppress(OSError):
+            if not is_link(child) and child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink()  # also a junction on Windows (removed, not followed)
+    try:
+        with os.scandir(folder) as entries:
+            return all(entry.name == WORK_LOCK for entry in entries)
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+
+
+def _drop(folder: Path) -> None:
+    with suppress(OSError):
+        (folder / WORK_LOCK).unlink(missing_ok=True)
+    with suppress(OSError):
+        folder.rmdir()
+
+
 class WorkFolder:
-    """A private folder for one run in ``base`` with its lock file next to it (A-54)."""
+    """A private folder for one run in a base folder, locked by this process while it exists (A-54)."""
 
     def __init__(self, path: Path, handle: int) -> None:
         self.path = path
-        self.lock = path.with_name(path.name + WORK_LOCK_SUFFIX)
+        self.lock = path / WORK_LOCK
         self._handle = handle
 
     @classmethod
     def create(cls, base: Path, prefix: str) -> WorkFolder:
-        """A new folder ``<prefix><8 random characters>`` in ``base``, locked by this process; OSError when
-        the folder or its lock file cannot be created. On a file system without locks the folder gets no
-        mark: it is still removed at the end of the run, only never by a later start."""
-        for _attempt in range(tempfile.TMP_MAX):
-            path = Path(tempfile.mkdtemp(prefix=prefix, dir=base))
-            lock = path.with_name(path.name + WORK_LOCK_SUFFIX)
-            try:
-                handle = os.open(lock, _OPEN_FLAGS | os.O_CREAT | os.O_EXCL, 0o600)
-            except FileExistsError:  # the lock file of a leftover whose folder is gone: another name
+        """A new folder ``<prefix><8 random characters>`` in ``base`` with its lock file, locked by this
+        process; OSError when the folder or its lock file cannot be created. On a file system without
+        locks the lock file gets no mark: the folder is still removed at the end of the run, only never by
+        a later start."""
+        path = Path(tempfile.mkdtemp(prefix=prefix, dir=base))
+        lock = path / WORK_LOCK
+        try:
+            handle = os.open(lock, _OPEN_FLAGS | os.O_CREAT | os.O_EXCL, 0o600)
+        except BaseException:
+            with suppress(OSError):
                 path.rmdir()
-                continue
-            except BaseException:
-                with suppress(OSError):
-                    path.rmdir()
-                raise
-            _OWN_LOCKS.add(_key(lock))
+            raise
+        _OWN_LOCKS.add(_key(lock))
+        try:
             try:
-                try:
-                    locked = _lock(handle, wait=True)
-                except OSError:
-                    locked = False
-                if locked:
-                    os.write(handle, WORK_MARK)
-            except BaseException:
-                os.close(handle)
-                _OWN_LOCKS.discard(_key(lock))
-                with suppress(OSError):
-                    lock.unlink(missing_ok=True)
-                with suppress(OSError):
-                    path.rmdir()
-                raise
-            return cls(path, handle)
-        raise FileExistsError("no free work folder name")
+                locked = _lock(handle, wait=True)
+            except OSError:
+                locked = False
+            if locked:
+                os.write(handle, WORK_MARK)
+        except BaseException:
+            os.close(handle)
+            _OWN_LOCKS.discard(_key(lock))
+            _drop(path)
+            raise
+        return cls(path, handle)
 
     def remove(self) -> None:
-        """Remove the folder, then release the lock and remove its file. If the folder could not be removed
-        completely, the lock file stays, so that a later start removes the rest."""
-        shutil.rmtree(self.path, ignore_errors=True)
+        """Remove the folder's content while it is still locked, then release the lock and remove the lock
+        file and the folder. If something could not be removed (a file another process holds open), the
+        lock file with its mark stays, so that a later start removes the rest."""
+        emptied = _empty(self.path)
         os.close(self._handle)
         _OWN_LOCKS.discard(_key(self.lock))
-        if not os.path.lexists(self.path):
-            with suppress(OSError):
-                self.lock.unlink(missing_ok=True)
+        if emptied:
+            _drop(self.path)
 
 
-def _remove_leftover(folder: Path, lock: Path) -> None:
+def _remove_leftover(folder: Path) -> None:
+    lock = folder / WORK_LOCK
     if _key(lock) in _OWN_LOCKS:
         return
     try:
-        if is_link(lock) or is_link(folder):
+        if is_link(folder) or not folder.is_dir():
             return
         handle = os.open(lock, _OPEN_FLAGS)
-    except OSError:
+    except OSError:  # no lock file: not a work folder NeuroGrid can recognise (or one made without locks)
         return
-    removed = False
     try:
         if not _lock(handle, wait=False):  # its run is still going
             return
@@ -356,30 +383,28 @@ def _remove_leftover(folder: Path, lock: Path) -> None:
         opened, current = os.fstat(handle), lock.stat()
         if (opened.st_dev, opened.st_ino) != (current.st_dev, current.st_ino):  # replaced meanwhile
             return
-        shutil.rmtree(folder, ignore_errors=True)
-        removed = not os.path.lexists(folder)
+        emptied = _empty(folder)  # still locked: no other start takes the folder meanwhile
     except OSError:
         return
     finally:
         os.close(handle)
-    if removed:
-        with suppress(OSError):
-            lock.unlink(missing_ok=True)
+    if emptied:
+        _drop(folder)
 
 
 def remove_leftovers(base: Path, prefix: str) -> None:
     """A-54 "deleted at the next start": the work folders ``<prefix>*`` in ``base`` that their run could not
-    remove (it was killed, the computer stopped) are removed, with their lock files. Only a folder whose
-    lock file holds WORK_MARK and is no longer locked counts; folders of runs still going, other entries
-    with the same prefix, links and anything that cannot be read are left alone. Never fails the run."""
-    pattern = re.compile(re.escape(prefix) + _RANDOM_PART + re.escape(WORK_LOCK_SUFFIX))
+    remove (it was killed, the computer stopped) are removed. Only a folder whose lock file holds WORK_MARK
+    and is no longer locked counts; folders of runs still going, other entries with the same prefix (without
+    such a lock file), links and anything that cannot be read are left alone. Never fails the run."""
+    pattern = re.compile(re.escape(prefix) + _RANDOM_PART)
     try:
         with os.scandir(base) as entries:
             names = sorted(entry.name for entry in entries if pattern.fullmatch(entry.name))
     except OSError:
         return
     for name in names:
-        _remove_leftover(base / name[: -len(WORK_LOCK_SUFFIX)], base / name)
+        _remove_leftover(base / name)
 
 
 @contextmanager

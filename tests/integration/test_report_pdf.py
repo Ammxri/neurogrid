@@ -41,6 +41,7 @@ from neurogrid.kernel.fonts import (
     subset_font_css,
 )
 from neurogrid.kernel.pdf import CSP, PdfExpect, PdfMeta, PdfPrinter, PrintedPdf, ShellInstall, qa_gate
+from neurogrid.kernel.safety import WORK_LOCK
 from neurogrid.model.results import Results
 from neurogrid.report import output, texts
 from neurogrid.report.output import html_document, write_reports
@@ -786,7 +787,7 @@ def test_write_reports_prints_each_language_with_its_locale(
     class Printer:
         def __init__(self, shell: object, work: Path) -> None:
             folders.append(work)
-            assert work.is_dir() and not any(work.iterdir())
+            assert work.is_dir() and [p.name for p in work.iterdir()] == [WORK_LOCK]  # nothing but its lock
 
         def __enter__(self) -> Printer:
             return self
