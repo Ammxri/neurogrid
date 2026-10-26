@@ -551,11 +551,17 @@ def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
         assert needle in windows, needle
     # The prefix has exactly install.ps1's limit and one character more is refused before anything exists;
     # without a PDF browser the report writes nothing and names the installation's own installer (B2).
-    for needle in ("$limit = 249 - [int]$info.max_relative_install_path", "'install-over-limit' @(2)",
-                   "if (Test-Path -LiteralPath $parent) { throw", "characters, limit $limit)",
-                   '$env:NEUROGRID_PDF_BROWSER_DIR = "$room\\pdf-browser-empty"', "'report-pdf-without-shell' @(2)",
-                   "(Join-Path $work 'report-no-shell')) { throw", "'Install it with: ' + (Shown (Join-Path $prefix "
-                   "'python\\python.exe')) + ' ' + (Shown (Join-Path $prefix 'tools\\install_pdf_browser.py'))"):  # fmt: skip
+    for needle in (
+        "$limit = 249 - [int]$info.max_relative_install_path",
+        "'install-over-limit' @(2)",
+        "if (Test-Path -LiteralPath $parent) { throw",
+        "characters, limit $limit)",
+        '$env:NEUROGRID_PDF_BROWSER_DIR = "$room\\pdf-browser-empty"',
+        "'report-pdf-without-shell' @(2)",
+        "(Join-Path $work 'report-no-shell')) { throw",
+        "'Install it with: ' + (Shown (Join-Path $prefix 'python\\python.exe')) + ' ' + "
+        "(Shown (Join-Path $prefix 'tools\\install_pdf_browser.py'))",
+    ):
         assert needle in windows, needle
 
 
