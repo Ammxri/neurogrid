@@ -545,6 +545,32 @@ def test_v01_checklist_needs_matrix_and_run() -> None:
     assert [item["item"] for item in items if item["status"] != "fulfilled"] == ["rulepacks", "report"]
 
 
+def test_v01_items_without_a_run_criterion_say_so() -> None:
+    """The G1 run never converts (item 2) and has no criterion of its own for the metrics (item 4): those two
+    rest on the matrix rows and their tests, and the run column says that no run criterion applies instead of
+    a "ja" the run never checked. Every other item has one, and its evidence names it ("G1-Lauf")."""
+    rows = ["NG-F01", "NG-F02", "NG-F05", *g1.METRIC_ROWS, "RP-09", *g1.GX_ROWS, "NG-F13", "NG-F14"]
+    statuses = dict.fromkeys(rows, "erfüllt")
+    without = {"bids_conversion", "metrics"}
+    for entries in ([_entry()], [_entry(formats=["EDF"], validator_evaluated=False, v06=["x"])], []):
+        items = {item["item"]: item for item in g1.v01_checklist(statuses, entries, True)}
+        assert {name for name, item in items.items() if item["run_ok"] is None} == without
+        for item in items.values():
+            assert (item["run_ok"] is not None) == ("G1-Lauf" in item["evidence"]), item["item"]
+    items = {item["item"]: item for item in g1.v01_checklist(statuses, [], False)}
+    assert items["bids_conversion"]["status"] == items["metrics"]["status"] == "fulfilled"  # matrix rows
+    assert items["five_formats"]["status"] == "not_fulfilled"  # no data set ran: the run criterion fails
+    open_f02 = {**statuses, "NG-F02": "offen"}
+    items = {item["item"]: item for item in g1.v01_checklist(open_f02, [_entry()], True)}
+    assert items["bids_conversion"]["status"] == "not_fulfilled"
+    markdown = g1.summary_markdown(_summary())
+    table = [line for line in markdown.splitlines() if re.match(r"^\| [1-7] \| ", line)]
+    cells = {row[0]: row for row in ([c.strip() for c in line.strip("|").split("|")] for line in table)}
+    assert sorted(cells) == [str(n) for n in range(1, 8)]
+    for number, row in cells.items():  # Nr. | Punkt | Status | Matrix | Lauf | Nachweis
+        assert row[4] in ((g1.NO_RUN_CRITERION,) if number in ("2", "4") else ("ja", "nein")), row
+
+
 def test_v06_problems(results: Results) -> None:
     assert g1.v06_problems(results, ["Pre-check with NeuroGrid."]) == []
     # a made-up clause number after the norm's name (the norm text was never available, D-02)

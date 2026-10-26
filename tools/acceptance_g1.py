@@ -955,7 +955,8 @@ def matrix_status(text: str) -> dict[str, str]:
 METRIC_ROWS = tuple(f"M{n:02d}" for n in range(1, 14))
 GX_ROWS = tuple(f"GX-0{n}" for n in range(6))
 # (item, matrix rows, evidence: tests and run criteria). Items 1-5 rest on the matrix rows and, where the run
-# shows them, on the run; items 6-7 rest on the run (the lead sets NG-F13/NG-F14 after G1).
+# shows them, on the run; items 6-7 rest on the run (the lead sets NG-F13/NG-F14 after G1). The run has no
+# criterion for items 2 and 4: it never converts, and the metrics are checked by the tests of their rules.
 V01_ITEMS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
     (
         "five_formats",
@@ -1011,15 +1012,16 @@ V01_ITEMS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
 def v01_checklist(
     statuses: Mapping[str, str], datasets: Sequence[Mapping[str, Any]], g1_met: bool
 ) -> list[dict[str, Any]]:
-    """The seven V-01 items with status and evidence (matrix rows; run criteria from ``datasets``)."""
+    """The seven V-01 items with status and evidence (matrix rows; run criteria from ``datasets``). ``run_ok``
+    is None for an item without a run criterion (2 and 4): it rests on its matrix rows and their tests."""
     ran = [entry for entry in datasets if entry.get("check_exit") in (0, 1)]
     formats = {fmt for entry in ran if entry.get("read_errors") == 0 for fmt in entry.get("formats", [])}
     bids = [entry for entry in datasets if entry.get("is_bids")]
-    run_ok = {
+    run_ok: dict[str, bool | None] = {
         "five_formats": set(FORMATS) <= formats,
-        "bids_conversion": True,
+        "bids_conversion": None,
         "structure_check": bool(bids) and all(entry.get("validator_evaluated") for entry in bids),
-        "metrics": True,
+        "metrics": None,
         "rulepacks": bool(datasets) and all(not entry.get("v06") for entry in datasets),
         "report": bool(datasets) and all(not entry.get("report_problems") for entry in datasets) and g1_met,
         "json": bool(datasets) and all(not entry.get("json_problems") for entry in datasets),
@@ -1028,7 +1030,7 @@ def v01_checklist(
     for number, (item, title, rows, evidence) in enumerate(V01_ITEMS, start=1):
         matrix = {row: statuses.get(row, "fehlt") for row in rows}
         matrix_ok = all(status == "erfüllt" for status in matrix.values())
-        fulfilled = run_ok[item] and (matrix_ok or item in ("report", "json"))
+        fulfilled = run_ok[item] is not False and (matrix_ok or item in ("report", "json"))
         items.append(
             {
                 "number": number,
@@ -1385,6 +1387,13 @@ def _yes(value: Any) -> str:
     return "ja" if value else "nein"
 
 
+NO_RUN_CRITERION = "– (kein Laufkriterium)"  # the run column of a V-01 item the G1 run does not show
+
+
+def _run_cell(value: bool | None) -> str:
+    return NO_RUN_CRITERION if value is None else _yes(value)
+
+
 def _pair(values: Mapping[str, Any], keys: Sequence[str] = REPORT_LANGS) -> str:
     return " / ".join(str(values.get(key, "–")) for key in keys)
 
@@ -1441,7 +1450,7 @@ def summary_markdown(summary: Mapping[str, Any]) -> str:
         matrix = ", ".join(f"{row} {status}" for row, status in item["matrix"].items())
         status = "erfüllt" if item["status"] == "fulfilled" else "nicht erfüllt"
         lines.append(
-            f"| {item['number']} | {item['title']} | {status} | {matrix} | {_yes(item['run_ok'])} | "
+            f"| {item['number']} | {item['title']} | {status} | {matrix} | {_run_cell(item['run_ok'])} | "
             f"{item['evidence']} |"
         )
     lines += [
