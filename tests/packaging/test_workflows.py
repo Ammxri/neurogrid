@@ -672,10 +672,16 @@ JUNIT = "pytest-junit.xml"
 
 def test_every_pytest_step_annotates_its_failed_tests() -> None:
     """TECH-05: a failed test must be readable without a login. Every step that runs pytest writes a JUnit
-    report, and the two steps right after it run only on failure: tools/junit_annotations.py prints at most
-    10 failed tests as error annotations (GitHub keeps 10 per step), then, in its own step, one annotation
-    with the counts."""
+    report, and the five steps right after it run only on failure: tools/junit_annotations.py prints the
+    failed tests 1-10, 11-20, 21-30 and 31-40 as error annotations in four steps (GitHub keeps 10 per step;
+    CI run 40355705974 showed only 10 of 28 failures with one step), then, in its own step, one annotation
+    with the counts that says how many were annotated."""
+    import junit_annotations
+
     found = []
+    tool = f"uv run --no-sync python tools/junit_annotations.py {JUNIT}"
+    offsets = [index * junit_annotations.LIMIT for index in range(junit_annotations.STEPS)]
+    assert offsets == [0, 10, 20, 30]
     for name, job_id, job in _all_jobs():
         steps = _steps(job)
         for index, step in enumerate(steps):
@@ -683,12 +689,12 @@ def test_every_pytest_step_annotates_its_failed_tests() -> None:
                 continue
             found.append(f"{name}/{job_id}")
             assert f"--junitxml={JUNIT}" in step["run"], (name, job_id)
-            failed, counts = steps[index + 1 : index + 3]
-            for after in (failed, counts):
-                assert after["if"] == f"failure() && hashFiles('{JUNIT}') != ''", (name, job_id)
-            tool = f"uv run --no-sync python tools/junit_annotations.py {JUNIT}"
-            assert failed["run"] == f"{tool} --limit 10", (name, job_id)
-            assert counts["run"] == f"{tool} --summary", (name, job_id)
+            after = steps[index + 1 : index + 2 + len(offsets)]
+            assert len(after) == len(offsets) + 1, (name, job_id)
+            for annotation in after:
+                assert annotation["if"] == f"failure() && hashFiles('{JUNIT}') != ''", (name, job_id)
+            assert [a["run"] for a in after[:-1]] == [f"{tool} --offset {o} --limit 10" for o in offsets]
+            assert after[-1]["run"] == f"{tool} --summary --limit {len(offsets) * junit_annotations.LIMIT}"
     assert sorted(found) == ["ci/test", "docs/browser", "offline/build"]
     assert JUNIT in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
 
