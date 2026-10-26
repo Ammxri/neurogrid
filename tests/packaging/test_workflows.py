@@ -192,7 +192,8 @@ def _command_texts() -> dict[str, tuple[str, str]]:
 
 def test_every_option_passed_to_a_tool_exists() -> None:
     """A workflow, CI script or installer that passes a tool an option the tool does not define fails on every
-    run: release.yml once passed --release to `tools/licenses.py`, which no area defines (argparse exit 2)."""
+    run: release.yml once passed `--release` to `tools/licenses.py`, which no area defines (argparse exits
+    2)."""
     checked = 0
     for where, (text, kind) in _command_texts().items():
         for name, options in _tool_calls(text, kind):
@@ -202,15 +203,12 @@ def test_every_option_passed_to_a_tool_exists() -> None:
     assert checked >= 25, checked
 
 
-# The release.yml line this check caught, as a negative example. It is split like the one of
-# tests/docs/test_notices.py::test_every_named_option_of_the_gate_tools_exists: that test reads every tool
-# call named in the tests as well and would take the example for a real call.
-UNKNOWN_OPTION_CALL = "uv run --no-sync python tools/" + "licenses.py --release\n"
-
-
 def test_the_option_check_finds_an_unknown_option() -> None:
-    assert _tool_calls(UNKNOWN_OPTION_CALL) == [("licenses.py", {"--release"})]
-    assert "--release" not in _options_of("licenses.py")
+    # split: tests/docs/test_notices.py reads every test file for calls of the gate tools and would take this
+    # negative control for a real call
+    call = "uv run --no-sync python tools/" + "licenses.py --release\n"
+    assert _tool_calls(call) == [("licenses.py", {"--release"})]
+    assert "--release" not in (_options_of("licenses.py") or set())
     text = (
         'uv run python tools/bundle.py build --platform "$p" \\\n  --wheel w --sign sigstore | tee log\n'
         "# python tools/bundle.py --commented-out\n"
