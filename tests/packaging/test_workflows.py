@@ -551,6 +551,26 @@ def test_offline_workflow_runs_every_offline_proof() -> None:
             assert job["needs"] == "build" and "!cancelled()" in job["if"], job_id
 
 
+def test_rebuild_guide_states_the_offline_trigger_of_the_workflow() -> None:
+    """Review R10 follow-up: after the trigger moved to dev and main, docs/umsetzung/NACHBAU.md still said
+    that offline.yml ran on main pushes only and listed that as a deviation from D-15. The guide's workflow
+    list names the branches of the workflow's push trigger, and no sentence keeps the main-only claim."""
+    guide = (ROOT / "docs" / "umsetzung" / "NACHBAU.md").read_text(encoding="utf-8")
+    flat = " ".join(guide.split())
+    (listed,) = re.findall(r"`offline\.yml` \(Push ([^,;)]+)[,;)]", flat)
+    branches = _load("offline")["on"]["push"]["branches"]
+    assert sorted(listed.replace(" ", "").split("/")) == sorted(branches), listed
+    stale = (
+        r"`offline\.yml` nur",
+        r"nur bei Push auf `main`",
+        r"nicht bei jedem Push auf `dev`",
+        r"heute nicht so konfiguriert",
+        r"Abweichung von D-15: die Bündel-Tests",
+    )
+    for pattern in stale:
+        assert not re.search(pattern, flat), pattern
+
+
 def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
     linux = (ROOT / "packaging" / "ci" / "cleanroom_linux.sh").read_text(encoding="utf-8")
     assert "--network none" in linux and "--user 1000:1000" in linux
