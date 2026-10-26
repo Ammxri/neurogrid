@@ -495,25 +495,37 @@ LONG_BASETEMP_TESTS = (
 
 
 @pytest.mark.pdf
-def test_pdf_tests_pass_with_a_long_basetemp(tmp_path: Path) -> None:
+def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: Path) -> None:
     """P2: the browser's work folder never follows the paths a caller uses (kernel.pdf.browser_work; the
     tests take theirs from it too), so a long pytest basetemp changes nothing: with one of 200 characters
-    (the tests' tmp_path then about 230) a selection of browser tests that write below tmp_path passes."""
+    (the tests' tmp_path then about 230) a selection of browser tests that write below tmp_path passes.
+    Verification of P2: before it, such a run left a debug.log with local paths next to the installed
+    shell's executable (work folders below tmp_path); here the selection runs with a fresh installation
+    (conftest.fresh_shell) that stays unchanged byte for byte (conftest.folder_content)."""
     basetemp = long_path(tmp_path / "b", 200)
     assert len(str(basetemp)) >= 200
     basetemp.parent.mkdir(parents=True)  # pytest creates the basetemp itself, not its parents
-    done = subprocess.run(
-        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--basetemp={basetemp}"]
-        + list(LONG_BASETEMP_TESTS),
-        capture_output=True,
-        cwd=Path(__file__).parent.parent.parent,
-        env={**os.environ, "NEUROGRID_REQUIRE_PDF": "1", "PYTHONIOENCODING": "utf-8"},
-        check=False,
-    )
+    with fresh_shell(pdf_shell) as shell:
+        before = folder_content(shell.folder)
+        done = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--basetemp={basetemp}"]
+            + list(LONG_BASETEMP_TESTS),
+            capture_output=True,
+            cwd=Path(__file__).parent.parent.parent,
+            env={
+                **os.environ,
+                pdf.ENV_BROWSER_DIR: str(shell.folder),
+                "NEUROGRID_REQUIRE_PDF": "1",
+                "PYTHONIOENCODING": "utf-8",
+            },
+            check=False,
+        )
+        after = folder_content(shell.folder)
     report = done.stdout.decode("utf-8", "replace")
     assert done.returncode == 0, report[-3000:]
     summary = report.strip().splitlines()[-1]
     assert re.match(r"^6 passed\b", summary) and "skipped" not in summary, summary
+    assert after == before
 
 
 @pytest.mark.pdf

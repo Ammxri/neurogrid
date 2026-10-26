@@ -8,20 +8,28 @@ import io
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
 import pypdf
 import pytest
 
-from conftest import long_path, short_folder  # type: ignore[import-not-found]
+from conftest import (  # type: ignore[import-not-found]
+    fresh_shell,
+    long_path,
+    short_folder,
+    wait_released,
+)
 from neurogrid import pipeline
 from neurogrid.cli import main
 from neurogrid.kernel import canonical, fonts
 from neurogrid.kernel.errors import PdfError
-from neurogrid.kernel.pdf import ENV_BROWSER_DIR
+from neurogrid.kernel.pdf import ENV_BROWSER_DIR, WORK_PREFIX
+from neurogrid.kernel.safety import WORK_LOCK_SUFFIX
 from neurogrid.model.results import Results
 from neurogrid.report.texts import disclaimer
 
@@ -198,6 +206,81 @@ def test_temporary_folder_too_long_for_the_browser_exits_2_with_its_own_hint(
         assert f"with a path of at most {pdf.TEMP_PATH_LIMIT} characters" in err and "TEMP and TMP" in err
         assert "installer" not in err  # not the misleading hint of a launch failure
         assert not out.exists() and list(temp.iterdir()) == [] and list(cwd.iterdir()) == []
+
+
+def _kill_tree(process: subprocess.Popen[bytes]) -> None:
+    """End a run hard, with the driver and the browser it started (no finally runs anywhere)."""
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True, check=False)
+    else:
+        os.killpg(process.pid, signal.SIGKILL)
+    process.wait()
+
+
+@pytest.mark.pdf
+def test_report_html_a_killed_run_left_in_temp_is_removed_by_the_next_run(
+    results_file: Path, tmp_path: Path
+) -> None:
+    """Verification of P2: a run killed while it prints (hard, with its driver and browser) leaves its work
+    folder with the report HTML in the computer's temporary folder. The next PDF run removes it (A-54 "at
+    the next start"): the temporary folder is empty after it."""
+    command = [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "zh,en"]
+    command += ["--format", "pdf", "--out"]
+    with short_folder("ng-env-") as temp:
+        env = _env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp))
+        process = subprocess.Popen(
+            [*command, str(tmp_path / "killed")],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=os.name != "nt",
+        )
+        try:
+            deadline = time.monotonic() + 300
+            printing: list[Path] = []
+            while not printing and process.poll() is None and time.monotonic() < deadline:
+                printing = sorted(temp.glob(f"{WORK_PREFIX}*/report.zh.html"))
+                time.sleep(0.05)
+        finally:
+            _kill_tree(process)
+        assert printing, "the run ended before it printed"
+        held = printing[0].parent
+        lock = held.with_name(held.name + WORK_LOCK_SUFFIX)
+        wait_released(lock)
+        assert (held / "report.zh.html").is_file() and lock.is_file()  # left behind by the killed run
+        assert list((tmp_path / "killed").iterdir()) == []  # checked before printing, nothing written
+        done = subprocess.run([*command, str(tmp_path / "next")], capture_output=True, env=env, check=False)
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert sorted(p.name for p in (tmp_path / "next").iterdir()) == ["report.en.pdf", "report.zh.pdf"]
+        assert list(temp.iterdir()) == []
+
+
+@pytest.mark.pdf
+def test_debug_log_left_next_to_the_shell_is_removed_by_the_next_run(
+    results_file: Path, pdf_shell: object, tmp_path: Path
+) -> None:
+    """Verification of P2: code before P2 left a debug.log with local paths next to the installed shell's
+    executable (tests with a long basetemp); install_pdf_browser.py --check fails while it is there. The
+    next PDF run removes it (A-51, A-54): exit 0, the installation passes the check again."""
+    installer = Path(__file__).parent.parent.parent / "tools" / "install_pdf_browser.py"
+    with fresh_shell(pdf_shell) as shell:
+        leftover = shell.executable.parent / "debug.log"
+        line = f"[1026/124900.000:ERROR:disk_cache.cc(1)] {tmp_path / 'work' / 'profile'}: path too long\n"
+        leftover.write_text(line, encoding="utf-8")
+        check = [sys.executable, str(installer), "--check", "--dir", str(shell.folder)]
+        assert subprocess.run(check, capture_output=True, check=False).returncode == 1
+        out = tmp_path / "out"
+        done = subprocess.run(
+            [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "en"]
+            + ["--format", "pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(**{ENV_BROWSER_DIR: str(shell.folder)}),
+            check=False,
+        )
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert [p.name for p in out.iterdir()] == ["report.en.pdf"] and not leftover.exists()
+        checked = subprocess.run(check, capture_output=True, check=False)
+        assert checked.returncode == 0, checked.stdout.decode("utf-8", "replace")
 
 
 def test_pdf_without_shell_exits_2_with_hint_and_writes_nothing(
