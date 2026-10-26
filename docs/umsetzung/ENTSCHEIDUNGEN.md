@@ -123,6 +123,22 @@ Phasenmeldung zu P3:
   - Hier mit 4 Kernen (`--jobs 4`): < 150 s für 64 und 128 Kanäle; für 256 Kanäle gilt die PRD-Grenze von < 300 s.
   - Auf dem Runner mit 4 vCPU/16 GB bleibt es bei < 300 s.
 
+## Vorabentscheidungen zu STOPP G1 (26.10.2026)
+
+**D-15 G1-Vorabentscheidungen.** Der Projektverantwortliche hat vor STOPP G1 nach Empfehlung entschieden:
+- **Downloads außerhalb von D-06 freigegeben** (nur Lizenztexte):
+  - Rechtstext CC BY 4.0 nach `LICENSES/CC-BY-4.0.txt`, mit SHA-256 abgelegt.
+  - Lizenzdateien der im bids-validator 3.0.2 gebündelten npm/jsr-Pakete (genaue Versionen aus der Source-Map), geprüft abgelegt.
+- **Repository:** beim ersten Push öffentlich. Die Bündel-Tests laufen dann bei jedem Push auf `dev` und `main`.
+- **PyPI:** Trusted Publishing (OIDC, kein gespeichertes Token); zuerst TestPyPI, dann PyPI; jede Veröffentlichung startet der Projektverantwortliche.
+- **Gitee:** Spiegel über die vorbereitete GitHub Action per SSH (Secret `GITEE_SSH_KEY`, gepinnter Host-Schlüssel); Gitee-Release mit Wheel, sdist, `SHA256SUMS`, Signatur und Verweis auf das GitHub-Release.
+- **Dokumentation:** für v0.1 im Offline-Bündel und als Release-Artefakt; das Hosting wird nach v0.1 entschieden.
+- **Signatur (Lesart von D-10 g):** Das Installationsskript prüft immer `SHA256SUMS`; die Sigstore-Signatur prüft es, wenn cosign vorhanden ist, sonst bricht es ab, außer mit dem ausdrücklichen Schalter `-SkipSignatureCheck`/`--skip-signature-check`. Die Dokumentation beschreibt die Prüfung vor der Übertragung auf einem vernetzten Rechner.
+- **Kleine Zellen (A-81):** Die Tabellenregel und ihr Preis sind angenommen (Datenschutz vor Vollständigkeit).
+- **DM-02:** Diagnoseähnliche Spalten dürfen Labelquelle von M11 sein, nur aggregiert nach der Tabellenregel.
+- **Arbeitsweise ab sofort (Tempo):** volle Testsuite nur nach dem Merge; Agenten auf Stufe high, xhigh nur für Prüfungen zu Datenschutz und Regulatorik; ein Review je Phase mit vier Prüfrichtungen; das Nachbau-Dokument entsteht parallel; P6 wird vor G1 spezifiziert (ohne Commit).
+- **Bei G1 offen:** muttersprachliche zh-Prüfung, Push-Freigabe mit Repo-URL und die Bestätigung der übrigen vorgemerkten Annahmen.
+
 ## Annahmen (Nicht-Blocker)
 
 **A-00 Nicht ausgefüllte Eingaben des Auftrags.** Ausgangslage: neues Projekt unter `Projekte/neurogrid`.
