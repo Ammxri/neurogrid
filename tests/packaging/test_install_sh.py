@@ -6,6 +6,7 @@ installation runs in the Linux clean room (packaging/ci/cleanroom_linux.sh, CI o
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -219,7 +220,7 @@ def _bash_path(path: Path) -> str:
     return text
 
 
-def _run_as_linux_x86_64(folder: Path, *args: str) -> tuple[int, str]:
+def _run_as_linux_x86_64(folder: Path, *args: str, env: dict[str, str] | None = None) -> tuple[int, str]:
     """install.sh's main with uname and getconf replaced by shell functions that report Linux x86_64 with
     glibc 2.36, so the installer gets past its platform check on any machine (Git Bash's wrapper puts its own
     /usr/bin first on PATH, so stand-in programs could not win)."""
@@ -231,7 +232,7 @@ def _run_as_linux_x86_64(folder: Path, *args: str) -> tuple[int, str]:
         'main "$@"\n'
     )
     result = subprocess.run(
-        [BASH, "-c", script, "install.sh", *args], capture_output=True, timeout=300, check=False
+        [BASH, "-c", script, "install.sh", *args], capture_output=True, env=env, timeout=300, check=False
     )
     return result.returncode, result.stdout.decode("utf-8", "replace") + result.stderr.decode(
         "utf-8", "replace"
@@ -285,3 +286,80 @@ def test_help_and_fixed_sentence() -> None:
     assert result.returncode == 0 and b"--pdf-browser-zip" in result.stdout
     text = SCRIPT.read_text(encoding="utf-8")
     assert f'"{disclaimer("zh")}"' in text and f'"{disclaimer("en")}"' in text
+
+
+# A stand-in uv that works (a shell script): `uv venv ... <venv>` creates <venv>/bin/neurogrid, which exits 0,
+# so the installer's self-test passes; `uv pip ...` exits with NG_STAND_IN_PIP_EXIT (default 0).
+STAND_IN_UV = """#!/bin/sh
+case "$1" in
+  venv)
+    for venv in "$@"; do :; done
+    mkdir -p "$venv/bin"
+    printf '#!/bin/sh\\nexit 0\\n' >"$venv/bin/neurogrid"
+    chmod 755 "$venv/bin/neurogrid"
+    ;;
+  pip) exit "${NG_STAND_IN_PIP_EXIT:-0}" ;;
+  *) exit 1 ;;
+esac
+"""
+
+
+@pytest.fixture
+def installable(folder: Path) -> Path:
+    (folder / "uv" / "uv").write_text(STAND_IN_UV, encoding="utf-8", newline="\n")
+    (folder / "uv" / "uv").chmod(0o755)
+    _resum(folder)
+    return folder
+
+
+def _environment(**changes: str | None) -> dict[str, str]:
+    env = {k: v for k, v in os.environ.items() if k not in ("XDG_DATA_HOME", "NEUROGRID_PDF_BROWSER_DIR")}
+    for key, value in changes.items():
+        if value is None:
+            env.pop(key, None)
+        else:
+            env[key] = value
+    return env
+
+
+def test_show_writes_the_home_folder_as_tilde() -> None:
+    out = _source(
+        "HOME=/home/runneradmin; unset XDG_DATA_HOME; for p in /home/runneradmin /home/runneradmin/a/b "
+        '/home/runneradminx/c /opt/ng; do show "$p"; echo; done; '
+        "XDG_DATA_HOME=/home/runneradmin/.data; show /home/runneradmin/.data/neurogrid/1; echo; "
+        "HOME=/; show /x; echo; HOME=; show /home/runneradmin/y; echo"
+    )
+    assert out.splitlines() == [
+        "~",
+        "~/a/b",
+        "/home/runneradminx/c",
+        "/opt/ng",
+        "${XDG_DATA_HOME}/neurogrid/1",
+        "/x",
+        "/home/runneradmin/y",
+    ]
+
+
+def test_console_names_no_user_folder(installable: Path, tmp_path: Path) -> None:
+    """A-51 (review R13): the installer printed /home/<name>/... in 'installed:', 'uninstall:' and 'target
+    exists'; like NeuroGrid's own console it shows ~ (or ${XDG_DATA_HOME})."""
+    home = tmp_path / "home" / "runneradmin"
+    home.mkdir(parents=True)
+    env = _environment(HOME=_bash_path(home))
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
+    assert code == 0, text
+    assert "installed: ~/.local/share/neurogrid/9.8.7/bin/neurogrid" in text
+    assert "已安装：~/.local/share/neurogrid/9.8.7/bin/neurogrid" in text
+    assert (
+        "uninstall: delete the folder ~/.local/share/neurogrid/9.8.7 "
+        "(and ${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser if the PDF browser was installed)"
+    ) in text
+    assert "runneradmin" not in text, text
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
+    assert code == 2 and "target exists and is not empty: ~/.local/share/neurogrid/9.8.7 (" in text, text
+    assert "runneradmin" not in text, text
+    data = home / "data"
+    env = _environment(HOME=_bash_path(home), XDG_DATA_HOME=_bash_path(data))
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
+    assert code == 0 and "installed: ${XDG_DATA_HOME}/neurogrid/9.8.7/bin/neurogrid" in text, text
+    assert "runneradmin" not in text, text

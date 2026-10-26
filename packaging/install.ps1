@@ -30,6 +30,29 @@ function Fail([int]$code, [string]$zh, [string]$en) {
     [Console]::Error.WriteLine("错误 / Error: $zh / $en")
     exit $code
 }
+# A-51: console text names no user. Every path or foreign message goes through Show: the local application
+# data folder becomes %LOCALAPPDATA%, the rest of the home folder ~ (as NeuroGrid's own messages show it), in
+# the long and in the 8.3 short spelling (C:\Users\RUNNER~1\... on GitHub's runners), ignoring case.
+$script:hidden = $null
+function Show([string]$text) {
+    if ($null -eq $script:hidden) {
+        $script:hidden = New-Object System.Collections.Generic.List[object]
+        foreach ($entry in @(@([string]$env:LOCALAPPDATA, '%LOCALAPPDATA%'), @([string]$env:USERPROFILE, '~'))) {
+            $long = $entry[0].TrimEnd('\')
+            if (-not $long) { continue }
+            $forms = @($long)
+            try {
+                $short = [string](New-Object -ComObject Scripting.FileSystemObject).GetFolder($long).ShortPath
+                if ($short -and $short -ne $long) { $forms += $short.TrimEnd('\') }
+            } catch { }
+            foreach ($form in $forms) { $script:hidden.Add(@($form, $entry[1])) }
+        }
+    }
+    foreach ($pair in $script:hidden) {
+        $text = [regex]::Replace($text, [regex]::Escape($pair[0]) + '(?=$|[\\/\s"'':;,)\]])', $pair[1], 'IgnoreCase')
+    }
+    return $text
+}
 function Invoke-Native([string]$exe, [string[]]$arguments, [switch]$Quiet) {
     # Native stderr reaches the console as it is; under 'Stop' Windows PowerShell 5.1 could turn it into an error.
     $previous = $ErrorActionPreference
@@ -43,7 +66,7 @@ function Invoke-Native([string]$exe, [string[]]$arguments, [switch]$Quiet) {
 }
 
 try {
-    if ($Unknown) { Fail 2 "未知参数：$($Unknown -join ' ')" "unknown option: $($Unknown -join ' ')" }
+    if ($Unknown) { Fail 2 "未知参数：$(Show ($Unknown -join ' '))" "unknown option: $(Show ($Unknown -join ' '))" }
     $infoPath = Join-Path $Bundle 'BUNDLE.json'
     if (-not (Test-Path -LiteralPath $infoPath -PathType Leaf)) { Fail 3 '缺少 BUNDLE.json' 'BUNDLE.json missing' }
     $info = [System.IO.File]::ReadAllText($infoPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
@@ -55,7 +78,7 @@ try {
         if (-not $PdfBrowserZip -or $PdfBrowserSha256 -notmatch '^[0-9a-fA-F]{64}$') {
             Fail 2 '-PdfBrowserZip 须与 -PdfBrowserSha256（64 位十六进制）同时使用' '-PdfBrowserZip needs -PdfBrowserSha256 (64 hex digits)'
         }
-        if (-not (Test-Path -LiteralPath $PdfBrowserZip -PathType Leaf)) { Fail 2 "找不到文件：$PdfBrowserZip" "file not found: $PdfBrowserZip" }
+        if (-not (Test-Path -LiteralPath $PdfBrowserZip -PathType Leaf)) { Fail 2 "找不到文件：$(Show $PdfBrowserZip)" "file not found: $(Show $PdfBrowserZip)" }
         $PdfBrowserZip = (Resolve-Path -LiteralPath $PdfBrowserZip).ProviderPath
     }
 
@@ -116,7 +139,7 @@ try {
             if ($found) { $Cosign = $found.Path }
         }
         if ($Cosign) {
-            if (-not (Test-Path -LiteralPath $Cosign -PathType Leaf)) { Fail 2 "找不到 cosign：$Cosign" "cosign not found: $Cosign" }
+            if (-not (Test-Path -LiteralPath $Cosign -PathType Leaf)) { Fail 2 "找不到 cosign：$(Show $Cosign)" "cosign not found: $(Show $Cosign)" }
             $code = Invoke-Native $Cosign @('verify-blob', $sumsPath, '--bundle', $signature, '--certificate-identity', $identity, '--certificate-oidc-issuer', $Issuer)
             if ($code -ne 0) {
                 Fail 4 '签名核验失败，未安装（cosign 需要 Sigstore 信任根：联网或已准备的缓存）' 'signature check failed; nothing installed (cosign needs the Sigstore trust root: network or a prepared cache)'
@@ -145,7 +168,7 @@ try {
         $Prefix = Join-Path $env:LOCALAPPDATA "NeuroGrid\$version"
     }
     if ($Prefix -match '^(\\\\|//)' -or -not [System.IO.Path]::IsPathRooted($Prefix) -or $Prefix -notmatch '^[A-Za-z]:') {
-        Fail 2 "安装文件夹须为本机绝对路径：$Prefix" "the install folder must be an absolute local path: $Prefix"
+        Fail 2 "安装文件夹须为本机绝对路径：$(Show $Prefix)" "the install folder must be an absolute local path: $(Show $Prefix)"
     }
     $Prefix = [System.IO.Path]::GetFullPath($Prefix).TrimEnd('\')
     # ConvertFrom-Json gives Int32 under Windows PowerShell 5.1 and Int64 under PowerShell 7; null if missing.
@@ -158,7 +181,7 @@ try {
     $created = -not (Test-Path -LiteralPath $Prefix)
     if (-not $created) {
         if (-not (Test-Path -LiteralPath $Prefix -PathType Container) -or (Get-ChildItem -LiteralPath $Prefix -Force | Select-Object -First 1)) {
-            Fail 2 "目标已存在且不为空：$Prefix（新版本请装入新文件夹）" "target exists and is not empty: $Prefix (install a new version into a new folder)"
+            Fail 2 "目标已存在且不为空：$(Show $Prefix)（新版本请装入新文件夹）" "target exists and is not empty: $(Show $Prefix) (install a new version into a new folder)"
         }
     }
 
@@ -209,19 +232,19 @@ try {
         Say 'PDF 浏览器已安装' 'PDF browser installed'
     }
 
-    Say "已安装：$launcher" "installed: $launcher"
+    Say "已安装：$(Show $launcher)" "installed: $(Show $launcher)"
     # Where results go (UF-08, CON-04): --out, or the defaults of check, report and manifest (cli.py).
     Say '结果只保存在本机：写入 --out 指定的位置；未指定 --out 时，check 写入当前文件夹中的 results.json，report 写入 results.json 所在的文件夹，manifest 写入数据集中的 .neurogrid\manifest.json；不会上传任何数据' 'results stay on this computer: where --out points; without --out, check writes results.json in the current folder, report writes next to results.json and manifest writes .neurogrid\manifest.json inside the dataset; nothing is uploaded'
     # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
     $pdfFolder = '%LOCALAPPDATA%\NeuroGrid\pdf-browser'
     if ($env:NEUROGRID_PDF_BROWSER_DIR) { $pdfFolder = $env:NEUROGRID_PDF_BROWSER_DIR }
-    Say "卸载：删除文件夹 $Prefix（若装过 PDF 浏览器，另删 $pdfFolder）" "uninstall: delete the folder $Prefix (and $pdfFolder if the PDF browser was installed)"
+    Say "卸载：删除文件夹 $(Show $Prefix)（若装过 PDF 浏览器，另删 $(Show $pdfFolder)）" "uninstall: delete the folder $(Show $Prefix) (and $(Show $pdfFolder) if the PDF browser was installed)"
     [Console]::Out.WriteLine('使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。')
     [Console]::Out.WriteLine('Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations.')
     exit 0
 } catch {
     # Any unexpected failure (copying, file system) is an environment error, never a crash with another code.
-    [Console]::Error.WriteLine("错误 / Error: 安装失败 / installation failed: $($_.Exception.Message)")
+    [Console]::Error.WriteLine("错误 / Error: 安装失败 / installation failed: $(Show $_.Exception.Message)")
     exit 2
 } finally {
     foreach ($name in $savedEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], 'Process') }

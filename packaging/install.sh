@@ -16,6 +16,20 @@ fail() {
   exit "$1"
 }
 
+# A-51: console text names no user. A path is shown with ${XDG_DATA_HOME} or the home folder as ~ (as
+# NeuroGrid's own messages show it), whole folder names only.
+show() {
+  local text="$1" xdg="${XDG_DATA_HOME:-}" home="${HOME:-}"
+  xdg="${xdg%/}" home="${home%/}"
+  if [ -n "$xdg" ] && { [ "$text" = "$xdg" ] || [ "${text#"$xdg"/}" != "$text" ]; }; then
+    printf '%s' "\${XDG_DATA_HOME}${text#"$xdg"}"
+  elif [ -n "$home" ] && { [ "$text" = "$home" ] || [ "${text#"$home"/}" != "$text" ]; }; then
+    printf '%s' "~${text#"$home"}"
+  else
+    printf '%s' "$text"
+  fi
+}
+
 usage() {
   cat <<'EOF'
 install.sh [--prefix DIR] [--cosign PATH] [--skip-signature-check] [--verify-only]
@@ -43,7 +57,7 @@ bundle_field() {
 }
 
 main() {
-  local bundle prefix="" cosign="" skip_signature=0 verify_only=0 pdf_zip="" pdf_sha=""
+  local bundle prefix="" cosign="" skip_signature=0 verify_only=0 pdf_zip="" pdf_sha="" shown=""
   bundle="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -60,7 +74,10 @@ main() {
       --skip-signature-check) skip_signature=1; shift ;;
       --verify-only) verify_only=1; shift ;;
       -h | --help) usage; exit 0 ;;
-      *) fail 2 "未知参数：$1" "unknown option: $1" ;;
+      *)
+        shown="$(show "$1")"
+        fail 2 "未知参数：$shown" "unknown option: $shown"
+        ;;
     esac
   done
 
@@ -78,7 +95,8 @@ main() {
     [ -n "$pdf_zip" ] && [[ "$pdf_sha" =~ ^[0-9a-fA-F]{64}$ ]] \
       || fail 2 "--pdf-browser-zip 须与 --pdf-browser-sha256（64 位十六进制）同时使用" \
         "--pdf-browser-zip needs --pdf-browser-sha256 (64 hex digits)"
-    [ -f "$pdf_zip" ] || fail 2 "找不到文件：$pdf_zip" "file not found: $pdf_zip"
+    shown="$(show "$pdf_zip")"
+    [ -f "$pdf_zip" ] || fail 2 "找不到文件：$shown" "file not found: $shown"
     pdf_zip="$(cd "$(dirname "$pdf_zip")" && pwd -P)/$(basename "$pdf_zip")"
   fi
 
@@ -114,7 +132,8 @@ main() {
     [ -n "$identity" ] || fail 4 "BUNDLE.json 未写明签名者身份" "BUNDLE.json names no signer identity"
     if [ -z "$cosign" ] && [ "$skip_signature" -eq 0 ]; then cosign="$(command -v cosign || true)"; fi
     if [ -n "$cosign" ]; then
-      [ -x "$cosign" ] || fail 2 "找不到 cosign：$cosign" "cosign not found: $cosign"
+      shown="$(show "$cosign")"
+      [ -x "$cosign" ] || fail 2 "找不到 cosign：$shown" "cosign not found: $shown"
       "$cosign" verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity "$identity" \
         --certificate-oidc-issuer "$ISSUER" >&2 \
         || fail 4 "签名核验失败，未安装（cosign 需要 Sigstore 信任根：联网或已准备的缓存）" \
@@ -165,9 +184,10 @@ main() {
       "install folder path too long (${#prefix} bytes, limit $limit); choose a shorter folder with --prefix"
   fi
   local created=1
+  shown="$(show "$prefix")"
   if [ -e "$prefix" ]; then
-    [ -d "$prefix" ] && [ -z "$(ls -A "$prefix")" ] || fail 2 "目标已存在且不为空：$prefix（新版本请装入新文件夹）" \
-      "target exists and is not empty: $prefix (install a new version into a new folder)"
+    [ -d "$prefix" ] && [ -z "$(ls -A "$prefix")" ] || fail 2 "目标已存在且不为空：$shown（新版本请装入新文件夹）" \
+      "target exists and is not empty: $shown (install a new version into a new folder)"
     created=0
   fi
 
@@ -217,15 +237,16 @@ EOF
       "PDF browser installed; it also needs system libraries (see docs/installation.html)"
   fi
 
-  say "已安装：$prefix/bin/neurogrid" "installed: $prefix/bin/neurogrid"
+  shown="$(show "$prefix")"
+  say "已安装：$shown/bin/neurogrid" "installed: $shown/bin/neurogrid"
   # Where results go (UF-08, CON-04): --out, or the defaults of check, report and manifest (cli.py).
   say "结果只保存在本机：写入 --out 指定的位置；未指定 --out 时，check 写入当前文件夹中的 results.json，report 写入 results.json 所在的文件夹，manifest 写入数据集中的 .neurogrid/manifest.json；不会上传任何数据" \
     "results stay on this computer: where --out points; without --out, check writes results.json in the current folder, report writes next to results.json and manifest writes .neurogrid/manifest.json inside the dataset; nothing is uploaded"
   # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
   local pdf_folder="\${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser"
-  [ -z "${NEUROGRID_PDF_BROWSER_DIR:-}" ] || pdf_folder="$NEUROGRID_PDF_BROWSER_DIR"
-  say "卸载：删除文件夹 $prefix（若装过 PDF 浏览器，另删 $pdf_folder）" \
-    "uninstall: delete the folder $prefix (and $pdf_folder if the PDF browser was installed)"
+  [ -z "${NEUROGRID_PDF_BROWSER_DIR:-}" ] || pdf_folder="$(show "$NEUROGRID_PDF_BROWSER_DIR")"
+  say "卸载：删除文件夹 $shown（若装过 PDF 浏览器，另删 $pdf_folder）" \
+    "uninstall: delete the folder $shown (and $pdf_folder if the PDF browser was installed)"
   printf '%s\n' "使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。"
   printf '%s\n' "Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations."
 }

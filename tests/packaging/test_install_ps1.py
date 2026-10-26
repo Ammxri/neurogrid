@@ -162,12 +162,22 @@ def folder(built: Path, work: Path) -> Path:
 
 
 def _run(
-    folder: Path, *args: str, shell: str | None = None, env: dict[str, str] | None = None
+    folder: Path,
+    *args: str,
+    shell: str | None = None,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
 ) -> tuple[int, str]:
     assert POWERSHELL is not None
     command = [shell or POWERSHELL, "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
     result = subprocess.run(
-        [*command, str(folder / "install.ps1"), *args], capture_output=True, env=env, timeout=300, check=False
+        [*command, str(folder / "install.ps1"), *args],
+        capture_output=True,
+        env=env,
+        cwd=cwd,
+        stdin=subprocess.DEVNULL,
+        timeout=300,
+        check=False,
     )
     text = result.stdout.decode("utf-8", "replace") + result.stderr.decode("utf-8", "replace")
     return result.returncode, text
@@ -474,3 +484,141 @@ def _clean_env() -> dict[str, str]:
     import os
 
     return {k: v for k, v in os.environ.items() if k.upper() != "PATH"}
+
+
+# A stand-in uv that works, so the installer runs to its end without the real uv and interpreter: uv.exe is a
+# copy of this test run's venv launcher (python.exe of a venv, which starts the base interpreter named by the
+# pyvenv.cfg next to it), and `uv venv ...` / `uv pip ...` then run the packages venv/ and pip/ of the working
+# folder. `uv venv` creates <venv>\Scripts with the launcher as python.exe and neurogrid.exe, so the
+# installer's self-test (neurogrid.cmd --help = python --help) passes; `uv pip` exits with
+# NG_STAND_IN_PIP_EXIT (default 0).
+STAND_IN_VENV = """import shutil
+import sys
+from pathlib import Path
+
+venv = Path(sys.argv[-1])
+launcher = Path(sys.executable)
+(venv / "Scripts").mkdir(parents=True)
+for name in ("python.exe", "neurogrid.exe"):
+    shutil.copyfile(launcher, venv / "Scripts" / name)
+shutil.copyfile(launcher.parent / "pyvenv.cfg", venv / "pyvenv.cfg")
+"""
+STAND_IN_PIP = 'import os, sys\nsys.exit(int(os.environ.get("NG_STAND_IN_PIP_EXIT", "0")))\n'
+
+
+@pytest.fixture
+def installable(folder: Path, work: Path) -> tuple[Path, Path]:
+    """(bundle folder with the working stand-in uv, working folder to run the installer in)."""
+    launcher = Path(sys.executable)
+    config = Path(sys.prefix) / "pyvenv.cfg"
+    if not config.is_file():
+        pytest.skip("the tests do not run in a virtual environment: no venv launcher to copy")
+    shutil.copyfile(launcher, folder / "uv" / "uv.exe")
+    shutil.copyfile(config, folder / "uv" / "pyvenv.cfg")
+    _resum(folder)
+    cwd = work / "cwd"
+    for name, text in (("venv", STAND_IN_VENV), ("pip", STAND_IN_PIP)):
+        (cwd / name).mkdir(parents=True)
+        (cwd / name / "__main__.py").write_text(text, encoding="utf-8")
+    probe = subprocess.run(
+        [str(folder / "uv" / "uv.exe"), "-c", "print('ok')"], capture_output=True, text=True, check=False
+    )
+    if probe.stdout.strip() != "ok":
+        pytest.skip(f"the copied venv launcher does not start: {probe.stderr}")
+    return folder, cwd
+
+
+def _short_path(path: Path) -> str:
+    """The 8.3 spelling of an existing path (the same text where the volume makes no short names)."""
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(1024)
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    length = kernel32.GetShortPathNameW(str(path), buffer, len(buffer))
+    return buffer.value if 0 < length < len(buffer) else str(path)
+
+
+def test_the_working_stand_in_installs_to_the_end(installable: tuple[Path, Path], work: Path) -> None:
+    folder, cwd = installable
+    prefix = work / "ok"
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix), cwd=cwd)
+    assert code == 0, text
+    assert (prefix / "neurogrid.cmd").is_file() and (prefix / "BUNDLE.json").is_file()
+    assert (prefix / "venv" / "Scripts" / "neurogrid.exe").is_file() and not (prefix / ".uv-cache").exists()
+    assert disclaimer("en") in text
+
+
+def test_console_names_no_user_folder(installable: tuple[Path, Path], short_root: Path) -> None:
+    """A-51 (review R13): with the default prefix below %LOCALAPPDATA% the installer printed the full path
+    with the user name ('installed: C:\\Users\\<name>\\AppData\\Local\\NeuroGrid\\...'). Like NeuroGrid's own
+    console, it shows %LOCALAPPDATA% and ~, also for the 8.3 spelling (C:\\Users\\RUNNER~1 on GitHub's
+    runners) and another letter case."""
+    import os
+
+    folder, cwd = installable
+    home = Path(tempfile.mkdtemp(prefix="h", dir=short_root)) / "Users" / "runneradmin"
+    local = home / "AppData" / "Local"
+    local.mkdir(parents=True)
+    env = {**os.environ, "USERPROFILE": str(home), "LOCALAPPDATA": str(local)}
+    env.pop("NEUROGRID_PDF_BROWSER_DIR", None)
+    code, text = _run(folder, "-SkipSignatureCheck", env=env, cwd=cwd)
+    assert code == 0, text
+    assert "installed: %LOCALAPPDATA%\\NeuroGrid\\9.8.7\\neurogrid.cmd" in text
+    assert "已安装：%LOCALAPPDATA%\\NeuroGrid\\9.8.7\\neurogrid.cmd" in text
+    assert (
+        "uninstall: delete the folder %LOCALAPPDATA%\\NeuroGrid\\9.8.7 "
+        "(and %LOCALAPPDATA%\\NeuroGrid\\pdf-browser if the PDF browser was installed)"
+    ) in text
+    assert "runneradmin" not in text.lower(), text
+    spellings = {str(local).upper() + "\\NeuroGrid\\9.8.7", _short_path(local) + "\\NeuroGrid\\9.8.7"}
+    for spelling in sorted(spellings):
+        code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", spelling, env=env, cwd=cwd)
+        assert code == 2, text
+        assert "target exists and is not empty: %LOCALAPPDATA%\\NeuroGrid\\9.8.7 (" in text, text
+        assert "RUNNERADMIN" not in text.upper() and "RUNNER~" not in text.upper(), text
+    outside = {**env, "LOCALAPPDATA": str(short_root / "elsewhere")}
+    prefix = home / "ng" / "x"
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix), env=outside, cwd=cwd)
+    assert code == 0 and "installed: ~\\ng\\x\\neurogrid.cmd" in text, text
+
+
+def _show(text: str, env: dict[str, str]) -> str:
+    """install.ps1's Show applied to `text` in a Windows PowerShell with `env`."""
+    assert POWERSHELL is not None
+    source = SCRIPT.read_text(encoding="utf-8-sig")
+    (function,) = re.findall(r"^function Show\(.*?^}\n", source, re.M | re.S)
+    escaped = text.replace("'", "''")
+    script = f"$ErrorActionPreference = 'Stop'\n$script:hidden = $null\n{function}Show '{escaped}'\n"
+    done = subprocess.run(
+        [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    return done.stdout.rstrip("\r\n")
+
+
+def test_show_replaces_only_whole_user_folders(short_root: Path) -> None:
+    """Show also cleans foreign text (the message of an unexpected exception): every occurrence, any case,
+    but only whole folder names."""
+    import os
+
+    home = Path(tempfile.mkdtemp(prefix="s", dir=short_root)) / "runneradmin"
+    (home / "AppData" / "Local").mkdir(parents=True)
+    env = {**os.environ, "USERPROFILE": str(home), "LOCALAPPDATA": str(home / "AppData" / "Local")}
+    sample = (
+        f"Access to the path '{home}\\AppData\\Local\\NeuroGrid\\x' is denied. In {str(home).upper()}\\"
+        f"b\\install.ps1:38; {home}x\\y; {_short_path(home)}\\z"
+    )
+    shown = _show(sample, env)
+    expected = "Access to the path '%LOCALAPPDATA%\\NeuroGrid\\x' is denied. In ~\\b\\install.ps1:38; "
+    assert shown.startswith(expected), shown
+    assert f"{home}x\\y" in shown  # another folder that only starts with the home folder's name
+    assert shown.endswith("; ~\\z"), shown
+    assert _show("C:\\data\\set", env) == "C:\\data\\set"
+    bare = {k: v for k, v in env.items() if k.upper() not in ("USERPROFILE", "LOCALAPPDATA")}
+    assert _show(f"{home}\\q", bare) == f"{home}\\q"  # nothing to hide, no error
