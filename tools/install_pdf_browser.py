@@ -175,10 +175,31 @@ class InstallError(Exception):
         self.params = params
 
 
+def shown(value: object) -> str:
+    """A message parameter as the console shows it (A-51): the home folder, which holds the user name, as
+    '~', like the neurogrid command line does (neurogrid.kernel.safety.redact_paths: native, POSIX and
+    doubled-backslash spellings, case-insensitively on Windows, only up to a separator or the end)."""
+    text = str(value)
+    try:
+        home = str(Path.home())
+    except (RuntimeError, KeyError, OSError):  # no home folder known: nothing to hide
+        return text
+    if len(home.rstrip("\\/")) < 2:  # a root folder as home: replacing it would garble every path
+        return text
+    flags = re.IGNORECASE if os.name == "nt" else 0
+    spellings = {home, home.replace("\\", "/"), home.replace("\\", "\\\\")}
+    for spelling in sorted(spellings, key=len, reverse=True):
+        pattern = re.escape(spelling) + r"(?=$|[\\/'\"\s:,;)\]])"
+        text = re.sub(pattern, lambda _match: "~", text, flags=flags)
+    return text
+
+
 def say(key: str, **params: object) -> None:
+    """One message in Chinese, then in English; every parameter with the home folder shown as '~'."""
     zh, en = MESSAGES[key]
-    print(zh.format(**params))
-    print(en.format(**params))
+    values = {name: shown(value) for name, value in params.items()}
+    print(zh.format(**values))
+    print(en.format(**values))
 
 
 def current_platform() -> str:
