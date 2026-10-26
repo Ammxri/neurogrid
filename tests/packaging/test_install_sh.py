@@ -363,3 +363,29 @@ def test_console_names_no_user_folder(installable: Path, tmp_path: Path) -> None
     code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
     assert code == 0 and "installed: ${XDG_DATA_HOME}/neurogrid/9.8.7/bin/neurogrid" in text, text
     assert "runneradmin" not in text, text
+
+
+def test_a_failed_installation_leaves_the_target_as_it_was(installable: Path, tmp_path: Path) -> None:
+    """Review R14: a failure into an existing empty folder left python/ behind, so a retry stopped at 'target
+    exists and is not empty'; parents that mkdir -p created stayed too. Now the empty folder is empty again
+    and the retry runs to its end; created parents go again, a parent with other content stays."""
+    failing = _environment(NG_STAND_IN_PIP_EXIT="1")
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    code, text = _run_as_linux_x86_64(
+        installable, "--skip-signature-check", "--prefix", _bash_path(empty), env=failing
+    )
+    assert code == 2 and "offline installation failed" in text, text
+    assert empty.is_dir() and list(empty.iterdir()) == []
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", "--prefix", _bash_path(empty))
+    assert code == 0 and "target exists" not in text, text
+    shared = tmp_path / "shared"
+    shared.mkdir()
+    prefix = _bash_path(shared / "neurogrid" / "9.8.7")
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", "--prefix", prefix, env=failing)
+    assert code == 2, text
+    assert shared.is_dir() and list(shared.iterdir()) == []
+    (shared / "neurogrid" / "pdf-browser").mkdir(parents=True)
+    code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", "--prefix", prefix, env=failing)
+    assert code == 2, text
+    assert [p.name for p in (shared / "neurogrid").iterdir()] == ["pdf-browser"]

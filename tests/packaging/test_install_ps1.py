@@ -622,3 +622,34 @@ def test_show_replaces_only_whole_user_folders(short_root: Path) -> None:
     assert _show("C:\\data\\set", env) == "C:\\data\\set"
     bare = {k: v for k, v in env.items() if k.upper() not in ("USERPROFILE", "LOCALAPPDATA")}
     assert _show(f"{home}\\q", bare) == f"{home}\\q"  # nothing to hide, no error
+
+
+def test_a_failed_installation_leaves_the_target_as_it_was(
+    installable: tuple[Path, Path], work: Path
+) -> None:
+    """Review R14: a failure into an existing empty folder left python\\ (and the venv) behind, so a retry
+    stopped at 'target exists and is not empty'; parents the installer created stayed too. Now the empty
+    folder is empty again and the retry runs to its end; created parents go again."""
+    import os
+
+    folder, cwd = installable
+    failing = {**os.environ, "NG_STAND_IN_PIP_EXIT": "1"}
+    empty = work / "empty"
+    empty.mkdir()
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(empty), env=failing, cwd=cwd)
+    assert code == 2 and "offline installation failed (uv exit code 1)" in text, text
+    assert empty.is_dir() and list(empty.iterdir()) == []
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(empty), cwd=cwd)
+    assert code == 0 and "target exists" not in text, text
+    assert (empty / "neurogrid.cmd").is_file()
+    shared = work / "shared"
+    shared.mkdir()
+    prefix = shared / "NeuroGrid" / "9.8.7"
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix), env=failing, cwd=cwd)
+    assert code == 2, text
+    assert shared.is_dir() and list(shared.iterdir()) == []  # NeuroGrid\9.8.7 and NeuroGrid\ went again
+    (shared / "NeuroGrid").mkdir()
+    (shared / "NeuroGrid" / "pdf-browser").mkdir()  # content of the parent that the installer did not create
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix), env=failing, cwd=cwd)
+    assert code == 2, text
+    assert [p.name for p in (shared / "NeuroGrid").iterdir()] == ["pdf-browser"]

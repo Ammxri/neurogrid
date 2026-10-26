@@ -184,6 +184,14 @@ try {
             Fail 2 "目标已存在且不为空：$(Show $Prefix)（新版本请装入新文件夹）" "target exists and is not empty: $(Show $Prefix) (install a new version into a new folder)"
         }
     }
+    # A failed installation leaves the target as it was found: the folders the installer creates (the prefix and
+    # any missing parent, deepest first) are removed again, and an existing empty prefix is emptied again.
+    $newFolders = New-Object System.Collections.Generic.List[string]
+    $walk = $Prefix
+    while ($walk -and -not (Test-Path -LiteralPath $walk)) {
+        $newFolders.Add($walk)
+        $walk = [System.IO.Path]::GetDirectoryName($walk)
+    }
 
     # 4. Install offline: interpreter, venv, wheelhouse with hashes, bytecode compiled at install (A-48).
     $done = $false
@@ -221,7 +229,25 @@ try {
         if ($code -ne 0) { Fail 2 "安装后自检失败（退出码 $code）" "self-test after installation failed (exit code $code)" }
         $done = $true
     } finally {
-        if (-not $done -and $created) { Remove-Item -LiteralPath $Prefix -Recurse -Force -ErrorAction SilentlyContinue }
+        if (-not $done) {
+            try {
+                if ($created) {
+                    Remove-Item -LiteralPath $Prefix -Recurse -Force -ErrorAction SilentlyContinue
+                } else {
+                    # The prefix was verified empty above: everything in it now comes from this attempt.
+                    Get-ChildItem -LiteralPath $Prefix -Force -ErrorAction SilentlyContinue | ForEach-Object {
+                        Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+                    }
+                }
+                # Parents only while empty: a folder such as %LOCALAPPDATA%\NeuroGrid that gained other
+                # content meanwhile stays.
+                foreach ($folder in $newFolders) {
+                    if ($folder -ne $Prefix -and (Test-Path -LiteralPath $folder -PathType Container)) {
+                        try { [System.IO.Directory]::Delete($folder, $false) } catch { }
+                    }
+                }
+            } catch { }
+        }
     }
 
     # 7. Optional: PDF browser from a zip the customer provides, into NeuroGrid's own browser folder (D-08).

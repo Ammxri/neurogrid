@@ -51,6 +51,21 @@ glibc_supported() {
   ((major > 2 || (major == 2 && minor >= 28)))
 }
 
+# EXIT trap of the installation step: after a failure the prefix goes again if the installer created it, or is
+# emptied again if it existed empty (checked before), and the parents the installer created go while empty.
+undo_failed_install() {
+  [ "${INSTALL_DONE:-1}" -eq 0 ] || return 0
+  if [ "$INSTALL_CREATED" -eq 1 ]; then
+    rm -rf -- "$INSTALL_PREFIX"
+  else
+    find "$INSTALL_PREFIX" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true
+  fi
+  local parent
+  for parent in ${INSTALL_PARENTS[@]+"${INSTALL_PARENTS[@]}"}; do
+    rmdir -- "$parent" 2>/dev/null || true
+  done
+}
+
 # A top-level field of BUNDLE.json (written with one space of indentation and sorted keys).
 bundle_field() {
   sed -n "s/^ \"$2\": \"\\{0,1\\}\\([^\",]*\\)\"\\{0,1\\},\\{0,1\\}\$/\\1/p" "$1/BUNDLE.json" | head -n 1
@@ -191,11 +206,20 @@ main() {
     created=0
   fi
 
+  # A failed installation leaves the target as it was found: the folders the installer creates (the prefix and
+  # any missing parent, deepest first) are removed again, and an existing empty prefix is emptied again.
+  INSTALL_PARENTS=()
+  local walk="${prefix%/*}"
+  while [ -n "$walk" ] && [ ! -e "$walk" ]; do
+    INSTALL_PARENTS+=("$walk")
+    walk="${walk%/*}"
+  done
+
   # 5. Install offline: interpreter, venv, wheelhouse with hashes, bytecode compiled at install (A-48).
   INSTALL_DONE=0
   INSTALL_PREFIX="$prefix"
   INSTALL_CREATED="$created"
-  trap 'if [ "$INSTALL_DONE" -eq 0 ] && [ "$INSTALL_CREATED" -eq 1 ]; then rm -rf -- "$INSTALL_PREFIX"; fi' EXIT
+  trap undo_failed_install EXIT
   mkdir -p "$prefix"
   cp -a "$bundle/python" "$prefix/python"
   export UV_OFFLINE=1 UV_NO_CONFIG=1 UV_PYTHON_DOWNLOADS=never UV_NO_PROGRESS=1 UV_CACHE_DIR="$prefix/.uv-cache"
