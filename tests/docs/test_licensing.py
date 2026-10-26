@@ -29,8 +29,10 @@ SPDX_HEADER = re.compile(
 )
 SPDX_TOKEN = re.compile(r"[A-Za-z0-9.+-]+")
 OPERATORS = {"AND", "OR", "WITH"}
-# Files REUSE treats as licence files themselves.
-LICENCE_FILE = re.compile(r"^(LICENSE|COPYING)(\..*)?$|^LICENSES/")
+# Files REUSE treats as licence files themselves: LICENSES/ and, by file name anywhere, LICENSE/LICENCE and
+# COPYING with an optional '.' or '-' suffix (the REUSE tool's ignore patterns, case-sensitive).
+LICENCE_FILE = re.compile(r"(?:^|/)(?:LICEN[CS]E|COPYING)(?:[-.][^/]*)?$|^LICENSES/")
+THIRD_PARTY = "license-gate/third_party/"
 
 
 @cache
@@ -102,6 +104,42 @@ def test_every_file_has_licence_information() -> None:
         if not LICENCE_FILE.search(name) and licence_of(name) is None and _header_licence(name) is None
     ]
     assert not missing, missing
+
+
+def test_licence_files_outside_licenses_are_reviewed_third_party_texts() -> None:
+    """A file that counts as a licence file by its name alone is the project's LICENSE or a third-party text
+    of license-gate/third_party that a manifest lists (D-15); nothing else escapes the licence check by its
+    name."""
+    named = [name for name in _files() if LICENCE_FILE.search(name) and not name.startswith("LICENSES/")]
+    assert "LICENSE" in named
+    listed: set[str] = set()
+    for manifest in (ROOT / THIRD_PARTY).glob("*/manifest.toml"):
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        base = manifest.parent.relative_to(ROOT).as_posix()
+        listed |= {
+            f"{base}/{text['file']}" for p in data["package"] for text in p.get("text", []) if "file" in text
+        }
+    assert listed, "no third-party licence texts"
+    outside = [name for name in named if name != "LICENSE" and name not in listed]
+    assert not outside, outside
+    assert listed <= set(named), sorted(listed - set(named))
+
+
+@pytest.mark.parametrize(
+    ("path", "hit"),
+    [
+        ("LICENSE", True),
+        ("COPYING.txt", True),
+        ("license-gate/third_party/v/npm/a@1/LICENSE", True),
+        ("license-gate/third_party/v/npm/a@1/LICENSE-MIT", True),
+        ("license-gate/third_party/v/npm/a@1/LICENSE.src-x.c.txt", True),
+        ("docs/en/license.md", False),  # a page about the licence is documentation (CC-BY-4.0)
+        ("tools/licenses.py", False),
+        ("LICENSEX", False),
+    ],
+)
+def test_licence_file_names(path: str, hit: bool) -> None:
+    assert bool(LICENCE_FILE.search(path)) is hit
 
 
 def test_used_licences_have_texts_and_texts_are_used() -> None:

@@ -1,16 +1,17 @@
 # Licence texts or licences that are known to be missing (TECH-10, A-56, A-86). Each entry needs a download that
-# D-06 does not cover, so it waits for the owner's decision at STOPP G1. The release workflow fails while this
-# list is not empty: it runs `tools/notices.py --download --check`, and --check exits 1 for each entry. The
-# notices and the REUSE test name each entry.
+# neither D-06 nor D-15 covers, so it waits for the owner's decision at STOPP G1. The release workflow fails
+# while this list is not empty: it runs `tools/notices.py --download --check`, and --check exits 1 for each
+# entry. The notices and the REUSE test name each entry; license-gate/third_party/*/manifest.toml names the
+# entry of a bundled package whose texts are still missing (pending).
 # component: "<dist>:<pattern>" of license-gate/components.toml, or a name for texts outside the wheels.
 
 [[missing]]
-component = "bids-validator-deno:bids_validator_deno/bids-validator.js"
-what = "The licence files of the npm and jsr packages compiled into the BIDS validator 3.0.2 bundle are not in its wheel (names and versions in section 3 of the notices)."
+component = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+what = "Eight packages that the prebuilt dist of hed-validator 4.2.0 carries inside the BIDS validator 3.0.2 bundle (@nodable/entities, fast-xml-parser, lodash, path-expression-matcher, semver, strnum, unicode-name, xml-naming) have no version in the source map, so their licence files were not downloaded (D-15 covers exact versions only)."
 
 [[missing]]
-component = "bids-validator-deno:bids_validator_deno/*.js*"
-what = "The BIDS schema 1.2.7 inside the validator bundle states no licence in the wheel; licence and text are to be taken from upstream."
+component = "bids-validator-deno:hash-wasm@4.12.0/src"
+what = "hash-wasm 4.12.0 inside the BIDS validator bundle compiles C code whose headers carry no licence text: crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme, 'All rights reserved') only refer to http://create.stephan-brumme.com/disclaimer.html, and argon2 is based on Go's implementation without its licence."
 
 [[missing]]
 component = "h5py:h5py.libs/libaec-*.so*"

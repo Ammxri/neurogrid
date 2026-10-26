@@ -71,7 +71,7 @@ def test_notices_name_every_known_gap_and_the_validator_packages() -> None:
 WHEEL_TABLES = {
     ("Package", "Version", "Licence (metadata)", "Targets"),
     ("Target", "Package", "File", "Licence"),
-    ("Registry", "Package", "Version", "Licence stated in the bundled source"),
+    ("Registry", "Package", "Version", "Licence", "Licence texts"),
     ("Target", "Component", "Version", "File", "Licence"),
 }
 TABLE_RULE = re.compile(r"-+(?:  -+)*")
@@ -363,16 +363,196 @@ def test_validator_sources_from_the_source_map(tmp_path: Path) -> None:
             "file:///x/node_modules/.deno/ajv@8.20.0/node_modules/ajv/dist/core.js",
             "https://jsr.io/@std/path/1.1.2/mod.ts",
             "file:///x/src/own.ts",
+            # packages that the prebuilt dist of a bundled package carries: no version in the map
+            "../../node_modules/.deno/hed-validator@4.2.0/node_modules/hed-validator/node_modules/lodash/a.js",
+            "../../node_modules/.deno/x@1.0.0/node_modules/x/node_modules/@nodable/entities/src/e.js",
         ],
-        "sourcesContent": ["/* SPDX-License-Identifier: MIT */\nexport {}", "", "x"],
+        "sourcesContent": [
+            "/* SPDX-License-Identifier: MIT */\nexport {}",
+            "",
+            "x",
+            "/** @license ISC */",
+            "",
+        ],
     }
     path = tmp_path / "v.whl"
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(notices.VALIDATOR_MAP, json.dumps(source_map))
     with zipfile.ZipFile(path) as archive:
         found, licences = notices.validator_sources(archive)
-    assert found == [("jsr", "@std/path", "1.1.2"), ("npm", "ajv", "8.20.0")]  # by name, casefolded
-    assert licences == {("ajv", "8.20.0"): "MIT"}
+    assert found == [  # by name, casefolded; never attributed to the package whose dist carries them
+        ("npm", "@nodable/entities", "in x@1.0.0"),
+        ("jsr", "@std/path", "1.1.2"),
+        ("npm", "ajv", "8.20.0"),
+        ("npm", "lodash", "in hed-validator@4.2.0"),
+    ]
+    assert licences == {("ajv", "8.20.0"): "MIT", ("lodash", "in hed-validator@4.2.0"): "ISC"}
+
+
+# --- licence texts of the packages inside the validator bundle (D-15) ---------------------------------------
+
+
+def _validator_wheel(sources: list[tuple[str, str, str]], stated: dict[tuple[str, str], str]) -> Any:
+    return notices.WheelInfo(
+        name="bids-validator-deno",
+        version="9.9.9",
+        target="linux_x86_64",
+        filename="v.whl",
+        sha256="0" * 64,
+        license_expression="MIT",
+        license_texts={},
+        native=[],
+        paths=["bids_validator_deno/bids-validator.js"],
+        sources=sources,
+        source_licenses=stated,
+    )
+
+
+def _third_party(folder: Path, packages: list[dict[str, Any]]) -> Path:
+    """A license-gate/third_party folder with one manifest for validator 9.9.9; a text given as bytes
+    ("data") is stored and recorded with its SHA-256."""
+    base = notices.validator_texts_folder("9.9.9", folder)
+    lines = ["version = 1", 'validator_version = "9.9.9"']
+    for package in packages:
+        lines.append("[[package]]")
+        for key in ("registry", "name", "version", "found", "spdx", "note", "pending"):
+            if key in package:
+                lines.append(f"{key} = {json.dumps(package[key])}")
+        for text in package.get("texts", []):
+            data: bytes = text["data"]
+            (base / text["file"]).parent.mkdir(parents=True, exist_ok=True)
+            (base / text["file"]).write_bytes(data)
+            digest = text.get("sha256", hashlib.sha256(data).hexdigest())
+            lines += [
+                "[[package.text]]",
+                f"file = {json.dumps(text['file'])}",
+                'origin = "LICENSE"',
+                'kind = "licence file"',
+                f"size = {len(data)}",
+                f"sha256 = {json.dumps(digest)}",
+            ]
+    base.mkdir(parents=True, exist_ok=True)
+    (base / "manifest.toml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return folder
+
+
+def _mit(name: str, **fields: Any) -> dict[str, Any]:
+    text = {"file": f"npm/{name}@1.0.0/LICENSE", "data": f"MIT licence of {name}\n".encode()}
+    return {"registry": "npm", "name": name, "version": "1.0.0", "spdx": "MIT", "texts": [text]} | fields
+
+
+def test_validator_texts_cover_exactly_the_bundled_packages(tmp_path: Path) -> None:
+    sources = [("npm", "a", "1.0.0"), ("npm", "b", "in a@1.0.0")]
+    nested = {"registry": "npm", "name": "b", "found": "in a@1.0.0", "pending": "gap:b"}
+    folder = _third_party(tmp_path, [_mit("a"), nested])
+    packages = notices.load_validator_texts("9.9.9", folder)
+    assert packages is not None and [p.key for p in packages] == sources
+    wheel = _validator_wheel(sources, {("a", "1.0.0"): "MIT"})
+    known = [{"component": "gap:b", "what": "no version"}]
+    assert notices.check_validator_texts(wheel, packages, known) == []
+    # a nested package without texts needs its known_missing.toml entry
+    assert "'gap:b' is not listed" in notices.check_validator_texts(wheel, packages, [])[0]
+    # the source map and the review must name the same packages
+    extra = _validator_wheel([*sources, ("jsr", "@std/x", "1.0.0")], {})
+    assert notices.check_validator_texts(extra, packages, known) == [
+        "linux_x86_64: bids-validator-deno 9.9.9: bundled package without review: jsr @std/x 1.0.0"
+    ]
+    fewer = _validator_wheel(sources[:1], {})
+    assert "stale review" in notices.check_validator_texts(fewer, packages, known)[0]
+    assert "no reviewed licence texts" in notices.check_validator_texts(wheel, None, known)[0]
+    assert notices.load_validator_texts("1.2.3", folder) is None
+
+
+def test_validator_texts_are_checked_byte_for_byte_and_must_be_permissive(tmp_path: Path) -> None:
+    sources = [("npm", "a", "1.0.0")]
+    known: list[dict[str, str]] = []
+
+    def problems(package: dict[str, Any], stated: dict[tuple[str, str], str] | None = None) -> list[str]:
+        folder = _third_party(tmp_path / str(len(list(tmp_path.iterdir()))), [package])
+        wheel = _validator_wheel(sources, stated or {})
+        return notices.check_validator_texts(wheel, notices.load_validator_texts("9.9.9", folder), known)
+
+    assert problems(_mit("a")) == []
+    changed = _mit("a")
+    changed["texts"][0]["sha256"] = "0" * 64
+    assert "SHA-256 or size of npm/a@1.0.0/LICENSE differs" in problems(changed)[0]
+    assert "is not permissive" in problems(_mit("a", spdx="GPL-3.0-only"))[0]
+    assert "is not permissive" in problems(_mit("a", spdx="MIT AND LGPL-2.1-or-later"))[0]
+    assert problems(_mit("a", spdx="MIT AND Zlib")) == []
+    assert "states BSD-3-Clause" in problems(_mit("a"), {("a", "1.0.0"): "BSD-3-Clause"})[0]
+    assert (
+        "no licence text" in problems({"registry": "npm", "name": "a", "version": "1.0.0", "spdx": "MIT"})[0]
+    )
+    assert "without a reviewed licence" in problems(_mit("a", spdx=""))[0]
+    folder = _third_party(tmp_path / "gone", [_mit("a")])
+    (notices.validator_texts_folder("9.9.9", folder) / "npm" / "a@1.0.0" / "LICENSE").unlink()
+    wheel = _validator_wheel(sources, {})
+    found = notices.check_validator_texts(wheel, notices.load_validator_texts("9.9.9", folder), known)
+    assert found == [
+        "linux_x86_64: bids-validator-deno 9.9.9: npm a 1.0.0: licence text missing: npm/a@1.0.0/LICENSE"
+    ]
+
+
+def test_render_names_the_reviewed_licences_and_copies_their_texts(tmp_path: Path) -> None:
+    sources = [("npm", "a", "1.0.0"), ("npm", "b", "in a@1.0.0")]
+    nested = {"registry": "npm", "name": "b", "found": "in a@1.0.0", "pending": "gap:b", "note": "no version"}
+    folder = _third_party(tmp_path, [_mit("a"), nested])
+    wheel = _validator_wheel(sources, {})
+    text = notices.render([wheel], [], [{"component": "gap:b", "what": "no version."}], third_party=folder)
+    section = text.split("\n3. ", 1)[1].split("\n5. ", 1)[0]
+    assert "license-gate/third_party/bids-validator-9.9.9/manifest.toml" in " ".join(section.split())
+    rows = [line.split() for line in section.splitlines() if line.startswith("npm ")]
+    assert rows == [
+        ["npm", "a", "1.0.0", "MIT", "licence", "file"],
+        ["npm", "b", "in", "a@1.0.0", "pending", "missing", "(section", "5)"],
+    ]
+    assert "- npm b in a@1.0.0: no version" in section
+    assert "Used by: bids-validator-deno 9.9.9 bundle: npm a 1.0.0: LICENSE" in text
+    assert "MIT licence of a" in list(notices.iter_texts(text))[0]
+
+
+def test_committed_validator_texts_match_their_manifest() -> None:
+    """Every stored text of license-gate/third_party has its recorded SHA-256 and size, every file there is in
+    a manifest, each licence is permissive and each pending package names a listed gap (D-15)."""
+    locked = next(
+        p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
+    )
+    packages = notices.load_validator_texts(locked.version)
+    assert packages is not None, "license-gate/third_party has no manifest for the locked validator"
+    base = notices.validator_texts_folder(locked.version)
+    known = {item["component"] for item in notices.load_known_missing()}
+    listed = set()
+    for package in packages:
+        assert notices.spdx_units(package.spdx) <= notices.BUNDLED_ALLOWED, package
+        assert package.texts or package.pending in known, package
+        assert not package.pending or package.pending in known, package
+        for text in package.texts:
+            data = text.path.read_bytes()
+            assert hashlib.sha256(data).hexdigest() == text.sha256 and len(data) == text.size, text.label
+            assert b"\r" not in data, text.label  # LF only: git (eol=lf) keeps the bytes and the hash
+            assert text.kind in {"licence file", "source header", "standard text"}, text.label
+            if text.kind == "licence file":
+                assert text.url.startswith(("https://registry.npmjs.org/", "https://jsr.io/")), text.label
+            listed.add(text.path.resolve())
+    stored = {p.resolve() for p in base.rglob("*") if p.is_file() and p.name != "manifest.toml"}
+    assert stored <= listed, sorted(str(p) for p in stored - listed)
+    assert len({p.key for p in packages}) == len(packages) > 70
+    schema = next(p for p in packages if p.name == "@bids/schema")
+    assert schema.spdx == "CC-BY-4.0" and schema.texts[0].label.endswith("@bids/schema@1.2.7/LICENSE")
+
+
+def test_repository_notices_must_exist(tmp_path: Path) -> None:
+    info = _sample(tmp_path)
+    allowed = {"MIT"}
+    kept = _component(notice="LICENSES/CC-BY-4.0.txt")
+    assert notices.check_components([info], [kept], allowed, []) == []
+    absent = _component(notice="LICENSES/absent.txt")
+    assert notices.check_components([info], [absent], allowed, []) == [
+        "linux_x86_64: demo: notice not in the repository: LICENSES/absent.txt"
+    ]
+    text = notices.render([info], [kept], [])
+    assert "Used by: demo 1.0: demo.libs/libfoo-*.so* (MIT)" in text
+    assert "Creative Commons Attribution 4.0 International" in text
 
 
 # --- files and downloads ------------------------------------------------------------------------------------

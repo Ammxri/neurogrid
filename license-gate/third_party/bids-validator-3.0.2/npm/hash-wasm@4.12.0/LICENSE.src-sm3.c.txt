@@ -1,0 +1,7 @@
+/*******************************************************************************
+ * SM3 function implementation
+ * Copyright 2016 Yanbo Li dreamfly281@gmail.com, goldboar@163.com
+ * MIT License
+ * 
+ * Modified for hash-wasm by Dani Biró
+ */

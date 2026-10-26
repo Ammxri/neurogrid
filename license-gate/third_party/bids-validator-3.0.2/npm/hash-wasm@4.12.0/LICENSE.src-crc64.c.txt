@@ -1,0 +1,2 @@
+// Based on crc32.c implementation of Stephan Brumme
+// Modified for hash-wasm by Dani Biró

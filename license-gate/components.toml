@@ -62,7 +62,7 @@ platform = "any"
 spdx = "MIT"
 kind = "bundled"
 notice = "bids_validator_deno-*.dist-info/licenses/LICENSE"
-note = "BIDS validator 3.0.2 as one JavaScript bundle; the npm and jsr packages compiled into it are listed in section 3 (licence files not in the wheel, known_missing.toml)."
+note = "BIDS validator 3.0.2 as one JavaScript bundle; the npm and jsr packages compiled into it are listed in section 3. Their licence files are not in the wheel; they are kept in license-gate/third_party/bids-validator-3.0.2 (downloaded at the versions of the source map, D-15)."
 
 [[component]]
 dist = "bids-validator-deno"
@@ -70,17 +70,17 @@ pattern = "bids_validator_deno/bids-validator.js"
 platform = "any"
 spdx = "CC-BY-4.0"
 kind = "bundled"
-notice = ""
+notice = "LICENSES/CC-BY-4.0.txt"
 note = "HED schemas embedded in the bundle (standard schemas 8.0.0 to 8.4.0 and library schemas); their epilogue states Creative Commons Attribution 4.0 International, HED Working Group, DOI 10.5281/zenodo.7876037. The CC BY 4.0 legal code is LICENSES/CC-BY-4.0.txt."
 
 [[component]]
 dist = "bids-validator-deno"
 pattern = "bids_validator_deno/*.js*"
 platform = "any"
-spdx = "NOASSERTION"
+spdx = "CC-BY-4.0"
 kind = "bundled"
-notice = ""
-note = "BIDS schema 1.2.7 (jsr @bids/schema, BIDS 1.11.1) inside the bundle; the wheel states no licence for it (known_missing.toml)."
+notice = "license-gate/third_party/bids-validator-3.0.2/jsr/@bids/schema@1.2.7/LICENSE"
+note = "BIDS schema 1.2.7 (jsr @bids/schema, BIDS 1.11.1) inside the bundle; the wheel states no licence for it, the LICENSE of the jsr package at that version is CC BY 4.0 (Copyright (c) 2018, BIDS Contributors; D-15)."
 
 # --- h5py ---------------------------------------------------------------------------------------------------
 

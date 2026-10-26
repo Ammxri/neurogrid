@@ -1,0 +1,1910 @@
+# Licence texts of the npm and jsr packages compiled into the BIDS validator bundle (TECH-10, NG-N07, D-15).
+# Package list: bids_validator_deno/bids-validator.js.map of bids_validator_deno-3.0.2-py3-none-any.whl;
+# each package at exactly that version from registry.npmjs.org (version document + tarball, sha512 integrity
+# checked) or jsr.io (<version>_meta.json + file, sha256 checksum checked), retrieved 2026-10-26. Only the
+# licence files (and licence headers of compiled sources) are kept, byte for byte for licence files; header
+# extracts are UTF-8 with LF. tools/notices.py checks every SHA-256 and that the packages equal the source map,
+# and copies the texts into THIRD_PARTY_NOTICES.txt. found: how the source map names the version.
+# pending: the known_missing.toml entry for texts that are still missing.
+version = 1
+validator = "bids-validator-deno"
+validator_version = "3.0.2"
+source_map = "bids_validator_deno/bids-validator.js.map"
+decision = "D-15"
+retrieved = "2026-10-26"
+
+[[package]]
+registry = "jsr"
+name = "@bids/schema"
+version = "1.2.7"
+found = "1.2.7"
+declared = ""
+spdx = "CC-BY-4.0"
+metadata_url = "https://jsr.io/@bids/schema/1.2.7_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "BIDS schema 1.2.7 (BIDS 1.11.1); the LICENSE is the CC BY 4.0 legal code with the line 'Copyright (c) 2018, BIDS Contributors'."
+pending = ""
+
+[[package.text]]
+file = "jsr/@bids/schema@1.2.7/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@bids/schema/1.2.7/LICENSE"
+size = 18690
+sha256 = "91d38a3defa044ca6c20417e19a232068e824d3de575014d0ad4cc833bc99cc7"
+
+[[package]]
+registry = "jsr"
+name = "@bradenmacdonald/s3-lite-client"
+version = "0.9.6"
+found = "0.9.6"
+declared = ""
+spdx = "MIT AND Apache-2.0"
+metadata_url = "https://jsr.io/@bradenmacdonald/s3-lite-client/0.9.6_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "The LICENSE states that portions are based on the MinIO JavaScript library (Apache-2.0, text in this file); the bundled sources also name segmentio/xml-parser (MIT licensed) and code by Hayato Koriyama (MIT licensed) without further text."
+pending = ""
+
+[[package.text]]
+file = "jsr/@bradenmacdonald/s3-lite-client@0.9.6/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@bradenmacdonald/s3-lite-client/0.9.6/LICENSE"
+size = 1354
+sha256 = "0b8199e1ef17a3abf63d9ff29ddb0971a7b4c3faada759edf14d2a17f751f024"
+
+[[package]]
+registry = "jsr"
+name = "@cliffy/flags"
+version = "1.0.0-rc.7"
+found = "1.0.0-rc.7"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@cliffy/flags/1.0.0-rc.7_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@cliffy/flags@1.0.0-rc.7/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@cliffy/flags/1.0.0-rc.7/LICENSE"
+size = 1094
+sha256 = "1f4989357acfacf95ed9daf1b67fe1167fae6db7239b57a5ca3a4efd217e637e"
+
+[[package]]
+registry = "jsr"
+name = "@cliffy/internal"
+version = "1.0.0-rc.7"
+found = "1.0.0-rc.7"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@cliffy/internal/1.0.0-rc.7_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@cliffy/internal@1.0.0-rc.7/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@cliffy/internal/1.0.0-rc.7/LICENSE"
+size = 1094
+sha256 = "1f4989357acfacf95ed9daf1b67fe1167fae6db7239b57a5ca3a4efd217e637e"
+
+[[package]]
+registry = "jsr"
+name = "@effigies/cliffy-command"
+version = "1.0.0-dev.8"
+found = "1.0.0-dev.8"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@effigies/cliffy-command/1.0.0-dev.8_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@effigies/cliffy-command@1.0.0-dev.8/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@effigies/cliffy-command/1.0.0-dev.8/LICENSE"
+size = 1094
+sha256 = "1f4989357acfacf95ed9daf1b67fe1167fae6db7239b57a5ca3a4efd217e637e"
+
+[[package]]
+registry = "jsr"
+name = "@effigies/cliffy-table"
+version = "1.0.0-dev.5"
+found = "1.0.0-dev.5"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@effigies/cliffy-table/1.0.0-dev.5_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@effigies/cliffy-table@1.0.0-dev.5/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@effigies/cliffy-table/1.0.0-dev.5/LICENSE"
+size = 1094
+sha256 = "1f4989357acfacf95ed9daf1b67fe1167fae6db7239b57a5ca3a4efd217e637e"
+
+[[package]]
+registry = "jsr"
+name = "@libs/xml"
+version = "8.0.0"
+found = "8.0.0"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@libs/xml/8.0.0_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@libs/xml@8.0.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@libs/xml/8.0.0/LICENSE"
+size = 1068
+sha256 = "d1086e5680ca42ba99596f6ccaf071468c637e404348b49d0870114198c0097e"
+
+[[package]]
+registry = "npm"
+name = "@nodable/entities"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+
+[[package]]
+registry = "jsr"
+name = "@std/async"
+version = "1.5.0"
+found = "1.5.0"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/async/1.5.0_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/async@1.5.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/async/1.5.0/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/bytes"
+version = "1.0.6"
+found = "1.0.6"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/bytes/1.0.6_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/bytes@1.0.6/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/bytes/1.0.6/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/fmt"
+version = "1.0.10"
+found = "1.0.10"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/fmt/1.0.10_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/fmt@1.0.10/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/fmt/1.0.10/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/internal"
+version = "1.0.14"
+found = "1.0.14"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/internal/1.0.14_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/internal@1.0.14/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/internal/1.0.14/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/io"
+version = "0.225.3"
+found = "0.225.3"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/io/0.225.3_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/io@0.225.3/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/io/0.225.3/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/log"
+version = "0.224.14"
+found = "0.224.14"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/log/0.224.14_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/log@0.224.14/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/log/0.224.14/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/path"
+version = "1.1.6"
+found = "1.1.6"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/path/1.1.6_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "One bundled source names 'Copyright the Browserify authors. MIT License.'"
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/path@1.1.6/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/path/1.1.6/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/streams"
+version = "1.1.2"
+found = "1.1.2"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/streams/1.1.2_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/streams@1.1.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/streams/1.1.2/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/text"
+version = "1.0.19"
+found = "1.0.19"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/text/1.0.19_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/text@1.0.19/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/text/1.0.19/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/xml"
+version = "0.1.3"
+found = "0.1.3"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/xml/0.1.3_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/xml@0.1.3/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/xml/0.1.3/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "jsr"
+name = "@std/yaml"
+version = "1.2.0"
+found = "1.2.0"
+declared = ""
+spdx = "MIT"
+metadata_url = "https://jsr.io/@std/yaml/1.2.0_meta.json"
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = ""
+pending = ""
+
+[[package.text]]
+file = "jsr/@std/yaml@1.2.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://jsr.io/@std/yaml/1.2.0/LICENSE"
+size = 1075
+sha256 = "0961f97da6619d5fe9ddb98649191d5ca6e958856ea5252f4cce7c9b85513819"
+
+[[package]]
+registry = "npm"
+name = "ajv"
+version = "8.20.0"
+found = "8.20.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/ajv/8.20.0"
+archive_url = "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz"
+archive_sha256 = "b2f0b3a893bbb8cc5efb6814f08b1499e19e31d5dd73683f5893382f48f6e7b3"
+archive_integrity = "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/ajv@8.20.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz#package/LICENSE"
+size = 1090
+sha256 = "a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3"
+
+[[package]]
+registry = "npm"
+name = "ansi-escapes"
+version = "7.3.0"
+found = "7.3.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/ansi-escapes/7.3.0"
+archive_url = "https://registry.npmjs.org/ansi-escapes/-/ansi-escapes-7.3.0.tgz"
+archive_sha256 = "2ad74507b957f699c8f9717115104b294d9d6d9544c23aeda2d94977c0c61ce5"
+archive_integrity = "sha512-BvU8nYgGQBxcmMuEeUEmNTvrMVjJNSH7RgW24vXexN4Ven6qCvy4TntnvlnwnMLTVlcRQQdbRY8NKnaIoeWDNg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/ansi-escapes@7.3.0/LICENSE"
+origin = "license"
+kind = "licence file"
+url = "https://registry.npmjs.org/ansi-escapes/-/ansi-escapes-7.3.0.tgz#package/license"
+size = 1117
+sha256 = "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+
+[[package]]
+registry = "npm"
+name = "async-lock"
+version = "1.4.1"
+found = "1.4.1"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/async-lock/1.4.1"
+archive_url = "https://registry.npmjs.org/async-lock/-/async-lock-1.4.1.tgz"
+archive_sha256 = "e22b9442f105430cd29e720623219f87f540ecfacce8dbe34a7f7f1fb72cdd46"
+archive_integrity = "sha512-Az2ZTpuytrtqENulXwO3GGv1Bztugx6TT37NIo7imr/Qo0gsYiGtSdBa2B6fsXhTpVZDNfu1Qn3pk531e3q+nQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/async-lock@1.4.1/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/async-lock/-/async-lock-1.4.1.tgz#package/LICENSE"
+size = 1110
+sha256 = "11e9f9acdfdfce6caa7b304c6ebb1a3269a61bb03d74bfcce629cc1462c06ddc"
+
+[[package]]
+registry = "npm"
+name = "available-typed-arrays"
+version = "1.0.7"
+found = "1.0.7"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/available-typed-arrays/1.0.7"
+archive_url = "https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz"
+archive_sha256 = "8b140e0fa3fede3d81d1dffcc400c9755d7388e8a4add228487f5e20c9cf7863"
+archive_integrity = "sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/available-typed-arrays@1.0.7/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/available-typed-arrays/-/available-typed-arrays-1.0.7.tgz#package/LICENSE"
+size = 1067
+sha256 = "6d0917530cf3b3dca12c1ab7798e4d38ad0a6798ecc1bd27849a3048ba91d265"
+
+[[package]]
+registry = "npm"
+name = "call-bind"
+version = "1.0.9"
+found = "1.0.9"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/call-bind/1.0.9"
+archive_url = "https://registry.npmjs.org/call-bind/-/call-bind-1.0.9.tgz"
+archive_sha256 = "05d8d0c559ee3207fb9bd6de835633bfac5339c31b50968ed976d78251823f75"
+archive_integrity = "sha512-a/hy+pNsFUTR+Iz8TCJvXudKVLAnz/DyeSUo10I5yvFDQJBFU2s9uqQpoSrJlroHUKoKqzg+epxyP9lqFdzfBQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/call-bind@1.0.9/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/call-bind/-/call-bind-1.0.9.tgz#package/LICENSE"
+size = 1071
+sha256 = "39c5ec504cf6bd5cd782a7c695828e09189df79f5d94840e4f08feb97b9fd416"
+
+[[package]]
+registry = "npm"
+name = "call-bind-apply-helpers"
+version = "1.0.2"
+found = "1.0.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/call-bind-apply-helpers/1.0.2"
+archive_url = "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz"
+archive_sha256 = "073e9ff9dbabedf5c128020a677381e9f92c90188d118830b30a7656a7c37d2c"
+archive_integrity = "sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/call-bind-apply-helpers@1.0.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz#package/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+
+[[package]]
+registry = "npm"
+name = "call-bound"
+version = "1.0.4"
+found = "1.0.4"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/call-bound/1.0.4"
+archive_url = "https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz"
+archive_sha256 = "32086f492fedf1b9b34811f2ee50ca2cca53da5c783f7cd5f939d3f1e86bbd32"
+archive_integrity = "sha512-+ys997U96po4Kx/ABpBCqhA9EuxJaQWDQg7295H4hBphv3IZg0boBKuwYpt4YXp6MZ5AmZQnU/tyMTlRpaSejg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/call-bound@1.0.4/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz#package/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+
+[[package]]
+registry = "npm"
+name = "clean-git-ref"
+version = "2.0.1"
+found = "2.0.1"
+declared = "Apache-2.0"
+spdx = "Apache-2.0"
+metadata_url = "https://registry.npmjs.org/clean-git-ref/2.0.1"
+archive_url = "https://registry.npmjs.org/clean-git-ref/-/clean-git-ref-2.0.1.tgz"
+archive_sha256 = "79c9965d5c4809a7dfd5114355f3f2d2cb3be0ce0e7e1de21b26bbb0af8b9064"
+archive_integrity = "sha512-bLSptAy2P0s6hU4PzuIMKmMJJSE6gLXGH1cntDu7bWJUksvuM+7ReOK61mozULErYvP6a15rnYl0zFDef+pyPw=="
+note = "The package carries no licence file; its package.json states Apache-2.0. The text is the Apache License 2.0 (LICENSES/Apache-2.0.txt); the package has no NOTICE file."
+pending = ""
+
+[[package.text]]
+repository_file = "LICENSES/Apache-2.0.txt"
+origin = "Apache License 2.0 (the package has no licence file)"
+kind = "standard text"
+url = ""
+size = 11357
+sha256 = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+
+[[package]]
+registry = "npm"
+name = "core-js-pure"
+version = "3.49.0"
+found = "in hed-validator@4.2.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/core-js-pure/3.49.0"
+archive_url = "https://registry.npmjs.org/core-js-pure/-/core-js-pure-3.49.0.tgz"
+archive_sha256 = "44caa460ded23a03f172325478898b302f462c5bc5b8f8a2e3b3b10617f070b1"
+archive_integrity = "sha512-XM4RFka59xATyJv/cS3O3Kml72hQXUeGRuuTmMYFxwzc9/7C8OYTaIR/Ji+Yt8DXzsFLNhat15cE/JP15HrCgw=="
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the version 3.49.0 is named by core-js-pure/internals/shared-store.js in the source map."
+pending = ""
+
+[[package.text]]
+file = "npm/core-js-pure@3.49.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/core-js-pure/-/core-js-pure-3.49.0.tgz#package/LICENSE"
+size = 1134
+sha256 = "b87653fff2d44426ab5cd4723cee3b1364dc8d35a0acdf098c54689543123bf8"
+
+[[package]]
+registry = "npm"
+name = "crc-32"
+version = "1.2.2"
+found = "1.2.2"
+declared = "Apache-2.0"
+spdx = "Apache-2.0"
+metadata_url = "https://registry.npmjs.org/crc-32/1.2.2"
+archive_url = "https://registry.npmjs.org/crc-32/-/crc-32-1.2.2.tgz"
+archive_sha256 = "997be573c3d33817c9e01aba3f4f71ad2ad425f375e846e39f0d0e8b3b24c657"
+archive_integrity = "sha512-ROmzCKrTnOwybPcJApAA6WBWij23HVfGVNKqqrZpuyZOHqK2CwHSvpGuyt/UNNvaIjEd8X5IFGp4Mh+Ie1IHJQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/crc-32@1.2.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/crc-32/-/crc-32-1.2.2.tgz#package/LICENSE"
+size = 11355
+sha256 = "c542ba7851b5d39a5face477e47a27cb7c00a9759e321b66824e79718bffe1ac"
+
+[[package]]
+registry = "npm"
+name = "define-data-property"
+version = "1.1.4"
+found = "1.1.4"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/define-data-property/1.1.4"
+archive_url = "https://registry.npmjs.org/define-data-property/-/define-data-property-1.1.4.tgz"
+archive_sha256 = "16304ad73df1364ca8623c28a8969de01cd7189b4f9b05668fadb598f110e4d2"
+archive_integrity = "sha512-rBMvIzlpA8v6E+SJZoo++HAYqsLrkg7MSfIinMPFhmkorw7X+dOXVJQs+QT69zGkzMyfDnIMN2Wid1+NbL3T+A=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/define-data-property@1.1.4/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/define-data-property/-/define-data-property-1.1.4.tgz#package/LICENSE"
+size = 1071
+sha256 = "b41d08bc3624d8c436fc80237d73ebb361985a67f4504bbcd703e5ca2b27254c"
+
+[[package]]
+registry = "npm"
+name = "diff3"
+version = "0.0.3"
+found = "0.0.3"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/diff3/0.0.3"
+archive_url = "https://registry.npmjs.org/diff3/-/diff3-0.0.3.tgz"
+archive_sha256 = "1abdd1d1104c38e7cb5d9f7db1dbff27ae8e2b5a259e7f7d6bb885f5528b3f07"
+archive_integrity = "sha512-iSq8ngPOt0K53A6eVr4d5Kn6GNrM2nQZtC740pzIriHtn4pOQ2lyzEXQMBeVcWERN0ye7fhBsk9PbLLQOnUx/g=="
+note = "The package carries no licence file; its package.json states MIT. The texts are the MIT licence headers of its two bundled source files (source map of the wheel)."
+pending = ""
+
+[[package.text]]
+file = "npm/diff3@0.0.3/LICENSE.onp.js.txt"
+origin = "onp.js"
+kind = "source header"
+url = "bids_validator_deno-3.0.2-py3-none-any.whl#bids_validator_deno/bids-validator.js.map:../../node_modules/.deno/diff3@0.0.3/node_modules/diff3/onp.js"
+size = 1202
+sha256 = "83dda06289059f957da08f807643394a9e08c2853cb792e1c50c5c79b7b4f4fe"
+
+[[package.text]]
+file = "npm/diff3@0.0.3/LICENSE.diff3.js.txt"
+origin = "diff3.js"
+kind = "source header"
+url = "bids_validator_deno-3.0.2-py3-none-any.whl#bids_validator_deno/bids-validator.js.map:../../node_modules/.deno/diff3@0.0.3/node_modules/diff3/diff3.js"
+size = 1206
+sha256 = "fe03717258c4c5b24750d6f82265c3922bb47dabde538917836de91c4b6b7220"
+
+[[package]]
+registry = "npm"
+name = "dunder-proto"
+version = "1.0.1"
+found = "1.0.1"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/dunder-proto/1.0.1"
+archive_url = "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz"
+archive_sha256 = "ed1342228c82c10df9921c59d684df516a0cd6ed25b61e5f9d6330895326cfdb"
+archive_integrity = "sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/dunder-proto@1.0.1/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz#package/LICENSE"
+size = 1073
+sha256 = "2b770a704c15de238c3f622b01b0044ddd60b49ee30608ea6991ebf19db7a7a1"
+
+[[package]]
+registry = "npm"
+name = "environment"
+version = "1.1.0"
+found = "1.1.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/environment/1.1.0"
+archive_url = "https://registry.npmjs.org/environment/-/environment-1.1.0.tgz"
+archive_sha256 = "b2cb0fde86f80d7d75f2435456505fd68b7912aa6918a2a9643b9b829576817f"
+archive_integrity = "sha512-xUtoPkMggbz0MPyPiIWr1Kp4aeWJjDZ6SMvURhimjdZgsRuDplF5/s9hcgGhyXMhs+6vpnuoiZ2kFiu3FMnS8Q=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/environment@1.1.0/LICENSE"
+origin = "license"
+kind = "licence file"
+url = "https://registry.npmjs.org/environment/-/environment-1.1.0.tgz#package/license"
+size = 1117
+sha256 = "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+
+[[package]]
+registry = "npm"
+name = "es-define-property"
+version = "1.0.1"
+found = "1.0.1"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/es-define-property/1.0.1"
+archive_url = "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz"
+archive_sha256 = "5986b8b13121340a8b0d5c7d8f0f961aa80ef3a74515ca9cb7a78d86ed0385f7"
+archive_integrity = "sha512-e3nRfgfUZ4rNGL232gUgX06QNyyez04KdjFrF+LTRoOXmrOgFKDg4BCdsjW8EnT69eqdYGmRpJwiPVYNrCaW3g=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/es-define-property@1.0.1/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz#package/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+
+[[package]]
+registry = "npm"
+name = "es-errors"
+version = "1.3.0"
+found = "1.3.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/es-errors/1.3.0"
+archive_url = "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz"
+archive_sha256 = "d14dd1c35b4bd3b8aca3219fd3627eb7f3eb49cf6b4c8a7ca58b91fd7a190993"
+archive_integrity = "sha512-Zf5H2Kxt2xjTvbJvP2ZWLEICxA6j+hAmMzIlypy4xcBg1vKVnx89Wy0GbS+kf5cwCVFFzdCFh2XSCFNULS6csw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/es-errors@1.3.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz#package/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+
+[[package]]
+registry = "npm"
+name = "es-object-atoms"
+version = "1.1.2"
+found = "1.1.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/es-object-atoms/1.1.2"
+archive_url = "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz"
+archive_sha256 = "f295c5df6751c65b4b9492b03c88fab5e13419de28a51ecdf17e693b4a421af0"
+archive_integrity = "sha512-HWcBoN6NileqtSydK2FqHbS/LoDd2pqrnQHLyJzBj4kOp/ky2MWMN694xOfkK8/SnUsW2DH7EfyVlydKCsm1Zw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/es-object-atoms@1.1.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.2.tgz#package/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+
+[[package]]
+registry = "npm"
+name = "fast-deep-equal"
+version = "3.1.3"
+found = "3.1.3"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/fast-deep-equal/3.1.3"
+archive_url = "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz"
+archive_sha256 = "b019a0980f27638dc3f85836b0e478f188e00d7a6e5852c0819fa86f56e47b8f"
+archive_integrity = "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/fast-deep-equal@3.1.3/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz#package/LICENSE"
+size = 1074
+sha256 = "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+
+[[package]]
+registry = "npm"
+name = "fast-uri"
+version = "3.1.0"
+found = "3.1.0"
+declared = "BSD-3-Clause"
+spdx = "BSD-3-Clause"
+metadata_url = "https://registry.npmjs.org/fast-uri/3.1.0"
+archive_url = "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.0.tgz"
+archive_sha256 = "3ad33c6b4bd8cc1d5f867b7453cc783a96ffc89101a9ad3a8bcfe7905a83581d"
+archive_integrity = "sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/fast-uri@3.1.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.0.tgz#package/LICENSE"
+size = 1852
+sha256 = "185ef4f377743572c2bf0931f741fae52401268cbe70c880b74063799814083e"
+
+[[package]]
+registry = "npm"
+name = "fast-xml-parser"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+
+[[package]]
+registry = "npm"
+name = "for-each"
+version = "0.3.5"
+found = "0.3.5"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/for-each/0.3.5"
+archive_url = "https://registry.npmjs.org/for-each/-/for-each-0.3.5.tgz"
+archive_sha256 = "4bd2cfc8e674c93cf7abb3bd3d6fd8e388fa10324bec011223a8fa4f287185d1"
+archive_integrity = "sha512-dKx12eRCVIzqCxFGplyFKJMPvLEWgmNtUrpTiJIR5u97zEhRG8ySrtboPHZXx7daLxQVrl643cTzbab2tkQjxg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/for-each@0.3.5/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/for-each/-/for-each-0.3.5.tgz#package/LICENSE"
+size = 1075
+sha256 = "d07913d776eef217a95d7ee3ee83577fc3c365b9c870f5a3411f785b81090614"
+
+[[package]]
+registry = "npm"
+name = "function-bind"
+version = "1.1.2"
+found = "1.1.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/function-bind/1.1.2"
+archive_url = "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz"
+archive_sha256 = "704402651b02a1454f17d445fc7dd716efc282d059407126d58ef30a47e807aa"
+archive_integrity = "sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/function-bind@1.1.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz#package/LICENSE"
+size = 1052
+sha256 = "773e131a7684726005a7e4688a80b4620033bc08499bc1404dd1a1eb3bca725e"
+
+[[package]]
+registry = "npm"
+name = "get-intrinsic"
+version = "1.3.0"
+found = "1.3.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/get-intrinsic/1.3.0"
+archive_url = "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz"
+archive_sha256 = "662e27e54e00fe46fbb08f9f4aacb054e3695dbe72cc14b436613fbcfb780544"
+archive_integrity = "sha512-9fSjSaos/fRIVIp+xSJlE6lfwhES7LNtKaCBIamHsjr2na1BiABJPo0mOjjz8GJDURarmCPGqaiVg5mfjb98CQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/get-intrinsic@1.3.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz#package/LICENSE"
+size = 1071
+sha256 = "39c5ec504cf6bd5cd782a7c695828e09189df79f5d94840e4f08feb97b9fd416"
+
+[[package]]
+registry = "npm"
+name = "get-proto"
+version = "1.0.1"
+found = "1.0.1"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/get-proto/1.0.1"
+archive_url = "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz"
+archive_sha256 = "eb2cc52afb1f1fd82c5fc2a58c2380f0f16fdcdb5631538f3c66887435d70681"
+archive_integrity = "sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/get-proto@1.0.1/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz#package/LICENSE"
+size = 1071
+sha256 = "be46ce1e3b0479af9ce82d22b465a6d7d2ff084fca0aaf3d54172da2b5eb5781"
+
+[[package]]
+registry = "npm"
+name = "gopd"
+version = "1.2.0"
+found = "1.2.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/gopd/1.2.0"
+archive_url = "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz"
+archive_sha256 = "d536d0de4dd285dc1468fbb7f39334a47ee0eec9c27f9b626a6e71466c9fda82"
+archive_integrity = "sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/gopd@1.2.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz#package/LICENSE"
+size = 1071
+sha256 = "d90bf0a089da4cf43d644ed240a0b3825dcdb705e64e38371d56995a4cc9e4c5"
+
+[[package]]
+registry = "npm"
+name = "has-flag"
+version = "5.0.1"
+found = "5.0.1"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/has-flag/5.0.1"
+archive_url = "https://registry.npmjs.org/has-flag/-/has-flag-5.0.1.tgz"
+archive_sha256 = "b1b9152724e4946f3ee7202ef5c316825ffc498384cb5870dc021d141c7d916b"
+archive_integrity = "sha512-CsNUt5x9LUdx6hnk/E2SZLsDyvfqANZSUq4+D3D8RzDJ2M+HDTIkF60ibS1vHaK55vzgiZw1bEPFG9yH7l33wA=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/has-flag@5.0.1/LICENSE"
+origin = "license"
+kind = "licence file"
+url = "https://registry.npmjs.org/has-flag/-/has-flag-5.0.1.tgz#package/license"
+size = 1117
+sha256 = "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+
+[[package]]
+registry = "npm"
+name = "has-property-descriptors"
+version = "1.0.2"
+found = "1.0.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/has-property-descriptors/1.0.2"
+archive_url = "https://registry.npmjs.org/has-property-descriptors/-/has-property-descriptors-1.0.2.tgz"
+archive_sha256 = "0219bbd8f32e268eeb6efff55a2c6ff2d502098f49c583ff023b2d9d5a8bfa87"
+archive_integrity = "sha512-55JNKuIW+vq4Ke1BjOTjM2YctQIvCT7GFzHwmfZPGo5wnrgkid0YQtnAleFSqumZm4az3n2BS+erby5ipJdgrg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/has-property-descriptors@1.0.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/has-property-descriptors/-/has-property-descriptors-1.0.2.tgz#package/LICENSE"
+size = 1067
+sha256 = "0f0ca96f50793990031ebc488a38f7292ff70bce8ab6a8e5eeda674abc32ccdf"
+
+[[package]]
+registry = "npm"
+name = "has-symbols"
+version = "1.1.0"
+found = "1.1.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/has-symbols/1.1.0"
+archive_url = "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz"
+archive_sha256 = "4460c7532f28b8df2ddc9a1ec17816d43c24d4b9591dc6c5936b82f7f86ae7c5"
+archive_integrity = "sha512-1cDNdwJ2Jaohmb3sg4OmKaMBwuC48sYni5HUw2DvsC8LjGTLK9h+eb1X6RyuOHe4hT0ULCW68iomhjUoKUqlPQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/has-symbols@1.1.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz#package/LICENSE"
+size = 1071
+sha256 = "206c1adcf206dc0031b11232f5b054ec5f1662407ab1ca415247921cab2068ab"
+
+[[package]]
+registry = "npm"
+name = "has-tostringtag"
+version = "1.0.2"
+found = "1.0.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/has-tostringtag/1.0.2"
+archive_url = "https://registry.npmjs.org/has-tostringtag/-/has-tostringtag-1.0.2.tgz"
+archive_sha256 = "dc1c74e3f1179a6271f84747d72c89f258aa46ad3e6464fae0e41737a7f0ef7b"
+archive_integrity = "sha512-NqADB8VjPFLM2V0VvHUewwwsw0ZWBaIdgo+ieHtK3hasLz4qeCRjYcqfB6AQrBggRKppKF8L52/VqdVsO47Dlw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/has-tostringtag@1.0.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/has-tostringtag/-/has-tostringtag-1.0.2.tgz#package/LICENSE"
+size = 1067
+sha256 = "e2560e002e13281578c75c850061d9255c33d16d732939e8c2db64c2506642fa"
+
+[[package]]
+registry = "npm"
+name = "hash-wasm"
+version = "4.12.0"
+found = "4.12.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/hash-wasm/4.12.0"
+archive_url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz"
+archive_sha256 = "1db32a125fb46177932ec8ac438d3cd8214ebdfaccb5d6611b657d88eb586f92"
+archive_integrity = "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
+note = "The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. The headers of crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme) refer to a web page for their terms and argon2 is based on Go's implementation without its licence text (known_missing.toml)."
+pending = "bids-validator-deno:hash-wasm@4.12.0/src"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/LICENSE"
+size = 1630
+sha256 = "c14dea172f72f2714284a0ac2ab1b00b5352a01409d58255a46227ffc541debd"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-adler32.c.txt"
+origin = "src/adler32.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/adler32.c"
+size = 1260
+sha256 = "fd18cf402024fe6cfdee9002c6c47f2afb8c54497fd7115abead772d68fc273e"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-argon2.c.txt"
+origin = "src/argon2.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/argon2.c"
+size = 107
+sha256 = "02072eb494aea24ecb736fee1dd65765116edbc50563e25df3f355d61182a532"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-bcrypt.c.txt"
+origin = "src/bcrypt.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/bcrypt.c"
+size = 2073
+sha256 = "2971c4b5ae9ecdddb7b7d1b79f2dc617a38e79cb1aab68d8007f81355c20107e"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-blake2b.c.txt"
+origin = "src/blake2b.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/blake2b.c"
+size = 630
+sha256 = "66abc4d10f41aaeadbcbd9eaf1ebe355cd5d802fbe79da59aff5714a2bc4ff13"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-blake2s.c.txt"
+origin = "src/blake2s.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/blake2s.c"
+size = 630
+sha256 = "66abc4d10f41aaeadbcbd9eaf1ebe355cd5d802fbe79da59aff5714a2bc4ff13"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-blake3.c.txt"
+origin = "src/blake3.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/blake3.c"
+size = 247
+sha256 = "8c072c887eb51c3037f5d0e80ca38df533cf442d3c5170b8895372c4352c4b9c"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-crc32.c.txt"
+origin = "src/crc32.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/crc32.c"
+size = 341
+sha256 = "b7312cb03fde9ef4b3e0322a0493e78ce477012ee0856c935035d94bf344772c"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-crc64.c.txt"
+origin = "src/crc64.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/crc64.c"
+size = 93
+sha256 = "13ae4c9fc32ec2bf330cc78d25e70cfdf1834e8848c5ca9179b7d5652ebdcbd4"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-md4.c.txt"
+origin = "src/md4.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/md4.c"
+size = 1669
+sha256 = "f2226868956a80a87dabcd0597f3416746abef59f968bbef65f751d511eec63c"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-md5.c.txt"
+origin = "src/md5.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/md5.c"
+size = 1669
+sha256 = "6fd6fb33a7f1085f764a25735aabc7807c80776bfa3a1149a00f86655f5deb7a"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-ripemd160.c.txt"
+origin = "src/ripemd160.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/ripemd160.c"
+size = 796
+sha256 = "20da5b56f05f17ef197e9c3a4d3f39ddd56048fa1923447baa9528e3431110fd"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-scrypt.c.txt"
+origin = "src/scrypt.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/scrypt.c"
+size = 1499
+sha256 = "cedffd5576bc693017d8672ff4f034ad3b8130658244809ff419267219ec6625"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-sha1.c.txt"
+origin = "src/sha1.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/sha1.c"
+size = 107
+sha256 = "084696da973d52e8b9f63960efdaee6db415637e85dad826190d38710ec11750"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-sha256.c.txt"
+origin = "src/sha256.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/sha256.c"
+size = 893
+sha256 = "a26eb88ba874fcfd93eaaeb7cf0ff7a2284f336f795de2fc57aa2880355e053a"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-sha3.c.txt"
+origin = "src/sha3.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/sha3.c"
+size = 988
+sha256 = "c6cfd924fd3737fefdab42bb5e5dd057901b095752e8495a7390ca186cb88dd1"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-sha512.c.txt"
+origin = "src/sha512.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/sha512.c"
+size = 893
+sha256 = "06b9187b97f075a70f5b4151851b4618092df422af80f246c7ea2241ceba45c7"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-sm3.c.txt"
+origin = "src/sm3.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/sm3.c"
+size = 242
+sha256 = "835c669a1c11c8a9dd69ac6f13c528c709fa627b947002dd403a27b1e718e162"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-whirlpool.c.txt"
+origin = "src/whirlpool.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/whirlpool.c"
+size = 1284
+sha256 = "71251328c496a12ecd747d1916de3f6aad43561f38fa271a4bb612e2bf52f74b"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-xxhash128.c.txt"
+origin = "src/xxhash128.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/xxhash128.c"
+size = 1704
+sha256 = "9fc33c66e53fd1b0db8d3f623f71ba4f6bf617224bc4ed0bc038096de9fe3256"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-xxhash3.c.txt"
+origin = "src/xxhash3.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/xxhash3.c"
+size = 1704
+sha256 = "9fc33c66e53fd1b0db8d3f623f71ba4f6bf617224bc4ed0bc038096de9fe3256"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-xxhash32.c.txt"
+origin = "src/xxhash32.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/xxhash32.c"
+size = 338
+sha256 = "af956be33dd52b5e3c2fd44c23a8527c96c4771341a0dbb1f62c2fb25314e0ee"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.src-xxhash64.c.txt"
+origin = "src/xxhash64.c"
+kind = "source header"
+url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/xxhash64.c"
+size = 338
+sha256 = "2f3890091a9bee75b01c6fba91e79807df5d5b53ef710b5a6749db9ed5c9e7df"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.dist-index.esm.js-tslib.txt"
+origin = "dist/index.esm.js (tslib helpers)"
+kind = "source header"
+url = "bids_validator_deno-3.0.2-py3-none-any.whl#bids_validator_deno/bids-validator.js.map:../../node_modules/.deno/hash-wasm@4.12.0/node_modules/hash-wasm/dist/index.esm.js"
+size = 806
+sha256 = "f8b254da37e08406ccb6c9d8321ef584d1b22f44f9e12d5436325aeea0e6d60b"
+
+[[package]]
+registry = "npm"
+name = "hasown"
+version = "2.0.4"
+found = "2.0.4"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/hasown/2.0.4"
+archive_url = "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz"
+archive_sha256 = "e9d2b03f95573600e1c13124ce618e3142ed2c538d164595bedcd4408b8a4e4c"
+archive_integrity = "sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/hasown@2.0.4/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/hasown/-/hasown-2.0.4.tgz#package/LICENSE"
+size = 1083
+sha256 = "bf9b0d665be2a689851eea667ca9f42066ea1d903b38349c51e6a44b2577680a"
+
+[[package]]
+registry = "npm"
+name = "hed-validator"
+version = "4.2.0"
+found = "4.2.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/hed-validator/4.2.0"
+archive_url = "https://registry.npmjs.org/hed-validator/-/hed-validator-4.2.0.tgz"
+archive_sha256 = "80c9ba9bcfa63960aebbecf309f19441f553bdc8e66167b26ef5f6e6a6e67ca7"
+archive_integrity = "sha512-BfW8JAKplQjxWrkp3/ZpfCrvyAlpqMgx1udisz6fdgIT/NlbFtZXnQt6XfY6Twf5W5iRGPl/cI03bHzBcF6HJw=="
+note = "Its prebuilt dist bundles further packages (core-js-pure and the nested packages listed with 'in hed-validator@4.2.0'). The HED schemas it carries are CC BY 4.0 (components.toml)."
+pending = ""
+
+[[package.text]]
+file = "npm/hed-validator@4.2.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/hed-validator/-/hed-validator-4.2.0.tgz#package/LICENSE"
+size = 1128
+sha256 = "b5a88aa388527dc94f1c72cedad763f436be15d81dc6be268fc272d6ba4e075a"
+
+[[package]]
+registry = "npm"
+name = "ignore"
+version = "5.3.2"
+found = "5.3.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/ignore/5.3.2"
+archive_url = "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz"
+archive_sha256 = "8e9652205f5fca36dec78e11650ed998e639f5744600e1dbfc024cd627eed8bd"
+archive_integrity = "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/ignore@5.3.2/LICENSE"
+origin = "LICENSE-MIT"
+kind = "licence file"
+url = "https://registry.npmjs.org/ignore/-/ignore-5.3.2.tgz#package/LICENSE-MIT"
+size = 1095
+sha256 = "9c94db23dc4b1e9aaee5d195668b916afc71efed54af226b66cf0ccc4389c1c0"
+
+[[package]]
+registry = "npm"
+name = "ignore"
+version = "7.0.8"
+found = "7.0.8"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/ignore/7.0.8"
+archive_url = "https://registry.npmjs.org/ignore/-/ignore-7.0.8.tgz"
+archive_sha256 = "456c4882dee0d43f9c75de2a3e77f1f5ac8b6be55bbb9e0c56bd00bd531d3c3c"
+archive_integrity = "sha512-YYNsSlXBjMk92SKnkwvB5LOVSa6OznlFUGcsvrFgNJbJCd0M1XKeFVRc8ZByeCqz32FivYNHJVooLmdqrmvp/Q=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/ignore@7.0.8/LICENSE"
+origin = "LICENSE-MIT"
+kind = "licence file"
+url = "https://registry.npmjs.org/ignore/-/ignore-7.0.8.tgz#package/LICENSE-MIT"
+size = 1095
+sha256 = "9c94db23dc4b1e9aaee5d195668b916afc71efed54af226b66cf0ccc4389c1c0"
+
+[[package]]
+registry = "npm"
+name = "inherits"
+version = "2.0.4"
+found = "2.0.4"
+declared = "ISC"
+spdx = "ISC"
+metadata_url = "https://registry.npmjs.org/inherits/2.0.4"
+archive_url = "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz"
+archive_sha256 = "d94dbc6c1bb3c5ac0fb12a73ade187108fc60de273a1b754f55044eb5e24afaf"
+archive_integrity = "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/inherits@2.0.4/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz#package/LICENSE"
+size = 749
+sha256 = "5ffe28e7ade7d8f10d85d5337a73fd793dac5c462fb9a28fbf8c5046c7fbca3b"
+
+[[package]]
+registry = "npm"
+name = "is-callable"
+version = "1.2.7"
+found = "1.2.7"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/is-callable/1.2.7"
+archive_url = "https://registry.npmjs.org/is-callable/-/is-callable-1.2.7.tgz"
+archive_sha256 = "1b5c6e4e8ab142a6857fca2fb79d880ba64f2c4ad87907b583934d04b503c3a1"
+archive_integrity = "sha512-1BC0BVFhS/p0qtw6enp8e+8OD0UrK0oFLztSjNzhcKA3WDuJxxAPXzPuPtKkjEY9UUoEWlX/8fgKeu2S8i9JTA=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/is-callable@1.2.7/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/is-callable/-/is-callable-1.2.7.tgz#package/LICENSE"
+size = 1082
+sha256 = "c61652db3d2808f667b48af0a358f0d85fd07ad4a0d0b1a50882dec3b764c522"
+
+[[package]]
+registry = "npm"
+name = "is-typed-array"
+version = "1.1.15"
+found = "1.1.15"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/is-typed-array/1.1.15"
+archive_url = "https://registry.npmjs.org/is-typed-array/-/is-typed-array-1.1.15.tgz"
+archive_sha256 = "d1ef6229208ce395c816f88637e45b970f6d742d616d3c980fb0dbb679cb7690"
+archive_integrity = "sha512-p3EcsicXjit7SaskXHs1hA91QxgTw46Fv6EFKKGS5DRFLD8yKnohjF3hxoju94b/OcMZoQukzpPpBE9uLVKzgQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/is-typed-array@1.1.15/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/is-typed-array/-/is-typed-array-1.1.15.tgz#package/LICENSE"
+size = 1082
+sha256 = "c61652db3d2808f667b48af0a358f0d85fd07ad4a0d0b1a50882dec3b764c522"
+
+[[package]]
+registry = "npm"
+name = "isarray"
+version = "2.0.5"
+found = "2.0.5"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/isarray/2.0.5"
+archive_url = "https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz"
+archive_sha256 = "72bae463b81a604b4a118c00012c76ee9b8d155b9da62d1f362876c9f8b5f793"
+archive_integrity = "sha512-xHjhDr3cNBK0BzdUJSPXZntQUx/mwMS5Rw4A7lPJ90XGAO6ISP/ePDNuo0vhqOZU+UD5JoodwCAAoZQd3FeAKw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/isarray@2.0.5/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/isarray/-/isarray-2.0.5.tgz#package/LICENSE"
+size = 1096
+sha256 = "68f12f6e2c33688699249c01d8f9623c534da20aa71989c57b061b7bc1676d14"
+
+[[package]]
+registry = "npm"
+name = "isomorphic-git"
+version = "1.41.9"
+found = "1.41.9"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/isomorphic-git/1.41.9"
+archive_url = "https://registry.npmjs.org/isomorphic-git/-/isomorphic-git-1.41.9.tgz"
+archive_sha256 = "db81a97bb26c81f872fc7f569ab26c92c95c316c0cffd65d6c015bc87ce67e79"
+archive_integrity = "sha512-WOh4ujm5mznHphzQvwj9bVj+pQpV0oZ8H4lAnh4dSaie+lN/lJ2rb6rNOOcP+2m4z8IOQp186TkEULD28NMBJg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/isomorphic-git@1.41.9/LICENSE"
+origin = "LICENSE.md"
+kind = "licence file"
+url = "https://registry.npmjs.org/isomorphic-git/-/isomorphic-git-1.41.9.tgz#package/LICENSE.md"
+size = 1073
+sha256 = "b916888fb16893c3a1df138543f994b96bb6892d74b6777c3a080d9cd2520c48"
+
+[[package]]
+registry = "npm"
+name = "json-schema-traverse"
+version = "1.0.0"
+found = "1.0.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/json-schema-traverse/1.0.0"
+archive_url = "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz"
+archive_sha256 = "023222622df29fc274bde5d3590e47aa1d4a8e3c1d6e2aba029948ed79799b21"
+archive_integrity = "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/json-schema-traverse@1.0.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz#package/LICENSE"
+size = 1074
+sha256 = "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+
+[[package]]
+registry = "npm"
+name = "lodash"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+
+[[package]]
+registry = "npm"
+name = "marked"
+version = "17.0.6"
+found = "17.0.6"
+declared = "MIT"
+spdx = "MIT AND BSD-3-Clause"
+metadata_url = "https://registry.npmjs.org/marked/17.0.6"
+archive_url = "https://registry.npmjs.org/marked/-/marked-17.0.6.tgz"
+archive_sha256 = "d0ca499e365edfbdb6df8f769417bd7e9308d142f5e86e6ffe76918db6a399db"
+archive_integrity = "sha512-gB0gkNafnonOw0obSTEGZTT86IuhILt2Wfx0mWH/1Au83kybTayroZ/V6nS25mN7u8ASy+5fMhgB3XPNrOZdmA=="
+note = "The LICENSE carries the MIT licence of Marked and the BSD-3-Clause licence of Markdown (John Gruber)."
+pending = ""
+
+[[package.text]]
+file = "npm/marked@17.0.6/LICENSE"
+origin = "LICENSE.md"
+kind = "licence file"
+url = "https://registry.npmjs.org/marked/-/marked-17.0.6.tgz#package/LICENSE.md"
+size = 2942
+sha256 = "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+
+[[package]]
+registry = "npm"
+name = "math-intrinsics"
+version = "1.1.0"
+found = "1.1.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/math-intrinsics/1.1.0"
+archive_url = "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz"
+archive_sha256 = "b8c2c35575493dc086df88cfc468a9e2651b6617336480ab3f00fcf853f443a7"
+archive_integrity = "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/math-intrinsics@1.1.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz#package/LICENSE"
+size = 1073
+sha256 = "2b770a704c15de238c3f622b01b0044ddd60b49ee30608ea6991ebf19db7a7a1"
+
+[[package]]
+registry = "npm"
+name = "nifti-reader-js"
+version = "0.8.0"
+found = "0.8.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/nifti-reader-js/0.8.0"
+archive_url = "https://registry.npmjs.org/nifti-reader-js/-/nifti-reader-js-0.8.0.tgz"
+archive_sha256 = "30528e62dfdf31488afe9f857dca8a03893f42dadec356ec5cf073e5d7d31949"
+archive_integrity = "sha512-iO1iIhQDfKniy+l/86HfOPte7So+SxBmBiMSiUB2VXU7z4hSewMTlE3h0fCgfzfXvMUa+ilzLTJ2ZHmtFw6EWw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/nifti-reader-js@0.8.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/nifti-reader-js/-/nifti-reader-js-0.8.0.tgz#package/LICENSE"
+size = 1054
+sha256 = "35d89c5827cb1f9685ffc3fb6ebcc9532f75663554ed6efddadad95071bae5c9"
+
+[[package]]
+registry = "npm"
+name = "pako"
+version = "1.0.11"
+found = "1.0.11"
+declared = "(MIT AND Zlib)"
+spdx = "MIT AND Zlib"
+metadata_url = "https://registry.npmjs.org/pako/1.0.11"
+archive_url = "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz"
+archive_sha256 = "0d4028dc0352a740c30cbfd772917f2744986d42bfa0b06ec7642bffe7ad3941"
+archive_integrity = "sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw=="
+note = "The LICENSE covers the MIT part; the zlib port's licence (Zlib) is the header of its bundled lib/zlib/deflate.js (source map of the wheel); the other lib/zlib sources carry the same header."
+pending = ""
+
+[[package.text]]
+file = "npm/pako@1.0.11/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/pako/-/pako-1.0.11.tgz#package/LICENSE"
+size = 1104
+sha256 = "a04665b3b2de56c66730c1f720f528175739e4104f79073614aa611da1e85539"
+
+[[package.text]]
+file = "npm/pako@1.0.11/LICENSE.lib-zlib-deflate.js.txt"
+origin = "lib/zlib/deflate.js"
+kind = "source header"
+url = "bids_validator_deno-3.0.2-py3-none-any.whl#bids_validator_deno/bids-validator.js.map:../../node_modules/.deno/pako@1.0.11/node_modules/pako/lib/zlib/deflate.js"
+size = 960
+sha256 = "170d7d544d380b38d5f76ab5eda29475b44ef537f4564163d6d9bece85c51c13"
+
+[[package]]
+registry = "npm"
+name = "path-expression-matcher"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+
+[[package]]
+registry = "npm"
+name = "pify"
+version = "4.0.1"
+found = "4.0.1"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/pify/4.0.1"
+archive_url = "https://registry.npmjs.org/pify/-/pify-4.0.1.tgz"
+archive_sha256 = "8a7f5d035664b819be5102bb93c8d5f63e067dfc5a8638f6f853d87678906b4b"
+archive_integrity = "sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/pify@4.0.1/LICENSE"
+origin = "license"
+kind = "licence file"
+url = "https://registry.npmjs.org/pify/-/pify-4.0.1.tgz#package/license"
+size = 1109
+sha256 = "48da2f39e100d4085767e94966b43f4fa95ff6a0698fba57ed460914e35f94a0"
+
+[[package]]
+registry = "npm"
+name = "pluralize"
+version = "8.0.0"
+found = "8.0.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/pluralize/8.0.0"
+archive_url = "https://registry.npmjs.org/pluralize/-/pluralize-8.0.0.tgz"
+archive_sha256 = "984464a74e8a33c18d2760e162533a68eb772574b0816918f738e2b27ef5b695"
+archive_integrity = "sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/pluralize@8.0.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/pluralize/-/pluralize-8.0.0.tgz#package/LICENSE"
+size = 1103
+sha256 = "5822e0d816e53e3537b306a4132cb7a70881897cf51bf483282148a602979076"
+
+[[package]]
+registry = "npm"
+name = "possible-typed-array-names"
+version = "1.1.0"
+found = "1.1.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/possible-typed-array-names/1.1.0"
+archive_url = "https://registry.npmjs.org/possible-typed-array-names/-/possible-typed-array-names-1.1.0.tgz"
+archive_sha256 = "c29791211b8e2f181c049247214843292380e4134c140c5105376b7c6ae3e3c7"
+archive_integrity = "sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/possible-typed-array-names@1.1.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/possible-typed-array-names/-/possible-typed-array-names-1.1.0.tgz#package/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+
+[[package]]
+registry = "npm"
+name = "safe-buffer"
+version = "5.2.1"
+found = "5.2.1"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/safe-buffer/5.2.1"
+archive_url = "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz"
+archive_sha256 = "5d181804516c4a693a384272a7bd0e42d17e0d4b301ccfbe408669ccafdcb3e8"
+archive_integrity = "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/safe-buffer@5.2.1/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz#package/LICENSE"
+size = 1081
+sha256 = "c7cc929b57080f4b9d0c6cf57669f0463fc5b39906344dfc8d3bc43426b30eac"
+
+[[package]]
+registry = "npm"
+name = "semver"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+
+[[package]]
+registry = "npm"
+name = "set-function-length"
+version = "1.2.2"
+found = "1.2.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/set-function-length/1.2.2"
+archive_url = "https://registry.npmjs.org/set-function-length/-/set-function-length-1.2.2.tgz"
+archive_sha256 = "a339df70dfa3507a3fe2137464915212d69a9585d201c253b90f0c13fd952b4a"
+archive_integrity = "sha512-pgRc4hJ4/sNjWCSS9AmnS40x3bNMDTknHgL5UaMBTMyJnU90EgWh1Rz+MC9eFu4BuN/UwZjKQuY/1v3rM7HMfg=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/set-function-length@1.2.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/set-function-length/-/set-function-length-1.2.2.tgz#package/LICENSE"
+size = 1083
+sha256 = "bf9b0d665be2a689851eea667ca9f42066ea1d903b38349c51e6a44b2577680a"
+
+[[package]]
+registry = "npm"
+name = "sha.js"
+version = "2.4.12"
+found = "2.4.12"
+declared = "(MIT AND BSD-3-Clause)"
+spdx = "MIT AND BSD-3-Clause"
+metadata_url = "https://registry.npmjs.org/sha.js/2.4.12"
+archive_url = "https://registry.npmjs.org/sha.js/-/sha.js-2.4.12.tgz"
+archive_sha256 = "c8c1e04584e822b3514907388030e3bc451293f5ead31d0bd076e56661ee9dc0"
+archive_integrity = "sha512-8LzC5+bvI45BjpfXU8V5fdU2mfeKiQe1D1gIMn7XUlF3OTUrpdJpPPH4EMAnF0DsHHdSZqCdSss5qCmJKuiO3w=="
+note = "The LICENSE carries the MIT licence and the BSD-3-Clause licence of Paul Johnston's code."
+pending = ""
+
+[[package.text]]
+file = "npm/sha.js@2.4.12/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/sha.js/-/sha.js-2.4.12.tgz#package/LICENSE"
+size = 2557
+sha256 = "58dcf38be1438f739412b87eb70d64bf00e9976d529bb119f700d8b3167924f0"
+
+[[package]]
+registry = "npm"
+name = "strnum"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+
+[[package]]
+registry = "npm"
+name = "supports-color"
+version = "10.2.2"
+found = "10.2.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/supports-color/10.2.2"
+archive_url = "https://registry.npmjs.org/supports-color/-/supports-color-10.2.2.tgz"
+archive_sha256 = "adf493660d1efc7c69540b579f6c317070ba8e9f5d73d2b9067127ad3fe346b7"
+archive_integrity = "sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/supports-color@10.2.2/LICENSE"
+origin = "license"
+kind = "licence file"
+url = "https://registry.npmjs.org/supports-color/-/supports-color-10.2.2.tgz#package/license"
+size = 1117
+sha256 = "5c932d88256b4ab958f64a856fa48e8bd1f55bc1d96b8149c65689e0c61789d3"
+
+[[package]]
+registry = "npm"
+name = "supports-hyperlinks"
+version = "4.5.0"
+found = "4.5.0"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/supports-hyperlinks/4.5.0"
+archive_url = "https://registry.npmjs.org/supports-hyperlinks/-/supports-hyperlinks-4.5.0.tgz"
+archive_sha256 = "7b759c3ffca10ff4acdc2203983085d6bb2d14b16c81446c8a01b3660c5f1778"
+archive_integrity = "sha512-ZW2OvfeCXrNTbLakPUzjQG922EeGCOteFSVoek5DKStTh898wf7zgtuFlzQN8HfZCxC3Eh02yJVrRW51hADf+w=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/supports-hyperlinks@4.5.0/LICENSE"
+origin = "license"
+kind = "licence file"
+url = "https://registry.npmjs.org/supports-hyperlinks/-/supports-hyperlinks-4.5.0.tgz#package/license"
+size = 1198
+sha256 = "2887f942eb298e6975458ea3a6eb5ae95d69cf8727b56f8ab7d560a6543c0827"
+
+[[package]]
+registry = "npm"
+name = "to-buffer"
+version = "1.2.2"
+found = "1.2.2"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/to-buffer/1.2.2"
+archive_url = "https://registry.npmjs.org/to-buffer/-/to-buffer-1.2.2.tgz"
+archive_sha256 = "fb7f547d563da95ad5f6ce742e28defe340ed78dfd6a0751cec3c9a441bbe73c"
+archive_integrity = "sha512-db0E3UJjcFhpDhAF4tLo03oli3pwl3dbnzXOUIlRKrp+ldk/VUxzpWYZENsw2SZiuBjHAk7DfB0VU7NKdpb6sw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/to-buffer@1.2.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/to-buffer/-/to-buffer-1.2.2.tgz#package/LICENSE"
+size = 1079
+sha256 = "6a134e51aa31496c15a741592fc5d782b2dbf8d8b6b8524e15c8520ae0cd6374"
+
+[[package]]
+registry = "npm"
+name = "typed-array-buffer"
+version = "1.0.3"
+found = "1.0.3"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/typed-array-buffer/1.0.3"
+archive_url = "https://registry.npmjs.org/typed-array-buffer/-/typed-array-buffer-1.0.3.tgz"
+archive_sha256 = "0feb415846d1ae52a89710494bfbabdef311988d9a239a29fa917d6663e561ad"
+archive_integrity = "sha512-nAYYwfY3qnzX30IkA6AQZjVbtK6duGontcQm1WSG1MD94YLqK0515GNApXkoxKOWMusVssAHWLh9SeaoefYFGw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/typed-array-buffer@1.0.3/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/typed-array-buffer/-/typed-array-buffer-1.0.3.tgz#package/LICENSE"
+size = 1071
+sha256 = "b41d08bc3624d8c436fc80237d73ebb361985a67f4504bbcd703e5ca2b27254c"
+
+[[package]]
+registry = "npm"
+name = "unicode-name"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+
+[[package]]
+registry = "npm"
+name = "which-typed-array"
+version = "1.1.22"
+found = "1.1.22"
+declared = "MIT"
+spdx = "MIT"
+metadata_url = "https://registry.npmjs.org/which-typed-array/1.1.22"
+archive_url = "https://registry.npmjs.org/which-typed-array/-/which-typed-array-1.1.22.tgz"
+archive_sha256 = "7e740b7857dcfa4b0f5012f5f5e61d634cdd8337ecf164029cc2e1b15f721162"
+archive_integrity = "sha512-fvO4ExWMFsqyhG3AiPAObMuY1lxaqgYcxbc49CNdWDDECOJNgQyvsOWVwbZc+qf3rzRtxojBK+CMEv0Ld5CYpw=="
+note = ""
+pending = ""
+
+[[package.text]]
+file = "npm/which-typed-array@1.1.22/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://registry.npmjs.org/which-typed-array/-/which-typed-array-1.1.22.tgz#package/LICENSE"
+size = 1082
+sha256 = "c61652db3d2808f667b48af0a358f0d85fd07ad4a0d0b1a50882dec3b764c522"
+
+[[package]]
+registry = "npm"
+name = "xml-naming"
+version = ""
+found = "in hed-validator@4.2.0"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
