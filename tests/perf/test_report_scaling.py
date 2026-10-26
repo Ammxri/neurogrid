@@ -6,7 +6,8 @@ Excluded by default (marker ``perf``); run with ``pytest tests/perf -m perf -s``
 measurements (wall time and peak memory of the process tree, file sizes, pages) and writes them to
 .local/perf/report_scaling.json. Asserted are the A-59 structure (at most 50 rows per rule, the exact
 remainder named, one metrics row per recording), determinism, a passing QA gate and the regression limits
-(A-88): each limit is the measurement on the real fonts and shell (MEASURED) plus a 50 % reserve, rounded up.
+(A-88): each limit is the measurement on the real fonts and shell (MEASURED, the largest value of repeated
+runs) plus a 50 % reserve, rounded up.
 PRD and KONZEPT set no limit for the report; the limits guard against regressions and hold for a machine like
 the measuring one. The PDF tests need the PDF pipeline and the Chrome Headless Shell
 (tools/install_pdf_browser.py); without them they are skipped, unless NEUROGRID_REQUIRE_PDF=1.
@@ -48,33 +49,38 @@ RESERVE = 1.5  # A-88: +50 % on the measurement
 # Noto Sans SC cuts of A-27). Worst case: 128 742 findings (149 MB results.json); typical: 6 110 findings.
 # html_* / pdf_*: the ``report --lang zh,en`` process with --format html resp. html,pdf (wall time, peak
 # memory of the process tree); parse/render/print/gate: the stages of that process one by one, per language
-# the larger value; bytes and pages per language.
+# the larger value; bytes and pages per language (the same in every run).
+# Each time and memory value is the largest of the runs on 2026-10-26 (worst case 3 runs, typical case 4; the
+# last one while other jobs ran on the machine): one run alone left too little room, e.g. the QA gate of the
+# worst case took 29.9 s, 29.2 s and then 44.6 s. Two values of the typical case are left out: 8 370 s for
+# the report process and 14 937 s for one QA gate, in two night runs; the same stages took 77-92 s and
+# 29-36 s in every other run, and neither value came back in the reruns.
 MEASURED: dict[str, dict[str, Any]] = {
     "worst": {
-        "html_wall_s": 18.5,
-        "html_peak_rss_mb": 1703,
-        "pdf_wall_s": 88.1,
-        "pdf_peak_rss_mb": 1866,
+        "html_wall_s": 21.4,  # 18.5, 20.9, 21.4
+        "html_peak_rss_mb": 1703,  # 1703, 1695, 1695
+        "pdf_wall_s": 108.8,  # 88.1, 92.6, 108.8
+        "pdf_peak_rss_mb": 1929,  # 1866, 1929, 1929
         "html_bytes": {"zh": 1_252_705, "en": 1_026_261},
         "pdf_bytes": {"zh": 730_131, "en": 728_364},
         "pages": {"zh": 99, "en": 106},
-        "parse_s": 3.4,
-        "render_s": 5.5,
-        "print_s": 4.2,
-        "gate_s": 29.9,
+        "parse_s": 4.3,  # 3.4, 3.5, 4.3
+        "render_s": 7.8,  # 5.5, 5.8, 7.8
+        "print_s": 5.0,  # 4.2, 4.5, 5.0
+        "gate_s": 44.6,  # 29.9, 29.2, 44.6
     },
     "typical": {
-        "html_wall_s": 9.5,
-        "html_peak_rss_mb": 364,
-        "pdf_wall_s": 80.4,
-        "pdf_peak_rss_mb": 1255,
+        "html_wall_s": 13.0,  # 9.5, 13.0, 9.8, 11.0
+        "html_peak_rss_mb": 364,  # 364, 340, 346, 361
+        "pdf_wall_s": 92.1,  # 80.4, (8370.2), 76.8, 92.1
+        "pdf_peak_rss_mb": 1284,  # 1255, 1284, 1244, 1243
         "html_bytes": {"zh": 1_309_136, "en": 1_081_128},
         "pdf_bytes": {"zh": 835_710, "en": 854_455},
         "pages": {"zh": 136, "en": 142},
-        "parse_s": 0.5,
-        "render_s": 3.3,
-        "print_s": 4.4,
-        "gate_s": 34.6,
+        "parse_s": 0.6,  # 0.5, 0.5, 0.5, 0.6
+        "render_s": 4.4,  # 3.3, 3.3, 4.4, 4.0
+        "print_s": 4.7,  # 4.4, 4.7, 4.3, 4.4
+        "gate_s": 36.2,  # 34.6, 32.0, (14936.9) 33.1, 36.2
     },
 }
 
