@@ -3,7 +3,9 @@ version = 1
 # Licence of every path (TECH-10, A-27, A-86). When several tables match a file, the last one wins; the test
 # tests/docs/test_licensing.py applies the same rule to every tracked file. Licence texts are in LICENSES/.
 # LICENSES/CC-BY-4.0.txt is the CC BY 4.0 legal code as downloaded under D-15; its source and SHA-256 are in
-# license-gate/licence_texts.toml.
+# license-gate/licence_texts.toml. LICENSES/LGPL-3.0-or-later.txt and LICENSES/GPL-3.0-or-later.txt (D-16)
+# license no file of this repository: they belong to the LGPL part of the bundled BIDS validator, and the
+# manifest of license-gate/third_party/bids-validator-3.0.2 attaches them to isomorphic-git 1.41.9.
 
 # Documentation (CC BY 4.0)
 [[annotations]]

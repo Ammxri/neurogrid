@@ -171,10 +171,19 @@ def test_committed_notices_list_exactly_the_pinned_bundle_parts() -> None:
             assert f"- removed from the bundle ({target}): {path} - {reason}" in section
 
 
-def test_committed_notices_equal_a_generation_from_the_cached_wheels() -> None:
-    """With every pinned file in .local/notices-wheels (filled by `tools/notices.py --download`) the whole
-    file is compared with a fresh generation; without them the frame test above still runs."""
+def _wheel_folders() -> list[Path]:
+    """.local/notices-wheels and, for a worktree without its own cache, NEUROGRID_NOTICES_WHEELS."""
     folders = [notices.DEFAULT_CACHE]
+    if os.environ.get("NEUROGRID_NOTICES_WHEELS"):
+        folders.append(Path(os.environ["NEUROGRID_NOTICES_WHEELS"]))
+    return folders
+
+
+def test_committed_notices_equal_a_generation_from_the_cached_wheels() -> None:
+    """With every pinned file in .local/notices-wheels or NEUROGRID_NOTICES_WHEELS (filled by
+    `tools/notices.py --download`) the whole file is compared with a fresh generation; without them the
+    frame test above still runs."""
+    folders = _wheel_folders()
     wheels, missing = notices.collect(folders, fetch=False, cache=notices.DEFAULT_CACHE)
     bundle, missing_parts = notices.collect_bundle(folders, fetch=False, cache=notices.DEFAULT_CACHE)
     if missing or missing_parts:
@@ -468,10 +477,7 @@ def test_committed_validator_wheel_is_fully_attributed() -> None:
         p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
     )
     wheel = notices.select_wheel(locked, "linux_x86_64")
-    folders = [notices.DEFAULT_CACHE]
-    if os.environ.get("NEUROGRID_NOTICES_WHEELS"):
-        folders.append(Path(os.environ["NEUROGRID_NOTICES_WHEELS"]))
-    path = notices.find_wheel(wheel, folders)
+    path = notices.find_wheel(wheel, _wheel_folders())
     if path is None:
         pytest.skip(f"{wheel.filename} is not in .local/notices-wheels")
     with zipfile.ZipFile(path) as archive:

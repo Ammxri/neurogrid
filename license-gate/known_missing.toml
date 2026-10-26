@@ -22,7 +22,7 @@ decision = "owner decision required (D-05 allows permissive licences only)"
 
 [[missing]]
 component = "bids-validator-deno:isomorphic-git@1.41.9/index.cjs"
-what = "isomorphic-git 1.41.9 inside the BIDS validator bundle (bids_validator_deno/bids-validator.js, source-map entry isomorphic-git/index.cjs) contains a path.join copied from @zenfs/core/path under LGPL-3.0-or-later, Copyright (c) James Prevett and other ZenFS contributors. The LGPL text is not kept (no approved download)."
+what = "isomorphic-git 1.41.9 inside the BIDS validator bundle (bids_validator_deno/bids-validator.js, source-map entry isomorphic-git/index.cjs) contains a path.join copied from @zenfs/core/path under LGPL-3.0-or-later, Copyright (c) James Prevett and other ZenFS contributors. The LGPL-3.0 and GPL-3.0 texts are in LICENSES/ (D-16)."
 decision = "owner decision required (D-05 forbids LGPL)"
 
 [[missing]]
@@ -40,8 +40,3 @@ what = "libsz (part of libaec 1.1.4) in the Linux h5py wheel: the wheel states n
 [[missing]]
 component = "python-build-standalone:3.12.15+20261009"
 what = "The licence texts of the libraries inside the python-build-standalone archive other than CPython (e.g. OpenSSL, libffi, SQLite, XZ, zlib) are not in the distributed install_only archive."
-
-[[missing]]
-component = "LGPL-3.0-or-later"
-what = "The licence text of LGPL-3.0-or-later is not in LICENSES/ (no approved download, D-15). The header that isomorphic-git 1.41.9 copied with path.join from @zenfs/core states it; that header is kept in license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/LICENSE.index.cjs-zenfs-path-join.txt, and the component waits for the owner's decision (bids-validator-deno:isomorphic-git@1.41.9/index.cjs)."
-decision = "owner decision required (D-05 forbids LGPL)"

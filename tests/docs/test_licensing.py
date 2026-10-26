@@ -142,18 +142,41 @@ def test_licence_file_names(path: str, hit: bool) -> None:
     assert bool(LICENCE_FILE.search(path)) is hit
 
 
+def third_party_texts() -> set[str]:
+    """Licence texts of LICENSES/ that a manifest of license-gate/third_party attaches to a bundled package
+    (repository_file), for example the LGPL-3.0 and GPL-3.0 texts of the D-16 exception."""
+    found: set[str] = set()
+    for manifest in (ROOT / THIRD_PARTY).glob("*/manifest.toml"):
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        for package in data["package"]:
+            for text in package.get("text", []):
+                name = str(text.get("repository_file", ""))
+                if name.startswith("LICENSES/"):
+                    found.add(Path(name).stem)
+    return found
+
+
 def test_used_licences_have_texts_and_texts_are_used() -> None:
     used: set[str] = set()
+    own: set[str] = set()  # licences of this repository's own files (no third-party licence file)
     for table in _annotations():
         used |= _ids(str(table["SPDX-License-Identifier"]))
+    own |= used
     for name in _files():
         header = _header_licence(name) if not name.startswith("LICENSES/") else None
         if header:
             used |= _ids(header)
+            if not LICENCE_FILE.search(name):
+                own |= _ids(header)
     texts = {path.stem for path in LICENSES.glob("*.txt")}
     absent = used - texts
     assert absent <= known_missing(), sorted(absent - known_missing())  # only reviewed gaps (G1)
-    assert not texts - used, sorted(texts - used)  # no unused licence text
+    # no unused licence text: each one licenses files of this repository or a bundled third-party package
+    unused = texts - used - third_party_texts()
+    assert not unused, sorted(unused)
+    # the copyleft texts serve the bundled LGPL part only (D-16), never a file of this repository
+    assert {"LGPL-3.0-or-later", "GPL-3.0-or-later"} <= third_party_texts() - own
+    assert third_party_texts() <= texts, sorted(third_party_texts() - texts)
     if absent:
         warnings.warn(f"licence texts pending owner approval (G1): {sorted(absent)}", stacklevel=1)
     assert (LICENSES / "Apache-2.0.txt").read_bytes() == (ROOT / "LICENSE").read_bytes()
@@ -161,29 +184,45 @@ def test_used_licences_have_texts_and_texts_are_used() -> None:
 
 LICENCE_TEXTS = ROOT / "license-gate" / "licence_texts.toml"
 SHA256 = re.compile(r"[0-9a-f]{64}")
+SPDX_DATA = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0"
+# Every licence text downloaded into LICENSES/ and the decision that approved exactly that download.
+APPROVED_DOWNLOADS = {
+    "LICENSES/CC-BY-4.0.txt": "D-15",
+    "LICENSES/LGPL-3.0-or-later.txt": "D-16",
+    "LICENSES/GPL-3.0-or-later.txt": "D-16",
+}
 
 
 def test_downloaded_licence_texts_match_their_record() -> None:
-    """D-15: a licence text downloaded into LICENSES/ is recorded with its URL, size and SHA-256 and stored
-    byte for byte; Apache-2.0 (a copy of LICENSE) and OFL-1.1 (the font's OFL.txt) are no downloads."""
+    """D-15, D-16: a licence text downloaded into LICENSES/ is recorded with its URL, size and SHA-256 and
+    stored byte for byte; Apache-2.0 (a copy of LICENSE) and OFL-1.1 (the font's OFL.txt) are no downloads.
+    Each download is the one its decision approved, all from the same pinned tag of SPDX license-list-data."""
     data = tomllib.loads(LICENCE_TEXTS.read_text(encoding="utf-8"))
     assert data["version"] == 1
     recorded = {str(item["path"]): item for item in data["text"]}
     texts = {f"LICENSES/{path.name}" for path in LICENSES.glob("*.txt")}
     assert set(recorded) == texts - {"LICENSES/Apache-2.0.txt", "LICENSES/OFL-1.1.txt"}
-    assert "LICENSES/CC-BY-4.0.txt" in recorded and "CC-BY-4.0" not in known_missing()
+    assert {path: item["decision"] for path, item in recorded.items()} == APPROVED_DOWNLOADS
+    assert not {Path(path).stem for path in recorded} & known_missing()
     for path, item in recorded.items():
         content = (ROOT / path).read_bytes()
         assert SHA256.fullmatch(str(item["sha256"])), path
         assert hashlib.sha256(content).hexdigest() == item["sha256"], path
         assert len(content) == item["size"], path
-        assert item["spdx"] == Path(path).stem and item["decision"] == "D-15", path
-        assert str(item["url"]).startswith("https://") and b"\r" not in content, path
+        assert item["spdx"] == Path(path).stem, path
+        assert str(item["url"]) == f"{SPDX_DATA}/text/{item['spdx']}.txt", path
+        assert b"\r" not in content, path
     font_licence = ROOT / "src" / "neurogrid" / "report" / "fonts" / "OFL.txt"
     assert font_licence.read_bytes() == (LICENSES / "OFL-1.1.txt").read_bytes()
     cc_by = (LICENSES / "CC-BY-4.0.txt").read_text(encoding="utf-8")
     assert cc_by.startswith("Creative Commons Attribution 4.0 International")
     assert "Section 1 – Definitions." in cc_by and "Section 8 – Interpretation." in cc_by
+    lgpl = (LICENSES / "LGPL-3.0-or-later.txt").read_text(encoding="utf-8")
+    assert lgpl.startswith("GNU LESSER GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007")
+    assert "4. Combined Works." in lgpl
+    gpl = (LICENSES / "GPL-3.0-or-later.txt").read_text(encoding="utf-8")
+    assert gpl.startswith("GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007")
+    assert "END OF TERMS AND CONDITIONS" in gpl
 
 
 def test_no_case_collision_with_licenses_folder() -> None:
