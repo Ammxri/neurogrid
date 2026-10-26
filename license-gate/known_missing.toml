@@ -30,3 +30,11 @@ what = "libsz (part of libaec 1.1.4) in the Linux h5py wheel: the wheel states n
 [[missing]]
 component = "python-build-standalone:3.12.15+20261009"
 what = "The licence texts of the libraries inside the python-build-standalone archive other than CPython (e.g. OpenSSL, libffi, SQLite, XZ, zlib) are not in the distributed install_only archive."
+
+[[missing]]
+component = "docs-site:focus-visible"
+what = "focus-visible (the WICG :focus-visible polyfill) inside the script bundle of the documentation theme mkdocs-material 9.7.7: the shipped file states neither its licence nor a copyright line, so its licence and text could not be taken from the shipped files (a download is covered by neither D-06 nor D-15)."
+
+[[missing]]
+component = "docs-site:material-design-color"
+what = "material-design-color, whose colour palette the main style sheet of the documentation theme mkdocs-material 9.7.7 compiles in: the shipped files state no licence, so neither its licence nor its text could be reviewed (a download is covered by neither D-06 nor D-15)."

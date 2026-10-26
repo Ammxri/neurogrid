@@ -6,6 +6,7 @@ component list, and that the runtime export of the licence gate holds no package
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import io
 import json
@@ -665,7 +666,11 @@ def test_a_licence_outside_the_permissive_ones_needs_an_owner_decision(tmp_path:
     )
 
 
-COPYLEFT_TEXTS = ("LICENSES/LGPL-3.0-or-later.txt", "LICENSES/GPL-3.0-or-later.txt")
+COPYLEFT_DIR = "license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9"
+COPYLEFT_TEXTS = (
+    f"{COPYLEFT_DIR}/LICENSE.LGPL-3.0-or-later.txt",
+    f"{COPYLEFT_DIR}/LICENSE.GPL-3.0-or-later.txt",
+)
 LGPL_SOURCE = "../../node_modules/.deno/a@1.0.0/node_modules/a/index.cjs"
 
 
@@ -732,7 +737,7 @@ def test_a_version_bound_exception_admits_exactly_its_part(tmp_path: Path) -> No
     found = notices.check_validator_texts(
         wheel, notices.load_validator_texts("9.9.9", only_lgpl), [], exceptions=[_exception()]
     )
-    assert "LICENSES/GPL-3.0-or-later.txt is not attached" in "\n".join(found)
+    assert f"{COPYLEFT_TEXTS[1]} is not attached" in "\n".join(found)
     assert "names no licence text" in "\n".join(
         notices.check_validator_texts(wheel, packages, [], exceptions=[_exception(texts=())])
     )
@@ -800,9 +805,7 @@ def test_the_notices_name_the_exception_with_its_texts(tmp_path: Path) -> None:
     assert notices.EXCEPTIONS_HEADING in section
     for value in ("Copyright (c) Example contributors", "lines 1 to 9", LGPL_SOURCE, "bids-validator.js.map"):
         assert value in section, value
-    assert (
-        "Licence texts: LICENSES/LGPL-3.0-or-later.txt, LICENSES/GPL-3.0-or-later.txt (section 6)" in section
-    )
+    assert f"Licence texts: {COPYLEFT_TEXTS[0]}, {COPYLEFT_TEXTS[1]} (section 6)" in section
     texts = list(notices.iter_texts(text))
     assert any(t.startswith("GNU LESSER GENERAL PUBLIC LICENSE") for t in texts)
     assert any(t.startswith("GNU GENERAL PUBLIC LICENSE") for t in texts)
@@ -1038,6 +1041,32 @@ def test_repository_notices_must_exist(tmp_path: Path) -> None:
     assert "Creative Commons Attribution 4.0 International" in text
 
 
+def test_a_note_naming_a_moved_text_is_found(tmp_path: Path) -> None:
+    """R27: the notes of the manifests are prose; a text moved away from LICENSES/ must not stay named."""
+    (tmp_path / "LICENSES").mkdir()
+    (tmp_path / "LICENSES" / "MIT.txt").write_text("MIT\n", encoding="utf-8")
+    kept = tmp_path / "license-gate" / "third_party" / "a@1.0.0"
+    kept.mkdir(parents=True)
+    (kept / "LICENSE.LGPL-3.0-or-later.txt").write_text("LGPL\n", encoding="utf-8")
+    text = (
+        "The texts are LICENSES/MIT.txt and LICENSES/LGPL-3.0-or-later.txt (moved). Kept next to it: "
+        "license-gate/third_party/a@1.0.0/LICENSE.LGPL-3.0-or-later.txt. A bundled source names src/md5.c, "
+        "tools/gyp and vendor/LICENSES/X.txt, which are no files of the repository."
+    )
+    assert notices.missing_repository_paths(text, tmp_path) == ["LICENSES/LGPL-3.0-or-later.txt"]
+    fixed = text.replace(" and LICENSES/LGPL-3.0-or-later.txt", "")
+    assert notices.missing_repository_paths(fixed, tmp_path) == []
+
+
+def test_committed_notices_and_notes_name_only_existing_repository_files() -> None:
+    """R27: neither the committed notices nor a note of license-gate names a repository file that is gone,
+    e.g. the copyleft texts of the D-16 exception after they moved next to isomorphic-git."""
+    assert notices.missing_repository_paths(_committed()) == []
+    for path in sorted((ROOT / "license-gate").rglob("*.toml")):
+        named = path.read_text(encoding="utf-8")
+        assert notices.missing_repository_paths(named) == [], path.relative_to(ROOT)
+
+
 # --- files and downloads ------------------------------------------------------------------------------------
 
 
@@ -1241,6 +1270,8 @@ def test_check_fails_while_texts_are_missing(tmp_path: Path, monkeypatch: Any, c
     target = tmp_path / "NOTICES.txt"
     monkeypatch.setattr(notices, "NOTICES", target)
     monkeypatch.setattr(notices, "load_known_missing", lambda: [])
+    # the documentation site has its own test (its pending parts refer to the real known_missing.toml)
+    monkeypatch.setattr(notices, "check_site_review", lambda site, known: [])
     assert notices.main(["--check"]) == 1  # no file yet: outdated
     assert notices.main(["--out", str(target)]) == 0
     assert notices.main(["--check"]) == 0
@@ -1252,3 +1283,107 @@ def test_check_fails_while_texts_are_missing(tmp_path: Path, monkeypatch: Any, c
     assert "incomplete: CC-BY-4.0" in capsys.readouterr().out
     monkeypatch.setattr(notices, "collect", lambda *a, **k: ([], ["x.whl"]))
     assert notices.main(["--check"]) == 2
+
+
+SITE_PARTS = (
+    "mkdocs-material",
+    "rxjs",
+    "tslib",
+    "clipboard",
+    "escape-html",
+    "focus-visible",
+    "lunr",
+    "material-design-color",
+    "Material Design Icons",
+    "Octicons",
+    "Font Awesome Free",
+    "Noto Sans SC",
+)
+
+
+def test_the_documentation_site_is_reviewed_and_listed_in_the_notices() -> None:
+    """R19, TECH-10, NG-N07: every third-party part of the documentation site that the bundle and the release
+    ship is in THIRD_PARTY_NOTICES.txt with its licence and texts; parts whose licence or text the shipped
+    files do not state are known gaps (the release fails while they remain)."""
+    version = notices.locked_version(notices.SITE_THEME)
+    review = notices.load_site_review(version)
+    assert version == "9.7.7" and review is not None
+    assert tuple(p.name for p in review.packages) == SITE_PARTS
+    known = notices.load_known_missing()
+    assert notices.check_site_review(review, known) == []
+    text = (ROOT / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8")
+    section = text.split("\n4. Components outside the wheels", 1)[1].split("\n5. ", 1)[0]
+    assert (
+        "Documentation site (docs/ of the offline bundle and of the release, mkdocs-material 9.7.7):"
+        in section
+    )
+    for name in SITE_PARTS:
+        assert name in section, name
+    assert "assets/javascripts/lunr/**, **/*.map" in section
+    gaps = text.split("\n5. ", 1)[1].split("\n6. ", 1)[0]
+    assert "docs-site:focus-visible" in gaps and "docs-site:material-design-color" in gaps
+    users = [line for line in text.splitlines() if line.startswith("Used by: documentation site")]
+    for part in (
+        "pypi mkdocs-material 9.7.7",
+        "npm lunr 2.3.9",
+        "npm tslib",
+        "icons Font Awesome Free 7.1.0",
+    ):
+        assert any(part in line for line in users), part
+    texts = list(notices.iter_texts(text))
+    assert any("Licensed MIT © Zeno Rocha" in t for t in texts)
+    assert any(t.startswith("Pictogrammers Free License") for t in texts)
+
+
+def test_a_documentation_site_review_names_each_gap(tmp_path: Path) -> None:
+    review = notices.load_site_review(notices.locked_version(notices.SITE_THEME))
+    assert review is not None
+    known = notices.load_known_missing()
+    assert notices.check_site_review(None, known) == [
+        "documentation site: no licence review of mkdocs-material (license-gate/third_party)"
+    ]
+    where = "documentation site (mkdocs-material 9.7.7)"
+    lunr = next(p for p in review.packages if p.name == "lunr")
+
+    def with_lunr(**changes: Any) -> Any:
+        changed = dataclasses.replace(lunr, **changes)
+        return dataclasses.replace(
+            review, packages=tuple(changed if p is lunr else p for p in review.packages)
+        )
+
+    assert notices.check_site_review(with_lunr(spdx="MPL-2.0"), known) == [
+        f"{where}: npm lunr 2.3.9: licence MPL-2.0 is not permissive (MPL-2.0 needs unmodified = true)"
+    ]
+    unmodified = dataclasses.replace(with_lunr(spdx="MPL-2.0"), unmodified=frozenset({"lunr"}))
+    assert notices.check_site_review(unmodified, known) == []  # D-05: MPL-2.0 passed on unmodified
+    assert notices.check_site_review(with_lunr(spdx="LGPL-3.0-or-later"), known) == [
+        f"{where}: npm lunr 2.3.9: licence LGPL-3.0-or-later is not permissive"
+    ]
+    assert notices.check_site_review(with_lunr(spdx="", texts=()), known) == [
+        f"{where}: npm lunr 2.3.9: no licence text and no known_missing.toml entry",
+        f"{where}: npm lunr 2.3.9: no reviewed licence and no known_missing.toml entry",
+    ]
+    assert notices.check_site_review(with_lunr(pending="docs-site:lunr"), known) == [
+        f"{where}: npm lunr 2.3.9: 'docs-site:lunr' is not listed in known_missing.toml"
+    ]
+    copy = tmp_path / "review"
+    shutil.copytree(review.folder, copy)
+    header = copy / "npm" / "lunr@2.3.9" / "LICENSE.source-header.txt"
+    header.write_text(header.read_text(encoding="utf-8") + "changed\n", encoding="utf-8")
+    moved = [
+        dataclasses.replace(t, path=copy / t.label) if t.label.startswith("npm/lunr") else t
+        for t in lunr.texts
+    ]
+    assert notices.check_site_review(with_lunr(texts=tuple(moved)), known) == [
+        f"{where}: npm lunr 2.3.9: SHA-256 or size of npm/lunr@2.3.9/LICENSE.source-header.txt differs from "
+        "manifest.toml"
+    ]
+    orphan = dataclasses.replace(review, files=tuple(f for f in review.files if "search" not in f.pattern))
+    assert f"{where}: npm lunr 2.3.9: part of no site file (stale review)" in notices.check_site_review(
+        orphan, known
+    )
+    assert notices.site_glob("**/*.html").fullmatch("index.html")
+    assert notices.site_glob("**/*.html").fullmatch("zh/reference/rules.html")
+    assert not notices.site_glob("assets/javascripts/bundle.*.min.js").fullmatch(
+        "assets/javascripts/x/bundle.a.min.js"
+    )

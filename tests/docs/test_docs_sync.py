@@ -3,6 +3,7 @@ registry, the rule packs, the configuration model, the CLI, the schemas and the 
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -485,3 +486,54 @@ def test_decision_a67_records_the_posix_rules_of_the_code() -> None:
     for example in (r"\x.edf", r"a\b.edf", "/\\…"):
         assert f"`{example}`" in paragraph, example
         assert operator_path_problem(example.replace("…", "x"), windows=False) is None, example
+
+
+def test_privacy_pages_state_the_strace_rule_of_the_offline_gate(tmp_path: Path) -> None:
+    """NG-N01, A-49: 'Check it yourself' states the criterion of tools/strace_check.py (the offline gate of
+    CI): no AF_INET/AF_INET6 call to an address other than loopback; loopback calls are allowed. A trace that
+    the gate accepts must not look like a failure to a user who follows the page."""
+    import strace_check  # type: ignore[import-not-found]
+
+    for lang in LANGUAGES:
+        section = _anchored(_page(lang, "privacy.md"))["check-yourself"]
+        flat = " ".join(section.split())
+        assert "127.0.0.0/8" in flat and "`::1`" in flat, lang
+        assert "tools/strace_check.py" in flat and "`strace-*.txt`" in flat, lang
+        assert "strace-check.txt" in flat, lang  # the trace file name the checker reads
+        assert not re.search(r"must not contain\s+`AF_INET` or `AF_INET6`\.", flat), lang
+        assert "记录中不得出现 `AF_INET` 或 `AF_INET6`。" not in flat, lang
+    loopback = 'connect(3, {sa_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("127.0.0.1")}, 16) = 0'
+    loopback6 = 'connect(3, {sa_family=AF_INET6, sin6_port=htons(9), inet_pton(AF_INET6, "::1", &x)}, 28) = 0'
+    outside = 'connect(3, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr("10.0.0.1")}, 16) = -1'
+    assert strace_check.classify(loopback)[0] == strace_check.classify(loopback6)[0] == "loopback"
+    assert strace_check.classify(outside)[0] == "network"
+    (tmp_path / "strace-check.txt").write_text(f"{loopback}\n{loopback6}\n", encoding="utf-8")
+    _summary, attempts = strace_check.check(tmp_path)
+    assert attempts == []  # what the page allows, the gate allows
+
+
+INSTALLER = ROOT / "tools" / "install_pdf_browser.py"
+INSTALLER_ADDRESS = "<REPO_URL>/releases/download/v<version>/install_pdf_browser.py"
+PDF_SECTION = {"en": "PDF browser", "zh": "PDF 浏览器", "de": "PDF-Browser"}
+
+
+def test_pdf_browser_section_gives_the_installers_address_and_sha256() -> None:
+    """p5_decisions B2, NG-N06: PyPI and source users take install_pdf_browser.py from the release; the docs
+    section that the exit-2 hint names gives its address and its SHA-256 (the script of this version, kept
+    current by tools/gen_docs.py) and how to compare it, and the hint of every language says so."""
+    digest = hashlib.sha256(INSTALLER.read_bytes()).hexdigest()
+    for lang in LANGUAGES:
+        section = _anchored(_page(lang, "installation.md"))["pdf-browser"]
+        assert INSTALLER_ADDRESS in section, lang
+        assert digest in section, lang
+        assert "sha256sum install_pdf_browser.py" in section, lang
+        assert "Get-FileHash -Algorithm SHA256 install_pdf_browser.py" in section, lang
+        assert "`SHA256SUMS`" in section and "(#verify)" in section, lang  # the signed list of the release
+    for lang, texts in tables().items():
+        hint = texts["errors.pdf.install.docs"]
+        assert PDF_SECTION[lang] in hint and "install_pdf_browser.py" in hint, lang
+    # every hint points to the documentation section for the address and the SHA-256, not elsewhere
+    assert "(address and SHA-256 there)" not in tables()["en"]["errors.pdf.install.docs"]
+    assert "that section gives its address and SHA-256" in tables()["en"]["errors.pdf.install.docs"]
+    assert "该节给出其地址和 SHA-256" in tables()["zh"]["errors.pdf.install.docs"]
+    assert "dieser Abschnitt nennt Adresse und SHA-256" in tables()["de"]["errors.pdf.install.docs"]

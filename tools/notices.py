@@ -14,7 +14,10 @@ the package set covers every entry of the source map, permissive licences, every
 permissive ones needs a known_missing.toml entry with the owner's decision or a version-bound exception of
 components.toml, D-16). The parts of the offline
 bundle outside the wheels - python-build-standalone and uv, pinned by the bundle data
-packaging/bundle_lock.json - are read the same way (tarfile, zipfile) when that file exists. This own reader
+packaging/bundle_lock.json - are read the same way (tarfile, zipfile) when that file exists. The documentation
+site (docs/ of the bundle and of the release) is listed from its review of the locked mkdocs-material
+version (license-gate/third_party/mkdocs-material-<version>/manifest.toml), which tools/build_docs.py checks
+against every file of the built site. This own reader
 replaces pip-licenses for the notices (deviation from A-56, recorded in A-86): pip-licenses only sees the
 installed packages of one platform.
 
@@ -170,7 +173,11 @@ INTRO = (
     "NeuroGrid itself is licensed under Apache-2.0 (LICENSE, NOTICE). Its documentation and sample data are "
     "licensed under CC BY 4.0; the bundled report fonts under the SIL Open Font License 1.1 (REUSE.toml)."
 )
-TERMS = "Every text below keeps its own terms."
+TERMS = (
+    "Every text below keeps its own terms. Only NeuroGrid's own prose in this file is licensed under "
+    "CC BY 4.0; the licence texts, notices and headers it reproduces word for word keep their terms and "
+    "authors (LicenseRef-NeuroGrid-Reproduced-Notices in REUSE.toml and LICENSES/)."
+)
 VALIDATOR_INTRO = (
     "Taken from bids-validator.js.map; 'in <package>' marks a package that the prebuilt dist of that package "
     "carries, for which the map names no version. The wheel carries only the validator's own MIT licence. "
@@ -755,6 +762,11 @@ def load_validator_texts(version: str, folder: Path = THIRD_PARTY) -> list[Bundl
     data = tomllib.loads(manifest.read_text(encoding="utf-8"))
     if data.get("version") != 1 or str(data.get("validator_version")) != version:
         raise NoticeError(f"{manifest}: unsupported version or another validator version")
+    return _bundled_packages(data, base)
+
+
+def _bundled_packages(data: Mapping[str, Any], base: Path) -> list[BundledPackage]:
+    """The [[package]] tables of a review manifest; a text is a file below ``base`` or a repository_file."""
     packages = []
     for item in data.get("package", []):
         texts = []
@@ -796,6 +808,193 @@ def load_validator_texts(version: str, folder: Path = THIRD_PARTY) -> list[Bundl
             )
         )
     return packages
+
+
+# --- the documentation site (docs/ of the offline bundle and of the release, TECH-06) --------------------
+
+SITE_THEME = "mkdocs-material"
+# Licences a part of the documentation site may have: the permissive ones of the validator bundle and the
+# font licence of the report fonts; MPL-2.0 only for a package passed on unmodified (D-05).
+SITE_ALLOWED = BUNDLED_ALLOWED | frozenset({"OFL-1.1"})
+SITE_MPL = "MPL-2.0"
+SITE_INTRO = (
+    "Built by tools/build_docs.py with {theme} {version} and reviewed in license-gate/third_party/"
+    "{theme}-{version}/manifest.toml; the build fails for a file of the site that neither NeuroGrid writes "
+    "itself nor this review covers, and for a licence outside the permissive ones. NeuroGrid's own parts of "
+    "the site are the text of the pages (CC BY 4.0) and its style sheet, script and generated index, "
+    "sitemap and schemas (Apache-2.0)."
+)
+
+
+@dataclass(frozen=True)
+class SiteFile:
+    """A glob of paths of the built site and the reviewed packages such a file contains."""
+
+    pattern: str
+    packages: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SiteReview:
+    """The licence review of the documentation site for one theme version (manifest.toml)."""
+
+    theme: str
+    version: str
+    folder: Path
+    packages: tuple[BundledPackage, ...]
+    files: tuple[SiteFile, ...]
+    pruned: tuple[str, ...]
+    unmodified: frozenset[str]  # packages under MPL-2.0 that the site passes on unchanged (D-05)
+    installed: Mapping[str, str]  # stored text -> the file of the installed theme it was copied from
+
+
+def site_glob(pattern: str) -> re.Pattern[str]:
+    """A glob of a site path: '**/' any number of folders, '**' anything, '*' anything but '/'."""
+    out, index = "", 0
+    while index < len(pattern):
+        if pattern.startswith("**/", index):
+            out, index = out + "(?:.*/)?", index + 3
+        elif pattern.startswith("**", index):
+            out, index = out + ".*", index + 2
+        elif pattern[index] == "*":
+            out, index = out + "[^/]*", index + 1
+        else:
+            out, index = out + re.escape(pattern[index]), index + 1
+    return re.compile(out)
+
+
+def locked_version(name: str, lock: Path = LOCK) -> str | None:
+    """The version of ``name`` in uv.lock (any group), None if it is not locked or not unique."""
+    packages, _project = load_lock(lock)
+    versions = {version for (locked, version) in packages if locked == canonicalize_name(name)}
+    return versions.pop() if len(versions) == 1 else None
+
+
+def site_review_folder(version: str, folder: Path = THIRD_PARTY) -> Path:
+    return folder / f"{SITE_THEME}-{version}"
+
+
+def load_site_review(version: str | None, folder: Path = THIRD_PARTY) -> SiteReview | None:
+    """The licence review of the documentation site built with ``SITE_THEME`` ``version``, or None."""
+    if not version:
+        return None
+    base = site_review_folder(version, folder)
+    manifest = base / "manifest.toml"
+    if not manifest.is_file():
+        return None
+    data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    if data.get("version") != 1 or data.get("theme") != SITE_THEME or data.get("theme_version") != version:
+        raise NoticeError(f"{manifest}: unsupported version or another theme version")
+    installed = {
+        str(text["file"]): str(text["installed"])
+        for item in data.get("package", [])
+        for text in item.get("text", [])
+        if "installed" in text and "file" in text
+    }
+    return SiteReview(
+        theme=SITE_THEME,
+        version=version,
+        folder=base,
+        packages=tuple(_bundled_packages(data, base)),
+        files=tuple(
+            SiteFile(str(item["pattern"]), tuple(str(name) for name in item["packages"]))
+            for item in data.get("site_file", [])
+        ),
+        pruned=tuple(str(pattern) for pattern in data.get("pruned", [])),
+        unmodified=frozenset(str(item["name"]) for item in data.get("package", []) if item.get("unmodified")),
+        installed=installed,
+    )
+
+
+def site_licence_problems(package: BundledPackage, review: SiteReview) -> list[str]:
+    """A licence of a site package outside SITE_ALLOWED (MPL-2.0 only unmodified, D-05)."""
+    outside = spdx_units(package.spdx) - SITE_ALLOWED
+    if package.name in review.unmodified:
+        outside -= {SITE_MPL}
+    return (
+        [
+            f"licence {package.spdx} is not permissive"
+            + (" (MPL-2.0 needs unmodified = true)" if SITE_MPL in outside else "")
+        ]
+        if outside
+        else []
+    )
+
+
+# A file of this repository that the own prose of the notices names (notes of the manifests and of
+# components.toml): only the two top-level folders that hold no third-party sources, so the paths quoted from
+# the bundled sources (src/..., tools/...) are not taken for files of NeuroGrid.
+REPOSITORY_PATH = re.compile(r"(?<![\w./@-])(?:LICENSES|license-gate)/[\w@.+\-/]*\w")
+
+
+def missing_repository_paths(text: str, root: Path = ROOT) -> list[str]:
+    """The repository paths named in ``text`` (REPOSITORY_PATH) that do not exist under ``root``, sorted:
+    a note still naming a text after it was moved (R27)."""
+    named = set(REPOSITORY_PATH.findall(text))
+    return sorted(path for path in named if not (root / path).exists())
+
+
+def check_site_review(review: SiteReview | None, known_missing: Sequence[Mapping[str, str]]) -> list[str]:
+    """The review of the documentation site: every package has its texts (recorded SHA-256 and size) or a
+    known_missing.toml entry, a reviewed licence that is permissive (site_licence_problems) unless that entry
+    waits for it, and is part of a site file; every site file names reviewed packages only."""
+    if review is None:
+        return [f"documentation site: no licence review of {SITE_THEME} (license-gate/third_party)"]
+    where = f"documentation site ({review.theme} {review.version})"
+    pending = {item["component"] for item in known_missing}
+    problems: list[str] = []
+    names = {package.name for package in review.packages}
+    used = {name for item in review.files for name in item.packages}
+    for item in review.files:
+        for name in sorted(set(item.packages) - names):
+            problems.append(f"{where}: {item.pattern} names {name}, which the review does not list")
+    for package in review.packages:
+        label = f"{where}: {package.registry} {package.name} {package.version or package.found}"
+        if package.name not in used:
+            problems.append(f"{label}: part of no site file (stale review)")
+        if package.pending and package.pending not in pending:
+            problems.append(f"{label}: '{package.pending}' is not listed in known_missing.toml")
+        if not package.texts and not package.pending:
+            problems.append(f"{label}: no licence text and no known_missing.toml entry")
+        if not package.spdx and not package.pending:
+            problems.append(f"{label}: no reviewed licence and no known_missing.toml entry")
+        problems += [f"{label}: {problem}" for problem in site_licence_problems(package, review)]
+        for text in package.texts:
+            if not text.path.is_file():
+                problems.append(f"{label}: licence text missing: {text.label}")
+                continue
+            data = text.path.read_bytes()
+            if hashlib.sha256(data).hexdigest() != text.sha256 or len(data) != text.size:
+                problems.append(f"{label}: SHA-256 or size of {text.label} differs from manifest.toml")
+    return problems
+
+
+def _site_lines(review: SiteReview) -> list[str]:
+    """The documentation site in section 4: its packages with licence, texts and site files."""
+    out = [
+        "",
+        f"Documentation site (docs/ of the offline bundle and of the release, {review.theme} "
+        f"{review.version}):",
+        "",
+        *paragraph(SITE_INTRO.format(theme=review.theme, version=review.version)),
+        "",
+    ]
+    rows = [
+        (p.registry, p.name, p.version or p.found, p.spdx or "pending (section 5)", _text_kinds(p))
+        for p in review.packages
+    ]
+    out += _table(rows, ("Kind", "Part", "Version", "Licence", "Licence texts"))
+    out += ["", "Files of the site and the parts they contain:"]
+    out += [f"- {item.pattern}: {', '.join(item.packages)}" for item in review.files]
+    out += ["", "Review notes (manifest.toml):"]
+    out += [f"- {p.registry} {p.name} {p.version or p.found}: {p.note}" for p in review.packages if p.note]
+    if review.pruned:
+        out += [
+            f"- not shipped: {', '.join(review.pruned)} - removed by tools/build_docs.py after the build "
+            "(the lunr language files of lunr-languages, tinyseg and wordcut, which the English-only search "
+            "never loads, and the source maps)"
+        ]
+    return out
 
 
 def check_validator_texts(
@@ -911,7 +1110,7 @@ def check_exceptions(
                 f"{tag}: the licence is stated in {', '.join(stating) or 'no source'}, "
                 f"the exception names {exception.source}"
             )
-        attached = {text.label for text in package.texts}
+        attached = {text.label for text in package.texts} | {_repository_path(t.path) for t in package.texts}
         if not exception.texts:
             problems.append(f"{tag}: names no licence text")
         for name in exception.texts:
@@ -920,6 +1119,14 @@ def check_exceptions(
         if len(problems) == before:
             excused.setdefault(package.key, set()).update(units)
     return problems, excused
+
+
+def _repository_path(path: Path) -> str:
+    """``path`` relative to the repository (POSIX), or as it is when it lies outside."""
+    try:
+        return path.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        return path.as_posix()
 
 
 def licence_policy(package: BundledPackage, permitted: Iterable[str]) -> tuple[set[str], list[str]]:
@@ -1245,11 +1452,15 @@ def render(
     lock: Path = LOCK,
     third_party: Path = THIRD_PARTY,
     exceptions: Sequence[BundledException] | None = None,
+    site: SiteReview | None = None,
 ) -> str:
     """Deterministic text: no date, sorted by name (casefold) and version, texts deduplicated by SHA-256.
-    The version-bound exceptions are those of components.toml unless others are given."""
+    The version-bound exceptions are those of components.toml unless others are given; the documentation
+    site is the review of the locked theme version in ``third_party`` unless one is given."""
     if exceptions is None:
         exceptions = load_bundled_exceptions()
+    if site is None:
+        site = load_site_review(locked_version(SITE_THEME, lock), third_party)
     out: list[str] = [
         "NeuroGrid - third-party notices",
         "",
@@ -1347,13 +1558,15 @@ def render(
             for exception in sorted(valid, key=lambda e: (e.package.casefold(), e.version, e.source)):
                 out += _exception_lines(exception)
     other = [c for c in components if c.kind in ("external", "bundle", "not_distributed")]
-    if other or bundle:
+    if other or bundle or site:
         out += ["", "4. Components outside the wheels", ""]
         rows = [(c.kind, c.dist, c.pattern, c.platform, c.spdx, c.notice or "-") for c in other]
         out += _table(sorted(rows), ("Kind", "Component", "Part", "Platform", "Licence", "Text"))
         out += [""] + [
             f"- {c.dist} {c.pattern}: {c.note}" for c in sorted(other, key=lambda c: (c.dist, c.pattern))
         ]
+    if site is not None:
+        out += _site_lines(site)
     if bundle:
         out += ["", "Offline bundle parts as pinned in packaging/bundle_lock.json:", ""]
         rows = [(p.target, p.name, p.version, p.filename, p.license_expression) for p in bundle]
@@ -1406,6 +1619,15 @@ def render(
     for part in bundle:
         for path, text in part.license_texts.items():
             add(text, f"{part.name} {part.version} ({part.target}): {path}")
+    if site is not None:
+        for package in site.packages:
+            for item in package.texts:
+                if item.path.is_file():
+                    user = f"{package.registry} {package.name} {package.version or package.found}"
+                    add(
+                        _text(item.path.read_bytes()),
+                        f"documentation site ({site.theme} {site.version}): {user}: {item.origin}",
+                    )
     for component in other:
         repository_text = _repository_text(component.notice) if component.kind == "external" else None
         if repository_text is not None:
@@ -1466,7 +1688,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         known = load_known_missing()
         exceptions = load_bundled_exceptions()
         problems = check_components(wheels, components, allowed, known, bundle, exceptions=exceptions)
-        text = render(wheels, components, known, bundle, exceptions=exceptions)
+        site = load_site_review(locked_version(SITE_THEME))
+        problems += check_site_review(site, known)
+        text = render(wheels, components, known, bundle, exceptions=exceptions, site=site)
+        gone = missing_repository_paths(text)
+        problems += [f"the notices name a file not in the repository: {p}" for p in gone]
     except NoticeError as exc:
         print(f"notices: {exc}", file=sys.stderr)
         return 2

@@ -15,6 +15,7 @@ import yaml
 
 import build_docs  # type: ignore[import-not-found]
 import gen_docs  # type: ignore[import-not-found]
+import notices  # type: ignore[import-not-found]
 from neurogrid.report.texts import tables
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -274,3 +275,103 @@ def test_builds_are_byte_identical(built_site: Any, site_builder: Any, tmp_path:
         }
 
     assert digest(built_site.site) == digest(second.site)
+
+
+def test_installer_block_follows_the_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """B2: the address and SHA-256 of install_pdf_browser.py on the installation pages are generated from the
+    script itself; a changed script makes --check fail until the pages are generated again."""
+    assert gen_docs.main(["--check"]) == 0
+    changed = tmp_path / "install_pdf_browser.py"
+    changed.write_bytes(gen_docs.INSTALLER.read_bytes() + b"# changed\n")
+    monkeypatch.setattr(gen_docs, "INSTALLER", changed)
+    assert gen_docs.main(["--check"]) == 1
+    digest = hashlib.sha256(changed.read_bytes()).hexdigest()
+    assert gen_docs.installer_block() == (f"```text\n{gen_docs.INSTALLER_ADDRESS}\nSHA-256: {digest}\n```\n")
+
+
+def test_site_ships_only_reviewed_permissive_parts(built_site: Any, tmp_path: Path) -> None:
+    """R19, TECH-10, D-05: the lunr language files (lunr-languages under MPL, tinyseg, wordcut), which the
+    English-only search never loads, and the source maps are not shipped; every other file is NeuroGrid's
+    own or covered by the licence review of the installed theme, and a file nobody reviewed, a pruned file
+    or a script with a copyleft licence header fails the build check."""
+    assert built_site.returncode == 0, built_site.output[-3000:]
+    site = built_site.site
+    assert not (site / "assets" / "javascripts" / "lunr").exists()
+    assert not list(site.rglob("*.map"))
+    review = build_docs.theme_review()
+    assert build_docs.check_site_licences(site, review) == []
+    copy = tmp_path / "site"
+    shutil.copytree(site, copy)
+    (copy / "assets" / "javascripts" / "extra.min.js").write_text("var a=1;", encoding="utf-8")
+    (copy / "assets" / "javascripts" / "lunr" / "min").mkdir(parents=True)
+    (copy / "assets" / "javascripts" / "lunr" / "min" / "lunr.de.min.js").write_text(
+        "/*! Lunr languages, Copyright 2014, Mihai Valentin http://www.mozilla.org/MPL/ */", encoding="utf-8"
+    )
+    bundle = next((copy / "assets" / "javascripts").glob("bundle.*.min.js"))
+    bundle.write_text(
+        bundle.read_text(encoding="utf-8") + "\n/*! SPDX-License-Identifier: LGPL-3.0 */", "utf-8"
+    )
+    problems = build_docs.check_site_licences(copy, review)
+    assert (
+        "assets/javascripts/extra.min.js: third-party file without licence review (license-gate/third_party)"
+        in problems
+    )
+    assert "assets/javascripts/lunr/min/lunr.de.min.js: pruned by the licence review but shipped" in problems
+    assert f"{bundle.relative_to(copy).as_posix()}: names a copyleft licence (MPL, GPL, LGPL)" in problems
+    for favicon in copy.rglob("favicon.png"):
+        favicon.unlink()
+    assert "licence review: assets/images/favicon.png matches no file of the site (stale review)" in (
+        build_docs.check_site_licences(copy, review)
+    )
+
+
+def test_the_build_log_names_each_site_licence_still_pending(built_site: Any) -> None:
+    """R19: a part of the site whose licence waits for the owner (focus-visible, material-design-color) does
+    not fail the docs build, but every build names it, and its known_missing.toml entry stops the release."""
+    review = build_docs.theme_review()
+    lines = build_docs.pending_licences(review)
+    pending = {p.name: p.pending for p in review.packages if p.pending}
+    assert {"focus-visible", "material-design-color"} <= set(pending)
+    gaps = {item["component"] for item in notices.load_known_missing()}
+    assert set(pending.values()) <= gaps
+    assert lines == sorted(lines) and len(lines) == len(pending)
+    for line in lines:
+        assert line in built_site.output, line
+
+
+def test_prune_removes_the_reviewed_files_only(tmp_path: Path) -> None:
+    review = build_docs.theme_review()
+    lunr = tmp_path / "assets" / "javascripts" / "lunr" / "min"
+    lunr.mkdir(parents=True)
+    (lunr / "lunr.de.min.js").write_text("x", encoding="utf-8")
+    (tmp_path / "assets" / "javascripts" / "lunr" / "wordcut.js").write_text("x", encoding="utf-8")
+    (tmp_path / "assets" / "javascripts" / "bundle.1.min.js").write_text("x", encoding="utf-8")
+    (tmp_path / "assets" / "javascripts" / "bundle.1.min.js.map").write_text("{}", encoding="utf-8")
+    removed = build_docs.prune(tmp_path, review)
+    assert removed == [
+        "assets/javascripts/bundle.1.min.js.map",
+        "assets/javascripts/lunr/min/lunr.de.min.js",
+        "assets/javascripts/lunr/wordcut.js",
+    ]
+    assert not (tmp_path / "assets" / "javascripts" / "lunr").exists()
+    assert (tmp_path / "assets" / "javascripts" / "bundle.1.min.js").is_file()
+
+
+def test_licence_pages_and_footer_name_the_site_parts() -> None:
+    """R19: CC BY 4.0 covers NeuroGrid's own text; the theme, scripts, icons and font of the site keep their
+    own licences, which the licence page names and the footer points to."""
+    footers = {item["locale"]: item["copyright"] for item in _plugin(_mkdocs(), "i18n")["languages"]}
+    assert "Documentation text: CC BY 4.0" in footers["en"] and "Theme and scripts:" in footers["en"]
+    assert "文档文本：CC BY 4.0" in footers["zh"] and "主题与脚本" in footers["zh"]
+    for lang in LANGUAGES:
+        page = (DOCS / lang / "license.md").read_text(encoding="utf-8")
+        for name in (
+            "mkdocs-material",
+            "lunr",
+            "rxjs",
+            "Font Awesome Free",
+            "Material Design Icons",
+            "Octicons",
+        ):
+            assert name in page, (lang, name)
+        assert "THIRD_PARTY_NOTICES.txt" in page and "CC BY 4.0" in page, lang

@@ -231,7 +231,7 @@ errors:
     install:
       command: "Installation mit: {command}   (offline: zusätzlich --from-zip <zip-Datei> --sha256 <SHA-256>; siehe Dokumentation)."
       command_windows: "Installation in der Eingabeaufforderung mit: {cmd}   oder in PowerShell mit: {powershell}   (offline: zusätzlich --from-zip <zip-Datei> --sha256 <SHA-256>; siehe Dokumentation)."
-      docs: "Installation: siehe Dokumentation, Seite Installation, Abschnitt „PDF-Browser“. Das Installationsskript install_pdf_browser.py liegt jedem NeuroGrid-Release bei (Adresse und SHA-256 dort); Ausführen mit Python 3.11 oder neuer."
+      docs: "Installation: siehe Dokumentation, Seite Installation, Abschnitt „PDF-Browser“. Das Installationsskript install_pdf_browser.py liegt jedem NeuroGrid-Release bei; dieser Abschnitt nennt Adresse und SHA-256. Ausführen mit Python 3.11 oder neuer."
       apt: "Unter {distribution} installieren mit: apt-get install --no-install-recommends {packages}"
       apt_other: "Diese Linux-Distribution ist nicht verifiziert; die Pakete für {distribution} sind: apt-get install --no-install-recommends {packages}"
   output:

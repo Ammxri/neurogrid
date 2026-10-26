@@ -3,8 +3,10 @@
 | 部分 | 许可证 |
 |---|---|
 | 源代码、工具、配置 | Apache License 2.0（`LICENSE`、`NOTICE`） |
-| 文档（本网站、README、DATA_SOURCES）和合成示例数据 | 知识共享署名 4.0 国际许可协议（CC BY 4.0），https://creativecommons.org/licenses/by/4.0/ |
+| 文档文本（本网站页面的文字、README、DATA_SOURCES）和合成示例数据 | 知识共享署名 4.0 国际许可协议（CC BY 4.0），https://creativecommons.org/licenses/by/4.0/ |
 | 报告字体（Noto Sans SC 静态字重） | SIL 开放字体许可证 1.1（`src/neurogrid/report/fonts/OFL.txt`） |
+| 本文档网站的主题、脚本、图标和字体 | 各自的许可证，见[下文](#docs-site) |
+| `THIRD_PARTY_NOTICES.txt` | NeuroGrid 自己的文字为 CC BY 4.0；其中转载的许可证文本和声明保留各自的条款 |
 
 仓库中的 `REUSE.toml` 列出每个文件的许可证；许可证文本位于 `LICENSES/`。由于 wheel 包含报告字体，其声明的许可证为
 `Apache-2.0 AND OFL-1.1`。
@@ -16,6 +18,24 @@
 `tools/notices.py` 根据锁定的软件包生成，随每个发布版本和离线安装包提供。已知的缺漏在文件中写明，并在正式发布前补齐。
 
 公开测试语料库中的数据集及其许可证列于 `DATA_SOURCES.md`。
+
+## 本文档网站 {#docs-site}
+
+CC BY 4.0 适用于本网站页面中 NeuroGrid 自己的文字。网站使用主题 mkdocs-material（MIT）构建，其文件保留各自的
+许可证：
+
+| 部分 | 许可证 |
+|---|---|
+| mkdocs-material：页面模板、样式表、脚本、网站图标 | MIT |
+| 其脚本包中的 rxjs、tslib、clipboard、escape-html、focus-visible | Apache-2.0、0BSD、MIT、MIT；focus-visible：尚待确认 |
+| 其搜索中的 lunr | MIT |
+| 其样式表中的配色 material-design-color | 尚待确认 |
+| 图标：Material Design Icons、Octicons、Font Awesome Free | Apache-2.0、MIT、CC BY 4.0 |
+| 中文字符：Noto Sans SC 的子集 | SIL 开放字体许可证 1.1 |
+
+`THIRD_PARTY_NOTICES.txt` 列出每个部分的版权声明和许可证文本。随附文件未写明许可证的两个部分在该文件中列为已知缺漏，
+并在正式发布前解决。
+搜索的语言文件（lunr-languages，采用 Mozilla 公共许可证）不属于本网站：本文档的搜索不使用它们。
 
 ## 不分发的组件 {#not-distributed}
 

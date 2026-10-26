@@ -148,9 +148,25 @@ python tools/install_pdf_browser.py --check
 
 `--platform` is `win64` or `linux64`. Only the pinned archive is accepted. In the offline bundle the script lies in
 `tools/` and runs with the bundled Python (`python\python.exe` on Windows, `python/bin/python3.12` on Linux);
-the installation scripts can run it for you (`-PdfBrowserZip`, `--pdf-browser-zip`). With an installation from
-PyPI or from source, take the script from the release page of the repository; its SHA-256 is listed in the
-release's `SHA256SUMS`.
+the installation scripts can run it for you (`-PdfBrowserZip`, `--pdf-browser-zip`).
+
+With an installation from PyPI or from source, download the script from the release of your NeuroGrid version.
+Address and SHA-256 of the script of this version:
+
+<!-- BEGIN GENERATED pdf installer -->
+```text
+<REPO_URL>/releases/download/v<version>/install_pdf_browser.py
+SHA-256: 3e713e1400cde83a93782d1dacd0e8201fcb74693c787987e7e5ca51cfd6b149
+```
+<!-- END GENERATED -->
+
+The same value is the `install_pdf_browser.py` line of the release's `SHA256SUMS`, whose signature you check as
+in [Verify the download](#verify). Compare it before you run the script with Python 3.11 or later:
+
+```bash
+sha256sum install_pdf_browser.py                         # Linux
+Get-FileHash -Algorithm SHA256 install_pdf_browser.py    # Windows PowerShell
+```
 
 Without the browser, `neurogrid report --format pdf` stops with exit code 2 and a hint; `--format html` always
 works. On Linux the browser needs system libraries; NeuroGrid checks them before printing and names the missing

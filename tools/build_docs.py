@@ -3,22 +3,32 @@ releases.
 
 Steps: (1) the generated pages are current (tools/gen_docs.py --check); (2) SOURCE_DATE_EPOCH from the
 environment, else the commit time of HEAD, so that two builds are byte-identical; (3) `mkdocs build --strict`
-in-process under an audit hook that refuses every network operation; (4) the Chinese font subset: the Han
-characters of all built pages, cut from the report font Noto Sans SC (A-27) into assets/fonts/*.woff; (5)
-checks of the built site: both languages have the same pages, every page carries the fixed sentence of its
-language (report/i18n), no page or stylesheet loads an external resource, no script holds a URL of another
-host except the theme's reviewed loaders (SCRIPT_LOADERS) and no page meets the condition of one, the search
+in-process under an audit hook that refuses every network operation; (4) the files the licence review of the
+theme prunes are removed: the lunr language files (lunr-languages under MPL, tinyseg, wordcut), which the
+English-only search never loads, and the source maps; (5) the Chinese font subset: the Han characters of all
+built pages, cut from the report font Noto Sans SC (A-27) into assets/fonts/*.woff; (6) checks of the built
+site: both languages have the same pages, every page carries the fixed sentence of its language
+(report/i18n), no page or stylesheet loads an external resource, no script holds a URL of another host
+except the theme's reviewed loaders (SCRIPT_LOADERS) and no page meets the condition of one, the search
 index is configured for offline use and its Chinese entries are segmented, docs/umsetzung and docs/_data are
-not published, the fonts cover every character they are meant for.
+not published, the fonts cover every character they are meant for; (7) the licences of the site (TECH-10,
+NG-N07, D-05): every file is NeuroGrid's own (OWN_SITE_FILES) or covered by the review of the installed
+theme version (license-gate/third_party/mkdocs-material-<version>/manifest.toml, also the source of the
+documentation-site part of THIRD_PARTY_NOTICES.txt), every licence of the review is permissive (MPL-2.0
+only unmodified) or waits in license-gate/known_missing.toml (each such part is printed as 'licence pending';
+the release stops at tools/notices.py --check), no script or style sheet carries a copyleft
+licence header, and the licence files the review copied are still those of the installed theme.
 
 Usage: python tools/build_docs.py [--site-dir site]
-Exit codes: 0 built and checked, 1 a check failed, 2 the build failed (generation, fonts, network, mkdocs).
+Exit codes: 0 built and checked, 1 a check failed, 2 the build failed (generation, fonts, network, mkdocs, no
+licence review of the theme version).
 """
 
 from __future__ import annotations
 
 import argparse
 import html.parser
+import importlib.metadata
 import io
 import json
 import logging
@@ -86,6 +96,24 @@ SCRIPT_LOADERS = {
     "https://api.github.com/": "repository",
     "https://${e}/api/v4/projects/": "repository",
 }
+
+
+# Files of the built site that NeuroGrid writes itself (the pages are the theme's templates around NeuroGrid's
+# text and are covered by the licence review like the theme's other files).
+OWN_SITE_FILES = (
+    "search/search_index.json",
+    "sitemap.xml",
+    "sitemap.xml.gz",
+    "schemas/*.schema.json",
+    "assets/stylesheets/neurogrid.css",
+    "assets/javascripts/file-search-hint.js",
+)
+# A copyleft licence named in a script or style sheet: such a file is no permissive part of the site.
+COPYLEFT = re.compile(
+    r"mozilla\.org/MPL|Mozilla Public License|GNU (?:Lesser |Library |Affero )?General Public License"
+    r"|SPDX-License-Identifier:\s*(?:MPL|L?GPL|AGPL)",
+    re.I,
+)
 
 
 class BuildError(Exception):
@@ -325,28 +353,133 @@ def check_site(site: Path) -> list[str]:
     return problems
 
 
+# --- licences of the built site (TECH-10, NG-N07, D-05) -----------------------------------------------------
+
+
+def theme_review() -> Any:
+    """The licence review of the installed theme version (tools/notices.py SiteReview); BuildError without."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import notices
+
+    version = importlib.metadata.version(notices.SITE_THEME)
+    review = notices.load_site_review(version)
+    if review is None:
+        folder = notices.site_review_folder(version).relative_to(ROOT).as_posix()
+        raise BuildError(f"no licence review of {notices.SITE_THEME} {version} ({folder}/manifest.toml)")
+    return review
+
+
+def prune(site: Path, review: Any) -> list[str]:
+    """Remove the files the review prunes (and folders left empty); returns their site paths."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import notices
+
+    globs = [notices.site_glob(pattern) for pattern in review.pruned]
+    removed = []
+    for path in sorted(site.rglob("*"), reverse=True):
+        rel = path.relative_to(site).as_posix()
+        if path.is_file() and any(glob.fullmatch(rel) for glob in globs):
+            path.unlink()
+            removed.append(rel)
+        elif path.is_dir() and not any(path.iterdir()):
+            path.rmdir()
+    return sorted(removed)
+
+
+def check_site_licences(site: Path, review: Any) -> list[str]:
+    """Step 7: every file of the site is NeuroGrid's own or covered by the review, nothing pruned is left,
+    the review itself is complete (notices.check_site_review), no script or style sheet names a copyleft
+    licence unless all its parts are MPL-2.0 passed on unmodified, the review is that of the installed theme
+    version and the licence files it copied are still those of the installed theme."""
+    sys.path.insert(0, str(ROOT / "tools"))
+    import notices
+
+    problems: list[str] = []
+    own = [notices.site_glob(pattern) for pattern in OWN_SITE_FILES]
+    pruned = [notices.site_glob(pattern) for pattern in review.pruned]
+    covered = [(item, notices.site_glob(item.pattern)) for item in review.files]
+    unmodified_mpl = {p.name for p in review.packages if p.name in review.unmodified}
+    used: set[str] = set()
+    for path in sorted(p for p in site.rglob("*") if p.is_file()):
+        rel = path.relative_to(site).as_posix()
+        if any(glob.fullmatch(rel) for glob in pruned):
+            problems.append(f"{rel}: pruned by the licence review but shipped")
+            continue
+        if any(glob.fullmatch(rel) for glob in own):
+            continue
+        matches = [item for item, glob in covered if glob.fullmatch(rel)]
+        if not matches:
+            problems.append(f"{rel}: third-party file without licence review (license-gate/third_party)")
+            continue
+        used.update(item.pattern for item in matches)
+        if path.suffix in (".js", ".css") and COPYLEFT.search(
+            path.read_text(encoding="utf-8", errors="replace")
+        ):
+            parts = {name for item in matches for name in item.packages}
+            if not parts <= unmodified_mpl:
+                problems.append(f"{rel}: names a copyleft licence (MPL, GPL, LGPL)")
+    problems += [
+        f"licence review: {item.pattern} matches no file of the site (stale review)"
+        for item in review.files
+        if item.pattern not in used
+    ]
+    problems += [
+        f"licence review: {problem}"
+        for problem in notices.check_site_review(review, notices.load_known_missing())
+    ]
+    installed = importlib.metadata.version(notices.SITE_THEME)
+    if installed != review.version:
+        problems.append(
+            f"licence review is for {notices.SITE_THEME} {review.version}, installed is {installed}"
+        )
+    if installed != notices.locked_version(notices.SITE_THEME):
+        problems.append(f"installed {notices.SITE_THEME} {installed} is not the version of uv.lock")
+    distribution = importlib.metadata.distribution(notices.SITE_THEME)
+    for stored, source in sorted(review.installed.items()):
+        located = Path(str(distribution.locate_file(source)))
+        kept = review.folder / stored
+        if not located.is_file() or not kept.is_file():
+            problems.append(f"licence review: {stored} or the installed {source} is missing")
+        elif located.read_bytes() != kept.read_bytes():
+            problems.append(f"licence review: {stored} differs from the installed {source}")
+    return problems
+
+
 def build_site(site: Path) -> tuple[list[str], NetworkGuard]:
-    """Steps 1-5; returns the problems of the checks (empty = fine) and the guard with its events."""
+    """Steps 1-7; returns the problems of the checks (empty = fine) and the guard with its events."""
     sys.path.insert(0, str(ROOT / "tools"))
     sys.path.insert(0, str(ROOT / "src"))
     import gen_docs
 
     if gen_docs.main(["--check"]) != 0:
         raise BuildError("generated documentation is outdated (python tools/gen_docs.py)")
+    review = theme_review()
     os.environ["SOURCE_DATE_EPOCH"] = source_date_epoch()
     guard = NetworkGuard()
     sys.addaudithook(guard)
     run_mkdocs(site, guard)
+    prune(site, review)
     chars = used_characters(site)
     guard.active = True
     try:
         write_fonts(site, chars)
     finally:
         guard.active = False
-    problems = check_site(site) + font_coverage(site, chars)
+    problems = check_site(site) + font_coverage(site, chars) + check_site_licences(site, review)
     if guard.events:
         problems.append(f"network operations during the build: {sorted(set(guard.events))}")
     return problems, guard
+
+
+def pending_licences(review: Any) -> list[str]:
+    """The parts of the site whose licence waits for the owner's decision (their known_missing.toml entry):
+    the build passes with them, as each is attributed in the notices with its gap, while tools/notices.py
+    --check and so the release stop (STOPP G1). One line per part, sorted, for the build log."""
+    return sorted(
+        f"licence pending (blocks the release, STOPP G1): {package.name} ({package.pending})"
+        for package in review.packages
+        if package.pending
+    )
 
 
 def report(problems: Iterable[str]) -> int:
@@ -367,6 +500,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"build_docs: {exc}", file=sys.stderr)
         return 2
     print(f"network events during the build: {len(guard.events)}")
+    for line in pending_licences(theme_review()):
+        print(line)
     code = report(problems)
     if code == 0:
         print(f"documentation built and checked: {site}")

@@ -8,14 +8,20 @@ messages, run 2 with Chinese ones); ``check --jobs 1`` once more on ds004148. Th
 reading of the files (not the product's code that wrote them):
 
 - exit codes: no exit 2; ``check`` exits with ``summary.exit_code`` (0 or 1), the others with 0;
+- readability: no failed CORE-M01 finding; a data set with one does not count towards the G1 minimum, nor do
+  its formats (NG-F01);
 - console: strict UTF-8, the fixed sentence (A-08) as a line of stdout, stderr only translated library
   warnings, no traceback, no path of the data set, no home folder;
 - files: exactly the expected files, no work folder or temporary file left (A-54);
 - results.json, scan.json and manifest.json valid against the shipped schemas (Draft 2020-12 with formats),
   results.json canonical (NG-F14);
 - every finding row of both HTML reports: the ten cells of report/render.py (FINDING_CELLS), every empty
-  value one of the explained texts (EXPLAINED_EMPTY), the threshold with the origin of every parameter, at
-  most MAX_ROWS_PER_RULE rows per rule with the exact remainder named (NG-F13, A-09, A-13, A-59);
+  value one of the explained texts (EXPLAINED_EMPTY), every cell compared with the finding (rule, status,
+  clause, title, measured value, threshold values with the origin of every parameter, file, channel, time
+  range, reason; _cell_problems), at most MAX_ROWS_PER_RULE rows per rule with the exact remainder named
+  (NG-F13, A-09, A-13, A-59);
+- both HTML reports: the fixed sentence as visible text of the cover and of the appendix and as the meta
+  description; its copy in the print CSS does not count (REP-07, A-08);
 - every PDF: the runtime QA gate and an independent pypdf reading - only embedded Type0/CIDFontType2 subsets
   of the report fonts, the fixed sentence, running head and page counter on every page, A4 pages, no radical
   or compatibility code point, every section heading and rule ID, /Info exactly Title Creator Producer
@@ -24,7 +30,10 @@ reading of the files (not the product's code that wrote them):
   content checks are not repeated on a later run whose files are byte-identical to run 1 (its exit codes,
   console and file list are checked);
 - privacy (NG-N05, A-51): no path of the corpus or the output folder, no home folder, user or host name, no
-  identifying EDF/BDF header value, recording date or time, no raw age, no digest other than those
+  identifying EDF/BDF header value, recording date or time, no real file or folder name of a raw (non-BIDS)
+  data set (shown only with --show-paths), no raw age (a non-integer age as a number of its own, an integer
+  age next to its participant ID, an age label or an age unit; in results.json and scan.json every value
+  under an age key a count or 10-year groups), no digest other than those
   results.json declares (finding keys, manifest, rule pack, configuration and evidence SHA-256: so no signal
   hash) in the console, results.json, scan.json, HTML, PDF text, PDF bytes (ASCII and UTF-16BE) and /Info.
   The manifest names the data set's own files by design (A-82); it is scanned for paths, user and host only;
@@ -34,7 +43,10 @@ reading of the files (not the product's code that wrote them):
 
 The summary goes to <out>/summary.json (machine-readable: numbers, exit codes, durations, problem texts that
 quote no value from the data) and <out>/summary.md (German table for the phase report, with the V-01
-checklist). Raw data never enter the summary; the outputs of the runs stay below <out>.
+checklist). Raw data never enter the summary; the outputs of the runs stay below <out>. "Criteria met" means
+the criteria of this run: the scaling test, the Linux offline run under strace, the clean room and the
+coverage gates belong to the G1 criterion as well but have evidence of their own (OUTSIDE_THIS_RUN, named in
+both summary files).
 
 Usage:
     python tools/acceptance_g1.py --corpus .local/corpus --out .local/acceptance/g1
@@ -63,6 +75,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
+from functools import cache
 from html.parser import HTMLParser
 from importlib import resources
 from pathlib import Path
@@ -79,7 +92,7 @@ from neurogrid.kernel.pdf import PLAYWRIGHT_VERSION, SHELL_REVISION, qa_gate
 from neurogrid.model.results import Results
 from neurogrid.report.output import REQUIRED_ONCE, pdf_expectation
 from neurogrid.report.render import EXPLAINED_EMPTY, FINDING_CELLS, MAX_ROWS_PER_RULE
-from neurogrid.report.texts import disclaimer, translator
+from neurogrid.report.texts import disclaimer, tables, translator
 
 ROOT = Path(__file__).resolve().parent.parent
 SPEC = ROOT / "tools" / "corpus_spec.json"
@@ -93,6 +106,18 @@ BUILTIN_PACKS = ("core", "bids", "gxdsl008")
 JOBS1_DATASET = "ds004148-1.0.1"
 FORMATS = ("EDF", "BDF", "BrainVision", "EEGLAB", "FIF")  # the five formats of V-01
 MIN_DATASETS, MIN_FORMATS = 3, 2  # PRD §19 G1: at least 3 data sets in at least 2 formats
+# Parts of the G1 criterion (KONZEPT §6, P5 row) that this run does not check: each has evidence of its own.
+OUTSIDE_THIS_RUN = (
+    "Skalierungstest 1000 × 64 (tests/perf/test_report_scaling.py)",
+    "Linux-Lauf ohne Netz + strace ohne connect (offline.yml)",
+    "Bündel-Installation in debian:12-slim --network none ohne vorinstalliertes Python (offline.yml)",
+    "Abdeckung Kern ≥ 90 %, Prüfer ≥ 80 % (tools/coverage_gates.py)",
+)
+# The same on the console, in ASCII: a redirected stdout may use a legacy code page (cp1252).
+OUTSIDE_THIS_RUN_CONSOLE = (
+    "scaling test 1000 x 64; Linux run without network under strace; bundle installed in debian:12-slim "
+    "--network none; coverage core >= 90 %, checkers >= 80 % (see summary.md)"
+)
 COMMANDS = ("scan", "check", "report", "manifest", "verify")
 PRODUCT_FILES = (
     "results.json",
@@ -400,6 +425,76 @@ def _plain(text: str) -> bool:
     return all(" " <= char <= "~" for char in text)
 
 
+def _shown_pattern(text: str) -> str:
+    """A regex for ``text`` as a cell may show it: white space as any run of it, every other character as
+    itself or, where the report fonts cannot draw it, as [U+XXXX] (report/glyphs.py writes that form)."""
+    parts = []
+    for char in " ".join(text.split()):
+        if char == " ":
+            parts.append(r"\s+")
+        elif " " < char <= "~":
+            parts.append(re.escape(char))
+        else:
+            parts.append(f"(?:{re.escape(char)}|\\[U\\+{ord(char):04X}\\])")
+    return "".join(parts)
+
+
+def _shows(cell: str, expected: str) -> bool:
+    """The cell shows exactly ``expected`` (see _shown_pattern)."""
+    return re.fullmatch(_shown_pattern(expected), cell.strip()) is not None
+
+
+def _starts(cell: str, expected: str) -> bool:
+    return re.match(_shown_pattern(expected), cell.strip()) is not None
+
+
+def _contains(cell: str, expected: str) -> bool:
+    return re.search(_shown_pattern(expected), cell) is not None
+
+
+PLAIN_TYPES = (bool, int, float, str)
+
+
+def _scalar_text(value: Any, tr: Any) -> str | None:
+    """The oracle's own reading of how the report shows a plain value from results.json: yes/no for a
+    boolean, at most six significant digits for a float, the text itself, the plain values of a list
+    joined by ', '. None for a mapping or a nested list (compared element by element instead)."""
+    if value is None:
+        return str(tr("report.value.none"))
+    if isinstance(value, bool):
+        return str(tr("report.value.yes" if value else "report.value.no"))
+    if isinstance(value, float):
+        return format(value, ".6g")
+    if isinstance(value, int | str):
+        return str(value)
+    if isinstance(value, list) and all(item is None or isinstance(item, PLAIN_TYPES) for item in value):
+        texts = [_scalar_text(item, tr) for item in value]
+        return ", ".join(text for text in texts if text is not None)
+    return None
+
+
+def _leaves(value: Any) -> Iterator[Any]:
+    """The plain values of a measured list or mapping that hold something (keys are labels, not values)."""
+    if isinstance(value, dict):
+        for item in value.values():
+            yield from _leaves(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _leaves(item)
+    elif _has_value(value):
+        yield value
+
+
+def _expected_clause(f: Finding, tr: Any) -> str:
+    """The clause cell by the oracle's own reading (A-40, A-41, A-83): no clause for a placeholder pack, the
+    translated 'unknown' of a pack without accessible norm text, the explained text for none."""
+    if f.source_status is SourceStatus.PLACEHOLDER:
+        return str(tr("report.value.placeholder_clause"))
+    if f.clause == "unknown":
+        return str(tr("report.value.clause_unknown"))
+    return f.clause or str(tr("report.value.clause_missing"))
+
+
 def _row_sections(findings: Iterable[Finding]) -> Counter[tuple[bool, str, str]]:
     """Findings per table of the findings section: placeholder or by severity, then by rule (A-59)."""
     counts: Counter[tuple[bool, str, str]] = Counter()
@@ -410,27 +505,56 @@ def _row_sections(findings: Iterable[Finding]) -> Counter[tuple[bool, str, str]]
 
 
 def _row_problems(
-    key: str, row: Mapping[str, str], finding: Finding, lang: str, explained: set[str]
+    key: str, row: Mapping[str, str], finding: Finding, lang: str, explained: set[str], title: str = ""
 ) -> list[str]:
     tr = translator(lang).t
     problems: list[str] = []
     missing = [cell for cell in FINDING_CELLS if cell not in row]
     if missing:
         problems.append(f"row {key}: cells missing: {', '.join(missing)}")
+    flagged: set[str] = set()
     for cell in FINDING_CELLS:
         value = row.get(cell, "").strip()
         if not value:
             problems.append(f"row {key}: cell {cell} is empty")
+            flagged.add(cell)
         elif value.startswith(DASH) and value not in explained:
             problems.append(f"row {key}: cell {cell} is a dash without an explained reason")
+            flagged.add(cell)
     if not missing:
-        problems.extend(_cell_problems(key, row, finding, tr, explained))
+        problems.extend(_cell_problems(key, row, finding, tr, explained, title=title, flagged=flagged))
     return problems
 
 
-def _cell_problems(key: str, row: Mapping[str, str], f: Finding, tr: Any, explained: set[str]) -> list[str]:
-    """The contents of the cells against the finding (NG-F13: rule, clause, measured value, threshold, file,
-    time range; A-09 empty values, A-10 time ranges, A-13 parameters with origin)."""
+def _cell_problems(
+    key: str,
+    row: Mapping[str, str],
+    f: Finding,
+    tr: Any,
+    explained: set[str],
+    *,
+    title: str = "",
+    flagged: set[str] | frozenset[str] = frozenset(),
+) -> list[str]:
+    """Every cell against the finding, by this module's own reading of results.json (NG-F13, KONZEPT §6 G1:
+    rule, clause, measured value, threshold, file, time range; A-09 empty values, A-10 time ranges, A-13
+    parameters with origin):
+
+    - rule and status exactly; clause exactly (the explained 'no clause' text only for a finding without
+      one, 'unknown' translated, no clause for a placeholder pack);
+    - title: the rule's title in this language (the explained text for a rule without one), then the
+      sub-key, optionally followed by the ' · ' note on related rules;
+    - measured: '–' with a reason exactly when there is no value; a plain value exactly as the report shows
+      it (_scalar_text), else every plain element of the list or mapping;
+    - threshold: every parameter as 'name = value (origin)' (the value compared when it is plain), the
+      threshold itself when no parameter carries it, or the explained text for a rule without one;
+    - file and channel exactly; the time cell starts with the first range or says dataset, recording or
+      file;
+    - reason: the translated reason and issue texts of the finding; the explained 'no details' text only
+      for a finding without any.
+
+    Text with characters the fonts cannot draw may show them as [U+XXXX]. A cell already named as empty or
+    as an unexplained dash (``flagged``) is not compared again."""
     problems = []
     if row["rule"].strip() != f.rule_id:
         problems.append(f"row {key}: rule cell differs from the finding's rule")
@@ -440,19 +564,49 @@ def _cell_problems(key: str, row: Mapping[str, str], f: Finding, tr: Any, explai
         status = tr(f"status.{f.status.value}")
     if row["status"].strip() != status:
         problems.append(f"row {key}: status cell differs from the finding's status")
+    if "clause" not in flagged and not _shows(row["clause"], _expected_clause(f, tr)):
+        problems.append(f"row {key}: clause cell differs from the finding's clause")
+    if "title" not in flagged:
+        expected_title = (title or str(tr("report.value.title_missing"))) + (
+            f" {DASH} {f.subkey}" if f.subkey else ""
+        )
+        pattern = _shown_pattern(expected_title) + r"(?:\s+·\s.*)?"
+        if re.fullmatch(pattern, row["title"].strip(), re.S) is None:
+            problems.append(f"row {key}: title cell differs from the rule's title")
     measured = row["measured"].strip()
     if _has_value(f.measured_value) == measured.startswith(DASH):
         problems.append(f"row {key}: measured cell does not match the measured value")
+    elif _has_value(f.measured_value) and "measured" not in flagged:
+        plain = None if isinstance(f.measured_value, dict) else _scalar_text(f.measured_value, tr)
+        if plain is None:
+            leaves = [_scalar_text(item, tr) for item in _leaves(f.measured_value)]
+            shown = all(text is None or _contains(measured, text) for text in leaves)
+        else:
+            shown = _shows(measured, plain)
+        if not shown:
+            problems.append(f"row {key}: measured cell differs from the measured value")
     threshold = row["threshold"]
     if f.params:
         for name in sorted(f.params):
             origin = tr(f"report.text.origin_{f.params[name].origin}")
             if f"{name} = " not in threshold or f"({origin})" not in threshold:
                 problems.append(f"row {key}: threshold cell lacks parameter {name} with its origin")
+                continue
+            value = _scalar_text(f.params[name].value, tr)
+            if value is not None and not _contains(threshold, f"{name} = {value} ({origin})"):
+                problems.append(f"row {key}: threshold cell shows another value of parameter {name}")
+        own = f.threshold is not None and not any(f.threshold == p.value for p in f.params.values())
+        value = _scalar_text(f.threshold, tr) if own else None
+        if value is not None and not _contains(threshold, value):
+            problems.append(f"row {key}: threshold cell lacks the threshold")
     elif f.threshold is None and threshold.strip() != tr("report.value.no_threshold"):
         problems.append(f"row {key}: threshold cell does not say that the rule has no threshold")
     elif f.threshold is not None and threshold.strip().startswith(DASH):
         problems.append(f"row {key}: threshold cell hides the threshold")
+    elif f.threshold is not None and "threshold" not in flagged:
+        value = _scalar_text(f.threshold, tr)
+        if value is not None and not _contains(threshold, value):
+            problems.append(f"row {key}: threshold cell lacks the threshold")
     file_cell = row["file"].strip()
     if f.file is None:
         if file_cell != tr("report.value.dataset_level"):
@@ -475,7 +629,24 @@ def _cell_problems(key: str, row: Mapping[str, str], f: Finding, tr: Any, explai
             problems.append(f"row {key}: time cell does not say dataset level")
     elif time_cell not in (tr("report.value.whole_recording"), tr("report.value.whole_file")):
         problems.append(f"row {key}: time cell names neither a range nor the whole recording or file")
+    if "reason" not in flagged:
+        problems.extend(_reason_problems(key, row["reason"], f, tr))
     return problems
+
+
+def _reason_problems(key: str, cell: str, f: Finding, tr: Any) -> list[str]:
+    """The reason cell names the finding's reason and issues in their translated texts, so the explained 'no
+    details' text stands only for a finding without either (other details, such as counts, may be shown
+    or not)."""
+    names = [f"reason.{f.reason}"] if f.reason else []
+    issues = f.details.get("issues", [])
+    if isinstance(issues, list):
+        names += [f"issue.{code}" for code in issues if isinstance(code, str)]
+    if isinstance(f.details.get("issue"), str):
+        names.append(f"issue.{f.details['issue']}")
+    if any(not _contains(cell, str(tr(name))) for name in names):
+        return [f"row {key}: reason cell lacks the finding's reason"]
+    return []
 
 
 @dataclass
@@ -490,6 +661,7 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
     tr = translator(lang).t
     explained = {tr(key) for key in EXPLAINED_EMPTY}
     by_key = {finding.key: finding for finding in results.findings}
+    titles = {rule.id: rule.title_zh if lang == "zh" else rule.title_en for rule in results.rules}
     rows, repeated = finding_rows(document)
     problems = [f"row {key}: a cell class appears twice" for key in sorted(set(repeated))]
     seen: Counter[str] = Counter()
@@ -502,7 +674,8 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
             continue
         placeholder = finding.source_status is SourceStatus.PLACEHOLDER
         shown[(placeholder, "" if placeholder else finding.severity.value, finding.rule_id)] += 1
-        problems.extend(_row_problems(key, row, finding, lang, explained))
+        title = titles.get(finding.rule_id, "")
+        problems.extend(_row_problems(key, row, finding, lang, explained, title))
     problems.extend(f"row {key}: shown {count} times" for key, count in sorted(seen.items()) if count > 1)
     text = html_lib.unescape(document)
     for section, total in sorted(_row_sections(results.findings).items()):
@@ -515,6 +688,64 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
                 f"{rule}: the sentence naming the remaining {total - expected} findings is missing"
             )
     return RowCheck(problems, len(rows))
+
+
+class _Sentence(HTMLParser):
+    """The visible text of every <section id=...> (style, script and head left out) and the content of
+    <meta name="description">."""
+
+    SKIPPED = ("style", "script", "head")
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.sections: dict[str, list[str]] = defaultdict(list)
+        self.description: str | None = None
+        self._section: list[str] = []
+        self._skip = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "meta" and (values.get("name") or "").lower() == "description":
+            self.description = values.get("content") or ""
+        if tag in self.SKIPPED:
+            self._skip += 1
+        elif tag == "section":
+            self._section.append(values.get("id") or "")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "meta":
+            self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self.SKIPPED and self._skip:
+            self._skip -= 1
+        elif tag == "section" and self._section:
+            self._section.pop()
+
+    def handle_data(self, data: str) -> None:
+        if not self._skip and self._section:
+            self.sections[self._section[-1]].append(data)
+
+
+HTML_SENTENCE_PLACES = (("cover", "on the cover"), ("appendix", "in the appendix"))
+
+
+def check_html(document: str, lang: str) -> list[str]:
+    """REP-07/A-08 on one HTML report: the fixed sentence of ``lang`` is visible text of the cover and of the
+    appendix and is the meta description. Its copy in the print CSS (@page margin boxes) does not count:
+    the HTML read on screen has to carry it itself."""
+    parser = _Sentence()
+    parser.feed(document)
+    parser.close()
+    sentence = _squeeze(disclaimer(lang))
+    problems = [
+        f"the fixed sentence is missing {where}"
+        for section, where in HTML_SENTENCE_PLACES
+        if sentence not in _squeeze("".join(parser.sections.get(section, [])))
+    ]
+    if parser.description is None or _squeeze(parser.description) != sentence:
+        problems.append("the meta description is not the fixed sentence")
+    return problems
 
 
 # --- PDF ---------------------------------------------------------------------------------------------------
@@ -656,11 +887,14 @@ def check_pdf(data: bytes, lang: str, results: Results, document: str) -> PdfChe
 @dataclass(frozen=True)
 class Forbidden:
     """A value that must not leave the process. ``kind``: path (any spelling, case-insensitive), word (whole
-    word, case-insensitive) or literal (exact). ``label`` names it in problems; the value is never shown."""
+    word, case-insensitive), number (a number of its own), age_context (an integer age as a number of its
+    own next to ``context``, its participant ID, or next to an age label or unit; see _age_in_context) or
+    literal (exact). ``label`` names it in problems; the value is never shown."""
 
     label: str
     value: str
     kind: str
+    context: str = ""
 
 
 def _path_forms(path: Path) -> set[str]:
@@ -736,6 +970,12 @@ def header_values(path: Path, as_of: date = AS_OF) -> list[Forbidden]:
 
 def raw_ages(dataset: Path) -> list[str]:
     """The raw values of the age column(s) of participants.tsv (n/a and empty cells left out)."""
+    return [age for _participant, age in raw_age_rows(dataset)]
+
+
+def raw_age_rows(dataset: Path) -> list[tuple[str, str]]:
+    """(participant_id, raw age) of every age cell of participants.tsv (n/a and empty cells left out; the
+    participant ID is '' when the table has no participant_id column)."""
     table = dataset / "participants.tsv"
     if not table.is_file():
         return []
@@ -744,17 +984,94 @@ def raw_ages(dataset: Path) -> list[str]:
         return []
     header = [name.strip() for name in lines[0].split("\t")]
     columns = [i for i, name in enumerate(header) if AGE_KEY.fullmatch(name.lower())]
-    values = []
+    ids = header.index("participant_id") if "participant_id" in header else None
+    rows = []
     for line in lines[1:]:
         cells = line.split("\t")
+        participant = cells[ids].strip() if ids is not None and ids < len(cells) else ""
         for i in columns:
             if i < len(cells) and cells[i].strip() and cells[i].strip().lower() != "n/a":
-                values.append(cells[i].strip())
-    return values
+                rows.append((participant, cells[i].strip()))
+    return rows
 
 
-def forbidden_values(dataset: Path, out: Path, *, as_of: date = AS_OF) -> list[Forbidden]:
-    """Everything that must not appear in the outputs of ``dataset`` (A-51, NG-N05)."""
+# An integer age is no token of its own (counts look the same), so it is searched in context: next to its
+# participant ID (within AGE_REACH characters, never across a table row or a line), after an age label
+# with a separator ('age: 54', 'Alter = 54', the Chinese label U+5E74 U+9F84 with a full-width
+# colon, 'aged 54') or before an age unit ('54 years', '54' plus the Chinese unit U+5C81). All
+# case-insensitive. The Chinese characters are escapes, so this file holds no CJK text (zh review
+# package, NG-N07).
+AGE_REACH = 40
+AGE_NUMBER = r"(?<![\d.,\-–]){age}(?![\d.,\-–])"
+AGE_LABEL = (
+    r"(?:(?<![A-Za-z])(?:ages?|alter)\s*[:\uff1a=]\s*"
+    r"|(?<![A-Za-z])aged\s+|\u5e74\u9f84\s*[:\uff1a=]?\s*)"
+)
+AGE_UNIT = r"\s*(?:\u5c81|years?(?![A-Za-z])|yrs?(?![A-Za-z])|jahre(?![A-Za-z]))"
+
+
+def _age_in_context(text: str, item: Forbidden) -> bool:
+    number = AGE_NUMBER.format(age=re.escape(item.value))
+    flags = re.IGNORECASE | re.DOTALL
+    if re.search(AGE_LABEL + number, text, flags) or re.search(number + AGE_UNIT, text, flags):
+        return True
+    if len(item.context) < 3:
+        return False
+    near = rf"(?:(?!<tr|</tr|\n).){{0,{AGE_REACH}}}?"
+    subject = rf"(?<![A-Za-z0-9]){re.escape(item.context)}(?![A-Za-z0-9])"
+    return re.search(subject + near + number, text, flags) is not None
+
+
+RAW_NAME = "raw file or folder name"
+WORD = re.compile(r"[^\W_]+")
+
+
+@cache
+def product_vocabulary() -> frozenset[str]:
+    """The words NeuroGrid writes whatever the data: its language tables (every language), the report
+    templates and style sheet, and the shipped schemas (casefolded). A folder or file stem that is one of
+    them ('Annotations', 'manual') is no searchable token: the report holds the word anyway."""
+    texts = [str(value) for table in tables().values() for value in table.values()]
+    package = resources.files("neurogrid")
+    for folder in (package.joinpath("report", "templates"), package.joinpath("schemas")):
+        texts += [item.read_text(encoding="utf-8") for item in folder.iterdir() if item.is_file()]
+    return frozenset(word.casefold() for text in texts for word in WORD.findall(text))
+
+
+def _searchable_name(value: str) -> bool:
+    """A raw name worth searching as a word: informative, with a letter, not a word of NeuroGrid's own."""
+    return (
+        _informative(value)
+        and any(char.isalpha() for char in value)
+        and value.casefold() not in product_vocabulary()
+    )
+
+
+def raw_names(dataset: Path) -> list[Forbidden]:
+    """The real names of a raw (non-BIDS) data set (A-51, D-10 f): the relative path of every file (both
+    separators), every file name, file stem and folder name below the data set. Dot entries such as
+    .neurogrid/ are NeuroGrid's control files and left out. A file name with its extension is always
+    searched; a stem or folder name only when _searchable_name says so."""
+    found: list[Forbidden] = []
+    for path in sorted(dataset.rglob("*")):
+        relative = path.relative_to(dataset)
+        if any(part.startswith(".") for part in relative.parts) or not path.is_file():
+            continue
+        posix = relative.as_posix()
+        found += [Forbidden(RAW_NAME, posix, "path"), Forbidden(RAW_NAME, posix.replace("/", "\\"), "path")]
+        if _informative(path.name) and any(char.isalpha() for char in path.name):
+            found.append(Forbidden(RAW_NAME, path.name, "word"))
+        names = [path.stem, *relative.parts[:-1]]
+        found += [Forbidden(RAW_NAME, name, "word") for name in names if _searchable_name(name)]
+    return found
+
+
+def forbidden_values(
+    dataset: Path, out: Path, *, as_of: date = AS_OF, show_paths: bool = False
+) -> list[Forbidden]:
+    """Everything that must not appear in the outputs of ``dataset`` (A-51, NG-N05). The real names of a
+    raw data set (raw_names) only without ``show_paths``: with --show-paths, and for a BIDS data set
+    (dataset_description.json at its root, as the product decides), the names are shown by design."""
     found = [Forbidden("data set path", form, "path") for form in _path_forms(dataset)]
     found += [Forbidden("output path", form, "path") for form in _path_forms(out)]
     found += [Forbidden("home folder", form, "path") for form in _path_forms(Path.home())]
@@ -769,9 +1086,13 @@ def forbidden_values(dataset: Path, out: Path, *, as_of: date = AS_OF) -> list[F
     for path in sorted(dataset.rglob("*")):
         if path.suffix.lower() in (".edf", ".bdf") and path.is_file():
             found += header_values(path, as_of)
-    for age in raw_ages(dataset):
-        if not age.isdigit():  # a plain integer is no searchable token (counts); see age_problems
+    for participant, age in raw_age_rows(dataset):
+        if not age.isdigit():
             found.append(Forbidden("raw age", age, "number"))
+        else:  # a plain integer is no searchable token of its own (counts): searched in context
+            found.append(Forbidden("raw integer age", age, "age_context", participant))
+    if not show_paths and not os.path.lexists(dataset / "dataset_description.json"):
+        found += raw_names(dataset)
     return sorted(set(found), key=lambda item: (item.label, item.value))
 
 
@@ -782,6 +1103,8 @@ def _matches(text: str, item: Forbidden) -> bool:
         return re.search(rf"(?i)(?<![A-Za-z0-9]){re.escape(item.value)}(?![A-Za-z0-9])", text) is not None
     if item.kind == "number":
         return re.search(rf"(?<![\d.,]){re.escape(item.value)}(?![\d.,])", text) is not None
+    if item.kind == "age_context":
+        return _age_in_context(text, item)
     return item.value in text
 
 
@@ -843,9 +1166,10 @@ class Output:
 
 def console_output(name: str, run: CommandRun, out: Path) -> Output:
     """Both console streams of one command, with the operator's own --out folder (named on the console by
-    design, A-82) taken out, so the rest is searched for everything else."""
+    design, A-82) taken out together with the output paths below it (the run folders that this tool names
+    after the data set, the product's file names), so the rest is searched for everything else."""
     text = "\n".join(data.decode("utf-8", "replace") for data in (run.stdout, run.stderr))
-    return Output(f"{name} console", _remove_forms(text, out))
+    return Output(f"{name} console", re.sub(r"<out>[^\s'\"]*", "<out>", _remove_forms(text, out)))
 
 
 def check_privacy(
@@ -867,7 +1191,7 @@ def check_privacy(
                 continue
             texts = [output.text, *output.info.values()]
             hit = any(_matches(text, item) for text in texts)
-            if not hit and output.raw and item.kind != "word":
+            if not hit and output.raw and item.kind not in ("word", "age_context"):
                 for encoding in ("latin-1", "utf-16-be"):
                     try:
                         needle = item.value.encode(encoding)
@@ -1111,6 +1435,7 @@ def evaluate_run(
         documents[lang_report] = document
         rows = check_finding_rows(document, results, lang_report)
         result.add("rows", (f"{lang_report}: {problem}" for problem in rows.problems))
+        result.add("html", (f"{lang_report}: {problem}" for problem in check_html(document, lang_report)))
         result.stats.setdefault("rows_checked", {})[lang_report] = rows.rows
         raw = pdf_path.read_bytes()
         pdf = check_pdf(raw, lang_report, results, document)
@@ -1125,7 +1450,10 @@ def evaluate_run(
         outputs.append(Output("manifest.json", manifest_text, manifest=True))
     outputs += consoles
     result.add("privacy", check_privacy(outputs, forbidden, results, extra=manifest_digests))
-    result.add("privacy", age_problems(json.loads((folder / "results.json").read_text(encoding="utf-8"))))
+    for name in ("results.json", "scan.json"):
+        if (folder / name).is_file():
+            data = json.loads((folder / name).read_text(encoding="utf-8"))
+            result.add("privacy", (f"{name}: {problem}" for problem in age_problems(data)))
     result.add("v06", v06_problems(results, [o.text for o in outputs if not o.manifest]))
     summary = results.summary
     failed_reads = [f for f in results.findings if f.rule_id in READ_RULES and f.status.value == "failed"]
@@ -1306,6 +1634,10 @@ def _entry(
     if different:
         problems["determinism"].append(f"differs between the runs: {', '.join(different)}")
     stats = evaluations[0].stats
+    unread = stats.get("read_errors") or 0
+    if unread:  # a recording that cannot be read has not been checked (NG-F01, KONZEPT §6 G1)
+        rules = f"{READ_RULES[0]}..{READ_RULES[-1][-2:]}"
+        problems["read"].append(f"{unread} failed readability findings ({rules})")
     folder = out / "run1" / name
     sizes = {file: (folder / file).stat().st_size for file in PRODUCT_FILES if (folder / file).is_file()}
     flat = sorted(f"{category}: {item}" for category, items in problems.items() for item in items)
@@ -1329,7 +1661,9 @@ def _entry(
         "seconds": {run: dict(values) for run, values in seconds.items()},
         "identical": not different and len(compared) == len(PRODUCT_FILES),
         "forbidden_values_checked": stats.get("forbidden_checked", 0),
-        "report_problems": sorted(problems.get("rows", []) + problems.get("pdf", [])),
+        "report_problems": sorted(
+            problems.get("rows", []) + problems.get("html", []) + problems.get("pdf", [])
+        ),
         "json_problems": sorted(problems.get("json", []) + problems.get("exit", [])),
         "v06": sorted(problems.get("v06", [])),
         "problems": flat,
@@ -1346,7 +1680,9 @@ def _summary(
     jobs: int,
     as_of: date,
 ) -> dict[str, Any]:
-    passed = [entry for entry in entries if entry["ok"]]
+    # a data set and its formats count only when every recording was read (no failed CORE-M01 finding),
+    # as for item 1 of the V-01 checklist: a format that could not be read has not been checked
+    passed = [entry for entry in entries if entry["ok"] and entry.get("read_errors") == 0]
     formats = sorted({fmt for entry in passed for fmt in entry["formats"]})
     minimum = len(passed) >= MIN_DATASETS and len(formats) >= MIN_FORMATS
     all_met = bool(entries) and len(passed) == len(entries)
@@ -1372,7 +1708,8 @@ def _summary(
             "formats_ok": formats,
             "minimum_met": minimum,
             "all_met": all_met,
-            "criteria_met": criteria,
+            "criteria_met": criteria,  # the criteria of this run, not the whole G1 criterion
+            "outside_this_run": list(OUTSIDE_THIS_RUN),
         },
         "v01_checklist": checklist,
         "v01_fulfilled": criteria and all(item["status"] == "fulfilled" for item in checklist),
@@ -1439,7 +1776,8 @@ def summary_markdown(summary: Mapping[str, Any]) -> str:
         f"- `--jobs 1` = `--jobs {summary['jobs']}` ({JOBS1_DATASET}): "
         + (_yes(jobs1["identical"]) if jobs1 else "nicht gelaufen"),
         f"- Korpus unverändert: {_yes(summary['corpus_unchanged'])}",
-        f"- Alle Kriterien erfüllt: {_yes(g1['criteria_met'])}",
+        f"- Alle Kriterien dieses Laufs erfüllt: {_yes(g1['criteria_met'])}",
+        f"- Nicht Teil dieses Laufs (eigene Nachweise): {'; '.join(g1['outside_this_run'])}",
         "",
         "## V-01-Checkliste",
         "",
@@ -1512,8 +1850,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         f"G1: {g1['datasets_ok']}/{g1['datasets']} data sets passed, formats {', '.join(g1['formats_ok'])}; "
         f"minimum {'met' if g1['minimum_met'] else 'NOT met'}; "
-        f"all criteria {'met' if g1['criteria_met'] else 'NOT met'}"
+        f"all criteria of this run {'met' if g1['criteria_met'] else 'NOT met'}"
     )
+    print(f"  outside this run: {OUTSIDE_THIS_RUN_CONSOLE}")
     for entry in summary["datasets"]:
         for problem in entry["problems"]:
             print(f"  {entry['name']}: {problem}")

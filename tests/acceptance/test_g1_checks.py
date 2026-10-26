@@ -670,3 +670,268 @@ def test_v01_evidence_names_existing_tests() -> None:
         path, _sep, name = reference.partition("::")
         source = (root / path).read_text(encoding="utf-8")
         assert not name or re.search(rf"^def {re.escape(name)}\(", source, re.M), reference
+
+
+def test_summary_names_what_the_run_covers_and_what_it_does_not(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """KONZEPT §6 G1: the run checks only part of the G1 criterion. summary.md says 'criteria of this run'
+    and names the parts with evidence of their own (scaling test, Linux offline + strace, clean room,
+    coverage), so 'ja' never reads as the whole G1 criterion being met; summary.json lists them as well."""
+    summary = _summary()
+    markdown = g1.summary_markdown(summary)
+    assert "- Alle Kriterien erfüllt:" not in markdown
+    assert "- Alle Kriterien dieses Laufs erfüllt: nein" in markdown
+    outside = [line for line in markdown.splitlines() if line.startswith("- Nicht Teil dieses Laufs")]
+    assert len(outside) == 1
+    for part in ("1000 × 64", "strace", "debian:12-slim --network none", "Kern ≥ 90 %", "Prüfer ≥ 80 %"):
+        assert part in outside[0], part
+    assert summary["g1"]["outside_this_run"] == list(g1.OUTSIDE_THIS_RUN)
+    monkeypatch.setattr(g1, "run_acceptance", lambda *args, **kwargs: summary)
+    assert g1.main(["--corpus", str(tmp_path), "--out", str(tmp_path / "out")]) == 1
+    printed = capsys.readouterr().out
+    assert "all criteria of this run NOT met" in printed and "outside this run:" in printed
+
+
+def test_unreadable_recordings_do_not_count_towards_the_minimum(tmp_path: Path) -> None:
+    """KONZEPT §6 G1 / NG-F01: a data set whose recordings fail CORE-M01 has not been checked, so neither it
+    nor its formats count towards '≥ 3 data sets in ≥ 2 formats', and the entry names the reason."""
+    readable = {**_summary()["datasets"][0], "problems": [], "ok": True}  # type: ignore[index]
+    names = ("ds-a", "ds-b", "ds-c")
+    formats = ("EDF", "BDF", "EDF")
+    good = [{**readable, "name": n, "formats": [f]} for n, f in zip(names, formats, strict=True)]
+    summary = g1._summary(good, None, True, runs=2, jobs=4, as_of=AS_OF)
+    assert summary["g1"]["minimum_met"] and summary["g1"]["formats_ok"] == ["BDF", "EDF"]
+    unreadable = [{**entry, "read_errors": entry["recordings"]} for entry in good]
+    summary = g1._summary(unreadable, None, True, runs=2, jobs=4, as_of=AS_OF)
+    assert summary["g1"]["datasets_ok"] == 0 and summary["g1"]["formats_ok"] == []
+    assert summary["g1"]["minimum_met"] is False and summary["g1"]["criteria_met"] is False
+    one = [good[0], {**good[1], "read_errors": 1}, good[2]]  # the only BDF data set is not readable
+    summary = g1._summary(one, None, True, runs=2, jobs=4, as_of=AS_OF)
+    assert summary["g1"]["formats_ok"] == ["EDF"] and summary["g1"]["minimum_met"] is False
+    (tmp_path / "run1" / "ds-x").mkdir(parents=True)
+    evaluation = g1.DatasetEval(stats={"read_errors": 2, "formats": ["BDF"], "recordings": 2})
+    same = dict.fromkeys(g1.PRODUCT_FILES, True)
+    entry = g1._entry("ds-x", tmp_path, [evaluation], {}, {"check": 1}, same)
+    assert entry["ok"] is False
+    assert "read: 2 failed readability findings (CORE-M01-01..04)" in entry["problems"]
+
+
+# --- the fixed sentence in the HTML reports (REP-07, A-08) --------------------------------------------------
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_html_reports_carry_the_fixed_sentence(results: Results, lang: str) -> None:
+    """REP-07/A-08: the fixed sentence is visible on the cover and in the appendix and is the meta
+    description; a copy in the print CSS (@page) alone does not count."""
+    document = render_report(results, lang)
+    assert g1.check_html(document, lang) == []
+    sentence = html_lib.escape(disclaimer(lang), quote=False)
+    paragraph = f'<p class="disclaimer">{sentence}</p>'
+    assert document.count(paragraph) == 2
+    cover, appendix = (document.index(paragraph), document.rindex(paragraph))
+    no_cover = document[:cover] + document[cover:].replace(paragraph, "<p></p>", 1)
+    assert g1.check_html(no_cover, lang) == ["the fixed sentence is missing on the cover"]
+    no_appendix = document[:appendix] + document[appendix:].replace(paragraph, "<p></p>", 1)
+    assert g1.check_html(no_appendix, lang) == ["the fixed sentence is missing in the appendix"]
+    meta = f'<meta name="description" content="{html_lib.escape(disclaimer(lang))}">'
+    assert meta in document
+    no_meta = document.replace(meta, '<meta name="description" content="">')
+    assert g1.check_html(no_meta, lang) == ["the meta description is not the fixed sentence"]
+    css_only = document.replace(paragraph, "<p></p>").replace(meta, "")
+    assert disclaimer(lang) in css_only  # still in @page content of the print CSS
+    assert g1.check_html(css_only, lang) == [
+        "the fixed sentence is missing on the cover",
+        "the fixed sentence is missing in the appendix",
+        "the meta description is not the fixed sentence",
+    ]
+    other = "zh" if lang == "en" else "en"
+    assert "the fixed sentence is missing on the cover" in g1.check_html(document, other)
+
+
+def _cell(row: str, name: str) -> re.Match[str]:
+    match = re.search(rf'<td class="c-{name}[^"]*">(.*?)</td>', row, re.S)
+    assert match is not None, name
+    return match
+
+
+@pytest.mark.parametrize("lang", LANGS)
+def test_finding_rows_compare_every_cell_with_the_finding(results: Results, lang: str) -> None:
+    """NG-F13 (KONZEPT §6 G1): clause, title, measured value, threshold values and reason of a row are the
+    finding's own, by the oracle's own reading; a wrong or hidden value in any of them is named."""
+    tr = translator(lang).t
+    document = render_report(results, lang)
+    assert g1.check_finding_rows(document, results, lang).problems == []
+
+    def changed(finding_key: str, name: str, text: str) -> list[str]:
+        row = _row(document, finding_key)
+        cell = _cell(row, name)
+        new_row = row.replace(cell.group(0), cell.group(0).replace(f">{cell.group(1)}<", f">{text}<"))
+        assert new_row != row
+        return g1.check_finding_rows(document.replace(row, new_row), results, lang).problems
+
+    with_clause = next(f for f in results.findings if f.clause and f.clause != "unknown")
+    key = with_clause.key
+    assert f"row {key}: clause cell differs from the finding's clause" in changed(key, "clause", "M99")
+    hidden = html_lib.escape(tr("report.value.clause_missing"), quote=False)
+    assert f"row {key}: clause cell differs from the finding's clause" in changed(key, "clause", hidden)
+    secondary = next(f for f in results.findings if f.clause == "unknown")
+    unknown = html_lib.escape(tr("report.value.clause_unknown"), quote=False)
+    assert unknown in _row(document, secondary.key)
+    problems = changed(secondary.key, "clause", "M01")
+    assert f"row {secondary.key}: clause cell differs from the finding's clause" in problems
+    problems = changed(key, "title", "Everything is fine")
+    assert f"row {key}: title cell differs from the rule's title" in problems
+    for kind in ("bool", "dict"):
+        measured = next(f for f in results.findings if type(f.measured_value).__name__ == kind)
+        problems = changed(measured.key, "measured", "12345")
+        assert f"row {measured.key}: measured cell differs from the measured value" in problems, kind
+    with_params = next(f for f in results.findings if f.params)
+    threshold = _cell(_row(document, with_params.key), "threshold").group(1)
+    wrong = re.sub(r"= [0-9.e+-]+ ", "= 999 ", threshold)
+    assert wrong != threshold
+    name = sorted(with_params.params)[0]
+    problems = changed(with_params.key, "threshold", wrong)
+    assert f"row {with_params.key}: threshold cell shows another value of parameter {name}" in problems
+    with_reason = next(f for f in results.findings if f.reason)
+    problems = changed(with_reason.key, "reason", "All good")
+    assert f"row {with_reason.key}: reason cell lacks the finding's reason" in problems
+    none = html_lib.escape(tr("report.value.no_details"), quote=False)
+    problems = changed(with_reason.key, "reason", none)
+    assert f"row {with_reason.key}: reason cell lacks the finding's reason" in problems
+
+
+def test_cell_text_allows_the_glyph_replacement() -> None:
+    """A character the report fonts cannot draw is shown as [U+XXXX] (report.glyphs); the comparison of
+    the oracle accepts exactly that spelling and nothing else."""
+    tr = translator("en").t
+    assert g1._shows("Kanal [U+2603] Fp1", "Kanal ☃ Fp1")
+    assert g1._shows("Kanal ☃ Fp1", "Kanal ☃ Fp1")
+    assert not g1._shows("Kanal [U+2604] Fp1", "Kanal ☃ Fp1")
+    assert g1._starts("采样频率 – sub-01 · see", "采样频率 – sub-01")
+    assert g1._scalar_text(0.1 + 0.2, tr) == "0.3"
+    assert g1._scalar_text(True, tr) == tr("report.value.yes")
+    assert g1._scalar_text([1, 2.5], tr) == "1, 2.5"
+    assert g1._scalar_text({"a": 1}, tr) is None
+
+
+def test_raw_file_and_folder_names_are_searched(results: Results, tmp_path: Path) -> None:
+    """A-51/NG-N05: the real names of a raw (non-BIDS) data set appear only with --show-paths, so every
+    relative path, file name, file stem and folder name below it is a forbidden value. Words of
+    NeuroGrid's own texts (a folder 'Annotations' or 'manual') and pure numbers are no searchable token;
+    the manifest names the files by design (A-82); a BIDS data set has its names shown by design."""
+    raw = tmp_path / "raw"
+    (raw / "WangFang").mkdir(parents=True)
+    write_edf(raw / "WangFang" / "WangFang_night.edf")
+    (raw / "Annotations" / "manual").mkdir(parents=True)
+    (raw / "Annotations" / "manual" / "001.txt").write_text("0 30 W\n", encoding="utf-8")
+    (raw / ".neurogrid").mkdir()
+    (raw / ".neurogrid" / "evidence.yaml").write_text("{}\n", encoding="utf-8")
+    label = "raw file or folder name"
+    found = {
+        (item.value, item.kind) for item in g1.forbidden_values(raw, tmp_path / "out") if item.label == label
+    }
+    assert {
+        ("WangFang", "word"),
+        ("WangFang_night", "word"),
+        ("WangFang_night.edf", "word"),
+        ("WangFang/WangFang_night.edf", "path"),
+        ("WangFang\\WangFang_night.edf", "path"),
+        ("001.txt", "word"),
+        ("Annotations/manual/001.txt", "path"),
+        ("Annotations\\manual\\001.txt", "path"),
+    } == found
+    assert not any(value in ("Annotations", "manual", "001", "evidence") for value, _kind in found)
+    assert not [i for i in g1.forbidden_values(raw, tmp_path / "out", show_paths=True) if i.label == label]
+    (raw / "dataset_description.json").write_text("{}", encoding="utf-8")  # now a BIDS data set
+    assert not [i for i in g1.forbidden_values(raw, tmp_path / "out") if i.label == label]
+    (raw / "dataset_description.json").unlink()
+    forbidden = g1.forbidden_values(raw, tmp_path / "out")
+    clean = [g1.Output("report.en.html", "<p>Annotations: manual scoring, 3 files</p>")]
+    assert g1.check_privacy(clean, forbidden, results) == []
+    leaks = [
+        g1.Output("report.en.html", "<p>source file WangFang_night.edf</p>"),
+        g1.Output("report.en.pdf", "recording wangfang", raw=b"BT (WangFang/WangFang_night.edf) ET"),
+        g1.Output("results.json", json.dumps({"file": "Annotations/manual/001.txt"})),
+        g1.Output("manifest.json", "WangFang/WangFang_night.edf", manifest=True),
+    ]
+    assert g1.check_privacy(leaks, forbidden, results) == [
+        f"report.en.html: contains a {label}",
+        f"report.en.pdf: contains a {label}",
+        f"results.json: contains a {label}",
+    ]
+
+
+def test_integer_ages_are_searched_in_context(results: Results, tmp_path: Path) -> None:
+    """A-21/A-51: a raw integer age is the normal case (ds002778: sub-hc1 54). It is no searchable token on
+    its own (counts), so it is searched next to its own participant ID or after an age label or before an
+    age unit, in every output; a bare count, an age group (50-59) or another participant's number is no
+    hit."""
+    (tmp_path / "participants.tsv").write_text(
+        "participant_id\tage\tsex\nsub-hc1\t54\tF\nsub-hc2\t50\tM\nsub-03\tn/a\tF\nsub-04\t34.5\tM\n",
+        encoding="utf-8",
+    )
+    assert g1.raw_age_rows(tmp_path) == [("sub-hc1", "54"), ("sub-hc2", "50"), ("sub-04", "34.5")]
+    forbidden = g1.forbidden_values(tmp_path, tmp_path / "out")
+    context = sorted((item.context, item.value) for item in forbidden if item.kind == "age_context")
+    assert context == [("sub-hc1", "54"), ("sub-hc2", "50")]
+    assert [item.value for item in forbidden if item.label == "raw age" and item.kind == "number"] == ["34.5"]
+    leaks = {
+        "html": "<p>sub-hc1 age 54, sub-hc2 age 50</p>",
+        "table": "<tr><td>sub-hc1</td><td>54</td></tr>",
+        "label": "Alter: 54",
+        "zh": "年龄：50",
+        "unit": "a participant of 54 years",
+        "zh unit": "受试者 54 岁",
+    }
+    for name, text in leaks.items():
+        problems = g1.check_privacy([g1.Output(f"{name}.html", text)], forbidden, results)
+        assert problems == [f"{name}.html: contains a raw integer age"], name
+    clean = {
+        "count": "<td>54</td>",
+        "group": "<p>Age groups: 50-59: 2</p>",
+        "other row": "<tr><td>sub-hc1</td><td>3</td></tr><tr><td>x</td><td>54</td></tr>",
+        "other subject": "sub-hc10 54",
+        "decimal": "sub-hc1 54.2 s",
+        "documented": "Subjects with documented age 54",
+        "time": "sub-hc1 0.000–54.000 s",
+    }
+    for name, text in clean.items():
+        assert g1.check_privacy([g1.Output(name, text)], forbidden, results) == [], name
+    pdf = g1.Output("report.en.pdf", "", raw=b"BT (sub-hc1 age 54) ET")
+    assert g1.check_privacy([pdf], forbidden, results) == []  # no bytes search: a context needs the text
+    pdf = g1.Output("report.en.pdf", "sub-hc1 age 54")
+    assert g1.check_privacy([pdf], forbidden, results) == ["report.en.pdf: contains a raw integer age"]
+
+
+def test_output_paths_on_the_console_are_no_raw_name_leak(results: Results, tmp_path: Path) -> None:
+    """A-82: the console names the output files below the operator's --out folder, whose sub-folders the
+    G1 run names after the data set (run1/psg-ipa-1.0.0); a raw folder 'PSG' of the data set is no leak
+    there. The same name elsewhere on the console is one."""
+    raw = tmp_path / "corpus" / "psg-ipa-1.0.0"
+    (raw / "Sleep_stages" / "PSG").mkdir(parents=True)
+    write_edf(raw / "Sleep_stages" / "PSG" / "SN1.edf")
+    out = tmp_path / "g1"
+    forbidden = g1.forbidden_values(raw, out)
+    assert g1.Forbidden(g1.RAW_NAME, "PSG", "word") in forbidden
+    written = out / "run1" / "psg-ipa-1.0.0" / "results.json"
+    sentence = disclaimer("en")
+    clean = g1.CommandRun("check", 1, f"Results written to {written}\n{sentence}\n".encode(), b"", 0.0)
+    assert g1.check_privacy([g1.console_output("check", clean, out)], forbidden, results) == []
+    leak = g1.CommandRun("check", 1, f"Results written to {written}\nread PSG/SN1.edf\n".encode(), b"", 0.0)
+    assert g1.check_privacy([g1.console_output("check", leak, out)], forbidden, results) == [
+        f"check console: contains a {g1.RAW_NAME}"
+    ]
+
+
+def test_console_summary_line_is_plain_ascii(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The tool's console lines stay ASCII, so a redirected stdout in a legacy code page (cp1252 on Windows)
+    never ends the run with an encoding error after the summary was written."""
+    summary = _summary()
+    monkeypatch.setattr(g1, "run_acceptance", lambda *args, **kwargs: summary)
+    g1.main(["--corpus", str(tmp_path), "--out", str(tmp_path / "out")])
+    printed = capsys.readouterr().out
+    assert printed.isascii(), [line for line in printed.splitlines() if not line.isascii()]
+    assert "outside this run:" in printed
