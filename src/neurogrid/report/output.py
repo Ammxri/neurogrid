@@ -142,7 +142,7 @@ def _move_aside(target: Path) -> Path | None:
     file is in place."""
     if not os.path.lexists(target):
         return None
-    handle, name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".bak")
+    handle, name = create_temporary(target.parent, f".{target.name}.", ".bak")
     os.close(handle)
     backup = Path(name)
     try:
