@@ -31,7 +31,7 @@ from pypdf.generic import DictionaryObject
 from conftest import folder_content, fresh_shell, long_path, short_folder  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.kernel import canonical, fonts, pdf
-from neurogrid.kernel.errors import NeuroGridError, PdfError
+from neurogrid.kernel.errors import InputError, NeuroGridError, PdfError
 from neurogrid.kernel.findings import SourceStatus, TimeRange
 from neurogrid.kernel.fonts import (
     FONT_FAMILY,
@@ -800,6 +800,69 @@ def test_write_reports_prints_each_language_with_its_locale(
     assert work.parent == Path(tempfile.gettempdir()).absolute() and work.name.startswith(pdf.WORK_PREFIX)
     assert not work.exists()
     assert output.LOCALES == {"zh": "zh-CN", "en": "en-US"} and set(output.LOCALES.values()) == pdf.LOCALES
+
+
+def test_output_that_cannot_be_written_ends_before_the_browser_starts(
+    results: Results, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Repair of P2: the browser's work folder no longer lies below --out, so the output folder is checked
+    on its own before the browser starts (without a browser: printer and start check replaced). A file in
+    the way of the folder or a folder that takes no new file ends with output.not_writable, a folder in the
+    place of a report with output.is_directory; nothing is rendered or printed, nothing is written, a
+    folder created for nothing is removed. The check leaves nothing behind when the folder is writable."""
+    started: list[Path] = []
+    rendered: list[str] = []
+    real = output.render_report
+
+    def spy(results: Results, lang: str, **kwargs: Any) -> str:
+        rendered.append(lang)
+        return real(results, lang, **kwargs)
+
+    class Printer:
+        def __init__(self, shell: object, work: Path) -> None:
+            started.append(work)
+
+        def __enter__(self) -> Printer:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            pass
+
+        def print(self, source: Path, meta: PdfMeta, *, locale: str) -> PrintedPdf:
+            return PrintedPdf(data=b"%PDF")
+
+    shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
+    monkeypatch.setattr(output, "locate_shell", lambda environ: shell)
+    monkeypatch.setattr(output, "preflight", lambda shell: None)
+    monkeypatch.setattr(output, "PdfPrinter", Printer)
+    monkeypatch.setattr(output, "qa_gate", lambda *args, **kwargs: [])
+    monkeypatch.setattr(output, "render_report", spy)
+    blocker = tmp_path / "a file"
+    blocker.write_text("in the way", encoding="utf-8")
+    with pytest.raises(InputError) as info:
+        write_reports(results, ["zh", "en"], ["html", "pdf"], blocker / "out", environ={})
+    assert info.value.message_key == "output.not_writable" and started == [] and rendered == []
+    occupied = tmp_path / "occupied"
+    (occupied / "report.en.pdf").mkdir(parents=True)
+    with pytest.raises(InputError) as info:
+        write_reports(results, ["en"], ["html", "pdf"], occupied, environ={})
+    assert info.value.message_key == "output.is_directory" and started == [] and rendered == []
+    assert [p.name for p in occupied.iterdir()] == ["report.en.pdf"]
+    real_mkstemp = tempfile.mkstemp
+
+    def refused(*args: Any, **kwargs: Any) -> tuple[int, str]:
+        raise PermissionError(13, "no permission")
+
+    new_folder = tmp_path / "new"
+    with monkeypatch.context() as patch:
+        patch.setattr(tempfile, "mkstemp", refused)
+        with pytest.raises(InputError) as info:
+            write_reports(results, ["en"], ["pdf"], new_folder, environ={})
+    assert tempfile.mkstemp is real_mkstemp
+    assert info.value.message_key == "output.not_writable" and started == [] and rendered == []
+    assert not new_folder.exists()  # created by the check, removed again
+    paths = write_reports(results, ["en"], ["html", "pdf"], new_folder, environ={})
+    assert len(started) == 1 and sorted(p.name for p in new_folder.iterdir()) == [p.name for p in paths]
 
 
 @pytest.mark.pdf

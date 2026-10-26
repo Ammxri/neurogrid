@@ -263,6 +263,36 @@ def test_html_only_works_without_shell(results_file: Path, tmp_path: Path) -> No
     assert sorted(p.name for p in out.iterdir()) == ["report.en.html", "report.zh.html"]
 
 
+@pytest.mark.pdf
+def test_out_that_cannot_be_written_exits_2_before_the_browser_starts(
+    results_file: Path, tmp_path: Path
+) -> None:
+    """Repair of P2: with the browser installed, an --out below a file ends with exit 2 and the message of
+    an output that cannot be written before the browser is started (Playwright is not even imported) and
+    before the browser's work folder is created; nothing is written."""
+    probe = (
+        "import sys\nfrom neurogrid.cli import main\n"
+        "try:\n    main(sys.argv[1:])\nexcept SystemExit as exc:\n    code = exc.code\n"
+        "print('playwright' in sys.modules, code)\n"
+    )
+    blocker = tmp_path / "a file"
+    blocker.write_text("in the way", encoding="utf-8")
+    out = blocker / "out"
+    with short_folder("ng-env-") as temp:
+        done = subprocess.run(
+            [sys.executable, "-c", probe, "report", str(results_file), "--lang", "zh,en"]
+            + ["--format", "html,pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp)),
+            check=False,
+        )
+        assert list(temp.iterdir()) == []
+    err = done.stderr.decode("utf-8", "replace")
+    assert done.stdout.decode("utf-8").strip().splitlines()[-1] == "False 2", err
+    assert "The output cannot be written there" in err or "无法在该位置写入输出" in err
+    assert blocker.read_text(encoding="utf-8") == "in the way"
+
+
 def test_ms_playwright_shell_is_never_used(
     results_file: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
