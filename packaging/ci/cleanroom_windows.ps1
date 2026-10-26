@@ -1,5 +1,5 @@
 ﻿# Clean-room test of the Windows offline bundle (UF-08, NG-N01, NG-N04, CON-04, ARC-06, A-26, A-49).
-# A fresh folder, no Python or uv on PATH, dead proxies, PDF browser folder and TEMP inside the room: the bundle is
+# A fresh folder, no Python or uv on PATH, PDF browser folder and TEMP inside the room: the bundle is
 # installed with its own installer and every v0.1 command runs from the installation (launcher neurogrid.cmd) on
 # synthetic fixtures under a Chinese folder name with a space. Dataset data never gives exit 2.
 # CI (elevated, ephemeral runner, without -NoOsAudit): Windows Filtering Platform audit of every connection plus an
@@ -27,6 +27,7 @@ if (-not $Root) { $Root = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [Sys
 $tag = 'ngcr' + [guid]::NewGuid().ToString('N').Substring(0, 8)
 $room = Join-Path $Root $tag
 $wfpConnection = '{0CCE9226-69AE-11D9-BED3-505054503030}'  # audit subcategory "Filtering Platform Connection"
+$deadProxy = 'http://127.0.0.1:9'  # discard port: nothing listens there
 $utf8 = New-Object System.Text.UTF8Encoding $false
 $codes = Join-Path $Evidence 'exit-codes.txt'
 [System.IO.File]::WriteAllText($codes, '', $utf8)
@@ -99,8 +100,16 @@ try {
     }
     $shell = (Get-Process -Id $PID).Path
     $env:PATH = "$env:SystemRoot\System32;$env:SystemRoot;$env:SystemRoot\System32\WindowsPowerShell\v1.0"
-    $env:HTTP_PROXY = 'http://127.0.0.1:9'; $env:HTTPS_PROXY = 'http://127.0.0.1:9'; $env:ALL_PROXY = 'http://127.0.0.1:9'
-    $env:NO_PROXY = ''
+    # Proxy variables: in CI (OS audit) none at all, so a phone-home of a proxy-honouring client names its real
+    # destination and the WFP audit sees it; a dead proxy (127.0.0.1:9) would turn it into a loopback event,
+    # which the evaluation below would have to guess at (A-49, review R11). Locally (-NoOsAudit, no audit) the
+    # dead proxies keep such a client off the network.
+    foreach ($name in 'HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY') {
+        Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+    }
+    if ($NoOsAudit) {
+        $env:HTTP_PROXY = $deadProxy; $env:HTTPS_PROXY = $deadProxy; $env:ALL_PROXY = $deadProxy; $env:NO_PROXY = ''
+    }
     $env:TEMP = "$room\tmp"; $env:TMP = "$room\tmp"
     $env:NEUROGRID_PDF_BROWSER_DIR = "$room\pdf-browser"
     if (Get-Command python.exe, python3.exe, uv.exe -CommandType Application -ErrorAction SilentlyContinue) {
@@ -213,7 +222,9 @@ try {
             $data = @{}
             foreach ($d in ([xml]$e.ToXml()).Event.EventData.Data) { $data[$d.Name] = $d.'#text' }
             if ($data['Application'] -notlike "*\$tag\*") { continue }
-            if ($data['DestAddress'] -in @('127.0.0.1', '::1')) { $loopback++; continue }
+            # Loopback is allowed (the proactor socketpair of the PDF part, A-85), except the discard port 9 of the
+            # dead proxies: a connect there is a network attempt routed to a proxy.
+            if ($data['DestAddress'] -in @('127.0.0.1', '::1') -and [string]$data['DestPort'] -ne '9') { $loopback++; continue }
             $ours.Add(('{0} {1} {2} -> {3}:{4}' -f $e.Id, $data['Application'], $data['Direction'], $data['DestAddress'], $data['DestPort']))
         }
         [System.IO.File]::WriteAllText((Join-Path $Evidence 'wfp-connections.txt'), (($ours -join "`n") + "`n"), $utf8)
@@ -229,7 +240,8 @@ try {
     if ($left.Count -gt 0) { throw "entries left in TEMP (temp-left.txt): $($left.Count)" }
     $summary.Add("archive: $(Split-Path -Leaf $Archive) sha256 $(Sha256 $Archive)")
     $summary.Add("shell: PowerShell $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition)); installer: $Installer; OS: $([System.Environment]::OSVersion.VersionString)")
-    $summary.Add("offline switches: PATH = System32 only, HTTP(S)_PROXY/ALL_PROXY = http://127.0.0.1:9, UV_OFFLINE=1 (installer), OS audit: $(-not $NoOsAudit)")
+    $proxies = if ($NoOsAudit) { "HTTP(S)_PROXY/ALL_PROXY = $deadProxy" } else { 'no proxy variables (the WFP audit sees every real destination)' }
+    $summary.Add("offline switches: PATH = System32 only, $proxies, UV_OFFLINE=1 (installer), OS audit: $(-not $NoOsAudit)")
     $summary.Add("install prefix: $($prefix.Length) characters = the limit $limit (249 - $predicted); $($over.Length) characters refused with exit 2, nothing created")
     $summary.Add("installed: $($installed.Count) files, $installedMiB MiB; longest path below the prefix $longest characters (BUNDLE.json: $predicted); $($modules.Count) modules, all with compiled bytecode")
     $summary.Add("PDF report: $(if ($PdfBrowserZip) { 'exit 0 with the browser from -PdfBrowserZip; ' } else { '' })exit 2 with an empty browser folder, nothing written, hint: $hint")

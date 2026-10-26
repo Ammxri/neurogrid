@@ -572,6 +572,20 @@ def test_offline_scripts_enforce_no_network_no_python_and_strace() -> None:
                    "http://127.0.0.1:9", "System32\\tar.exe", "Join-Path $room '安装 目录'", "temp-left.txt",
                    "max_relative_install_path", "'BUNDLE.json', 'python\\python.exe'"):  # fmt: skip
         assert needle in windows, needle
+    # Review R11: dead proxies (127.0.0.1:9) turn a phone-home of a proxy-honouring client into a loopback
+    # connect that the evidence counts as allowed. The traced Linux runs and the audited Windows run set no
+    # proxy variables, and both evaluations count a loopback connect to port 9 as a network attempt.
+    assert "export HTTP_PROXY" not in inside
+    assert "127.0.0.1:9" not in inside.replace("such as http://127.0.0.1:9", "")
+    assert "unset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY" in inside
+    proxies = re.findall(r"^\s*(.*\$env:HTTP_PROXY = .*)$", windows, re.M)
+    assert proxies == [
+        "$env:HTTP_PROXY = $deadProxy; $env:HTTPS_PROXY = $deadProxy; $env:ALL_PROXY = $deadProxy; "
+        "$env:NO_PROXY = ''"
+    ]
+    assert "    if ($NoOsAudit) {\n        $env:HTTP_PROXY = $deadProxy" in windows
+    assert 'Remove-Item -LiteralPath "Env:$name"' in windows
+    assert "-in @('127.0.0.1', '::1') -and [string]$data['DestPort'] -ne '9'" in windows
     # The prefix has exactly install.ps1's limit and one character more is refused before anything exists;
     # without a PDF browser the report writes nothing and names the installation's own installer (B2).
     for needle in (
