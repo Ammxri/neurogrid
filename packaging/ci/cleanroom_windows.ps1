@@ -40,6 +40,15 @@ function Block-Executables([string]$dir) {
     }
 }
 
+function Sha256([string]$path) {
+    # .NET, not Get-FileHash: that is a function of a script module, unreachable under Windows PowerShell 5.1
+    # started from PowerShell 7 (see packaging/install.ps1).
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    $stream = [System.IO.File]::OpenRead($path)
+    try { return [System.BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $hasher.Dispose() }
+}
+
 function Quote([string]$text) {
     if ($text -match '[\s,;&|<>^"()]' -or $text -eq '') { return '"' + ($text -replace '"', '\"') + '"' }
     return $text
@@ -218,7 +227,7 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $Evidence 'temp-left.txt'), "$names`n", $utf8)
     # A-54: neither the installer nor a NeuroGrid run leaves anything in TEMP.
     if ($left.Count -gt 0) { throw "entries left in TEMP (temp-left.txt): $($left.Count)" }
-    $summary.Add("archive: $(Split-Path -Leaf $Archive) sha256 $((Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant())")
+    $summary.Add("archive: $(Split-Path -Leaf $Archive) sha256 $(Sha256 $Archive)")
     $summary.Add("shell: PowerShell $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition)); installer: $Installer; OS: $([System.Environment]::OSVersion.VersionString)")
     $summary.Add("offline switches: PATH = System32 only, HTTP(S)_PROXY/ALL_PROXY = http://127.0.0.1:9, UV_OFFLINE=1 (installer), OS audit: $(-not $NoOsAudit)")
     $summary.Add("install prefix: $($prefix.Length) characters = the limit $limit (249 - $predicted); $($over.Length) characters refused with exit 2, nothing created")

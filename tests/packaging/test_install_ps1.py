@@ -50,6 +50,100 @@ def short_root() -> Iterator[Path]:
         shutil.rmtree(root)
 
 
+# GitHub's Windows runners start every step under PowerShell 7 (pwsh), and Windows PowerShell 5.1 started from
+# there (as these tests and install.cmd do) inherits pwsh's module path: PowerShell 7's own
+# Microsoft.PowerShell.Utility comes first and does not load under 5.1, so the commands of 5.1's script module
+# (Get-FileHash among them) are "not recognized" - 17 failures of CI run 40355705974. A user who starts
+# install.cmd from a PowerShell 7 window gets the same. Every PowerShell of this module runs with a stand-in
+# of that module first on the module path, so the runner's condition holds on any machine. Like PowerShell 7's
+# manifest, the stand-in lists every cmdlet of the module (Get-FileHash and Format-Hex are cmdlets there) and
+# names the module's assembly: the first Utility cmdlet the installer runs (ConvertFrom-Json) imports it, the
+# assembly resolves to Windows PowerShell's own, and Get-FileHash, a function of 5.1's script module, is then
+# missing (measured: a stand-in that lists fewer cmdlets is passed over and hides nothing).
+PWSH_UTILITY_MANIFEST = """@{{
+GUID = "1DA87E53-152B-403E-98DC-74D7B4D63D59"
+ModuleVersion = "7.0.0.0"
+CompatiblePSEditions = @("Core")
+PowerShellVersion = "3.0"
+CmdletsToExport = "Get-FileHash", "Format-Hex", {cmdlets}
+FunctionsToExport = @()
+NestedModules = "Microsoft.PowerShell.Commands.Utility.dll"
+}}
+"""
+
+
+def _utility_cmdlets() -> str:
+    """The cmdlet list of Windows PowerShell 5.1's own Microsoft.PowerShell.Utility manifest."""
+    import os
+
+    module = "Microsoft.PowerShell.Utility"
+    manifest = (
+        Path(os.environ.get("SystemRoot", r"C:\Windows"))
+        / f"System32/WindowsPowerShell/v1.0/Modules/{module}/{module}.psd1"
+    )
+    text = manifest.read_text(encoding="latin-1")  # ANSI ("©"); only the ASCII cmdlet names are used
+    match = re.search(r"CmdletsToExport\s*=(.*?)\n\s*FunctionsToExport", text, re.S)
+    assert match and "ConvertFrom-Json" in match.group(1), manifest
+    return " ".join(match.group(1).split())
+
+
+@pytest.fixture(scope="module", autouse=True)
+def pwsh_module_path(short_root: Path) -> Iterator[str]:
+    """PSModulePath as a PowerShell 7 parent hands it on: its own module folder (here the stand-in) first."""
+    import os
+
+    folder = short_root / "pwsh7" / "Modules"
+    manifest = folder / "Microsoft.PowerShell.Utility" / "Microsoft.PowerShell.Utility.psd1"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text(PWSH_UTILITY_MANIFEST.format(cmdlets=_utility_cmdlets()), encoding="utf-8")
+    saved = os.environ.get("PSModulePath")
+    os.environ["PSModulePath"] = os.pathsep.join(filter(None, [str(folder), saved]))
+    try:
+        yield os.environ["PSModulePath"]
+    finally:
+        if saved is None:
+            os.environ.pop("PSModulePath", None)
+        else:
+            os.environ["PSModulePath"] = saved
+
+
+def test_the_runner_module_path_hides_script_module_commands() -> None:
+    """The stand-in has the runner's effect: under it, Windows PowerShell 5.1 cannot find Get-FileHash (the
+    command the installer used to hash files with), while the engine's own commands still work."""
+    assert POWERSHELL is not None
+    probe = (
+        "('{\"a\": 1}' | ConvertFrom-Json).a; "
+        "(@(Get-Command Get-FileHash -ErrorAction SilentlyContinue)).Count"
+    )
+    result = subprocess.run(
+        [POWERSHELL, "-NoLogo", "-NoProfile", "-Command", probe], capture_output=True, text=True, check=False
+    )
+    assert result.stdout.split() == ["1", "0"], (result.stdout, result.stderr)
+
+
+SCRIPT_MODULE_COMMANDS = (
+    "Get-FileHash",
+    "Expand-Archive",
+    "Compress-Archive",
+    "New-TemporaryFile",
+    "Format-Hex",
+)
+
+
+def test_installer_uses_no_command_of_a_script_module() -> None:
+    """Get-FileHash and the other functions of Windows PowerShell 5.1's script modules are unreachable under
+    a PowerShell 7 parent (see above); the installer, the Windows clean room and the workflows hash with
+    .NET."""
+    scripts = [SCRIPT, ROOT / "packaging" / "ci" / "cleanroom_windows.ps1"]
+    scripts += sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+    for path in scripts:
+        text = path.read_text(encoding="utf-8-sig")
+        for command in SCRIPT_MODULE_COMMANDS:
+            assert not re.search(rf"^[^#]*\b{command}\b", text, re.M), (path.name, command)
+    for path in scripts[:2]:
+        assert "[System.Security.Cryptography.SHA256]::Create()" in path.read_text(encoding="utf-8-sig")
+
+
 @pytest.fixture
 def work(short_root: Path) -> Path:
     """A new folder of one test below the short root."""

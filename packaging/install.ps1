@@ -72,11 +72,22 @@ try {
         $listed[$rel] = $digest
     }
     $bad = New-Object System.Collections.Generic.List[string]
-    foreach ($rel in $listed.Keys) {
-        $path = Join-Path $Bundle ($rel -replace '/', '\')
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $bad.Add("missing / 缺少：$rel"); continue }
-        $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actual -cne $listed[$rel]) { $bad.Add("changed / 已更改：$rel") }
+    # SHA-256 through .NET, not Get-FileHash: under Windows PowerShell 5.1 that command comes from a script module,
+    # and started from PowerShell 7 (Windows Terminal, GitHub's default shell) Windows PowerShell inherits a module
+    # path where PowerShell 7's own Microsoft.PowerShell.Utility comes first and cannot load, so Get-FileHash
+    # is "not recognized" (measured in CI). Only commands built into the engine are used here.
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        foreach ($rel in $listed.Keys) {
+            $path = Join-Path $Bundle ($rel -replace '/', '\')
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $bad.Add("missing / 缺少：$rel"); continue }
+            $stream = [System.IO.File]::OpenRead($path)
+            try { $hashBytes = $hasher.ComputeHash($stream) } finally { $stream.Dispose() }
+            $actual = [System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+            if ($actual -cne $listed[$rel]) { $bad.Add("changed / 已更改：$rel") }
+        }
+    } finally {
+        $hasher.Dispose()
     }
     $root = (Resolve-Path -LiteralPath $Bundle).ProviderPath.TrimEnd('\') + '\'
     foreach ($item in Get-ChildItem -LiteralPath $Bundle -Recurse -Force) {

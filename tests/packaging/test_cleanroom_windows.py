@@ -61,3 +61,24 @@ def test_shown_writes_paths_as_neurogrid_shows_them(path: str, home: str | None,
     done = _shown(path, home)
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip() == expected
+
+
+def test_sha256_matches_hashlib_without_get_filehash(tmp_path: Path) -> None:
+    """The clean room records the archive's SHA-256 with .NET (Get-FileHash is unreachable under Windows
+    PowerShell 5.1 started from PowerShell 7, see tests/packaging/test_install_ps1.py)."""
+    import hashlib
+
+    assert POWERSHELL is not None
+    sample = tmp_path / "样本 file.bin"
+    sample.write_bytes(bytes(range(256)) * 300)
+    script = f"$ErrorActionPreference = 'Stop'\n{_function('Sha256')}Sha256 '{sample}'\n"
+    done = subprocess.run(
+        [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == hashlib.sha256(sample.read_bytes()).hexdigest()
