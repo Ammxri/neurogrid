@@ -9,7 +9,8 @@ Inputs as in offline.yml: wheel and sdist from `uv build`, the documentation sit
 (`python tools/build_docs.py --site-dir site`), THIRD_PARTY_NOTICES.txt and tools/install_pdf_browser.py. The
 build runs as its own process: it downloads the pinned interpreter, uv and the locked wheels into the bundle
 cache (NEUROGRID_BUNDLE_CACHE or .local/bundle-cache; D-06), while the network guard of this test process
-stays active. Run with: uv run pytest -m bundle tests/packaging/test_bundle_real.py
+stays active. Run with: uv run pytest -m bundle tests/packaging/test_bundle_real.py (the build job of
+offline.yml runs exactly that on Linux, with its bundle cache in NEUROGRID_BUNDLE_CACHE).
 """
 
 from __future__ import annotations

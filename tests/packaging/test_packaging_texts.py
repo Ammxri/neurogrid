@@ -223,7 +223,9 @@ def documented_prefix_limit(lang: str) -> tuple[str, int, int]:
 def test_installation_pages_state_the_windows_prefix_limit_of_this_version() -> None:
     """install.ps1 keeps every installed file within 250 characters (prefix <= 249 minus
     max_relative_install_path, whatever LongPathsEnabled says). Both installation pages state that rule and
-    the value of this version; tests/packaging/test_bundle_real.py compares it with the built bundle."""
+    the value of this version; tests/packaging/test_bundle_real.py compares it with the built bundle (the
+    build job of offline.yml runs it on every push to main, so a uv.lock change that moves the value without
+    a version bump fails there)."""
     match = re.search(r"\$limit = (\d+) - 1 - \[long\]\$longest", _read(PACKAGING / "install.ps1"))
     assert match, "install.ps1 no longer derives the prefix limit from max_relative_install_path"
     total = int(match.group(1))

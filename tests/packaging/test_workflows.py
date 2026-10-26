@@ -579,6 +579,13 @@ def test_offline_workflow_runs_every_offline_proof() -> None:
         "tools/build_docs.py --site-dir site" in build and "for platform in win_amd64 linux_x86_64" in build
     )
     assert "tools/bundle.py build" in build and "--sign" not in build  # development bundles are unsigned
+    # The real-bundle tests run here (marker bundle), among them the comparison of the Windows prefix limit
+    # that the installation pages state with the built bundle: no other workflow runs them.
+    assert "python -m pytest -m bundle -p no:cacheprovider tests/packaging/test_bundle_real.py" in build
+    real = (ROOT / "tests" / "packaging" / "test_bundle_real.py").read_text(encoding="utf-8")
+    assert "def test_documented_windows_prefix_limit_is_the_one_of_the_built_bundle(" in real
+    callers = [name for name in NAMES if "pytest -m bundle" in _text(name)]
+    assert callers == ["offline"]
     assert "offline_strace_linux.sh" in _runs(jobs["offline-strace"])
     images = [entry["image"] for entry in jobs["cleanroom-linux"]["strategy"]["matrix"]["include"]]
     assert images == ["debian:12-slim", "ubuntu:22.04", "ubuntu:24.04"]
