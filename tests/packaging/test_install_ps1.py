@@ -311,12 +311,31 @@ def test_signed_bundle_with_cosign(folder: Path, work: Path) -> None:
         (["-PdfBrowserZip", "C:\\does\\not\\exist.zip", "-PdfBrowserSha256", "a" * 64], "file not found"),
         (["-SkipSignatureCheck", "-Prefix", "relative\\folder"], "absolute local path"),
         (["-SkipSignatureCheck", "-Prefix", "\\\\server\\share\\ng"], "absolute local path"),
+        # Review R17: drive-relative, resolved against the current folder of drive C: (not an absolute path)
+        (["-SkipSignatureCheck", "-Prefix", "C:relative\\folder"], "absolute local path"),
+        (["-SkipSignatureCheck", "-Prefix", "//server/share/ng"], "absolute local path"),
     ],
 )
 def test_usage_and_environment_errors_exit_2(folder: Path, args: list[str], expected: str) -> None:
     code, text = _run(folder, *args)
     assert code == 2, text
     assert expected in text
+
+
+def test_a_relative_cosign_is_the_named_file(folder: Path, work: Path) -> None:
+    """Review R17: '-Cosign cosign.cmd' (a file in the current folder) passed Test-Path, but '& $Cosign'
+    looked the bare name up on PATH: another cosign ran, or the run ended in 'installation failed'. The named
+    file verifies; a cosign on PATH that would reject the bundle is not asked."""
+    _sign(folder)
+    here = work / "here"
+    here.mkdir()
+    shutil.copyfile(_fake_cosign(work / "good", 0), here / "cosign.cmd")
+    bad = _fake_cosign(work / "bad", 1)
+    env = {**_clean_env(), "PATH": f"{bad.parent};C:\\Windows\\System32"}
+    code, text = _run(folder, "-VerifyOnly", "-Cosign", "cosign.cmd", env=env, cwd=here)
+    assert code == 0 and "signature verified: https://github.com/owner/neurogrid/" in text, text
+    code, text = _run(folder, "-VerifyOnly", "-Cosign", "absent.cmd", env=env, cwd=here)
+    assert code == 2 and "cosign not found: absent.cmd" in text, text
 
 
 def test_existing_target_is_never_overwritten(folder: Path, work: Path) -> None:

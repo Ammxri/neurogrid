@@ -232,6 +232,41 @@ def test_relative_prefix_is_refused_on_linux(folder: Path) -> None:
     assert code == 2 and "must be an absolute path" in text, text
 
 
+def test_a_relative_cosign_is_the_named_file(folder: Path, tmp_path: Path) -> None:
+    """Review R17: a relative --cosign was checked after the script had changed into the bundle folder, and a
+    bare name ran whatever cosign PATH held. It names a file of the current folder."""
+    assert BASH is not None
+    info = json.loads((folder / "BUNDLE.json").read_text(encoding="utf-8"))
+    info["release_identity"] = (
+        "https://github.com/owner/neurogrid/.github/workflows/release.yml@refs/tags/v9.8.7"
+    )
+    (folder / "BUNDLE.json").write_text(json.dumps(info, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    (folder / "SHA256SUMS.sigstore.json").write_text("{}", encoding="utf-8")
+    _resum(folder)
+    here, elsewhere = tmp_path / "here", tmp_path / "path"
+    for place, code_ in ((here, 0), (elsewhere, 1)):
+        place.mkdir()
+        (place / "cosign").write_text(
+            f'#!/bin/sh\necho stand-in cosign "$@"\nexit {code_}\n', encoding="utf-8", newline="\n"
+        )
+        (place / "cosign").chmod(0o755)
+    env = {**os.environ, "PATH": os.pathsep.join([str(elsewhere), os.environ.get("PATH", "")])}
+    for name in ("cosign", "./cosign"):
+        result = subprocess.run(
+            [BASH, (folder / "install.sh").as_posix(), "--verify-only", "--cosign", name],
+            capture_output=True,
+            cwd=here,
+            env=env,
+            timeout=300,
+            check=False,
+        )
+        text = result.stdout.decode("utf-8", "replace") + result.stderr.decode("utf-8", "replace")
+        assert result.returncode == 0 and "signature verified: https://github.com/owner/" in text, (
+            name,
+            text,
+        )
+
+
 def _bash_path(path: Path) -> str:
     """The absolute path as bash sees it (/c/... under Git Bash on Windows)."""
     text = path.as_posix()

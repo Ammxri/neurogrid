@@ -95,6 +95,18 @@ main() {
         ;;
     esac
   done
+  # A relative --cosign names a file in the current folder (the script changes into the bundle folder below, and
+  # a bare name would be looked up on PATH): it becomes a full path now.
+  case "$cosign" in
+    "" | /*) ;;
+    *)
+      if [ -e "$cosign" ]; then
+        cosign="$(cd "$(dirname -- "$cosign")" && pwd -P)/$(basename -- "$cosign")"
+      else
+        cosign="$PWD/$cosign"
+      fi
+      ;;
+  esac
 
   [ -f "$bundle/BUNDLE.json" ] || fail 3 "缺少 BUNDLE.json" "BUNDLE.json missing"
   local version platform identity max_path

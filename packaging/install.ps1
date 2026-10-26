@@ -142,6 +142,8 @@ try {
         }
         if ($Cosign) {
             if (-not (Test-Path -LiteralPath $Cosign -PathType Leaf)) { Fail 2 "找不到 cosign：$(Show $Cosign)" "cosign not found: $(Show $Cosign)" }
+            # The full path, so that & runs exactly the named file: a bare name would be looked up on PATH.
+            $Cosign = (Resolve-Path -LiteralPath $Cosign).ProviderPath
             $code = Invoke-Native $Cosign @('verify-blob', $sumsPath, '--bundle', $signature, '--certificate-identity', $identity, '--certificate-oidc-issuer', $Issuer)
             if ($code -ne 0 -and $onPath -and $SkipSignatureCheck) {
                 Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。-SkipSignatureCheck 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的会话中加 -SkipSignatureCheck 运行' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). -SkipSignatureCheck does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with -SkipSignatureCheck in a session without cosign on PATH"
@@ -172,10 +174,15 @@ try {
         if (-not $env:LOCALAPPDATA) { Fail 2 '未设置 LOCALAPPDATA，请用 -Prefix 指定安装文件夹' 'LOCALAPPDATA is not set; choose the install folder with -Prefix' }
         $Prefix = Join-Path $env:LOCALAPPDATA "NeuroGrid\$version"
     }
-    if ($Prefix -match '^(\\\\|//)' -or -not [System.IO.Path]::IsPathRooted($Prefix) -or $Prefix -notmatch '^[A-Za-z]:') {
+    # A drive letter, a colon and a separator: 'C:folder' is relative to the current folder of drive C:, a UNC
+    # path or a mapped network drive is not local.
+    if ($Prefix -notmatch '^[A-Za-z]:[\\/]') {
         Fail 2 "安装文件夹须为本机绝对路径：$(Show $Prefix)" "the install folder must be an absolute local path: $(Show $Prefix)"
     }
     $Prefix = [System.IO.Path]::GetFullPath($Prefix).TrimEnd('\')
+    if ((New-Object System.IO.DriveInfo ($Prefix.Substring(0, 1))).DriveType -eq [System.IO.DriveType]::Network) {
+        Fail 2 "安装文件夹须为本机绝对路径：$(Show $Prefix)" "the install folder must be an absolute local path: $(Show $Prefix)"
+    }
     # ConvertFrom-Json gives Int32 under Windows PowerShell 5.1 and Int64 under PowerShell 7; null if missing.
     $longest = $info.max_relative_install_path
     if (-not ($longest -is [int] -or $longest -is [long]) -or $longest -lt 0) { Fail 3 'BUNDLE.json 不完整' 'BUNDLE.json incomplete' }
