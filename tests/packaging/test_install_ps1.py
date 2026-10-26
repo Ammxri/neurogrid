@@ -161,13 +161,14 @@ def folder(built: Path, work: Path) -> Path:
     return Path(shutil.copytree(built, work / built.name))
 
 
-def _run(
+def _run_streams(
     folder: Path,
     *args: str,
     shell: str | None = None,
     env: dict[str, str] | None = None,
     cwd: Path | None = None,
-) -> tuple[int, str]:
+) -> tuple[int, str, str]:
+    """(exit code, standard output, standard error) of install.ps1 with `args`."""
     assert POWERSHELL is not None
     command = [shell or POWERSHELL, "-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
     result = subprocess.run(
@@ -179,8 +180,19 @@ def _run(
         timeout=300,
         check=False,
     )
-    text = result.stdout.decode("utf-8", "replace") + result.stderr.decode("utf-8", "replace")
-    return result.returncode, text
+    out, err = (stream.decode("utf-8", "replace") for stream in (result.stdout, result.stderr))
+    return result.returncode, out, err
+
+
+def _run(
+    folder: Path,
+    *args: str,
+    shell: str | None = None,
+    env: dict[str, str] | None = None,
+    cwd: Path | None = None,
+) -> tuple[int, str]:
+    code, out, err = _run_streams(folder, *args, shell=shell, env=env, cwd=cwd)
+    return code, out + err
 
 
 def _resum(folder: Path) -> None:
@@ -537,7 +549,14 @@ for name in ("python.exe", "neurogrid.exe"):
     shutil.copyfile(launcher, venv / "Scripts" / name)
 shutil.copyfile(launcher.parent / "pyvenv.cfg", venv / "pyvenv.cfg")
 """
-STAND_IN_PIP = 'import os, sys\nsys.exit(int(os.environ.get("NG_STAND_IN_PIP_EXIT", "0")))\n'
+# A failing `uv pip` names its cache and the user's settings the way the real uv names paths in its errors.
+STAND_IN_PIP = r"""import os, sys
+code = int(os.environ.get("NG_STAND_IN_PIP_EXIT", "0"))
+if code:
+    print("error: failed to read " + os.environ["UV_CACHE_DIR"] + "\\wheels", file=sys.stderr)
+    print("hint: settings in " + os.environ.get("USERPROFILE", "") + "\\uv.toml")
+sys.exit(code)
+"""
 
 
 @pytest.fixture
@@ -614,6 +633,42 @@ def test_console_names_no_user_folder(installable: tuple[Path, Path], short_root
     prefix = home / "ng" / "x"
     code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix), env=outside, cwd=cwd)
     assert code == 0 and "installed: ~\\ng\\x\\neurogrid.cmd" in text, text
+
+
+def test_program_output_names_no_user_folder(
+    installable: tuple[Path, Path], short_root: Path, work: Path
+) -> None:
+    """A-51 (verification of review R13): Invoke-Native passed what uv, cosign and Python printed to the
+    console unchanged (Out-Host, error output as it came), so a failing uv showed the user folder in its
+    cache path %LOCALAPPDATA%\\NeuroGrid\\<version>\\.uv-cache. Their output and their errors go through Show
+    now, each on its own stream, under Windows PowerShell 5.1 and PowerShell 7."""
+    import os
+
+    folder, cwd = installable
+    home = Path(tempfile.mkdtemp(prefix="p", dir=short_root)) / "Users" / "runneradmin"
+    local = home / "AppData" / "Local"
+    local.mkdir(parents=True)
+    env = {**os.environ, "USERPROFILE": str(home), "LOCALAPPDATA": str(local), "NG_STAND_IN_PIP_EXIT": "1"}
+    code, out, err = _run_streams(folder, "-SkipSignatureCheck", env=env, cwd=cwd)
+    assert code == 2 and "offline installation failed (uv exit code 1)" in err, out + err
+    assert "error: failed to read %LOCALAPPDATA%\\NeuroGrid\\9.8.7\\.uv-cache\\wheels" in err, err
+    assert "hint: settings in ~\\uv.toml" in out, out
+    assert "runneradmin" not in (out + err).lower(), out + err
+    assert not (local / "NeuroGrid").exists()
+    _sign(folder)
+    cosign = work / "talkative" / "cosign.cmd"
+    cosign.parent.mkdir()
+    cosign.write_text(
+        "@echo off\r\necho trust root: %LOCALAPPDATA%\\sigstore\\root\r\n"
+        "1>&2 echo error: cannot open %USERPROFILE%\\.sigstore\\targets.json\r\nexit /b 1\r\n",
+        encoding="ascii",
+    )
+    for shell in filter(None, (POWERSHELL, PWSH)):
+        code, out, err = _run_streams(folder, "-VerifyOnly", "-Cosign", str(cosign), shell=shell, env=env)
+        assert code == 4 and "signature check failed" in err, (shell, out + err)
+        assert "trust root: %LOCALAPPDATA%\\sigstore\\root" in out, (shell, out)
+        assert "error: cannot open ~\\.sigstore\\targets.json" in err, (shell, err)
+        assert "runneradmin" not in (out + err).lower(), (shell, out + err)
 
 
 def _show(text: str, env: dict[str, str]) -> str:

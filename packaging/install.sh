@@ -31,6 +31,56 @@ show() {
   fi
 }
 
+# A-51 for foreign text: every occurrence of the folder $2 in $1 that is a whole folder name (followed by the end,
+# a separator, a space, a quote or punctuation) becomes $3.
+hide_folder() {
+  local rest="$1" folder="$2" name="$3" out=""
+  if [ -z "$folder" ]; then
+    printf '%s' "$rest"
+    return 0
+  fi
+  while [[ "$rest" == *"$folder"* ]]; do
+    out+="${rest%%"$folder"*}"
+    rest="${rest#*"$folder"}"
+    case "${rest:0:1}" in
+      "" | / | " " | $'\t' | \" | \' | : | \; | , | \) | \]) out+="$name" ;;
+      *) out+="$folder" ;;
+    esac
+  done
+  printf '%s' "$out$rest"
+}
+
+# What a program prints, line by line through hide_folder: ${XDG_DATA_HOME} first, then the home folder as ~.
+# uv, cosign, cp and Python name absolute paths in their messages (the cache below the install folder, Sigstore's
+# trust root below the home folder).
+hide_lines() {
+  local line xdg="${XDG_DATA_HOME:-}" home="${HOME:-}"
+  xdg="${xdg%/}" home="${home%/}"
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(hide_folder "$line" "$xdg" "\${XDG_DATA_HOME}")"
+    printf '%s\n' "$(hide_folder "$line" "$home" "~")"
+  done
+}
+
+# Runs a command with its output through hide_lines on standard output and its errors through hide_lines on
+# standard error; the result is the command's exit code (pipefail).
+run_shown() {
+  { "$@" 2>&1 1>&3 3>&- | hide_lines >&2; } 3>&1 | hide_lines
+}
+
+# The launcher of the installation; run through run_shown, also bash's own message about a file it cannot
+# write is shown without the user folder.
+write_launcher() {
+  cat >"$1" <<'EOF'
+#!/bin/sh
+# NeuroGrid launcher of the offline bundle. Moving the install folder breaks the venv: reinstall instead.
+unset PYTHONPATH PYTHONHOME
+here="$(dirname "$(readlink -f "$0")")"
+exec "$here/../venv/bin/neurogrid" "$@"
+EOF
+  chmod 755 "$1"
+}
+
 usage() {
   cat <<'EOF'
 install.sh [--prefix DIR] [--cosign PATH] [--skip-signature-check] [--verify-only]
@@ -57,7 +107,7 @@ glibc_supported() {
 undo_failed_install() {
   [ "${INSTALL_DONE:-1}" -eq 0 ] || return 0
   if [ "$INSTALL_CREATED" -eq 1 ]; then
-    rm -rf -- "$INSTALL_PREFIX"
+    run_shown rm -rf -- "$INSTALL_PREFIX" || true
   else
     find "$INSTALL_PREFIX" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true
   fi
@@ -167,8 +217,8 @@ main() {
     if [ -n "$cosign" ]; then
       shown="$(show "$cosign")"
       [ -x "$cosign" ] || fail 2 "找不到 cosign：$shown" "cosign not found: $shown"
-      "$cosign" verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity "$identity" \
-        --certificate-oidc-issuer "$ISSUER" >&2 && verified=1
+      run_shown "$cosign" verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity \
+        "$identity" --certificate-oidc-issuer "$ISSUER" >&2 && verified=1
       if [ "$verified" -eq 0 ] && [ "$on_path" -eq 1 ] && [ "$skip_signature" -eq 1 ]; then
         fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。--skip-signature-check 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的环境中加 --skip-signature-check 运行" \
           "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). --skip-signature-check does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with --skip-signature-check where cosign is not on PATH"
@@ -246,41 +296,34 @@ main() {
   INSTALL_PREFIX="$prefix"
   INSTALL_CREATED="$created"
   trap undo_failed_install EXIT
-  mkdir -p "$prefix"
-  cp -a "$bundle/python" "$prefix/python"
+  run_shown mkdir -p "$prefix"
+  run_shown cp -a "$bundle/python" "$prefix/python"
   export UV_OFFLINE=1 UV_NO_CONFIG=1 UV_PYTHON_DOWNLOADS=never UV_NO_PROGRESS=1 UV_CACHE_DIR="$prefix/.uv-cache"
   # uv hands the files to compile to the interpreter through a pipe: UTF-8 for prefixes with Chinese characters
   # (on Windows the ANSI code page made the compilation silently skip every file; A-48).
   export PYTHONIOENCODING=utf-8
-  "$bundle/uv/uv" venv --quiet --python "$prefix/python/bin/python3.12" "$prefix/venv" \
+  run_shown "$bundle/uv/uv" venv --quiet --python "$prefix/python/bin/python3.12" "$prefix/venv" \
     || fail 2 "创建虚拟环境失败" "creating the virtual environment failed"
-  "$bundle/uv/uv" pip sync --quiet --python "$prefix/venv/bin/python" --no-index --find-links "$bundle/wheels" \
-    --require-hashes --no-build --compile-bytecode --link-mode copy "$bundle/requirements.lock.txt" \
-    || fail 2 "离线安装失败" "offline installation failed"
-  rm -rf -- "$UV_CACHE_DIR"
+  run_shown "$bundle/uv/uv" pip sync --quiet --python "$prefix/venv/bin/python" --no-index \
+    --find-links "$bundle/wheels" --require-hashes --no-build --compile-bytecode --link-mode copy \
+    "$bundle/requirements.lock.txt" || fail 2 "离线安装失败" "offline installation failed"
+  run_shown rm -rf -- "$UV_CACHE_DIR"
 
   # 6. Launcher (exit codes pass through; nothing is set for DENO_DIR, which NeuroGrid sets per run, A-06/A-54),
   #    the PDF browser installer and the bundle's BUNDLE.json: next to python/ and tools/ it marks this folder as
   #    an offline-bundle installation, so a missing PDF browser is reported with the bundled command (D-08).
-  mkdir -p "$prefix/bin" "$prefix/tools"
-  cat >"$prefix/bin/neurogrid" <<'EOF'
-#!/bin/sh
-# NeuroGrid launcher of the offline bundle. Moving the install folder breaks the venv: reinstall instead.
-unset PYTHONPATH PYTHONHOME
-here="$(dirname "$(readlink -f "$0")")"
-exec "$here/../venv/bin/neurogrid" "$@"
-EOF
-  chmod 755 "$prefix/bin/neurogrid"
-  cp "$bundle/tools/install_pdf_browser.py" "$prefix/tools/install_pdf_browser.py"
-  cp "$bundle/BUNDLE.json" "$prefix/BUNDLE.json"
+  run_shown mkdir -p "$prefix/bin" "$prefix/tools"
+  run_shown write_launcher "$prefix/bin/neurogrid"
+  run_shown cp "$bundle/tools/install_pdf_browser.py" "$prefix/tools/install_pdf_browser.py"
+  run_shown cp "$bundle/BUNDLE.json" "$prefix/BUNDLE.json"
 
   # 7. Self-test.
-  "$prefix/bin/neurogrid" --help >/dev/null || fail 2 "安装后自检失败" "self-test after installation failed"
+  run_shown "$prefix/bin/neurogrid" --help >/dev/null || fail 2 "安装后自检失败" "self-test after installation failed"
   INSTALL_DONE=1
 
   # 8. Optional: PDF browser from a zip the customer provides, into NeuroGrid's own browser folder (D-08).
   if [ -n "$pdf_zip" ]; then
-    "$prefix/python/bin/python3.12" -I "$prefix/tools/install_pdf_browser.py" --from-zip "$pdf_zip" \
+    run_shown "$prefix/python/bin/python3.12" -I "$prefix/tools/install_pdf_browser.py" --from-zip "$pdf_zip" \
       --sha256 "$(printf '%s' "$pdf_sha" | tr 'A-F' 'a-f')" \
       || fail 2 "NeuroGrid 已安装，但 PDF 浏览器未安装" "NeuroGrid is installed, but the PDF browser is not"
     say "PDF 浏览器已安装；它还需要系统库（见 docs/installation.html）" \

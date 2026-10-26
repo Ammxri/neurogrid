@@ -279,10 +279,13 @@ def _bash_path(path: Path) -> str:
     return text
 
 
-def _run_as_linux_x86_64(folder: Path, *args: str, env: dict[str, str] | None = None) -> tuple[int, str]:
+def _run_as_linux_x86_64_streams(
+    folder: Path, *args: str, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
     """install.sh's main with uname and getconf replaced by shell functions that report Linux x86_64 with
     glibc 2.36, so the installer gets past its platform check on any machine (Git Bash's wrapper puts its own
-    /usr/bin first on PATH, so stand-in programs could not win)."""
+    /usr/bin first on PATH, so stand-in programs could not win): (exit code, standard output, standard
+    error)."""
     assert BASH is not None
     script = (
         'uname() { case "$1" in -m) echo x86_64 ;; *) echo Linux ;; esac; }\n'
@@ -293,9 +296,13 @@ def _run_as_linux_x86_64(folder: Path, *args: str, env: dict[str, str] | None = 
     result = subprocess.run(
         [BASH, "-c", script, "install.sh", *args], capture_output=True, env=env, timeout=300, check=False
     )
-    return result.returncode, result.stdout.decode("utf-8", "replace") + result.stderr.decode(
-        "utf-8", "replace"
-    )
+    out, err = (stream.decode("utf-8", "replace") for stream in (result.stdout, result.stderr))
+    return result.returncode, out, err
+
+
+def _run_as_linux_x86_64(folder: Path, *args: str, env: dict[str, str] | None = None) -> tuple[int, str]:
+    code, out, err = _run_as_linux_x86_64_streams(folder, *args, env=env)
+    return code, out + err
 
 
 def test_prefix_length_guard_counts_bytes_against_path_max(folder: Path, tmp_path: Path) -> None:
@@ -357,7 +364,14 @@ case "$1" in
     printf '#!/bin/sh\\nexit 0\\n' >"$venv/bin/neurogrid"
     chmod 755 "$venv/bin/neurogrid"
     ;;
-  pip) exit "${NG_STAND_IN_PIP_EXIT:-0}" ;;
+  pip)
+    # A failing uv names its cache and the user's settings (absolute paths), as the real uv does.
+    if [ "${NG_STAND_IN_PIP_EXIT:-0}" != 0 ]; then
+      echo "error: failed to read $UV_CACHE_DIR/wheels" >&2
+      echo "hint: settings in $HOME/.config/uv/uv.toml"
+    fi
+    exit "${NG_STAND_IN_PIP_EXIT:-0}"
+    ;;
   *) exit 1 ;;
 esac
 """
@@ -421,6 +435,74 @@ def test_console_names_no_user_folder(installable: Path, tmp_path: Path) -> None
     env = _environment(HOME=_bash_path(home), XDG_DATA_HOME=_bash_path(data))
     code, text = _run_as_linux_x86_64(installable, "--skip-signature-check", env=env)
     assert code == 0 and "installed: ${XDG_DATA_HOME}/neurogrid/9.8.7/bin/neurogrid" in text, text
+    assert "runneradmin" not in text, text
+
+
+def test_hide_lines_and_run_shown_clean_foreign_output(tmp_path: Path) -> None:
+    """A-51 for what programs print: every whole occurrence of ${XDG_DATA_HOME} or the home folder in a line,
+    also without a closing newline; run_shown keeps output and errors on their own streams and returns the
+    program's exit code."""
+    errors = tmp_path / "errors.txt"
+    out = _source(
+        "HOME=/home/runneradmin/; XDG_DATA_HOME=/home/runneradmin/.data\n"
+        "printf '%s\\n' 'a /home/runneradmin/x' \"'/home/runneradmin'\" '/home/runneradminx/y' "
+        "'/home/runneradmin/.data/ng: no' 'last /home/runneradmin' "
+        "'twice /home/runneradmin:/home/runneradmin/b' "
+        "| hide_lines\n"
+        "printf 'no newline /home/runneradmin/z' | hide_lines\n"
+        'run_shown sh -c \'echo "out /home/runneradmin/a"; echo "err /home/runneradmin/b" >&2; exit 7\' '
+        f'2>"{_bash_path(errors)}" || echo "code=$?"\n'
+        "HOME=; XDG_DATA_HOME=; echo /home/runneradmin/c | hide_lines\n"
+    )
+    assert out.splitlines() == [
+        "a ~/x",
+        "'~'",
+        "/home/runneradminx/y",
+        "${XDG_DATA_HOME}/ng: no",
+        "last ~",
+        "twice ~:~/b",
+        "no newline ~/z",
+        "out ~/a",
+        "code=7",
+        "/home/runneradmin/c",
+    ]
+    assert errors.read_text(encoding="utf-8").splitlines() == ["err ~/b"]
+
+
+def test_program_output_names_no_user_folder(installable: Path, tmp_path: Path) -> None:
+    """A-51 (verification of review R13): what uv and cosign printed reached the console unchanged, so a
+    failing uv showed /home/<name>/.local/share/neurogrid/<version>/.uv-cache and cosign the trust root below
+    the home folder. Their output and their errors go through hide_lines now, each on its own stream."""
+    home = tmp_path / "home" / "runneradmin"
+    home.mkdir(parents=True)
+    env = _environment(HOME=_bash_path(home), NG_STAND_IN_PIP_EXIT="1")
+    code, out, err = _run_as_linux_x86_64_streams(installable, "--skip-signature-check", env=env)
+    assert code == 2 and "offline installation failed" in err, out + err
+    assert "error: failed to read ~/.local/share/neurogrid/9.8.7/.uv-cache/wheels" in err, err
+    assert "hint: settings in ~/.config/uv/uv.toml" in out, out
+    assert "runneradmin" not in out + err, out + err
+    assert not (home / ".local").exists()
+    info = json.loads((installable / "BUNDLE.json").read_text(encoding="utf-8"))
+    info["release_identity"] = (
+        "https://github.com/owner/neurogrid/.github/workflows/release.yml@refs/tags/v9.8.7"
+    )
+    (installable / "BUNDLE.json").write_text(
+        json.dumps(info, indent=1, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (installable / "SHA256SUMS.sigstore.json").write_text("{}", encoding="utf-8")
+    _resum(installable)
+    cosign = tmp_path / "cosign-talkative"
+    cosign.write_text(
+        '#!/bin/sh\necho "trust root: $HOME/.sigstore/root"\n'
+        'echo "error: cannot open $HOME/.sigstore/root/targets.json" >&2\nexit 1\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    cosign.chmod(0o755)
+    code, text = _run(installable, "--verify-only", "--cosign", cosign.as_posix(), env=env)
+    assert code == 4 and "signature check failed" in text, text
+    assert "trust root: ~/.sigstore/root" in text, text
+    assert "error: cannot open ~/.sigstore/root/targets.json" in text, text
     assert "runneradmin" not in text, text
 
 

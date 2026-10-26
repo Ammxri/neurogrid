@@ -55,11 +55,20 @@ function Show([string]$text) {
     return $text
 }
 function Invoke-Native([string]$exe, [string[]]$arguments, [switch]$Quiet) {
-    # Native stderr reaches the console as it is; under 'Stop' Windows PowerShell 5.1 could turn it into an error.
+    # A-51: what the program prints goes through Show as well, line by line as it comes: uv, cosign and Python
+    # name absolute paths in their messages (the cache below the install folder, Sigstore's trust root below
+    # the home folder). Output stays on standard output (dropped with -Quiet), errors on standard error. With
+    # 'Stop', Windows PowerShell 5.1 would turn the program's error output into a terminating error.
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        if ($Quiet) { & $exe @arguments | Out-Null } else { & $exe @arguments | Out-Host }
+        & $exe @arguments 2>&1 | ForEach-Object {
+            if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                [Console]::Error.WriteLine((Show $_.ToString()))
+            } elseif (-not $Quiet) {
+                [Console]::Out.WriteLine((Show ([string]$_)))
+            }
+        }
         return $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previous
