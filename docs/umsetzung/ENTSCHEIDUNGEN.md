@@ -608,6 +608,12 @@ Namensraumpfade (`\\?\`, `\\.\`, `\??\`, GLOBALROOT) werden schon vor jedem Date
 reservierte Gerätenamen (CON, PRN, AUX, NUL, CONIN$, CONOUT$, COM/LPT mit 1–9 und ¹²³) in jedem Pfadteil. Dieselbe
 Liste gilt für Pfade aus Dateien (A-52). Doppelpunkte nach dem Laufwerk (Datenströme)
 sind nur unter Windows verboten; unter Linux sind sie gültige Zeichen.
+Ebenso erlaubt sind dort reservierte Gerätenamen, Backslashes im Namen (`\x.edf`, `a\b.edf`) und
+`/\…` (ein absoluter POSIX-Pfad). Abgelehnt wird aber ein eingetippter oder eingefügter Windows-Netz- oder
+Gerätepfad, mit demselben Schlüssel wie unter Windows (`kernel.safety.operator_path_problem`): `//…` sowie ein
+Backslash gefolgt von einem zweiten Trennzeichen (`\\server\share`, `\/server/share`) als `path.unc`, die Präfixe
+`\\?\`, `\\.\` und `\??\` (auch mit Schrägstrichen gemischt) als `path.device`. Sonst würde ein solcher Pfad als
+relativer Name gelesen (Eingabe nicht gefunden; mit `--out` eine Datei dieses Namens im Arbeitsordner).
 
 **A-68 Stabile Befundschlüssel und Ausnahme-Abgleich (A-09, A-14).**
 - Intern hat jede Aufnahme drei stabile Namen: den relativen POSIX-Pfad, die pseudonyme ID und den pseudonymen Dateinamen (ID plus Endung, wie er in Rohordnern angezeigt wird).
