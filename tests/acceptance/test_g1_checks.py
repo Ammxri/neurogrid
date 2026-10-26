@@ -541,14 +541,15 @@ def test_v01_checklist_needs_matrix_and_run() -> None:
     assert [item["item"] for item in items if item["status"] != "fulfilled"] == ["five_formats", "report"]
     items = g1.v01_checklist(statuses, [_entry(validator_evaluated=False, json_problems=["x"])], True)
     assert [item["item"] for item in items if item["status"] != "fulfilled"] == ["structure_check", "json"]
-    items = g1.v01_checklist(statuses, [_entry(v06=["a YY/T 2029 rule is loaded"])], False)
+    items = g1.v01_checklist(statuses, [_entry(v06=[f"a {g1.NORM} rule is loaded"])], False)
     assert [item["item"] for item in items if item["status"] != "fulfilled"] == ["rulepacks", "report"]
 
 
 def test_v06_problems(results: Results) -> None:
     assert g1.v06_problems(results, ["Pre-check with NeuroGrid."]) == []
-    assert g1.v06_problems(results, ["see YY/T 2029-2024 clause 5.3.2"]) == [
-        "an output cites a YY/T 2029 clause"
+    # a made-up clause number after the norm's name (the norm text was never available, D-02)
+    assert g1.v06_problems(results, [f"see {g1.NORM}-2026 clause 5.3.2"]) == [
+        f"an output cites a {g1.NORM} clause"
     ]
     fewer = results.model_copy(update={"rulepacks": results.rulepacks[:1]})
     assert g1.v06_problems(fewer, []) == [

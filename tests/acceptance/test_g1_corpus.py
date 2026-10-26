@@ -105,7 +105,7 @@ def test_two_runs_are_byte_identical(summary: dict[str, Any], name: str) -> None
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_only_core_bids_gxdsl008_and_no_yyt2029(summary: dict[str, Any], name: str) -> None:
+def test_only_core_bids_gxdsl008_and_no_norm_content(summary: dict[str, Any], name: str) -> None:
     entry = _entry(summary, name)
     assert entry["packs"] == ["core", "bids", "gxdsl008"] and entry["v06"] == []
 

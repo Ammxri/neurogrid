@@ -42,6 +42,7 @@ KNOWN = {
     ("docs/zh/limitations.md", STATEMENT_ZH),
     ("docs/zh/rulepacks.md", STATEMENT_ZH),
     ("docs/zh/rulepacks.md", "解读问题清单将在 0.2 版中随 yyt2029 规则包提供。"),
+    ("tools/acceptance_g1.py", 'NORM = "YY/T 2029"'),  # the G1 acceptance's V-06 check names the norm once
 }
 THIS = "tests/unit/test_norm_independence.py"
 

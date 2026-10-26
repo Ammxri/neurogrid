@@ -28,7 +28,8 @@ reading of the files (not the product's code that wrote them):
   results.json declares (finding keys, manifest, rule pack, configuration and evidence SHA-256: so no signal
   hash) in the console, results.json, scan.json, HTML, PDF text, PDF bytes (ASCII and UTF-16BE) and /Info.
   The manifest names the data set's own files by design (A-82); it is scanned for paths, user and host only;
-- V-06: the loaded packs are exactly core, bids, gxdsl008; no YY/T 2029 rule, source or clause number;
+- V-06: the loaded packs are exactly core, bids, gxdsl008; no rule, source or clause number of the norm
+  (NORM, D-02);
 - the corpus is unchanged afterwards (tools/corpus.py verify and no file added or touched).
 
 The summary goes to <out>/summary.json (machine-readable: numbers, exit codes, durations, problem texts that
@@ -111,6 +112,7 @@ RADICALS = ((0x2E80, 0x2FDF), (0xF900, 0xFAFF), (0x2F800, 0x2FA1F))
 DRIVE_PATH = re.compile(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]")
 HEX_RUN = re.compile(r"[0-9a-fA-F]{16,}")
 FONT_URI = re.compile(r"data:font/[A-Za-z0-9.+-]*;base64,[A-Za-z0-9+/=]*")
+NORM = "YY/T 2029"  # the norm of V-06 and D-02; the one place this tool names it (reviewed mention)
 YYT_CLAUSE = re.compile(r"(?i)(?:YY\s*/?\s*T\s*2029|yyt\s*2029)[^\n]{0,40}?\b\d+(?:\.\d+)+")
 YYT_RULE = re.compile(r"(?i)^yyt")
 AGE_KEY = re.compile(r"(?i)(?:.*_)?ages?(?:_.*)?")
@@ -887,17 +889,17 @@ def check_privacy(
 
 
 def v06_problems(results: Results, documents: Iterable[str]) -> list[str]:
-    """V-06: the loaded packs are exactly core, bids, gxdsl008; no YY/T 2029 rule, source or clause."""
+    """V-06: the loaded packs are exactly core, bids, gxdsl008; no rule, source or clause of NORM."""
     problems = []
     names = [pack.name for pack in results.rulepacks]
     if sorted(names) != sorted(BUILTIN_PACKS):
         problems.append(f"loaded packs are {', '.join(names)}, not core, bids, gxdsl008")
     if any(YYT_RULE.match(rule.id) for rule in results.rules):
-        problems.append("a YY/T 2029 rule is loaded")
+        problems.append(f"a {NORM} rule is loaded")
     if any(YYT_CLAUSE.search(f"{pack.name} {pack.source}") for pack in results.rulepacks):
-        problems.append("a rule pack cites a YY/T 2029 clause")
+        problems.append(f"a rule pack cites a {NORM} clause")
     if any(YYT_CLAUSE.search(text) for text in documents):
-        problems.append("an output cites a YY/T 2029 clause")
+        problems.append(f"an output cites a {NORM} clause")
     return problems
 
 
@@ -1448,7 +1450,7 @@ def summary_markdown(summary: Mapping[str, Any]) -> str:
         "",
         "## V-06",
         "",
-        "Geladene Pakete je Datensatz genau core, bids, gxdsl008; keine YY/T-2029-Regel, -Quelle oder "
+        f"Geladene Pakete je Datensatz genau core, bids, gxdsl008; keine {NORM}-Regel, -Quelle oder "
         f"-Klauselnummer in den Ausgaben: {_yes(summary['v06_ok'])} "
         "(dazu tests/unit/test_norm_independence.py).",
         "",
