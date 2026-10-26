@@ -144,8 +144,12 @@ def test_frame_finds_changed_prose_and_component_lists() -> None:
     assert "| Kind | Component | Part | Platform | Licence | Text" in _frame(committed)
     rewrapped = committed.replace("sample data are\nlicensed under", "sample data\nare licensed under")
     assert rewrapped != committed and _frame(rewrapped) != _frame(committed)
-    gap = committed.replace("- CC-BY-4.0: ", "- CC-BY-4.0 (changed): ")
-    assert gap != committed and _frame(gap) != _frame(committed)
+    for item in notices.load_known_missing():
+        gap = committed.replace(f"- {item['component']}: ", f"- {item['component']} (changed): ")
+        assert gap != committed and _frame(gap) != _frame(committed)
+    note = "- bids-validator-deno bids_validator_deno/bids-validator.js: "
+    reviewed = committed.replace(note, note + "changed ")
+    assert reviewed != committed and _frame(reviewed) != _frame(committed)
     # a different wheel content does not change the frame
     row = next(line for line in committed.splitlines() if line.startswith("annotated-doc "))
     assert _frame(committed.replace(row, row.replace("MIT", "BSD-3-Clause", 1))) == _frame(committed)

@@ -5,10 +5,6 @@
 # component: "<dist>:<pattern>" of license-gate/components.toml, or a name for texts outside the wheels.
 
 [[missing]]
-component = "CC-BY-4.0"
-what = "The legal code of CC BY 4.0 (LICENSES/CC-BY-4.0.txt) is absent; the documentation, the sample data and the HED schemas inside the BIDS validator are CC BY 4.0 and reference the licence by name and URI."
-
-[[missing]]
 component = "bids-validator-deno:bids_validator_deno/bids-validator.js"
 what = "The licence files of the npm and jsr packages compiled into the BIDS validator 3.0.2 bundle are not in its wheel (names and versions in section 3 of the notices)."
 

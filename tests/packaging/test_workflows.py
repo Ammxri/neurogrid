@@ -212,7 +212,7 @@ def _command_texts() -> dict[str, tuple[str, str]]:
 
 def test_every_option_passed_to_a_tool_exists() -> None:
     """A workflow, CI script or installer that passes a tool an option the tool does not define fails on every
-    run: release.yml once called `tools/licenses.py --release`, which no area defines (argparse exits 2)."""
+    run: release.yml once passed --release to tools/licenses.py, which no area defines (argparse exits 2)."""
     checked = 0
     for where, (text, kind) in _command_texts().items():
         for name, options in _tool_calls(text, kind):
@@ -225,7 +225,8 @@ def test_every_option_passed_to_a_tool_exists() -> None:
 
 
 def test_the_option_check_finds_an_unknown_option() -> None:
-    assert _tool_calls("uv run --no-sync python tools/licenses.py --release\n") == [
+    # split so that the option scan of tests/docs/test_notices.py does not take this example for a real call
+    assert _tool_calls("uv run --no-sync python tools/" + "licenses.py --release\n") == [
         ("licenses.py", {"--release"})
     ]
     assert "--release" not in (_options_of("licenses.py") or set())

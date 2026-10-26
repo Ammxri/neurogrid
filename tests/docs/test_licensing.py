@@ -8,6 +8,7 @@ release."""
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 import tomllib
@@ -118,6 +119,33 @@ def test_used_licences_have_texts_and_texts_are_used() -> None:
     if absent:
         warnings.warn(f"licence texts pending owner approval (G1): {sorted(absent)}", stacklevel=1)
     assert (LICENSES / "Apache-2.0.txt").read_bytes() == (ROOT / "LICENSE").read_bytes()
+
+
+LICENCE_TEXTS = ROOT / "license-gate" / "licence_texts.toml"
+SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def test_downloaded_licence_texts_match_their_record() -> None:
+    """D-15: a licence text downloaded into LICENSES/ is recorded with its URL, size and SHA-256 and stored
+    byte for byte; Apache-2.0 (a copy of LICENSE) and OFL-1.1 (the font's OFL.txt) are no downloads."""
+    data = tomllib.loads(LICENCE_TEXTS.read_text(encoding="utf-8"))
+    assert data["version"] == 1
+    recorded = {str(item["path"]): item for item in data["text"]}
+    texts = {f"LICENSES/{path.name}" for path in LICENSES.glob("*.txt")}
+    assert set(recorded) == texts - {"LICENSES/Apache-2.0.txt", "LICENSES/OFL-1.1.txt"}
+    assert "LICENSES/CC-BY-4.0.txt" in recorded and "CC-BY-4.0" not in known_missing()
+    for path, item in recorded.items():
+        content = (ROOT / path).read_bytes()
+        assert SHA256.fullmatch(str(item["sha256"])), path
+        assert hashlib.sha256(content).hexdigest() == item["sha256"], path
+        assert len(content) == item["size"], path
+        assert item["spdx"] == Path(path).stem and item["decision"] == "D-15", path
+        assert str(item["url"]).startswith("https://") and b"\r" not in content, path
+    font_licence = ROOT / "src" / "neurogrid" / "report" / "fonts" / "OFL.txt"
+    assert font_licence.read_bytes() == (LICENSES / "OFL-1.1.txt").read_bytes()
+    cc_by = (LICENSES / "CC-BY-4.0.txt").read_text(encoding="utf-8")
+    assert cc_by.startswith("Creative Commons Attribution 4.0 International")
+    assert "Section 1 – Definitions." in cc_by and "Section 8 – Interpretation." in cc_by
 
 
 def test_no_case_collision_with_licenses_folder() -> None:

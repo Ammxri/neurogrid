@@ -2,9 +2,8 @@ version = 1
 
 # Licence of every path (TECH-10, A-27, A-86). When several tables match a file, the last one wins; the test
 # tests/docs/test_licensing.py applies the same rule to every tracked file. Licence texts are in LICENSES/.
-# LICENSES/CC-BY-4.0.txt is not yet present: the CC BY 4.0 legal code is a download outside D-06 and waits for
-# the owner's decision (license-gate/known_missing.toml, STOPP G1); the documents name the licence and its URI
-# https://creativecommons.org/licenses/by/4.0/ meanwhile.
+# LICENSES/CC-BY-4.0.txt is the CC BY 4.0 legal code as downloaded under D-15; its source and SHA-256 are in
+# license-gate/licence_texts.toml.
 
 # Documentation (CC BY 4.0)
 [[annotations]]

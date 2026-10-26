@@ -1,0 +1,15 @@
+# Licence texts in LICENSES/ that were downloaded (TECH-10, D-15): where each text comes from and its SHA-256
+# as downloaded (the file is stored byte for byte). tests/docs/test_licensing.py checks every entry against the
+# file. LICENSES/Apache-2.0.txt is a copy of LICENSE and LICENSES/OFL-1.1.txt the font licence of
+# src/neurogrid/report/fonts/OFL.txt; neither is a download of its own.
+version = 1
+
+[[text]]
+path = "LICENSES/CC-BY-4.0.txt"
+spdx = "CC-BY-4.0"
+source = "SPDX license-list-data, tag v3.27.0, text/CC-BY-4.0.txt"
+url = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/CC-BY-4.0.txt"
+size = 17023
+sha256 = "d557539df68e771cc1eedcc91d13f70fca930e508d11eedcafa4b15db49e3744"
+retrieved = "2026-10-26"
+decision = "D-15"

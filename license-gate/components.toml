@@ -71,7 +71,7 @@ platform = "any"
 spdx = "CC-BY-4.0"
 kind = "bundled"
 notice = ""
-note = "HED schemas embedded in the bundle (standard schemas 8.0.0 to 8.4.0 and library schemas); their epilogue states Creative Commons Attribution 4.0 International, HED Working Group, DOI 10.5281/zenodo.7876037. The CC BY 4.0 text is listed in known_missing.toml."
+note = "HED schemas embedded in the bundle (standard schemas 8.0.0 to 8.4.0 and library schemas); their epilogue states Creative Commons Attribution 4.0 International, HED Working Group, DOI 10.5281/zenodo.7876037. The CC BY 4.0 legal code is LICENSES/CC-BY-4.0.txt."
 
 [[component]]
 dist = "bids-validator-deno"

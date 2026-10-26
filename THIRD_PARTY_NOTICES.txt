@@ -141,7 +141,7 @@ win_amd64     scipy 1.17.1               scipy.libs/libscipy_openblas-64eda39e79
 Review notes:
 - bids-validator-deno bids_validator_deno/*.js*: BIDS schema 1.2.7 (jsr @bids/schema, BIDS 1.11.1) inside the bundle; the wheel states no licence for it (known_missing.toml).
 - bids-validator-deno bids_validator_deno/bids-validator.js: BIDS validator 3.0.2 as one JavaScript bundle; the npm and jsr packages compiled into it are listed in section 3 (licence files not in the wheel, known_missing.toml).
-- bids-validator-deno bids_validator_deno/bids-validator.js: HED schemas embedded in the bundle (standard schemas 8.0.0 to 8.4.0 and library schemas); their epilogue states Creative Commons Attribution 4.0 International, HED Working Group, DOI 10.5281/zenodo.7876037. The CC BY 4.0 text is listed in known_missing.toml.
+- bids-validator-deno bids_validator_deno/bids-validator.js: HED schemas embedded in the bundle (standard schemas 8.0.0 to 8.4.0 and library schemas); their epilogue states Creative Commons Attribution 4.0 International, HED Working Group, DOI 10.5281/zenodo.7876037. The CC BY 4.0 legal code is LICENSES/CC-BY-4.0.txt.
 - deno deno-*.data/scripts/deno: Deno runtime binary of the PyPI package deno.
 - deno deno-*.data/scripts/deno.exe: Deno runtime binary of the PyPI package deno.
 - h5py h5py.libs/libaec-*.so*: libaec 1.1.4 (build path libaec-v1.1.4 in the binary); the wheel states neither the licence nor its text (known_missing.toml).
@@ -285,7 +285,6 @@ win_amd64     uv                       0.13.0            uv-0.13.0-py3-none-win_
 
 5. Known gaps (the release workflow fails while this list is not empty)
 
-- CC-BY-4.0: The legal code of CC BY 4.0 (LICENSES/CC-BY-4.0.txt) is absent; the documentation, the sample data and the HED schemas inside the BIDS validator are CC BY 4.0 and reference the licence by name and URI. Text pending owner approval (G1).
 - bids-validator-deno:bids_validator_deno/bids-validator.js: The licence files of the npm and jsr packages compiled into the BIDS validator 3.0.2 bundle are not in its wheel (names and versions in section 3 of the notices). Text pending owner approval (G1).
 - bids-validator-deno:bids_validator_deno/*.js*: The BIDS schema 1.2.7 inside the validator bundle states no licence in the wheel; licence and text are to be taken from upstream. Text pending owner approval (G1).
 - h5py:h5py.libs/libaec-*.so*: libaec 1.1.4 in the Linux h5py wheel: the wheel states neither its licence nor its text. Text pending owner approval (G1).
