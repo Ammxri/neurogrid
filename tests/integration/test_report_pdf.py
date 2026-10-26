@@ -593,6 +593,146 @@ def test_glyph_twins_in_dataset_text_never_fail_the_gate(
     assert not (tmp_path / "kept").exists()
 
 
+@contextlib.contextmanager
+def _copies_without_layout(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Negative control (the state before P3): copies of shared glyphs in no GSUB/GPOS lookup. The subset
+    cache is emptied before and after."""
+    real = fonts.separate_shared_glyphs
+    fonts._subset.cache_clear()
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(fonts, "separate_shared_glyphs", lambda font: real(font, layout=False))
+            yield
+    finally:
+        fonts._subset.cache_clear()
+
+
+@contextlib.contextmanager
+def _measuring_page(shell: ShellInstall) -> Iterator[tuple[Any, Path]]:
+    """A page of the real shell with JavaScript on, for measurements only (the printer keeps it off),
+    started like the printer: kernel.pdf's launch arguments and environments in a browser_work folder."""
+    from playwright.sync_api import sync_playwright
+
+    child_log = pdf._ChildLog(shell.executable)
+    with pdf.browser_work() as work:
+        try:
+            with pdf.driver_environment(work):
+                playwright = sync_playwright().start()
+            try:
+                browser = playwright.chromium.launch(
+                    executable_path=str(shell.executable),
+                    args=pdf.launch_arguments(work),
+                    env=pdf.browser_environment(work),
+                    chromium_sandbox=False,
+                )
+                try:
+                    context = browser.new_context(offline=True)
+                    context.route(
+                        "**/*",
+                        lambda route: (
+                            route.continue_() if route.request.url.startswith("file:") else route.abort()
+                        ),
+                    )
+                    yield context.new_page(), work
+                finally:
+                    browser.close()
+            finally:
+                playwright.stop()
+        finally:
+            child_log.restore()
+
+
+TWIN_SAMPLE = "T–T L–L"  # the en dash is kerned with T and L (class kerning, both weights)
+
+
+def _rendered(page: Any, work: Path) -> tuple[dict[str, float], dict[str, bytes]]:
+    """Widths of TWIN_SAMPLE in a subset without U+2012 (no copy) and in one with it (U+2013 is a copy),
+    both weights; element screenshots of 'a…b' and 'a⋯b' (twins of one glyph that locl replaces in Latin
+    text) in the subset with copies."""
+    plain = subset_font_css(FONT_FILES, TWIN_SAMPLE + "ab…", family="NG Plain")
+    twin = subset_font_css(FONT_FILES, TWIN_SAMPLE + "ab…‒⋯", family="NG Twin")
+    cells = "".join(
+        f'<div><span id="{family}{weight}" style="font-family: \'NG {family}\'; font-weight: {weight}">'
+        f"{TWIN_SAMPLE}</span></div>"
+        for family in ("Plain", "Twin")
+        for weight in (400, 700)
+    )
+    cells += '<div><span id="horizontal" class="e">a…b</span></div>'
+    cells += '<div><span id="midline" class="e">a⋯b</span></div>'
+    source = work / "measure.html"
+    source.write_text(
+        f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><style>{plain}{twin} span {{ '
+        "font-size: 100px; line-height: 120px; white-space: pre; display: inline-block; } "
+        ".e { font-family: 'NG Twin'; width: 300px; } div { height: 140px; }</style></head>"
+        f"<body>{cells}</body></html>",
+        encoding="utf-8",
+    )
+    page.goto(source.as_uri())
+    page.evaluate("document.fonts.ready")
+    widths = {
+        key: float(page.evaluate(f"document.getElementById('{key}').getBoundingClientRect().width"))
+        for key in ("Plain400", "Twin400", "Plain700", "Twin700")
+    }
+    shots = {key: page.locator(f"#{key}").screenshot() for key in ("horizontal", "midline")}
+    return widths, shots
+
+
+@pytest.mark.pdf
+def test_glyph_copies_keep_kerning_and_localized_forms_in_the_shell(
+    pdf_shell: ShellInstall, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P3 in the real shell: 'T–T L–L' with the en dash as a copy (U+2012 in the text) is exactly as wide
+    as with the shared glyph (kerning applies to the copy), in both weights; '⋯' (U+22EF, a copy of the
+    ellipsis glyph) gets the ellipsis' localized form in Latin text, i.e. renders like '…'. Negative
+    control with the copies in no lookup (before P3): wider by the kerning, and the CJK form."""
+    with _measuring_page(pdf_shell) as (page, work):
+        fonts._subset.cache_clear()
+        widths, shots = _rendered(page, work)
+        with _copies_without_layout(monkeypatch):
+            kept_widths, kept_shots = _rendered(page, work)
+    assert widths["Twin400"] == widths["Plain400"] and widths["Twin700"] == widths["Plain700"], widths
+    assert shots["midline"] == shots["horizontal"]
+    assert kept_widths["Plain400"] == widths["Plain400"] and kept_widths["Plain700"] == widths["Plain700"]
+    assert kept_widths["Twin400"] > kept_widths["Plain400"] + 15  # -84 -55 -63 units at 100 px
+    assert kept_widths["Twin700"] > kept_widths["Plain700"] + 15
+    assert kept_shots["midline"] != kept_shots["horizontal"]
+
+
+LOCL_TWINS = ("a…b⋯c", "x⋯y…z")
+
+
+@pytest.mark.pdf
+def test_localized_forms_of_glyph_twins_keep_their_codepoints_in_the_pdf(
+    pdf_shell: ShellInstall, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P3: in Latin text locl replaces the ellipsis glyph that U+2026 and U+22EF share; each copy gets its
+    own copy of the substitute, so the PDF text keeps both code points and the gate passes (dataset data
+    never ends with exit 2). Negative control with the substitute shared by both (the copies only added to
+    the lookups): Skia names the substitute after the first text it drew, U+22EF reads as U+2026."""
+    body = "".join(f"<p>|{token}|</p><p><b>|{token}|</b></p>" for token in LOCL_TWINS)
+    expect = PdfExpect(meta=PdfMeta("Control", AS_OF), fonts=FONTS, once=LOCL_TWINS)
+
+    def printed(printer: PdfPrinter, work: Path) -> tuple[list[str], list[str]]:
+        source = work / "locl.html"
+        source.write_text(_page(body, css=NG_CSS, font_css=subset_font_css(FONT_FILES, body)), "utf-8")
+        result = printer.print(source, expect.meta)
+        return _twin_tokens("".join(_texts(result.data))), qa_gate(result.data, expect, log=result.log)
+
+    with pdf.browser_work() as work, PdfPrinter(pdf_shell, work) as printer:
+        fonts._subset.cache_clear()
+        assert printed(printer, work) == ([LOCL_TWINS[0], LOCL_TWINS[0], LOCL_TWINS[1], LOCL_TWINS[1]], [])
+        fonts._subset.cache_clear()
+        try:
+            with monkeypatch.context() as patch:
+                patch.setattr(fonts.GlyphCopies, "close_substitutions", lambda self: None)
+                patch.setattr(fonts.GlyphCopies, "_substitute", staticmethod(lambda name, suffix: name))
+                patch.setattr(fonts.GlyphCopies, "_ligature_suffix", lambda self, components: "")
+                tokens, violations = printed(printer, work)
+        finally:
+            fonts._subset.cache_clear()
+    assert tokens[0] == "a…b…c" and violations == ["phrase_missing"]
+
+
 def test_write_reports_prints_each_language_with_its_locale(
     results: Results, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
