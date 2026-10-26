@@ -224,6 +224,9 @@ errors:
     print_failed: "Der PDF-Browser konnte den Bericht nicht drucken ({type}); es wurde nichts geschrieben."
     timeout: "Der PDF-Browser wurde nicht innerhalb von {seconds} s fertig; es wurde nichts geschrieben."
     qa_failed: "Das PDF hat die PDF-Prüfung von NeuroGrid nicht bestanden ({checks}); es wurde nichts geschrieben."
+    work_path_too_long: "Der Ordner für die temporären Dateien des PDF-Browsers hat einen Pfad von {length} Zeichen; unter Windows kann der Browser höchstens {limit} verwenden. Es wurde nichts geschrieben."
+    temp_unusable: "Im temporären Ordner dieses Rechners ließ sich kein Arbeitsordner für den PDF-Browser anlegen; es wurde nichts geschrieben."
+    temp_hint: "Bitte die Umgebungsvariablen TEMP und TMP (Linux: TMPDIR) auf einen vorhandenen lokalen Ordner mit kürzerem Pfad (höchstens {limit} Zeichen) setzen und den Befehl erneut ausführen."
     install:
       command: "Installation mit: {command}   (offline: zusätzlich --from-zip <zip-Datei> --sha256 <SHA-256>; siehe Dokumentation)."
       docs: "Installation: siehe Dokumentation, Seite Installation, Abschnitt „PDF-Browser“. Das Installationsskript install_pdf_browser.py liegt jedem NeuroGrid-Release bei (Adresse und SHA-256 dort); Ausführen mit Python 3.11 oder neuer."

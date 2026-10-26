@@ -8,7 +8,9 @@ language, written all or nothing.
    of the font subsets that cover them (fonts embedded in HTML and PDF alike). Characters the fonts cannot
    draw are written as ``[U+XXXX]`` (report.glyphs.glyph_safe), so dataset text never makes the browser
    use a system font.
-3. The PDF is a print of exactly the HTML that is delivered; every PDF passes the QA gate.
+3. The PDF is a print of exactly the HTML that is delivered; every PDF passes the QA gate. The browser works
+   in a private folder in the computer's temporary folder (kernel.pdf.browser_work), not below the output
+   folder, so a long output path never reaches the browser's profile.
 4. Only then are all files written, each atomically; a failure leaves none of them behind.
 """
 
@@ -27,12 +29,12 @@ from neurogrid.kernel.pdf import (
     PdfMeta,
     PdfPrinter,
     ShellInstall,
+    browser_work,
     html_title,
     locate_shell,
     preflight,
     qa_gate,
 )
-from neurogrid.kernel.safety import work_directory
 from neurogrid.model.results import Results
 from neurogrid.report.glyphs import glyph_safe
 from neurogrid.report.render import page_text, render_report
@@ -84,11 +86,9 @@ def pdf_expectation(results: Results, lang: str, document: str) -> PdfExpect:
     )
 
 
-def _print_all(
-    results: Results, documents: Mapping[str, str], folder: Path, shell: ShellInstall
-) -> dict[str, bytes]:
+def _print_all(results: Results, documents: Mapping[str, str], shell: ShellInstall) -> dict[str, bytes]:
     pdfs: dict[str, bytes] = {}
-    with work_directory(folder) as work, PdfPrinter(shell, work) as printer:
+    with browser_work() as work, PdfPrinter(shell, work) as printer:
         for lang, document in documents.items():
             source = work / f"report.{lang}.html"
             source.write_bytes(document.encode("utf-8"))
@@ -152,7 +152,7 @@ def write_reports(
     existed = folder.exists()
     try:
         documents = {lang: html_document(results, lang) for lang in languages}
-        pdfs = _print_all(results, documents, folder, shell) if shell is not None else {}
+        pdfs = _print_all(results, documents, shell) if shell is not None else {}
         files: dict[Path, bytes] = {}
         for lang in languages:
             for name in formats:

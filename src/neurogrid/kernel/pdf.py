@@ -13,8 +13,12 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   proactor creates one loopback socket pair. The network guard (kernel/netguard.py) allows loopback only
   and still blocks every other connection, datagram and name resolution (A-49). The driver starts without
   the caller's node, debug and Playwright variables; the browser gets a complete, minimal environment.
-- **Files (A-54):** temporary files, profile and logs in the run's work folder; the GPU runs inside the
-  browser process, and a debug.log that a child process appends next to the executable is undone.
+- **Files (A-54):** temporary files, profile, logs and the printed copies in a private work folder in the
+  computer's temporary folder (browser_work), never below ``--out``: Chromium cannot create profile paths
+  longer than Windows allows, and its errors then went to debug.log files next to the executable and in the
+  current folder (measured). Driver and browser run with that folder as their current folder; the GPU and
+  the network service run inside the browser process, and a debug.log that a child process appends next to
+  the executable is undone.
 - **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
   report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a
   same-length byte replacement of the two fields Chromium writes; the result is byte-identical for the same
@@ -100,6 +104,17 @@ DRIVER_ENV_PREFIXES = ("PLAYWRIGHT_", "PW_")
 # The GPU runs as a thread of the browser process instead; a debug.log a run causes is undone (A-51, A-54).
 IN_PROCESS_GPU = "--in-process-gpu"
 CHILD_LOG = "debug.log"
+# The browser's work folder lies in the computer's temporary folder (tempfile.gettempdir(): TMPDIR, TEMP or
+# TMP), independent of --out. Below it the profile reaches 96 characters (measured, revision 1243:
+# Default\blob_storage\<uuid>); Windows refuses folder paths over 247 characters (MAX_PATH without long-path
+# support). With work folders of 180 and 200 characters the profile could not be created and the errors,
+# with local paths, went to debug.log next to the executable and in the current folder. The limit leaves 51
+# characters reserve; it applies on Windows only (Linux has no such path limit).
+WORK_PREFIX = "ng-pdf-"
+WORK_PATH_LIMIT = 100
+# the temporary folder itself: the work folder adds a separator, the prefix and tempfile.mkdtemp's 8 random
+# characters
+TEMP_PATH_LIMIT = WORK_PATH_LIMIT - 1 - len(WORK_PREFIX) - 8
 LINUX_PACKAGES = Path(__file__).with_name("pdf_linux_packages.json")
 BUNDLE_MARKER = "BUNDLE.json"  # in the prefix of an offline-bundle installation (next to venv/, python/)
 # an embedded font subset: six capital letters, "+", the PostScript name of the face
@@ -408,11 +423,56 @@ def browser_environment(work: Path, *, windows: bool | None = None) -> dict[str,
     return env
 
 
+def _too_long(length: int, limit: int) -> PdfError:
+    return PdfError(
+        "pdf.work_path_too_long",
+        length=length,
+        limit=limit,
+        hint=("pdf.temp_hint", {"limit": TEMP_PATH_LIMIT}),
+    )
+
+
+def check_work_path(work: Path, *, windows: bool | None = None) -> None:
+    """Windows: a work folder path longer than WORK_PATH_LIMIT characters is refused before the browser
+    starts (exit 2, with the hint to choose a shorter temporary folder)."""
+    length = len(str(Path(work).absolute()))
+    if (windows if windows is not None else os.name == "nt") and length > WORK_PATH_LIMIT:
+        raise _too_long(length, WORK_PATH_LIMIT)
+
+
+@contextmanager
+def browser_work(*, windows: bool | None = None) -> Iterator[Path]:
+    """A private work folder for one browser run in the computer's temporary folder, independent of the
+    output folder; removed afterwards, also after errors. A temporary folder whose path is too long (on
+    Windows more than TEMP_PATH_LIMIT characters) or that cannot be used ends with exit 2 and the hint,
+    before anything is created."""
+    base = Path(tempfile.gettempdir()).absolute()
+    if (windows if windows is not None else os.name == "nt") and len(str(base)) > TEMP_PATH_LIMIT:
+        raise _too_long(len(str(base)), TEMP_PATH_LIMIT)
+    try:
+        path = Path(tempfile.mkdtemp(prefix=WORK_PREFIX, dir=base))
+    except OSError:
+        raise PdfError("pdf.temp_unusable", hint=("pdf.temp_hint", {"limit": TEMP_PATH_LIMIT})) from None
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def _change_folder(folder: str) -> bool:
+    try:
+        os.chdir(folder)
+    except OSError:
+        return False
+    return True
+
+
 @contextmanager
 def driver_environment(work: Path) -> Iterator[None]:
-    """While Playwright's driver (node) starts: temporary files in the work folder, none of the variables
-    that change the driver or the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES). Restored right
-    afterwards."""
+    """While Playwright's driver (node) starts: temporary files in the work folder, the work folder as the
+    current folder (the driver keeps it and the browser and its child processes inherit it, so a debug.log
+    Chromium writes into its current folder lands there), none of the variables that change the driver or
+    the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES). Restored right afterwards."""
     removed = [
         name
         for name in os.environ
@@ -421,12 +481,21 @@ def driver_environment(work: Path) -> Iterator[None]:
     names = ("TMP", "TEMP", "TMPDIR", *DRIVER_ENV_REMOVED, *removed)
     saved = {name: os.environ.get(name) for name in names}
     try:
+        previous: str | None = str(Path.cwd())
+    except OSError:  # the current folder no longer exists: nothing to return to
+        previous = None
+    try:
         for name in ("TMP", "TEMP", "TMPDIR"):
             os.environ[name] = str(work)
         for name in (*DRIVER_ENV_REMOVED, *removed):
             os.environ.pop(name, None)
+        os.chdir(work)
         yield
     finally:
+        # back to the previous folder; if it is gone, out of the work folder so that it can be removed
+        for folder in (previous, str(Path(work).absolute().parent)):
+            if folder is not None and _change_folder(folder):
+                break
         for name, value in saved.items():
             if value is None:
                 os.environ.pop(name, None)
@@ -499,7 +568,9 @@ class _ChildLog:
 
 
 class PdfPrinter:
-    """One driver and one browser for several documents (``with PdfPrinter(shell, work) as printer``).
+    """One driver and one browser for several documents (``with browser_work() as work, PdfPrinter(shell,
+    work) as printer``). ``work`` holds the driver's temporary files, the profile, the log and the printed
+    files; on Windows it must not be longer than WORK_PATH_LIMIT characters.
 
     Playwright's own error texts are never shown: they contain paths (A-07, A-51); only the type is."""
 
@@ -516,6 +587,7 @@ class PdfPrinter:
     def __enter__(self) -> PdfPrinter:
         from playwright.sync_api import Error, sync_playwright
 
+        check_work_path(self.work)
         self.work.mkdir(parents=True, exist_ok=True)
         environment: dict[str, str | float | bool] = dict(browser_environment(self.work))
         self._child_log = _ChildLog(self.shell.executable)
