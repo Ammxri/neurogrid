@@ -18,6 +18,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -440,8 +441,8 @@ def test_netguard_blocks_nothing_and_counts_zero(results: Results, tmp_path: Pat
 def _tree(folder: Path, *, undone: Path) -> dict[str, tuple[int, int] | None]:
     """Size and modification time of every file and folder below ``folder``; for the folder ``undone`` (the
     one of the executable) only that it exists. A debug.log that a child process of the shell writes there
-    during a run is removed again when the printer closes (kernel/pdf.py, A-54), and other NeuroGrid runs on
-    the same browser folder do the same: that changes only the time of this one folder, never its content."""
+    during a run is removed again when the printer closes (kernel/pdf.py, A-54): that changes only the time
+    of this one folder, never its content."""
     return {
         str(p.relative_to(folder)): None if p == undone else (p.stat().st_size, p.stat().st_mtime_ns)
         for p in folder.rglob("*")
@@ -479,7 +480,11 @@ def test_no_files_left_in_temp_and_shell_folder_unchanged(
     """A-54: driver and browser use the run's work folder. A run with its own, empty temporary and user
     data folders leaves all of them empty (no Playwright folder, no browser profile), leaves the browser
     folder unchanged (the shell would otherwise write debug.log next to its executable) and the output
-    folder holds only the reports."""
+    folder holds only the reports. The run uses a copy of the installed browser folder that no other
+    NeuroGrid run on this machine uses, so only this run can change it."""
+    browser = tmp_path / "pdf-browser"
+    shutil.copytree(pdf_shell.shell_dir, browser / pdf_shell.shell_dir.name)
+    shell = pdf.locate_shell({pdf.ENV_BROWSER_DIR: str(browser)})
     source = tmp_path / "results.json"
     source.write_bytes(canonical.dumps(results))
     private = {
@@ -494,10 +499,10 @@ def test_no_files_left_in_temp_and_shell_folder_unchanged(
         "TMPDIR": str(private["TEMP"]),
         "XDG_CONFIG_HOME": str(private["XDG_CACHE_HOME"]),
         "XDG_DATA_HOME": str(private["XDG_CACHE_HOME"]),
-        pdf.ENV_BROWSER_DIR: str(pdf_shell.folder),
+        pdf.ENV_BROWSER_DIR: str(shell.folder),
         "PYTHONIOENCODING": "utf-8",
     }
-    before_shell = _tree(pdf_shell.shell_dir, undone=pdf_shell.executable.parent)
+    before_shell = _tree(shell.shell_dir, undone=shell.executable.parent)
     out = tmp_path / "out"
     done = subprocess.run(
         [
@@ -522,7 +527,7 @@ def test_no_files_left_in_temp_and_shell_folder_unchanged(
     assert {name: sorted(p.name for p in folder.iterdir()) for name, folder in private.items()} == {
         name: [] for name in private
     }
-    assert _tree(pdf_shell.shell_dir, undone=pdf_shell.executable.parent) == before_shell
+    assert _tree(shell.shell_dir, undone=shell.executable.parent) == before_shell
 
 
 @pytest.mark.pdf
