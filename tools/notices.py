@@ -170,7 +170,11 @@ INTRO = (
     "NeuroGrid itself is licensed under Apache-2.0 (LICENSE, NOTICE). Its documentation and sample data are "
     "licensed under CC BY 4.0; the bundled report fonts under the SIL Open Font License 1.1 (REUSE.toml)."
 )
-TERMS = "Every text below keeps its own terms."
+TERMS = (
+    "Every text below keeps its own terms. Only NeuroGrid's own prose in this file is licensed under "
+    "CC BY 4.0; the licence texts, notices and headers it reproduces word for word keep their terms and "
+    "authors (LicenseRef-NeuroGrid-Reproduced-Notices in REUSE.toml and LICENSES/)."
+)
 VALIDATOR_INTRO = (
     "Taken from bids-validator.js.map; 'in <package>' marks a package that the prebuilt dist of that package "
     "carries, for which the map names no version. The wheel carries only the validator's own MIT licence. "

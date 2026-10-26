@@ -11,7 +11,7 @@ version = 1
 
 # Documentation (CC BY 4.0)
 [[annotations]]
-path = ["docs/**", "README.md", "DATA_SOURCES.md", "THIRD_PARTY_NOTICES.txt"]
+path = ["docs/**", "README.md", "DATA_SOURCES.md"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"
 SPDX-License-Identifier = "CC-BY-4.0"
@@ -41,6 +41,15 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Third-party notices: NeuroGrid's own prose is CC BY 4.0; the licence texts, notices and headers it
+# reproduces word for word keep their own terms and authors (LICENSES/LicenseRef-NeuroGrid-Reproduced-
+# Notices.txt; the GPL and LGPL texts may be copied only unchanged)
+[[annotations]]
+path = ["THIRD_PARTY_NOTICES.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Ammar Ahad", "The third-party copyright holders named in this file"]
+SPDX-License-Identifier = "CC-BY-4.0 AND LicenseRef-NeuroGrid-Reproduced-Notices"
 
 # Sample data (CC BY 4.0)
 [[annotations]]

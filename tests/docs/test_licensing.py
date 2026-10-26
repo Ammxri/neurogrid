@@ -215,7 +215,7 @@ def test_downloaded_licence_texts_match_their_record() -> None:
     assert data["version"] == 1
     recorded = {str(item["path"]): item for item in data["text"]}
     texts = {f"LICENSES/{path.name}" for path in LICENSES.glob("*.txt")}
-    texts -= {"LICENSES/Apache-2.0.txt", "LICENSES/OFL-1.1.txt"}
+    texts -= {"LICENSES/Apache-2.0.txt", "LICENSES/OFL-1.1.txt", f"LICENSES/{REPRODUCED}.txt"}
     assert set(recorded) == texts | set(third_party_texts().values())
     assert {path: item["decision"] for path, item in recorded.items()} == APPROVED_DOWNLOADS
     assert not {Path(path).stem for path in recorded} & known_missing()
@@ -239,6 +239,41 @@ def test_downloaded_licence_texts_match_their_record() -> None:
     gpl = (ROOT / COPYLEFT_DIR / "LICENSE.GPL-3.0-or-later.txt").read_text(encoding="utf-8")
     assert gpl.startswith("GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007")
     assert "END OF TERMS AND CONDITIONS" in gpl
+
+
+REPRODUCED = "LicenseRef-NeuroGrid-Reproduced-Notices"
+
+
+def _table_of(path: str) -> dict[str, Any]:
+    found: dict[str, Any] = {}
+    for table in _annotations():
+        patterns = table["path"] if isinstance(table["path"], list) else [table["path"]]
+        if any(glob_regex(p).fullmatch(path) for p in patterns):
+            found = table
+    return found
+
+
+def test_notices_file_keeps_the_terms_of_the_texts_it_reproduces() -> None:
+    """TECH-10, D-05, D-16: THIRD_PARTY_NOTICES.txt reproduces third-party licence texts and notices word for
+    word (the GPL and LGPL texts may not be changed). Its annotation therefore licenses only NeuroGrid's own
+    prose under CC BY 4.0, keeps the reproduced texts under their own terms (an own LicenseRef with its text
+    in LICENSES/) and does not claim the third parties' copyright."""
+    table = _table_of("THIRD_PARTY_NOTICES.txt")
+    assert table["SPDX-License-Identifier"] == f"CC-BY-4.0 AND {REPRODUCED}"
+    holders = table["SPDX-FileCopyrightText"]
+    assert isinstance(holders, list) and "2026 Ammar Ahad" in holders
+    assert any("third-party copyright holders" in holder for holder in holders), holders
+    assert table.get("precedence") == "override"
+    assert "THIRD_PARTY_NOTICES.txt" not in next(
+        tab["path"] for tab in _annotations() if "docs/**" in tab["path"]
+    )
+    text = " ".join((LICENSES / f"{REPRODUCED}.txt").read_text(encoding="utf-8").split())
+    assert text.startswith(REPRODUCED)
+    for part in ("word for word", "own terms", "claims no copyright", "only unchanged", "CC BY 4.0"):
+        assert part in text, part
+    notices_text = (ROOT / "THIRD_PARTY_NOTICES.txt").read_text(encoding="utf-8")
+    assert "GNU LESSER GENERAL PUBLIC LICENSE" in notices_text  # it does reproduce such a text
+    assert REPRODUCED in " ".join(notices_text.split("\n1. ", 1)[0].split())
 
 
 def test_no_case_collision_with_licenses_folder() -> None:
@@ -271,7 +306,7 @@ def test_no_case_collision_with_licenses_folder() -> None:
         ("docs/_data/labels.zh.yaml", "CC-BY-4.0"),
         ("README.md", "CC-BY-4.0"),
         ("DATA_SOURCES.md", "CC-BY-4.0"),
-        ("THIRD_PARTY_NOTICES.txt", "CC-BY-4.0"),
+        ("THIRD_PARTY_NOTICES.txt", f"CC-BY-4.0 AND {REPRODUCED}"),
         ("tests/fixtures/synthetic/edf_ok/sub-01_task-rest_eeg.edf", "CC-BY-4.0"),
         ("src/neurogrid/report/fonts/NotoSansSC-Regular.ttf", "OFL-1.1"),
         ("src/neurogrid/report/fonts/NotoSansSC-Bold.ttf", "OFL-1.1"),

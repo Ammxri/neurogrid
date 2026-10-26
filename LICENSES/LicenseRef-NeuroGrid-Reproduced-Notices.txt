@@ -1,0 +1,12 @@
+LicenseRef-NeuroGrid-Reproduced-Notices
+
+This identifier marks the parts of THIRD_PARTY_NOTICES.txt that NeuroGrid reproduces from third parties:
+licence texts, copyright notices, NOTICE files and licence headers of the components that NeuroGrid
+distributes or depends on.
+
+- These parts are reproduced word for word. Each keeps its own terms and the copyright holders it names.
+  NeuroGrid claims no copyright in them and grants no licence for them.
+- The CC BY 4.0 licence of NeuroGrid's own prose in the file (headings, introductions, tables and review
+  notes) does not apply to them.
+- A licence text whose authors forbid changing it, such as the GNU General Public License and the GNU Lesser
+  General Public License, may be copied only unchanged.
