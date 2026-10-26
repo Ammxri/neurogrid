@@ -27,12 +27,6 @@ ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / "tools"
 WORKFLOWS = ROOT / ".github" / "workflows"
 NAMES = ("ci", "offline", "corpus", "docs", "release", "publish-pypi", "mirror-gitee")
-# Tools that the workflows call but that another P5 job is still writing, with exactly the options the
-# workflows pass them: tools/acceptance_g1.py comes from the acceptance phase (corpus.yml). Every other called
-# tool must be in the tree, and its real argparse parser is checked. A pending tool is checked the same way as
-# soon as its file exists; test_a_pending_tool_defines_the_options_the_workflows_pass then fails while it
-# lacks one of them.
-PENDING = {"acceptance_g1.py": frozenset({"--corpus", "--out"})}
 PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
     "astral-sh/setup-uv": "07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",  # v10.3.2
@@ -143,7 +137,7 @@ def test_scripts_and_tools_called_by_the_workflows_exist() -> None:
         for script in re.findall(r"packaging/ci/[A-Za-z0-9_.-]+", text):
             assert (ROOT / script).is_file(), (name, script)
         for tool in set(re.findall(r"tools/([A-Za-z0-9_]+\.py)", text)):
-            assert (TOOLS / tool).is_file() or tool in PENDING, (name, tool)
+            assert (TOOLS / tool).is_file(), (name, tool)
 
 
 # A call of a repository tool: tools/<name>.py (also "$root/tools/..." or tools\<name>.py in PowerShell). Its
@@ -340,8 +334,8 @@ def _command_texts() -> dict[str, tuple[str, str]]:
 def test_every_option_passed_to_a_tool_exists() -> None:
     """A workflow, CI script or installer that passes a tool an option or subcommand the tool does not define
     fails on every run: release.yml once passed --release to tools/licenses.py, which no area defines
-    (argparse exits 2). Every called tool in the tree is checked against its own parser (_parser_of); only a
-    pending tool whose file does not exist yet is left out (PENDING)."""
+    (argparse exits 2). Every P5 area is merged, so every called tool must be in the tree, and each call is
+    checked against the tool's own parser (_parser_of)."""
     checked = 0
     problems = []
     for where, (text, kind) in _command_texts().items():
@@ -349,9 +343,7 @@ def test_every_option_passed_to_a_tool_exists() -> None:
             hidden = _hidden_options(arguments, kind)
             problems += [f"{where}: {name}: option inside another word, not checked: {o}" for o in hidden]
             tool = TOOLS / name
-            if not tool.is_file():
-                assert name in PENDING, (where, name)
-                continue
+            assert tool.is_file(), (where, name)
             words = _words(arguments, kind)
             problems += [f"{where}: {problem}" for problem in _call_problems(name, _parser_of(tool), words)]
             checked += 1
@@ -470,54 +462,6 @@ def test_the_check_reads_positional_choices_and_tools_without_argparse() -> None
     assert _call_problems("strace_check.py", None, ["evidence", "--verbose"]) == [
         "strace_check.py takes no options: --verbose"
     ]
-
-
-def _pending_problems(tools: Path) -> list[str]:
-    """The options the workflows pass to a pending tool that the tool, once its file exists in `tools`, does
-    not define (with its subcommands); nothing for a tool that does not exist yet."""
-    problems = []
-    for name, options in sorted(PENDING.items()):
-        if (tools / name).is_file():
-            parser = _parser_of(tools / name)
-            defined = set() if parser is None else _defined_options(parser)
-            problems += [f"{name} lacks {option}" for option in sorted(options - defined)]
-    return problems
-
-
-def test_a_pending_tool_defines_the_options_the_workflows_pass() -> None:
-    passed: dict[str, set[str]] = defaultdict(set)
-    for _where, (text, kind) in _command_texts().items():
-        for name, words in _tool_calls(text, kind):
-            if name in PENDING:
-                passed[name] |= _options(words)
-    assert dict(passed) == {name: set(options) for name, options in PENDING.items()}  # the record is exact
-    assert _pending_problems(TOOLS) == []
-
-
-FAKE_TOOL = """import argparse
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser()
-{arguments}
-    parser.parse_args(argv)
-    return 0
-"""
-
-
-def test_the_pending_check_fails_for_a_tool_that_lacks_the_options(tmp_path: Path) -> None:
-    assert _pending_problems(tmp_path) == []  # not written yet: nothing to check
-    for folder, arguments, expected in (
-        ("corpus-only", ['"--corpus"'], ["acceptance_g1.py lacks --out"]),
-        ("neither", ['"--datasets"'], ["acceptance_g1.py lacks --corpus", "acceptance_g1.py lacks --out"]),
-        ("both", ['"--corpus", required=True', '"--out"', '"--runs", type=int'], []),
-    ):
-        (tmp_path / folder).mkdir()
-        lines = "\n".join(f"    parser.add_argument({argument})" for argument in arguments)
-        (tmp_path / folder / "acceptance_g1.py").write_text(
-            FAKE_TOOL.format(arguments=lines), encoding="utf-8"
-        )
-        assert _pending_problems(tmp_path / folder) == expected, folder
 
 
 def test_ci_matrix_and_gates() -> None:
