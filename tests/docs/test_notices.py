@@ -379,7 +379,7 @@ def test_validator_sources_from_the_source_map(tmp_path: Path) -> None:
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr(notices.VALIDATOR_MAP, json.dumps(source_map))
     with zipfile.ZipFile(path) as archive:
-        found, licences = notices.validator_sources(archive)
+        found, licences, unattributed = notices.validator_sources(archive)
     assert found == [  # by name, casefolded; never attributed to the package whose dist carries them
         ("npm", "@nodable/entities", "in x@1.0.0"),
         ("jsr", "@std/path", "1.1.2"),
@@ -387,6 +387,103 @@ def test_validator_sources_from_the_source_map(tmp_path: Path) -> None:
         ("npm", "lodash", "in hed-validator@4.2.0"),
     ]
     assert licences == {("ajv", "8.20.0"): "MIT", ("lodash", "in hed-validator@4.2.0"): "ISC"}
+    assert unattributed == ["file:///x/src/own.ts"]  # no package and not the validator's own build path
+
+
+def _source_map_wheel(tmp_path: Path, entries: list[tuple[str, str]]) -> Path:
+    path = tmp_path / "map.whl"
+    source_map = {"sources": [s for s, _c in entries], "sourcesContent": [c for _s, c in entries]}
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(notices.VALIDATOR_MAP, json.dumps(source_map))
+    return path
+
+
+def test_every_licence_a_bundled_source_states_is_found(tmp_path: Path) -> None:
+    """The isomorphic-git case: an SPDX-License-Identifier far past the head of a bundled file (a copied
+    LGPL path.join) is found, and so is an SPDX line that is no plain expression."""
+    copied = "/*!\n * copied from @zenfs/core/path\n * SPDX-License-Identifier: LGPL-3.0-or-later\n */"
+    content = (
+        "/* MIT package */\n" + "x = 1;\n" * 2000 + copied + "\n// SPDX-License-Identifier: GPL-2.0, see X\n"
+    )
+    assert len(content) > 4000
+    path = _source_map_wheel(
+        tmp_path,
+        [("./node_modules/.deno/isomorphic-git@1.41.9/node_modules/isomorphic-git/index.cjs", content)],
+    )
+    with zipfile.ZipFile(path) as archive:
+        _found, licences, _unattributed = notices.validator_sources(archive)
+    assert licences == {("isomorphic-git", "1.41.9"): "GPL-2.0, see X / LGPL-3.0-or-later"}
+    assert notices.stated_licences("/* SPDX-License-Identifier: */") == {"(empty SPDX-License-Identifier)"}
+    assert notices.stated_licences("/** @license MIT */ /* SPDX-License-Identifier: 0BSD */") == {
+        "MIT",
+        "0BSD",
+    }
+
+
+def test_polyfills_and_own_sources_are_attributed(tmp_path: Path) -> None:
+    """Every entry of the source map belongs to a package, to a polyfill's package or to the validator's own
+    code; anything else is reported (the @jspm/core polyfills were once missed)."""
+    polyfill = "// node_modules/@jspm/core/nodelibs/browser/chunk-A.js\n/** @license MIT */\n"
+    polyfill += "// node_modules/@jspm/core/nodelibs/browser/fs.js\nexport {}\n"
+    path = _source_map_wheel(
+        tmp_path,
+        [
+            ("node-modules-polyfills:node:fs/promises", polyfill),
+            ("node-modules-polyfills:node:path", "// node_modules/@jspm/core/nodelibs/browser/path.js\n"),
+            ("node-modules-polyfills:node:os", "no marker"),
+            ("../../src/main.ts", "// SPDX-License-Identifier: MIT\n"),
+            ("../../deno.json", "{}"),
+            ("../../vendor/thing.js", ""),
+        ],
+    )
+    with zipfile.ZipFile(path) as archive:
+        found, licences, unattributed = notices.validator_sources(archive)
+    assert found == [("npm", "@jspm/core", notices.POLYFILL_FOUND)]
+    assert licences == {("@jspm/core", notices.POLYFILL_FOUND): "MIT", notices.OWN: "MIT"}
+    assert unattributed == ["node-modules-polyfills:node:os", "../../vendor/thing.js"]
+
+
+def test_unattributed_entries_and_own_licences_are_problems(tmp_path: Path) -> None:
+    folder = _third_party(tmp_path, [_mit("a")])
+    packages = notices.load_validator_texts("9.9.9", folder)
+    wheel = _validator_wheel([("npm", "a", "1.0.0")], {notices.OWN: "MIT"})
+    assert notices.check_validator_texts(wheel, packages, []) == []
+    wheel.unattributed = ["../../vendor/thing.js"]
+    assert notices.check_validator_texts(wheel, packages, []) == [
+        "linux_x86_64: bids-validator-deno 9.9.9: source-map entry of no package and not the validator's "
+        "own: ../../vendor/thing.js"
+    ]
+    listed = [{"component": "bids-validator-deno:../../vendor/thing.js", "what": "gap"}]
+    assert notices.check_validator_texts(wheel, packages, listed) == []  # an explicitly listed gap
+    wheel.unattributed = []
+    wheel.source_licenses = {notices.OWN: "LGPL-3.0-or-later"}
+    assert "an own source states LGPL-3.0-or-later" in notices.check_validator_texts(wheel, packages, [])[0]
+
+
+def test_committed_validator_wheel_is_fully_attributed() -> None:
+    """With the locked validator wheel in .local/notices-wheels (or NEUROGRID_NOTICES_WHEELS): no entry of its
+    source map is unattributed, the polyfills belong to @jspm/core, and the LGPL header that isomorphic-git
+    copied from @zenfs/core is found and blocked by a known_missing.toml entry with a decision."""
+    locked = next(
+        p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
+    )
+    wheel = notices.select_wheel(locked, "linux_x86_64")
+    folders = [notices.DEFAULT_CACHE]
+    if os.environ.get("NEUROGRID_NOTICES_WHEELS"):
+        folders.append(Path(os.environ["NEUROGRID_NOTICES_WHEELS"]))
+    path = notices.find_wheel(wheel, folders)
+    if path is None:
+        pytest.skip(f"{wheel.filename} is not in .local/notices-wheels")
+    with zipfile.ZipFile(path) as archive:
+        found, licences, unattributed = notices.validator_sources(archive)
+    assert unattributed == []
+    assert ("npm", "@jspm/core", notices.POLYFILL_FOUND) in found
+    assert "LGPL-3.0-or-later" in licences[("isomorphic-git", "1.41.9")]
+    packages = notices.load_validator_texts(locked.version) or []
+    iso = next(p for p in packages if p.name == "isomorphic-git")
+    assert "LGPL-3.0-or-later" in notices.spdx_units(iso.spdx)
+    decisions = {i["component"]: i.get("decision", "") for i in notices.load_known_missing()}
+    assert "forbids LGPL" in decisions[iso.owner_decision]
 
 
 # --- licence texts of the packages inside the validator bundle (D-15) ---------------------------------------
@@ -415,7 +512,7 @@ def _third_party(folder: Path, packages: list[dict[str, Any]]) -> Path:
     lines = ["version = 1", 'validator_version = "9.9.9"']
     for package in packages:
         lines.append("[[package]]")
-        for key in ("registry", "name", "version", "found", "spdx", "note", "pending"):
+        for key in ("registry", "name", "version", "found", "spdx", "note", "pending", "owner_decision"):
             if key in package:
                 lines.append(f"{key} = {json.dumps(package[key])}")
         for text in package.get("texts", []):
@@ -493,6 +590,50 @@ def test_validator_texts_are_checked_byte_for_byte_and_must_be_permissive(tmp_pa
     ]
 
 
+def test_a_licence_outside_the_permissive_ones_needs_an_owner_decision(tmp_path: Path) -> None:
+    """A truthful non-permissive licence (isomorphic-git: MIT AND LGPL-3.0-or-later) passes the component
+    check only with a known_missing.toml entry that carries a decision; that entry keeps --check failing."""
+    sources = [("npm", "a", "1.0.0")]
+    lgpl = _mit("a", spdx="MIT AND LGPL-3.0-or-later", owner_decision="gap:a")
+    folder = _third_party(tmp_path, [lgpl])
+    packages = notices.load_validator_texts("9.9.9", folder)
+    wheel = _validator_wheel(sources, {("a", "1.0.0"): "LGPL-3.0-or-later / MIT"})
+    decided = [
+        {"component": "gap:a", "what": "LGPL", "decision": "owner decision required (D-05 forbids LGPL)"}
+    ]
+    assert notices.check_validator_texts(wheel, packages, decided) == []
+    no_decision = [{"component": "gap:a", "what": "LGPL"}]
+    assert "is not listed with a decision" in notices.check_validator_texts(wheel, packages, no_decision)[0]
+    assert "is not listed with a decision" in notices.check_validator_texts(wheel, packages, [])[0]
+    # the review that once said MIT only: the LGPL header the source states is a problem
+    mit = notices.load_validator_texts("9.9.9", _third_party(tmp_path / "mit", [_mit("a")]))
+    assert "a bundled source states LGPL-3.0-or-later, the review says MIT" in "\n".join(
+        notices.check_validator_texts(wheel, mit, [])
+    )
+
+
+def test_a_package_without_review_may_state_permissive_licences_only(tmp_path: Path) -> None:
+    sources = [("npm", "@jspm/core", notices.POLYFILL_FOUND)]
+    gap = {"registry": "npm", "name": "@jspm/core", "found": notices.POLYFILL_FOUND, "pending": "gap:jspm"}
+    packages = notices.load_validator_texts("9.9.9", _third_party(tmp_path, [gap]))
+    known = [{"component": "gap:jspm", "what": "no version"}]
+    permissive = _validator_wheel(sources, {("@jspm/core", notices.POLYFILL_FOUND): "MIT"})
+    assert notices.check_validator_texts(permissive, packages, known) == []
+    lgpl = _validator_wheel(sources, {("@jspm/core", notices.POLYFILL_FOUND): "LGPL-3.0-only"})
+    assert (
+        "states LGPL-3.0-only, there is no reviewed licence"
+        in notices.check_validator_texts(lgpl, packages, known)[0]
+    )
+
+
+def test_gaps_name_what_they_wait_for() -> None:
+    assert notices.gap_status({"component": "x", "what": "y"}) == notices.PENDING
+    decided = {"component": "x", "what": "y", "decision": "owner decision required (D-05 forbids LGPL)"}
+    assert notices.gap_status(decided) == "Owner decision required (D-05 forbids LGPL) (G1)"
+    text = notices.render([], [], [decided])
+    assert "- x: y Owner decision required (D-05 forbids LGPL) (G1)." in text
+
+
 def test_render_names_the_reviewed_licences_and_copies_their_texts(tmp_path: Path) -> None:
     sources = [("npm", "a", "1.0.0"), ("npm", "b", "in a@1.0.0")]
     nested = {"registry": "npm", "name": "b", "found": "in a@1.0.0", "pending": "gap:b", "note": "no version"}
@@ -520,10 +661,17 @@ def test_committed_validator_texts_match_their_manifest() -> None:
     packages = notices.load_validator_texts(locked.version)
     assert packages is not None, "license-gate/third_party has no manifest for the locked validator"
     base = notices.validator_texts_folder(locked.version)
-    known = {item["component"] for item in notices.load_known_missing()}
+    gaps = notices.load_known_missing()
+    known = {item["component"] for item in gaps}
+    decisions = {item["component"]: item for item in gaps if item.get("decision")}
     listed = set()
     for package in packages:
-        assert notices.spdx_units(package.spdx) <= notices.BUNDLED_ALLOWED, package
+        outside = notices.spdx_units(package.spdx) - notices.BUNDLED_ALLOWED
+        if outside:  # only with the owner's decision pending: the gap names each licence, the release fails
+            assert package.owner_decision in decisions, package
+            what = decisions[package.owner_decision]["what"]
+            assert all(unit.split()[-1] in what for unit in outside), (package.name, outside)
+        assert not package.owner_decision or package.owner_decision in decisions, package
         assert package.texts or package.pending in known, package
         assert not package.pending or package.pending in known, package
         for text in package.texts:
@@ -539,6 +687,16 @@ def test_committed_validator_texts_match_their_manifest() -> None:
     assert len({p.key for p in packages}) == len(packages) > 70
     schema = next(p for p in packages if p.name == "@bids/schema")
     assert schema.spdx == "CC-BY-4.0" and schema.texts[0].label.endswith("@bids/schema@1.2.7/LICENSE")
+    by_name = {p.name: p for p in packages}
+    # a licence named in the expression has its text attached (the Apache 'Used by' line names the package)
+    s3 = by_name["@bradenmacdonald/s3-lite-client"]
+    assert "Apache-2.0" in notices.spdx_units(s3.spdx)
+    assert "LICENSES/Apache-2.0.txt" in {t.label for t in s3.texts}
+    # hash-wasm: the expression of all its stored headers, not only the MIT of its LICENSE
+    hash_wasm = notices.spdx_units(by_name["hash-wasm"].spdx)
+    assert {"MIT", "0BSD", "Zlib", "BSD-2-Clause", "Apache-2.0", "CC0-1.0", "OpenSSL"} <= hash_wasm
+    manifest = tomllib.loads((base / "manifest.toml").read_text(encoding="utf-8"))
+    assert "only to extract" in manifest["downloads"] and "no tarball is kept" in manifest["downloads"]
 
 
 def test_repository_notices_must_exist(tmp_path: Path) -> None:

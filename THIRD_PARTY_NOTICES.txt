@@ -186,102 +186,106 @@ Taken from bids-validator.js.map; 'in <package>' marks a package that the prebui
 carries, for which the map names no version. The wheel carries only the validator's own MIT licence. The
 licence files of these packages were taken at exactly these versions from registry.npmjs.org and jsr.io (D-15)
 and are kept with URL and SHA-256 in license-gate/third_party/bids-validator-3.0.2/manifest.toml; their texts
-are in section 6. Texts still missing are listed in section 5.
+are in section 6. Texts still missing, and licences outside the permissive ones that wait for the owner's
+decision ('decision: section 5'), are listed in section 5.
 
-Registry  Package                          Version                 Licence               Licence texts
---------  -------------------------------  ----------------------  --------------------  -------------------------------
-jsr       @bids/schema                     1.2.7                   CC-BY-4.0             licence file
-jsr       @bradenmacdonald/s3-lite-client  0.9.6                   MIT AND Apache-2.0    licence file
-jsr       @cliffy/flags                    1.0.0-rc.7              MIT                   licence file
-jsr       @cliffy/internal                 1.0.0-rc.7              MIT                   licence file
-jsr       @effigies/cliffy-command         1.0.0-dev.8             MIT                   licence file
-jsr       @effigies/cliffy-table           1.0.0-dev.5             MIT                   licence file
-jsr       @libs/xml                        8.0.0                   MIT                   licence file
-npm       @nodable/entities                in hed-validator@4.2.0  pending               missing (section 5)
-jsr       @std/async                       1.5.0                   MIT                   licence file
-jsr       @std/bytes                       1.0.6                   MIT                   licence file
-jsr       @std/fmt                         1.0.10                  MIT                   licence file
-jsr       @std/internal                    1.0.14                  MIT                   licence file
-jsr       @std/io                          0.225.3                 MIT                   licence file
-jsr       @std/log                         0.224.14                MIT                   licence file
-jsr       @std/path                        1.1.6                   MIT                   licence file
-jsr       @std/streams                     1.1.2                   MIT                   licence file
-jsr       @std/text                        1.0.19                  MIT                   licence file
-jsr       @std/xml                         0.1.3                   MIT                   licence file
-jsr       @std/yaml                        1.2.0                   MIT                   licence file
-npm       ajv                              8.20.0                  MIT                   licence file
-npm       ansi-escapes                     7.3.0                   MIT                   licence file
-npm       async-lock                       1.4.1                   MIT                   licence file
-npm       available-typed-arrays           1.0.7                   MIT                   licence file
-npm       call-bind                        1.0.9                   MIT                   licence file
-npm       call-bind-apply-helpers          1.0.2                   MIT                   licence file
-npm       call-bound                       1.0.4                   MIT                   licence file
-npm       clean-git-ref                    2.0.1                   Apache-2.0            standard text
-npm       core-js-pure                     3.49.0                  MIT                   licence file
-npm       crc-32                           1.2.2                   Apache-2.0            licence file
-npm       define-data-property             1.1.4                   MIT                   licence file
-npm       diff3                            0.0.3                   MIT                   2 source headers
-npm       dunder-proto                     1.0.1                   MIT                   licence file
-npm       environment                      1.1.0                   MIT                   licence file
-npm       es-define-property               1.0.1                   MIT                   licence file
-npm       es-errors                        1.3.0                   MIT                   licence file
-npm       es-object-atoms                  1.1.2                   MIT                   licence file
-npm       fast-deep-equal                  3.1.3                   MIT                   licence file
-npm       fast-uri                         3.1.0                   BSD-3-Clause          licence file
-npm       fast-xml-parser                  in hed-validator@4.2.0  pending               missing (section 5)
-npm       for-each                         0.3.5                   MIT                   licence file
-npm       function-bind                    1.1.2                   MIT                   licence file
-npm       get-intrinsic                    1.3.0                   MIT                   licence file
-npm       get-proto                        1.0.1                   MIT                   licence file
-npm       gopd                             1.2.0                   MIT                   licence file
-npm       has-flag                         5.0.1                   MIT                   licence file
-npm       has-property-descriptors         1.0.2                   MIT                   licence file
-npm       has-symbols                      1.1.0                   MIT                   licence file
-npm       has-tostringtag                  1.0.2                   MIT                   licence file
-npm       hash-wasm                        4.12.0                  MIT                   licence file, 23 source headers
-npm       hasown                           2.0.4                   MIT                   licence file
-npm       hed-validator                    4.2.0                   MIT                   licence file
-npm       ignore                           5.3.2                   MIT                   licence file
-npm       ignore                           7.0.8                   MIT                   licence file
-npm       inherits                         2.0.4                   ISC                   licence file
-npm       is-callable                      1.2.7                   MIT                   licence file
-npm       is-typed-array                   1.1.15                  MIT                   licence file
-npm       isarray                          2.0.5                   MIT                   licence file
-npm       isomorphic-git                   1.41.9                  MIT                   licence file
-npm       json-schema-traverse             1.0.0                   MIT                   licence file
-npm       lodash                           in hed-validator@4.2.0  pending               missing (section 5)
-npm       marked                           17.0.6                  MIT AND BSD-3-Clause  licence file
-npm       math-intrinsics                  1.1.0                   MIT                   licence file
-npm       nifti-reader-js                  0.8.0                   MIT                   licence file
-npm       pako                             1.0.11                  MIT AND Zlib          licence file, source header
-npm       path-expression-matcher          in hed-validator@4.2.0  pending               missing (section 5)
-npm       pify                             4.0.1                   MIT                   licence file
-npm       pluralize                        8.0.0                   MIT                   licence file
-npm       possible-typed-array-names       1.1.0                   MIT                   licence file
-npm       safe-buffer                      5.2.1                   MIT                   licence file
-npm       semver                           in hed-validator@4.2.0  pending               missing (section 5)
-npm       set-function-length              1.2.2                   MIT                   licence file
-npm       sha.js                           2.4.12                  MIT AND BSD-3-Clause  licence file
-npm       strnum                           in hed-validator@4.2.0  pending               missing (section 5)
-npm       supports-color                   10.2.2                  MIT                   licence file
-npm       supports-hyperlinks              4.5.0                   MIT                   licence file
-npm       to-buffer                        1.2.2                   MIT                   licence file
-npm       typed-array-buffer               1.0.3                   MIT                   licence file
-npm       unicode-name                     in hed-validator@4.2.0  pending               missing (section 5)
-npm       which-typed-array                1.1.22                  MIT                   licence file
-npm       xml-naming                       in hed-validator@4.2.0  pending               missing (section 5)
+Registry  Package                          Version                    Licence                                                                                                                                                                                                                                 Licence texts
+--------  -------------------------------  -------------------------  --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  -------------------------------
+jsr       @bids/schema                     1.2.7                      CC-BY-4.0                                                                                                                                                                                                                               licence file
+jsr       @bradenmacdonald/s3-lite-client  0.9.6                      MIT AND Apache-2.0                                                                                                                                                                                                                      licence file, standard text
+jsr       @cliffy/flags                    1.0.0-rc.7                 MIT                                                                                                                                                                                                                                     licence file
+jsr       @cliffy/internal                 1.0.0-rc.7                 MIT                                                                                                                                                                                                                                     licence file
+jsr       @effigies/cliffy-command         1.0.0-dev.8                MIT                                                                                                                                                                                                                                     licence file
+jsr       @effigies/cliffy-table           1.0.0-dev.5                MIT                                                                                                                                                                                                                                     licence file
+npm       @jspm/core                       in node-modules-polyfills  pending                                                                                                                                                                                                                                 missing (section 5)
+jsr       @libs/xml                        8.0.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       @nodable/entities                in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
+jsr       @std/async                       1.5.0                      MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/bytes                       1.0.6                      MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/fmt                         1.0.10                     MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/internal                    1.0.14                     MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/io                          0.225.3                    MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/log                         0.224.14                   MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/path                        1.1.6                      MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/streams                     1.1.2                      MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/text                        1.0.19                     MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/xml                         0.1.3                      MIT                                                                                                                                                                                                                                     licence file
+jsr       @std/yaml                        1.2.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       ajv                              8.20.0                     MIT                                                                                                                                                                                                                                     licence file
+npm       ansi-escapes                     7.3.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       async-lock                       1.4.1                      MIT                                                                                                                                                                                                                                     licence file
+npm       available-typed-arrays           1.0.7                      MIT                                                                                                                                                                                                                                     licence file
+npm       call-bind                        1.0.9                      MIT                                                                                                                                                                                                                                     licence file
+npm       call-bind-apply-helpers          1.0.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       call-bound                       1.0.4                      MIT                                                                                                                                                                                                                                     licence file
+npm       clean-git-ref                    2.0.1                      Apache-2.0                                                                                                                                                                                                                              standard text
+npm       core-js-pure                     3.49.0                     MIT                                                                                                                                                                                                                                     licence file
+npm       crc-32                           1.2.2                      Apache-2.0                                                                                                                                                                                                                              licence file
+npm       define-data-property             1.1.4                      MIT                                                                                                                                                                                                                                     licence file
+npm       diff3                            0.0.3                      MIT                                                                                                                                                                                                                                     2 source headers
+npm       dunder-proto                     1.0.1                      MIT                                                                                                                                                                                                                                     licence file
+npm       environment                      1.1.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       es-define-property               1.0.1                      MIT                                                                                                                                                                                                                                     licence file
+npm       es-errors                        1.3.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       es-object-atoms                  1.1.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       fast-deep-equal                  3.1.3                      MIT                                                                                                                                                                                                                                     licence file
+npm       fast-uri                         3.1.0                      BSD-3-Clause                                                                                                                                                                                                                            licence file
+npm       fast-xml-parser                  in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
+npm       for-each                         0.3.5                      MIT                                                                                                                                                                                                                                     licence file
+npm       function-bind                    1.1.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       get-intrinsic                    1.3.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       get-proto                        1.0.1                      MIT                                                                                                                                                                                                                                     licence file
+npm       gopd                             1.2.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       has-flag                         5.0.1                      MIT                                                                                                                                                                                                                                     licence file
+npm       has-property-descriptors         1.0.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       has-symbols                      1.1.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       has-tostringtag                  1.0.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       hash-wasm                        4.12.0                     MIT AND 0BSD AND Zlib AND BSD-2-Clause AND Apache-2.0 AND (CC0-1.0 OR OpenSSL OR Apache-2.0) AND (CC0-1.0 OR Apache-2.0) AND LicenseRef-Public-Domain AND LicenseRef-Brumme-Disclaimer AND LicenseRef-Not-Stated (decision: section 5)  licence file, 23 source headers
+npm       hasown                           2.0.4                      MIT                                                                                                                                                                                                                                     licence file
+npm       hed-validator                    4.2.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       ignore                           5.3.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       ignore                           7.0.8                      MIT                                                                                                                                                                                                                                     licence file
+npm       inherits                         2.0.4                      ISC                                                                                                                                                                                                                                     licence file
+npm       is-callable                      1.2.7                      MIT                                                                                                                                                                                                                                     licence file
+npm       is-typed-array                   1.1.15                     MIT                                                                                                                                                                                                                                     licence file
+npm       isarray                          2.0.5                      MIT                                                                                                                                                                                                                                     licence file
+npm       isomorphic-git                   1.41.9                     MIT AND LGPL-3.0-or-later (decision: section 5)                                                                                                                                                                                         licence file, 2 source headers
+npm       json-schema-traverse             1.0.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       lodash                           in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
+npm       marked                           17.0.6                     MIT AND BSD-3-Clause                                                                                                                                                                                                                    licence file
+npm       math-intrinsics                  1.1.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       nifti-reader-js                  0.8.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       pako                             1.0.11                     MIT AND Zlib                                                                                                                                                                                                                            licence file, source header
+npm       path-expression-matcher          in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
+npm       pify                             4.0.1                      MIT                                                                                                                                                                                                                                     licence file
+npm       pluralize                        8.0.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       possible-typed-array-names       1.1.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       safe-buffer                      5.2.1                      MIT                                                                                                                                                                                                                                     licence file
+npm       semver                           in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
+npm       set-function-length              1.2.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       sha.js                           2.4.12                     MIT AND BSD-3-Clause                                                                                                                                                                                                                    licence file
+npm       strnum                           in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
+npm       supports-color                   10.2.2                     MIT                                                                                                                                                                                                                                     licence file
+npm       supports-hyperlinks              4.5.0                      MIT                                                                                                                                                                                                                                     licence file
+npm       to-buffer                        1.2.2                      MIT                                                                                                                                                                                                                                     licence file
+npm       typed-array-buffer               1.0.3                      MIT                                                                                                                                                                                                                                     licence file
+npm       unicode-name                     in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
+npm       which-typed-array                1.1.22                     MIT                                                                                                                                                                                                                                     licence file
+npm       xml-naming                       in hed-validator@4.2.0     pending                                                                                                                                                                                                                                 missing (section 5)
 
 Review notes (manifest.toml):
 - jsr @bids/schema 1.2.7: BIDS schema 1.2.7 (BIDS 1.11.1); the LICENSE is the CC BY 4.0 legal code with the line 'Copyright (c) 2018, BIDS Contributors'.
-- jsr @bradenmacdonald/s3-lite-client 0.9.6: The LICENSE states that portions are based on the MinIO JavaScript library (Apache-2.0, text in this file); the bundled sources also name segmentio/xml-parser (MIT licensed) and code by Hayato Koriyama (MIT licensed) without further text.
+- jsr @bradenmacdonald/s3-lite-client 0.9.6: The LICENSE states that portions are based on the MinIO JavaScript library, (C) 2015-2021 MinIO, Inc., licensed under the Apache License 2.0, and gives only its URL; the text is LICENSES/Apache-2.0.txt. The bundled sources also name segmentio/xml-parser (MIT licensed) and code by Hayato Koriyama (MIT licensed) without further text.
+- npm @jspm/core in node-modules-polyfills: The source-map entries node-modules-polyfills:node:fs/promises and node-modules-polyfills:node:path are Node polyfills that esbuild inlined from @jspm/core/nodelibs/browser (buffer.js, fs.js, fs/promises.js, path.js, punycode.js, url.js and their chunks, among them the process shim); the bundle's 'Bundled license information' trailer lists these chunks under hed-validator/dist/esm/index.js. Inside are the buffer module of Feross Aboukhadijeh (@license MIT), ieee754 (BSD-3-Clause, Feross Aboukhadijeh), base64 code, punycode (its code names the versions 2.1.0 and 2.3.1), url and the process shim. Neither the map nor the trailer names a version of @jspm/core, so its licence file was not downloaded (D-15 covers exact versions only).
 - npm @nodable/entities in hed-validator@4.2.0: Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only).
 - jsr @std/path 1.1.6: One bundled source names 'Copyright the Browserify authors. MIT License.'
 - npm clean-git-ref 2.0.1: The package carries no licence file; its package.json states Apache-2.0. The text is the Apache License 2.0 (LICENSES/Apache-2.0.txt); the package has no NOTICE file.
 - npm core-js-pure 3.49.0: Bundled through the prebuilt dist of hed-validator 4.2.0; the version 3.49.0 is named by core-js-pure/internals/shared-store.js in the source map.
 - npm diff3 0.0.3: The package carries no licence file; its package.json states MIT. The texts are the MIT licence headers of its two bundled source files (source map of the wheel).
 - npm fast-xml-parser in hed-validator@4.2.0: Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only).
-- npm hash-wasm 4.12.0: The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. The headers of crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme) refer to a web page for their terms and argon2 is based on Go's implementation without its licence text (known_missing.toml).
+- npm hash-wasm 4.12.0: The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. spdx is the expression of all stored texts: MIT (LICENSE, sm3, whirlpool), 0BSD (tslib helpers; sha256, sha3, sha512 by Aleksey Kravchenko), Zlib (adler32), BSD-2-Clause (scrypt, xxhash3, xxhash128), Apache-2.0 (ripemd160, mbed TLS), CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), CC0-1.0 OR Apache-2.0 (blake3), LicenseRef-Public-Domain (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid), LicenseRef-Brumme-Disclaimer (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme: 'All rights reserved', terms only on http://create.stephan-brumme.com/disclaimer.html) and LicenseRef-Not-Stated (argon2, based on Go's implementation, states no licence). The texts of the last two are missing, and the parts outside BUNDLED_ALLOWED wait for the owner's decision (known_missing.toml).
 - npm hed-validator 4.2.0: Its prebuilt dist bundles further packages (core-js-pure and the nested packages listed with 'in hed-validator@4.2.0'). The HED schemas it carries are CC BY 4.0 (components.toml).
+- npm isomorphic-git 1.41.9: The bundled index.cjs (source-map entry ./node_modules/.deno/isomorphic-git@1.41.9/node_modules/isomorphic-git/index.cjs, compiled into bids_validator_deno/bids-validator.js, whose 'Bundled license information' trailer names it too) contains a path.join 'directly copied from @zenfs/core/path': SPDX-License-Identifier LGPL-3.0-or-later, 'Copyright (c) James Prevett and other ZenFS contributors.' D-05 forbids LGPL; the owner decides at G1 (known_missing.toml). The LGPL text is not kept (no approved download). The same file carries isValidRef 'Adapted from is-git-ref-name-valid' (MIT, Copyright © Vincent Weevers). Both headers are kept as extracts from the sourcesContent of the source map in the wheel.
 - npm lodash in hed-validator@4.2.0: Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only).
 - npm marked 17.0.6: The LICENSE carries the MIT licence of Marked and the BSD-3-Clause licence of Markdown (John Gruber).
 - npm pako 1.0.11: The LICENSE covers the MIT part; the zlib port's licence (Zlib) is the header of its bundled lib/zlib/deflate.js (source map of the wheel); the other lib/zlib sources carry the same header.
@@ -320,9 +324,13 @@ win_amd64     uv                       0.13.0            uv-0.13.0-py3-none-win_
 
 - bids-validator-deno:hed-validator@4.2.0/node_modules: Eight packages that the prebuilt dist of hed-validator 4.2.0 carries inside the BIDS validator 3.0.2 bundle (@nodable/entities, fast-xml-parser, lodash, path-expression-matcher, semver, strnum, unicode-name, xml-naming) have no version in the source map, so their licence files were not downloaded (D-15 covers exact versions only). Text pending owner approval (G1).
 - bids-validator-deno:hash-wasm@4.12.0/src: hash-wasm 4.12.0 inside the BIDS validator bundle compiles C code whose headers carry no licence text: crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme, 'All rights reserved') only refer to http://create.stephan-brumme.com/disclaimer.html, and argon2 is based on Go's implementation without its licence. Text pending owner approval (G1).
+- bids-validator-deno:hash-wasm@4.12.0/licences: hash-wasm 4.12.0 inside the BIDS validator bundle carries C code under terms outside BUNDLED_ALLOWED of tools/notices.py: public-domain dedications (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid; LicenseRef-Public-Domain), the choice CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), 'All rights reserved' with terms only on a web page (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme; LicenseRef-Brumme-Disclaimer) and no stated licence (argon2; LicenseRef-Not-Stated). Owner decision required (D-05 allows permissive licences only) (G1).
+- bids-validator-deno:isomorphic-git@1.41.9/index.cjs: isomorphic-git 1.41.9 inside the BIDS validator bundle (bids_validator_deno/bids-validator.js, source-map entry isomorphic-git/index.cjs) contains a path.join copied from @zenfs/core/path under LGPL-3.0-or-later, Copyright (c) James Prevett and other ZenFS contributors. The LGPL text is not kept (no approved download). Owner decision required (D-05 forbids LGPL) (G1).
+- bids-validator-deno:node-modules-polyfills/@jspm/core: @jspm/core, whose Node polyfills (buffer with ieee754 and base64 code, fs, path, punycode, url, process) the BIDS validator bundle inlines as node-modules-polyfills:node:fs/promises and node-modules-polyfills:node:path, has no version in the source map or in the bundle's licence trailer, so its licence file was not downloaded (D-15 covers exact versions only). Text pending owner approval (G1).
 - h5py:h5py.libs/libaec-*.so*: libaec 1.1.4 in the Linux h5py wheel: the wheel states neither its licence nor its text. Text pending owner approval (G1).
 - h5py:h5py.libs/libsz-*.so*: libsz (part of libaec 1.1.4) in the Linux h5py wheel: the wheel states neither its licence nor its text. Text pending owner approval (G1).
 - python-build-standalone:3.12.15+20261009: The licence texts of the libraries inside the python-build-standalone archive other than CPython (e.g. OpenSSL, libffi, SQLite, XZ, zlib) are not in the distributed install_only archive. Text pending owner approval (G1).
+- LGPL-3.0-or-later: The licence text of LGPL-3.0-or-later is not in LICENSES/ (no approved download, D-15). The header that isomorphic-git 1.41.9 copied with path.join from @zenfs/core states it; that header is kept in license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/LICENSE.index.cjs-zenfs-path-join.txt, and the component waits for the owner's decision (bids-validator-deno:isomorphic-git@1.41.9/index.cjs). Owner decision required (D-05 forbids LGPL) (G1).
 
 6. Licence texts
 
@@ -841,6 +849,216 @@ public licenses.
 Creative Commons may be contacted at creativecommons.org.
 
 ==============================================================================
+Used by: bids-validator-deno 3.0.2 bundle: jsr @bradenmacdonald/s3-lite-client 0.9.6: Apache License 2.0 (the LICENSE names it for the MinIO portions, without its text)
+Used by: bids-validator-deno 3.0.2 bundle: npm clean-git-ref 2.0.1: Apache License 2.0 (the package has no licence file)
+Used by: edfio 0.4.18 (linux_x86_64): edfio-0.4.18.dist-info/licenses/LICENSE
+Used by: edfio 0.4.18 (win_amd64): edfio-0.4.18.dist-info/licenses/LICENSE
+Used by: uv 0.13.0 (linux_x86_64): uv-0.13.0.dist-info/licenses/LICENSE-APACHE
+Used by: uv 0.13.0 (win_amd64): uv-0.13.0.dist-info/licenses/LICENSE-APACHE
+------------------------------------------------------------------------------
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+==============================================================================
 Used by: bids-validator-deno 3.0.2 bundle: jsr @bradenmacdonald/s3-lite-client 0.9.6: LICENSE
 ------------------------------------------------------------------------------
 MIT License
@@ -1093,215 +1311,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
-==============================================================================
-Used by: bids-validator-deno 3.0.2 bundle: npm clean-git-ref 2.0.1: Apache License 2.0 (the package has no licence file)
-Used by: edfio 0.4.18 (linux_x86_64): edfio-0.4.18.dist-info/licenses/LICENSE
-Used by: edfio 0.4.18 (win_amd64): edfio-0.4.18.dist-info/licenses/LICENSE
-Used by: uv 0.13.0 (linux_x86_64): uv-0.13.0.dist-info/licenses/LICENSE-APACHE
-Used by: uv 0.13.0 (win_amd64): uv-0.13.0.dist-info/licenses/LICENSE-APACHE
-------------------------------------------------------------------------------
-                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
-
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-   1. Definitions.
-
-      "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
-
-      "Licensor" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
-
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      "control" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
-
-      "You" (or "Your") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
-
-      "Source" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
-
-      "Object" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
-
-      "Work" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
-
-      "Derivative Works" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
-
-      "Contribution" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, "submitted"
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as "Not a Contribution."
-
-      "Contributor" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or
-          Derivative Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a "NOTICE" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works, in at least one
-          of the following places: within a NOTICE text file distributed
-          as part of the Derivative Works; within the Source form or
-          documentation, if provided along with the Derivative Works; or,
-          within a display generated by the Derivative Works, if and
-          wherever such third-party notices normally appear. The contents
-          of the NOTICE file are for informational purposes only and
-          do not modify the License. You may add Your own attribution
-          notices within Derivative Works that You distribute, alongside
-          or as an addendum to the NOTICE text from the Work, provided
-          that such additional attribution notices cannot be construed
-          as modifying the License.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-
-   END OF TERMS AND CONDITIONS
-
-   APPENDIX: How to apply the Apache License to your work.
-
-      To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "[]"
-      replaced with your own identifying information. (Don't include
-      the brackets!)  The text should be enclosed in the appropriate
-      comment syntax for the file format. We also recommend that a
-      file or class name and description of purpose be included on the
-      same "printed page" as the copyright notice for easier
-      identification within third-party archives.
-
-   Copyright [yyyy] [name of copyright owner]
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
 
 ==============================================================================
 Used by: bids-validator-deno 3.0.2 bundle: npm core-js-pure 3.49.0: LICENSE
@@ -2527,6 +2536,36 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+==============================================================================
+Used by: bids-validator-deno 3.0.2 bundle: npm isomorphic-git 1.41.9: index.cjs: header of isValidRef, adapted from is-git-ref-name-valid (MIT)
+------------------------------------------------------------------------------
+/*
+Adapted from is-git-ref-name-valid
+SPDX-License-Identifier: MIT
+Copyright © Vincent Weevers
+*/
+
+==============================================================================
+Used by: bids-validator-deno 3.0.2 bundle: npm isomorphic-git 1.41.9: index.cjs: header of path.join, copied from @zenfs/core/path (LGPL-3.0-or-later)
+------------------------------------------------------------------------------
+/*!
+ * This code for `path.join` is directly copied from @zenfs/core/path for bundle size improvements.
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ * Copyright (c) James Prevett and other ZenFS contributors.
+ *
+ * Windows support added:
+ *   - Backslashes are normalised to forward slashes before processing.
+ *   - Drive-letter prefixes (e.g. "C:") are detected and preserved through
+ *     normalisation, so absolute Windows paths are handled correctly.
+ *   - An absolute argument passed to join() resets the accumulated path,
+ *     matching Node behaviour and handling worktree gitdir paths properly.
+ *
+ * Limitation: UNC paths (e.g. \\server\share) are not supported. The leading
+ *   backslashes are normalised to forward slashes and then collapsed by
+ *   normalizeString, losing the UNC root. Git on Windows works with
+ *   drive-letter paths, so this is not expected to be a practical issue.
+ */
 
 ==============================================================================
 Used by: bids-validator-deno 3.0.2 bundle: npm isomorphic-git 1.41.9: LICENSE.md

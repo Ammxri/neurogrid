@@ -9,10 +9,13 @@ D-08) must each be covered by a reviewed entry of components.toml, so are the no
 wheels (deno, the BIDS validator bundle and its schemas). The licence texts of the npm and jsr packages
 compiled into the validator bundle are not in its wheel; they were downloaded once at the versions of its
 source map (D-15) and are kept with a manifest in license-gate/third_party/, which --check verifies (SHA-256,
-package set, permissive licences). The parts of the offline bundle outside the wheels -
-python-build-standalone and uv, pinned by the bundle data packaging/bundle_lock.json - are read the same way
-(tarfile, zipfile) when that file exists. This own reader replaces pip-licenses for the notices (deviation
-from A-56, recorded in A-86): pip-licenses only sees the installed packages of one platform.
+the package set covers every entry of the source map, permissive licences, every SPDX-License-Identifier and
+@license that a bundled source states anywhere is part of the reviewed licence; a licence outside the
+permissive ones needs a known_missing.toml entry with the owner's decision). The parts of the offline
+bundle outside the wheels - python-build-standalone and uv, pinned by the bundle data
+packaging/bundle_lock.json - are read the same way (tarfile, zipfile) when that file exists. This own reader
+replaces pip-licenses for the notices (deviation from A-56, recorded in A-86): pip-licenses only sees the
+installed packages of one platform.
 
 Usage:
     python tools/notices.py --list                                    # runtime packages per target (offline)
@@ -117,6 +120,17 @@ JSR_SOURCE = re.compile(r"jsr\.io/(@[^/]+/[^/]+)/([^/]+)/")
 LICENSE_HINT = re.compile(
     r"(?:SPDX-License-Identifier:\s*|@license\s+)([A-Za-z0-9.+()\- ]{2,60}?)\s*(?:\*/|\n|$)"
 )
+# Every SPDX-License-Identifier line of a bundled source, whatever follows it: a value LICENSE_HINT cannot
+# read is kept as it stands, so that it fails the review instead of going unnoticed.
+SPDX_LINE = re.compile(r"SPDX-License-Identifier:[ \t]*([^\r\n]*)")
+# A Node built-in polyfill that esbuild inlined ("node-modules-polyfills:node:fs/promises"): the package it
+# comes from is named only by esbuild's "// node_modules/<package>/..." markers in the content (no version).
+POLYFILL_SOURCE = re.compile(r"^node-modules-polyfills:")
+POLYFILL_PACKAGE = re.compile(r"^// node_modules/((?:@[^/\s]+/)?[^/\s]+)/", re.M)
+POLYFILL_FOUND = "in node-modules-polyfills"
+# The validator's own sources (its src/ and deno.json, relative to its build folder): its wheel's licence.
+OWN_SOURCE = re.compile(r"^(?:\.\./)+(?:src/\S+|deno\.json)$")
+OWN = ("", "own sources")  # key of the licences that the validator's own sources state
 VALIDATOR = "bids-validator-deno"
 VALIDATOR_MAP = "bids_validator_deno/bids-validator.js.map"
 # Licence texts of the packages compiled into the validator bundle (D-15): <folder>/bids-validator-<version>/
@@ -148,7 +162,8 @@ VALIDATOR_INTRO = (
     "carries, for which the map names no version. The wheel carries only the validator's own MIT licence. "
     "The licence files of these packages were taken at exactly these versions from registry.npmjs.org and "
     "jsr.io (D-15) and are kept with URL and SHA-256 in license-gate/third_party/bids-validator-{version}/"
-    "manifest.toml; their texts are in section 6. Texts still missing are listed in section 5."
+    "manifest.toml; their texts are in section 6. Texts still missing, and licences outside the permissive "
+    "ones that wait for the owner's decision ('decision: section 5'), are listed in section 5."
 )
 TEXTS_INTRO = "Each text once (SHA-256 of the LF-normalized text), with the files that carry it."
 
@@ -338,6 +353,7 @@ class WheelInfo:
     paths: list[str]
     sources: list[tuple[str, str, str]] = field(default_factory=list)  # validator bundle: kind, name, version
     source_licenses: dict[tuple[str, str], str] = field(default_factory=dict)
+    unattributed: list[str] = field(default_factory=list)  # source-map entries of no package, not own code
 
 
 def _text(data: bytes) -> str:
@@ -369,37 +385,62 @@ def _is_native(archive: zipfile.ZipFile, name: str) -> bool:
     return head == b"\x7fELF" or head[:2] == b"MZ"
 
 
+def stated_licences(content: str) -> set[str]:
+    """Every licence a bundled source states anywhere in its text, not only in its head: the @license tags
+    and SPDX-License-Identifier lines that LICENSE_HINT reads, and the rest of every other
+    SPDX-License-Identifier line up to a closing comment, so that no identifier is dropped."""
+    found = {hint.strip() for hint in LICENSE_HINT.findall(content)}
+    for value in SPDX_LINE.findall(content):
+        found.add(value.split("*/", 1)[0].strip() or "(empty SPDX-License-Identifier)")
+    return {hint for hint in found if hint}
+
+
 def validator_sources(
     archive: zipfile.ZipFile,
-) -> tuple[list[tuple[str, str, str]], dict[tuple[str, str], str]]:
+) -> tuple[list[tuple[str, str, str]], dict[tuple[str, str], str], list[str]]:
     """npm and jsr packages compiled into the BIDS validator bundle, from its source map (names, versions and
-    the licence a bundled source file states, if any). A package inside the prebuilt dist of a bundled npm
-    package has no version in the map; its version reads 'in <package>@<version>'. The packages' own licence
-    files are not in the wheel (license-gate/third_party keeps them, D-15)."""
+    the licences their bundled sources state, stated_licences), and the entries of the map that belong to no
+    package and are not the validator's own code. A package inside the prebuilt dist of a bundled npm
+    package has no version in the map; its version reads 'in <package>@<version>'. A Node polyfill that
+    esbuild inlined belongs to the packages its markers name, as 'in node-modules-polyfills'. What the
+    validator's own sources state is kept under OWN. The packages' own licence files are not in the wheel
+    (license-gate/third_party keeps them, D-15)."""
     if VALIDATOR_MAP not in archive.namelist():
-        return [], {}
+        return [], {}, []
     data = json.loads(archive.read(VALIDATOR_MAP))
     found: set[tuple[str, str, str]] = set()
     stated: dict[tuple[str, str], set[str]] = {}
+    unattributed: list[str] = []
     contents = data.get("sourcesContent") or []
     for index, source in enumerate(data.get("sources", [])):
+        content = (contents[index] if index < len(contents) else None) or ""
+        owners: list[tuple[str, str, str]] = []
         nested = NESTED_SOURCE.search(source)
         match = NPM_SOURCE.search(source)
         kind = "npm"
         if match is None:
             match = JSR_SOURCE.search(source)
             kind = "jsr"
-        if match is None:
+        if match is not None:
+            name, version = match.group(1), match.group(2)
+            if nested is not None:
+                name, version = nested.group(3), f"in {nested.group(1)}@{nested.group(2)}"
+            owners.append((kind, name, version))
+        elif POLYFILL_SOURCE.match(source):
+            names = sorted(set(POLYFILL_PACKAGE.findall(content)))
+            owners += [("npm", name, POLYFILL_FOUND) for name in names]
+        hints = stated_licences(content)
+        if not owners:
+            if OWN_SOURCE.match(source):
+                stated.setdefault(OWN, set()).update(hints)
+            else:
+                unattributed.append(source)
             continue
-        name, version = match.group(1), match.group(2)
-        if nested is not None:
-            name, version = nested.group(3), f"in {nested.group(1)}@{nested.group(2)}"
-        found.add((kind, name, version))
-        content = (contents[index] if index < len(contents) else None) or ""
-        for hint in LICENSE_HINT.findall(content[:4000]):
-            stated.setdefault((name, version), set()).add(hint.strip())
-    licences = {key: " / ".join(sorted(values)) for key, values in stated.items()}
-    return sorted(found, key=lambda x: (x[1].casefold(), x[2], x[0])), licences
+        for owner in owners:
+            found.add(owner)
+            stated.setdefault((owner[1], owner[2]), set()).update(hints)
+    licences = {key: " / ".join(sorted(values)) for key, values in stated.items() if values}
+    return sorted(found, key=lambda x: (x[1].casefold(), x[2], x[0])), licences, unattributed
 
 
 def read_wheel(path: Path, package: Locked, target: str, extra_notices: Iterable[str]) -> WheelInfo:
@@ -415,8 +456,8 @@ def read_wheel(path: Path, package: Locked, target: str, extra_notices: Iterable
             if LICENSE_FILE.match(name) or any(fnmatch.fnmatchcase(name, p) for p in patterns):
                 texts[name] = _text(archive.read(name))
         native = [name for name in names if _is_native(archive, name)]
-        sources, source_licenses = (
-            validator_sources(archive) if canonicalize_name(package.name) == VALIDATOR else ([], {})
+        sources, source_licenses, unattributed = (
+            validator_sources(archive) if canonicalize_name(package.name) == VALIDATOR else ([], {}, [])
         )
     return WheelInfo(
         name=package.name,
@@ -430,6 +471,7 @@ def read_wheel(path: Path, package: Locked, target: str, extra_notices: Iterable
         paths=names,
         sources=sources,
         source_licenses=source_licenses,
+        unattributed=unattributed,
     )
 
 
@@ -552,6 +594,12 @@ def load_known_missing(path: Path = KNOWN_MISSING) -> list[dict[str, str]]:
     return [{str(k): str(v) for k, v in item.items()} for item in data.get("missing", [])]
 
 
+def gap_status(item: Mapping[str, str]) -> str:
+    """What a known_missing.toml entry waits for: the owner's decision it names, else the texts (PENDING)."""
+    decision = item.get("decision", "").strip().rstrip(".")
+    return f"{decision[:1].upper()}{decision[1:]} (G1)" if decision else PENDING
+
+
 # --- licence texts of the packages inside the validator bundle (license-gate/third_party, D-15) -------------
 
 
@@ -579,6 +627,8 @@ class BundledPackage:
     note: str
     pending: str  # the known_missing.toml entry for missing texts, "" if none
     texts: tuple[BundledText, ...]
+    # the known_missing.toml entry (with a decision) for a licence outside BUNDLED_ALLOWED, "" if none
+    owner_decision: str = ""
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -630,6 +680,7 @@ def load_validator_texts(version: str, folder: Path = THIRD_PARTY) -> list[Bundl
                 note=str(item.get("note", "")),
                 pending=str(item.get("pending", "")),
                 texts=tuple(texts),
+                owner_decision=str(item.get("owner_decision", "")),
             )
         )
     return packages
@@ -641,10 +692,12 @@ def check_validator_texts(
     known_missing: Sequence[Mapping[str, str]],
     allowed: Iterable[str] = BUNDLED_ALLOWED,
 ) -> list[str]:
-    """The reviewed licence texts cover exactly the packages of the validator's source map: every stored text
-    has its recorded SHA-256 and size, every licence is permissive (BUNDLED_ALLOWED), a licence a bundled
-    source states is part of the reviewed one, and a package without texts names its known_missing.toml
-    entry."""
+    """The reviewed licence texts cover exactly the packages of the validator's source map: every entry of the
+    map belongs to a package or to the validator's own code (or is a listed gap), every stored text has its
+    recorded SHA-256 and size, every licence is permissive (BUNDLED_ALLOWED) or waits for the owner's
+    decision in known_missing.toml, every licence a bundled source states is part of the reviewed one (of a
+    package still without texts: permissive; of the validator's own code: its wheel's licence), and a package
+    without texts names its known_missing.toml entry."""
     where = f"{wheel.target}: {wheel.name} {wheel.version}"
     if packages is None:
         return [
@@ -652,9 +705,19 @@ def check_validator_texts(
         ]
     problems: list[str] = []
     pending = {item["component"] for item in known_missing}
+    decisions = {item["component"] for item in known_missing if item.get("decision", "").strip()}
     permitted = set(allowed)
     reviewed = {package.key: package for package in packages}
     sources = set(wheel.sources)
+    for source in wheel.unattributed:
+        if f"{wheel.name}:{source}" not in pending:
+            problems.append(f"{where}: source-map entry of no package and not the validator's own: {source}")
+    own = spdx_units(wheel.license_expression)
+    for hint in (h.strip() for h in wheel.source_licenses.get(OWN, "").split(" / ") if h.strip()):
+        if not spdx_units(hint) <= own:
+            problems.append(
+                f"{where}: an own source states {hint}, the wheel says {wheel.license_expression}"
+            )
     for kind, name, version in sorted(sources - set(reviewed)):
         problems.append(f"{where}: bundled package without review: {kind} {name} {version}")
     for kind, name, version in sorted(set(reviewed) - sources):
@@ -670,12 +733,19 @@ def check_validator_texts(
         if package.texts and not package.spdx:
             problems.append(f"{label}: licence texts without a reviewed licence")
         units = spdx_units(package.spdx)
-        if not units <= permitted:
+        if not units <= permitted and not package.owner_decision:
             problems.append(f"{label}: licence {package.spdx} is not permissive (not in BUNDLED_ALLOWED)")
+        if package.owner_decision and package.owner_decision not in decisions:
+            problems.append(
+                f"{label}: licence {package.spdx}: '{package.owner_decision}' is not listed with a decision "
+                "in known_missing.toml"
+            )
         stated = wheel.source_licenses.get((package.name, package.found), "")
         for hint in (h.strip() for h in stated.split(" / ") if h.strip()):
-            if not spdx_units(hint) <= units:
+            if package.spdx and not spdx_units(hint) <= units:
                 problems.append(f"{label}: a bundled source states {hint}, the review says {package.spdx}")
+            elif not package.spdx and not (package.pending and spdx_units(hint) <= permitted):
+                problems.append(f"{label}: a bundled source states {hint}, there is no reviewed licence")
         for text in package.texts:
             if not text.path.is_file():
                 problems.append(f"{label}: licence text missing: {text.label}")
@@ -928,9 +998,10 @@ def render(
             if package is None:
                 rows.append((kind, name, version, "not reviewed", "-"))
             else:
-                rows.append(
-                    (kind, name, package.version or version, package.spdx or "pending", _text_kinds(package))
-                )
+                licence = package.spdx or "pending"
+                if package.owner_decision:
+                    licence += " (decision: section 5)"
+                rows.append((kind, name, package.version or version, licence, _text_kinds(package)))
         out += _table(rows, ("Registry", "Package", "Version", "Licence", "Licence texts"))
         noted = [p for p in bundled if p.note]
         if noted:
@@ -954,7 +1025,7 @@ def render(
         ]
     if known:
         out += ["", "5. Known gaps (the release workflow fails while this list is not empty)", ""]
-        out += [f"- {item['component']}: {item['what']} {PENDING}." for item in known]
+        out += [f"- {item['component']}: {item['what']} {gap_status(item)}." for item in known]
     out += [
         "",
         "6. Licence texts",
@@ -1077,7 +1148,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
         print(f"{NOTICES.name} up to date")
         for item in known:
-            print(f"incomplete: {item['component']} - {PENDING}")
+            print(f"incomplete: {item['component']} - {gap_status(item)}")
         return 1 if problems or known else 0
     args.out.write_text(text, encoding="utf-8", newline="\n")
     print(f"wrote {args.out} ({len(wheels)} wheels, {len(bundle)} bundle parts)")

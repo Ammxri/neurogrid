@@ -5,13 +5,16 @@
 # licence files (and licence headers of compiled sources) are kept, byte for byte for licence files; header
 # extracts are UTF-8 with LF. tools/notices.py checks every SHA-256 and that the packages equal the source map,
 # and copies the texts into THIRD_PARTY_NOTICES.txt. found: how the source map names the version.
-# pending: the known_missing.toml entry for texts that are still missing.
+# pending: the known_missing.toml entry for texts that are still missing. owner_decision: the
+# known_missing.toml entry (with a decision) of a licence outside BUNDLED_ALLOWED (tools/notices.py).
+# downloads: what was transferred to get the texts.
 version = 1
 validator = "bids-validator-deno"
 validator_version = "3.0.2"
 source_map = "bids_validator_deno/bids-validator.js.map"
 decision = "D-15"
 retrieved = "2026-10-26"
+downloads = "registry.npmjs.org serves no single files: for each npm package the whole tarball (archive_url; about 8.4 MB in all, among them hed-validator 5.4 MB and isomorphic-git 1.2 MB; hash-wasm-4.12.0.tgz was fetched twice, with the same SHA-256) was downloaded only to extract its licence files and licence headers. Only those files are stored here; no tarball is kept. jsr.io served the single files."
 
 [[package]]
 registry = "jsr"
@@ -46,7 +49,7 @@ metadata_url = "https://jsr.io/@bradenmacdonald/s3-lite-client/0.9.6_meta.json"
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "The LICENSE states that portions are based on the MinIO JavaScript library (Apache-2.0, text in this file); the bundled sources also name segmentio/xml-parser (MIT licensed) and code by Hayato Koriyama (MIT licensed) without further text."
+note = "The LICENSE states that portions are based on the MinIO JavaScript library, (C) 2015-2021 MinIO, Inc., licensed under the Apache License 2.0, and gives only its URL; the text is LICENSES/Apache-2.0.txt. The bundled sources also name segmentio/xml-parser (MIT licensed) and code by Hayato Koriyama (MIT licensed) without further text."
 pending = ""
 
 [[package.text]]
@@ -56,6 +59,14 @@ kind = "licence file"
 url = "https://jsr.io/@bradenmacdonald/s3-lite-client/0.9.6/LICENSE"
 size = 1354
 sha256 = "0b8199e1ef17a3abf63d9ff29ddb0971a7b4c3faada759edf14d2a17f751f024"
+
+[[package.text]]
+repository_file = "LICENSES/Apache-2.0.txt"
+origin = "Apache License 2.0 (the LICENSE names it for the MinIO portions, without its text)"
+kind = "standard text"
+url = ""
+size = 11357
+sha256 = "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
 
 [[package]]
 registry = "jsr"
@@ -144,6 +155,20 @@ kind = "licence file"
 url = "https://jsr.io/@effigies/cliffy-table/1.0.0-dev.5/LICENSE"
 size = 1094
 sha256 = "1f4989357acfacf95ed9daf1b67fe1167fae6db7239b57a5ca3a4efd217e637e"
+
+[[package]]
+registry = "npm"
+name = "@jspm/core"
+version = ""
+found = "in node-modules-polyfills"
+declared = ""
+spdx = ""
+metadata_url = ""
+archive_url = ""
+archive_sha256 = ""
+archive_integrity = ""
+note = "The source-map entries node-modules-polyfills:node:fs/promises and node-modules-polyfills:node:path are Node polyfills that esbuild inlined from @jspm/core/nodelibs/browser (buffer.js, fs.js, fs/promises.js, path.js, punycode.js, url.js and their chunks, among them the process shim); the bundle's 'Bundled license information' trailer lists these chunks under hed-validator/dist/esm/index.js. Inside are the buffer module of Feross Aboukhadijeh (@license MIT), ieee754 (BSD-3-Clause, Feross Aboukhadijeh), base64 code, punycode (its code names the versions 2.1.0 and 2.3.1), url and the process shim. Neither the map nor the trailer names a version of @jspm/core, so its licence file was not downloaded (D-15 covers exact versions only)."
+pending = "bids-validator-deno:node-modules-polyfills/@jspm/core"
 
 [[package]]
 registry = "jsr"
@@ -1067,13 +1092,14 @@ name = "hash-wasm"
 version = "4.12.0"
 found = "4.12.0"
 declared = "MIT"
-spdx = "MIT"
+spdx = "MIT AND 0BSD AND Zlib AND BSD-2-Clause AND Apache-2.0 AND (CC0-1.0 OR OpenSSL OR Apache-2.0) AND (CC0-1.0 OR Apache-2.0) AND LicenseRef-Public-Domain AND LicenseRef-Brumme-Disclaimer AND LicenseRef-Not-Stated"
 metadata_url = "https://registry.npmjs.org/hash-wasm/4.12.0"
 archive_url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz"
 archive_sha256 = "1db32a125fb46177932ec8ac438d3cd8214ebdfaccb5d6611b657d88eb586f92"
 archive_integrity = "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
-note = "The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. The headers of crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme) refer to a web page for their terms and argon2 is based on Go's implementation without its licence text (known_missing.toml)."
+note = "The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. spdx is the expression of all stored texts: MIT (LICENSE, sm3, whirlpool), 0BSD (tslib helpers; sha256, sha3, sha512 by Aleksey Kravchenko), Zlib (adler32), BSD-2-Clause (scrypt, xxhash3, xxhash128), Apache-2.0 (ripemd160, mbed TLS), CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), CC0-1.0 OR Apache-2.0 (blake3), LicenseRef-Public-Domain (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid), LicenseRef-Brumme-Disclaimer (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme: 'All rights reserved', terms only on http://create.stephan-brumme.com/disclaimer.html) and LicenseRef-Not-Stated (argon2, based on Go's implementation, states no licence). The texts of the last two are missing, and the parts outside BUNDLED_ALLOWED wait for the owner's decision (known_missing.toml)."
 pending = "bids-validator-deno:hash-wasm@4.12.0/src"
+owner_decision = "bids-validator-deno:hash-wasm@4.12.0/licences"
 
 [[package.text]]
 file = "npm/hash-wasm@4.12.0/LICENSE"
@@ -1449,13 +1475,14 @@ name = "isomorphic-git"
 version = "1.41.9"
 found = "1.41.9"
 declared = "MIT"
-spdx = "MIT"
+spdx = "MIT AND LGPL-3.0-or-later"
 metadata_url = "https://registry.npmjs.org/isomorphic-git/1.41.9"
 archive_url = "https://registry.npmjs.org/isomorphic-git/-/isomorphic-git-1.41.9.tgz"
 archive_sha256 = "db81a97bb26c81f872fc7f569ab26c92c95c316c0cffd65d6c015bc87ce67e79"
 archive_integrity = "sha512-WOh4ujm5mznHphzQvwj9bVj+pQpV0oZ8H4lAnh4dSaie+lN/lJ2rb6rNOOcP+2m4z8IOQp186TkEULD28NMBJg=="
-note = ""
+note = "The bundled index.cjs (source-map entry ./node_modules/.deno/isomorphic-git@1.41.9/node_modules/isomorphic-git/index.cjs, compiled into bids_validator_deno/bids-validator.js, whose 'Bundled license information' trailer names it too) contains a path.join 'directly copied from @zenfs/core/path': SPDX-License-Identifier LGPL-3.0-or-later, 'Copyright (c) James Prevett and other ZenFS contributors.' D-05 forbids LGPL; the owner decides at G1 (known_missing.toml). The LGPL text is not kept (no approved download). The same file carries isValidRef 'Adapted from is-git-ref-name-valid' (MIT, Copyright © Vincent Weevers). Both headers are kept as extracts from the sourcesContent of the source map in the wheel."
 pending = ""
+owner_decision = "bids-validator-deno:isomorphic-git@1.41.9/index.cjs"
 
 [[package.text]]
 file = "npm/isomorphic-git@1.41.9/LICENSE"
@@ -1464,6 +1491,22 @@ kind = "licence file"
 url = "https://registry.npmjs.org/isomorphic-git/-/isomorphic-git-1.41.9.tgz#package/LICENSE.md"
 size = 1073
 sha256 = "b916888fb16893c3a1df138543f994b96bb6892d74b6777c3a080d9cd2520c48"
+
+[[package.text]]
+file = "npm/isomorphic-git@1.41.9/LICENSE.index.cjs-zenfs-path-join.txt"
+origin = "index.cjs: header of path.join, copied from @zenfs/core/path (LGPL-3.0-or-later)"
+kind = "source header"
+url = ""
+size = 910
+sha256 = "1306df91151061d73fd49455df881076f852c46d3bc69b953ada8f96b4349030"
+
+[[package.text]]
+file = "npm/isomorphic-git@1.41.9/LICENSE.index.cjs-is-git-ref-name-valid.txt"
+origin = "index.cjs: header of isValidRef, adapted from is-git-ref-name-valid (MIT)"
+kind = "source header"
+url = ""
+size = 99
+sha256 = "8edab7c7f3e4c705121b9b5da7bcf137fa0135df0ec63b3446915f7031fcd96a"
 
 [[package]]
 registry = "npm"

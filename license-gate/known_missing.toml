@@ -4,6 +4,8 @@
 # entry. The notices and the REUSE test name each entry; license-gate/third_party/*/manifest.toml names the
 # entry of a bundled package whose texts are still missing (pending).
 # component: "<dist>:<pattern>" of license-gate/components.toml, or a name for texts outside the wheels.
+# decision: set when the entry waits for the owner's decision on a licence (not only for a text);
+# the manifest of a bundled package names such an entry as owner_decision.
 
 [[missing]]
 component = "bids-validator-deno:hed-validator@4.2.0/node_modules"
@@ -12,6 +14,20 @@ what = "Eight packages that the prebuilt dist of hed-validator 4.2.0 carries ins
 [[missing]]
 component = "bids-validator-deno:hash-wasm@4.12.0/src"
 what = "hash-wasm 4.12.0 inside the BIDS validator bundle compiles C code whose headers carry no licence text: crc32, crc64, xxhash32 and xxhash64 (Stephan Brumme, 'All rights reserved') only refer to http://create.stephan-brumme.com/disclaimer.html, and argon2 is based on Go's implementation without its licence."
+
+[[missing]]
+component = "bids-validator-deno:hash-wasm@4.12.0/licences"
+what = "hash-wasm 4.12.0 inside the BIDS validator bundle carries C code under terms outside BUNDLED_ALLOWED of tools/notices.py: public-domain dedications (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid; LicenseRef-Public-Domain), the choice CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), 'All rights reserved' with terms only on a web page (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme; LicenseRef-Brumme-Disclaimer) and no stated licence (argon2; LicenseRef-Not-Stated)."
+decision = "owner decision required (D-05 allows permissive licences only)"
+
+[[missing]]
+component = "bids-validator-deno:isomorphic-git@1.41.9/index.cjs"
+what = "isomorphic-git 1.41.9 inside the BIDS validator bundle (bids_validator_deno/bids-validator.js, source-map entry isomorphic-git/index.cjs) contains a path.join copied from @zenfs/core/path under LGPL-3.0-or-later, Copyright (c) James Prevett and other ZenFS contributors. The LGPL text is not kept (no approved download)."
+decision = "owner decision required (D-05 forbids LGPL)"
+
+[[missing]]
+component = "bids-validator-deno:node-modules-polyfills/@jspm/core"
+what = "@jspm/core, whose Node polyfills (buffer with ieee754 and base64 code, fs, path, punycode, url, process) the BIDS validator bundle inlines as node-modules-polyfills:node:fs/promises and node-modules-polyfills:node:path, has no version in the source map or in the bundle's licence trailer, so its licence file was not downloaded (D-15 covers exact versions only)."
 
 [[missing]]
 component = "h5py:h5py.libs/libaec-*.so*"
@@ -24,3 +40,8 @@ what = "libsz (part of libaec 1.1.4) in the Linux h5py wheel: the wheel states n
 [[missing]]
 component = "python-build-standalone:3.12.15+20261009"
 what = "The licence texts of the libraries inside the python-build-standalone archive other than CPython (e.g. OpenSSL, libffi, SQLite, XZ, zlib) are not in the distributed install_only archive."
+
+[[missing]]
+component = "LGPL-3.0-or-later"
+what = "The licence text of LGPL-3.0-or-later is not in LICENSES/ (no approved download, D-15). The header that isomorphic-git 1.41.9 copied with path.join from @zenfs/core states it; that header is kept in license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/LICENSE.index.cjs-zenfs-path-join.txt, and the component waits for the owner's decision (bids-validator-deno:isomorphic-git@1.41.9/index.cjs)."
+decision = "owner decision required (D-05 forbids LGPL)"
