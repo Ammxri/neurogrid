@@ -89,34 +89,36 @@ class ChildLog:
 
 
 @pytest.fixture(scope="module")
-def browser(built_site: Any, tmp_path_factory: pytest.TempPathFactory) -> Iterator[Any]:
+def browser(built_site: Any) -> Iterator[Any]:
+    """The shell with its profile in a kernel.pdf.browser_work folder: short and independent of pytest's
+    basetemp (the shell cannot use long paths on Windows, P2)."""
     assert built_site.returncode == 0, built_site.output[-2000:]
     pdf = _pdf_module()
     shell = _shell(pdf)
-    work = tmp_path_factory.mktemp("browser")
     from playwright.sync_api import sync_playwright
 
     child_log = ChildLog(shell.executable.parent / pdf.CHILD_LOG)
-    try:
-        with pdf.driver_environment(work):
-            playwright = sync_playwright().start()
+    with pdf.browser_work() as work:
         try:
-            flags = launch_flags(pdf.launch_arguments(work))
-            assert pdf.IN_PROCESS_GPU in flags and f"--log-file={work / 'chromium.log'}" in flags
-            instance = playwright.chromium.launch(
-                executable_path=str(shell.executable),
-                headless=True,
-                args=flags,
-                env=pdf.browser_environment(work),
-            )
+            with pdf.driver_environment(work):
+                playwright = sync_playwright().start()
             try:
-                yield instance
+                flags = launch_flags(pdf.launch_arguments(work))
+                assert pdf.IN_PROCESS_GPU in flags and f"--log-file={work / 'chromium.log'}" in flags
+                instance = playwright.chromium.launch(
+                    executable_path=str(shell.executable),
+                    headless=True,
+                    args=flags,
+                    env=pdf.browser_environment(work),
+                )
+                try:
+                    yield instance
+                finally:
+                    instance.close()
             finally:
-                instance.close()
+                playwright.stop()
         finally:
-            playwright.stop()
-    finally:
-        child_log.restore()  # after the last browser process has ended
+            child_log.restore()  # after the last browser process has ended
     assert child_log.unchanged(), child_log.path
 
 

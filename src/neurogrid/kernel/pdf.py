@@ -15,10 +15,12 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   the caller's node, debug and Playwright variables; the browser gets a complete, minimal environment.
 - **Files (A-54):** temporary files, profile, logs and the printed copies in a private work folder in the
   computer's temporary folder (browser_work), never below ``--out``: Chromium cannot create profile paths
-  longer than Windows allows, and its errors then went to debug.log files next to the executable and in the
-  current folder (measured). Driver and browser run with that folder as their current folder; the GPU and
-  the network service run inside the browser process, and a debug.log that a child process appends next to
-  the executable is undone.
+  longer than Windows allows (measured with the merged state: ``--out`` of 195 characters left a debug.log
+  with local paths in the current folder, 210 characters ended in pdf.launch_failed). A temporary folder
+  with a path too long for the profile ends with exit 2 and its own hint before anything is rendered.
+  Driver and browser run with the work folder as their current folder (a debug.log Chromium writes there
+  goes with it); the GPU runs inside the browser process, and a debug.log that a child process appends
+  next to the executable is undone.
 - **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
   report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a
   same-length byte replacement of the two fields Chromium writes; the result is byte-identical for the same
@@ -105,11 +107,13 @@ DRIVER_ENV_PREFIXES = ("PLAYWRIGHT_", "PW_")
 IN_PROCESS_GPU = "--in-process-gpu"
 CHILD_LOG = "debug.log"
 # The browser's work folder lies in the computer's temporary folder (tempfile.gettempdir(): TMPDIR, TEMP or
-# TMP), independent of --out. Below it the profile reaches 96 characters (measured, revision 1243:
-# Default\blob_storage\<uuid>); Windows refuses folder paths over 247 characters (MAX_PATH without long-path
-# support). With work folders of 180 and 200 characters the profile could not be created and the errors,
-# with local paths, went to debug.log next to the executable and in the current folder. The limit leaves 51
-# characters reserve; it applies on Windows only (Linux has no such path limit).
+# TMP), independent of --out. Below it the driver's profile reaches 96 characters (measured, revision 1243,
+# both reports printed: playwright_chromiumdev_profile-XXXXXX\Default\blob_storage\<uuid>); the shell is not
+# long-path aware. Measured with work folders of exact lengths: up to 160 characters every print was clean;
+# from 170 Chromium could not create its disk cache folders and wrote the errors, with local paths, to
+# debug.log (next to the executable, and into its current folder: at 208 characters with the caller's
+# current folder there); at 215 characters the launch failed. The limit leaves 60 characters reserve; it
+# applies on Windows only (Linux has no such path limit).
 WORK_PREFIX = "ng-pdf-"
 WORK_PATH_LIMIT = 100
 # the temporary folder itself: the work folder adds a separator, the prefix and tempfile.mkdtemp's 8 random
@@ -304,13 +308,15 @@ def preflight(
     run: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     os_release: Path = Path("/etc/os-release"),
 ) -> None:
-    """Before any rendering: the pinned Playwright and, on Linux, the shell's system libraries (ldd)."""
+    """Before any rendering: the pinned Playwright, the temporary folder for the browser's work folder
+    (work_base) and, on Linux, the shell's system libraries (ldd)."""
     try:
         found = metadata.version("playwright")
     except metadata.PackageNotFoundError:
         found = "none"
     if found != PLAYWRIGHT_VERSION:
         raise PdfError("pdf.playwright_version", found=found, required=PLAYWRIGHT_VERSION)
+    work_base()
     if shell.platform != "linux64":
         return
     ldd = shutil.which("ldd")
@@ -432,6 +438,10 @@ def _too_long(length: int, limit: int) -> PdfError:
     )
 
 
+def _unusable() -> PdfError:
+    return PdfError("pdf.temp_unusable", hint=("pdf.temp_unusable_hint", {}))
+
+
 def check_work_path(work: Path, *, windows: bool | None = None) -> None:
     """Windows: a work folder path longer than WORK_PATH_LIMIT characters is refused before the browser
     starts (exit 2, with the hint to choose a shorter temporary folder)."""
@@ -440,19 +450,29 @@ def check_work_path(work: Path, *, windows: bool | None = None) -> None:
         raise _too_long(length, WORK_PATH_LIMIT)
 
 
-@contextmanager
-def browser_work(*, windows: bool | None = None) -> Iterator[Path]:
-    """A private work folder for one browser run in the computer's temporary folder, independent of the
-    output folder; removed afterwards, also after errors. A temporary folder whose path is too long (on
-    Windows more than TEMP_PATH_LIMIT characters) or that cannot be used ends with exit 2 and the hint,
-    before anything is created."""
-    base = Path(tempfile.gettempdir()).absolute()
+def work_base(*, windows: bool | None = None) -> Path:
+    """The computer's temporary folder, the base of the browser's work folders: PdfError (exit 2, with
+    the hint) when there is no usable one or, on Windows, its path is longer than TEMP_PATH_LIMIT
+    characters."""
+    try:
+        base = Path(tempfile.gettempdir()).absolute()
+    except OSError:  # tempfile found no writable folder among TMPDIR, TEMP, TMP and its fallbacks
+        raise _unusable() from None
     if (windows if windows is not None else os.name == "nt") and len(str(base)) > TEMP_PATH_LIMIT:
         raise _too_long(len(str(base)), TEMP_PATH_LIMIT)
+    return base
+
+
+@contextmanager
+def browser_work(*, windows: bool | None = None) -> Iterator[Path]:
+    """A private work folder for one browser run in the computer's temporary folder (work_base),
+    independent of the output folder; removed afterwards, also after errors. A temporary folder that cannot
+    be used or whose path is too long ends with exit 2 and the hint, before anything is created."""
+    base = work_base(windows=windows)
     try:
         path = Path(tempfile.mkdtemp(prefix=WORK_PREFIX, dir=base))
     except OSError:
-        raise PdfError("pdf.temp_unusable", hint=("pdf.temp_hint", {"limit": TEMP_PATH_LIMIT})) from None
+        raise _unusable() from None
     try:
         yield path
     finally:

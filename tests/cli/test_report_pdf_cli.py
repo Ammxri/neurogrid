@@ -16,6 +16,7 @@ from pathlib import Path
 import pypdf
 import pytest
 
+from conftest import long_path, short_folder  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.cli import main
 from neurogrid.kernel import canonical, fonts
@@ -126,6 +127,77 @@ def test_glyph_twins_in_the_dataset_name_exit_0_with_the_name_as_written(
     assert code == 0, err  # no phrase the gate requires has a glyph twin of lower code point
     lowest = "EEG\u2012\u2012--\u00b7\u00b7"
     assert all(lowest in _plain(_pdf_text(kept / f"report.{lang}.pdf")) for lang in ("zh", "en"))
+
+
+def _child_log_state(executable: Path) -> int | None:
+    log = executable.parent / "debug.log"
+    return log.stat().st_size if log.is_file() else None
+
+
+@pytest.mark.pdf
+def test_long_out_path_writes_the_reports_and_leaves_nothing_behind(
+    results_file: Path, pdf_shell: object, tmp_path: Path
+) -> None:
+    """P2: an --out of 240 characters (measured with the merged state: at 195 characters a debug.log with
+    local paths stayed in the current folder, at 210 the run ended in pdf.launch_failed with the install
+    check as hint): exit 0, the four files; nothing in the current folder, in the temporary folder (the
+    browser's work folder lies there, removed) or next to the shell's executable."""
+    out = long_path(tmp_path / "o", 240)
+    assert len(str(out)) >= 240
+    executable = pdf_shell.executable  # type: ignore[attr-defined]
+    log_before = _child_log_state(executable)
+    with short_folder("ng-env-") as root:
+        temp, cwd = root / "temp", root / "cwd"
+        temp.mkdir()
+        cwd.mkdir()
+        done = subprocess.run(
+            [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "zh,en"]
+            + ["--format", "html,pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp)),
+            cwd=cwd,
+            check=False,
+        )
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert sorted(p.name for p in out.iterdir()) == FILES
+        assert list(cwd.iterdir()) == [] and list(temp.iterdir()) == []
+    assert _child_log_state(executable) == log_before
+
+
+@pytest.mark.pdf
+@pytest.mark.skipif(os.name != "nt", reason="the path limit is Windows' (MAX_PATH); Linux has none")
+def test_temporary_folder_too_long_for_the_browser_exits_2_with_its_own_hint(
+    results_file: Path, tmp_path: Path
+) -> None:
+    """P2: a temporary folder (TEMP, TMP, TMPDIR) whose path is too long for the shell's profile ends with
+    exit 2 before anything is rendered: the message names the length and the limit, the hint the
+    environment variables and the length they may have; nothing is written, also not into the temporary
+    folder or the current folder."""
+    from neurogrid.kernel import pdf
+
+    out = tmp_path / "out"
+    with short_folder("ng-env-") as root:
+        temp = root / ("t" * max(1, pdf.TEMP_PATH_LIMIT - len(str(root))))  # one character too many
+        cwd = root / "cwd"
+        temp.mkdir()
+        cwd.mkdir()
+        length = len(str(temp))
+        assert length > pdf.TEMP_PATH_LIMIT
+        done = subprocess.run(
+            [sys.executable, "-m", "neurogrid", "report", str(results_file), "--lang", "en"]
+            + ["--format", "html,pdf", "--out", str(out)],
+            capture_output=True,
+            env=_env(TEMP=str(temp), TMP=str(temp), TMPDIR=str(temp)),
+            cwd=cwd,
+            check=False,
+        )
+        err = done.stderr.decode("utf-8", "replace")
+        assert done.returncode == 2, err
+        assert f"has a path of {length} characters" in err
+        assert f"on Windows the browser can use at most {pdf.TEMP_PATH_LIMIT}" in err
+        assert f"with a path of at most {pdf.TEMP_PATH_LIMIT} characters" in err and "TEMP and TMP" in err
+        assert "installer" not in err  # not the misleading hint of a launch failure
+        assert not out.exists() and list(temp.iterdir()) == [] and list(cwd.iterdir()) == []
 
 
 def test_pdf_without_shell_exits_2_with_hint_and_writes_nothing(

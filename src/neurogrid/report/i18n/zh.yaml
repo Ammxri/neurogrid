@@ -227,7 +227,8 @@ errors:
     qa_failed: "PDF 未通过 NeuroGrid 的 PDF 检查（{checks}）；未写入任何文件。"
     work_path_too_long: "PDF 浏览器临时文件所在文件夹的路径长 {length} 个字符；在 Windows 上浏览器最多只能使用 {limit} 个字符。未写入任何文件。"
     temp_unusable: "无法在本机的临时文件夹中为 PDF 浏览器创建工作文件夹；未写入任何文件。"
-    temp_hint: "请将环境变量 TEMP 和 TMP（Linux：TMPDIR）设为一个路径较短（最多 {limit} 个字符）的现有本地文件夹，然后重新运行该命令。"
+    temp_hint: "请将 TEMP 和 TMP（如已设置 TMPDIR，也包括它）设为一个路径不超过 {limit} 个字符的现有本地文件夹，然后重新运行该命令。"
+    temp_unusable_hint: "请将 TEMP 和 TMP（Linux：TMPDIR）设为一个您有写入权限的现有本地文件夹，然后重新运行该命令。"
     install:
       command: "安装命令：{command}（离线安装：加上 --from-zip <zip 文件> --sha256 <SHA-256>，详见文档）。"
       docs: "安装方法见文档“安装”页的“PDF 浏览器”一节。每个 NeuroGrid 发布版本都附有安装程序 install_pdf_browser.py（地址和 SHA-256 见该节）；请用 Python 3.11 或更高版本运行。"

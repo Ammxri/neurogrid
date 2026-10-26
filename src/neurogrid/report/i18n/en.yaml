@@ -226,7 +226,8 @@ errors:
     qa_failed: "The PDF did not pass NeuroGrid's PDF check ({checks}); no files were written."
     work_path_too_long: "The folder for the temporary files of the PDF browser has a path of {length} characters; on Windows the browser can use at most {limit}. No files were written."
     temp_unusable: "No working folder for the PDF browser could be created in the temporary folder of this computer; no files were written."
-    temp_hint: "Set the environment variables TEMP and TMP (Linux: TMPDIR) to an existing local folder with a shorter path (at most {limit} characters) and run the command again."
+    temp_hint: "Set TEMP and TMP (and TMPDIR, if it is set) to an existing local folder with a path of at most {limit} characters and run the command again."
+    temp_unusable_hint: "Set TEMP and TMP (Linux: TMPDIR) to an existing local folder you can write to and run the command again."
     install:
       command: "Install it with: {command}   (offline: add --from-zip <zip file> --sha256 <SHA-256>; see the documentation)."
       docs: "How to install it: documentation, installation page, section 'PDF browser'. The installer install_pdf_browser.py is attached to every NeuroGrid release (address and SHA-256 there); run it with Python 3.11 or later."

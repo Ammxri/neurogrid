@@ -17,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
@@ -27,6 +28,7 @@ import pytest
 from fontTools.ttLib import TTFont
 from pypdf.generic import DictionaryObject
 
+from conftest import folder_content, fresh_shell, long_path, short_folder  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.kernel import canonical, fonts, pdf
 from neurogrid.kernel.errors import NeuroGridError, PdfError
@@ -306,8 +308,7 @@ def test_qa_gate_negative_controls(
     regular_only = subset_font_css({400: FONT_FILES[400]}, text + "Control")
     expect = PdfExpect(meta=PdfMeta("Control", AS_OF), fonts=FONTS, every_page=("Hello",), once=("bold",))
     outside = "file:///C:/Windows/win.ini" if os.name == "nt" else "file:///etc/passwd"
-    work = tmp_path / "work"
-    with PdfPrinter(pdf_shell, work) as printer:
+    with pdf.browser_work() as work, PdfPrinter(pdf_shell, work) as printer:
         assert _print(printer, work, "ok", _page(text, css=NG_CSS, font_css=both), expect) == []
         system = _print(
             printer, work, "system", _page(text, css="body { font-family: Arial, sans-serif; }"), expect
@@ -362,15 +363,15 @@ def test_no_network_events_in_chromium_netlog(
 ) -> None:
     """NG-N01 for the browser process (Windows, process level): its own network log records no request,
     socket, connection, name resolution or proxy detection while it prints a report."""
-    netlog = tmp_path / "netlog.json"
-    work = tmp_path / "work"
-    flags = (f"--log-net-log={netlog}", "--net-log-capture-mode=Everything")
-    with PdfPrinter(pdf_shell, work, extra_flags=flags) as printer:
-        source = work / "report.en.html"
-        source.write_text(html_document(results, "en"), encoding="utf-8")
-        printed = printer.print(source, PdfMeta(translator("en").t("report.title"), AS_OF))
+    with pdf.browser_work() as work:
+        netlog = work / "netlog.json"
+        flags = (f"--log-net-log={netlog}", "--net-log-capture-mode=Everything")
+        with PdfPrinter(pdf_shell, work, extra_flags=flags) as printer:
+            source = work / "report.en.html"
+            source.write_text(html_document(results, "en"), encoding="utf-8")
+            printed = printer.print(source, PdfMeta(translator("en").t("report.title"), AS_OF))
+        events = _netlog_events(netlog)
     assert printed.log.seen == 1 and printed.log.unexpected == 0
-    events = _netlog_events(netlog)
     banned = ("URL_REQUEST", "SOCKET", "TCP_", "UDP_", "HOST_RESOLVER", "PAC_FILE", "PROXY_", "SSL_", "HTTP_")
     assert events and not sorted(e for e in events if e.startswith(banned) or e == "QUIC_SESSION"), events
 
@@ -430,61 +431,89 @@ def test_netguard_blocks_nothing_and_counts_zero(results: Results, tmp_path: Pat
     assert (tmp_path / "out" / "report.zh.pdf").is_file()
 
 
-def _tree(folder: Path) -> dict[str, tuple[int, int]]:
-    return {str(p.relative_to(folder)): (p.stat().st_size, p.stat().st_mtime_ns) for p in folder.rglob("*")}
+@pytest.mark.pdf
+def test_no_files_left_in_temp_and_shell_folder_unchanged(results: Results, pdf_shell: ShellInstall) -> None:
+    """A-54, P1: driver and browser use the run's work folder. The first print after a fresh installation
+    (a copy of the installed shell that no browser has run from) with its own, empty temporary and user data
+    folders and an empty current folder leaves all of them empty (no Playwright folder, no browser profile,
+    no debug.log), leaves the browser folder unchanged byte for byte (conftest.folder_content: entries,
+    sizes, times and SHA-256; the shell would otherwise write debug.log next to its executable) and the
+    output folder holds only the reports. Measured for P1: Chromium writes nothing below its folder (no
+    change notification while it starts and prints a report, plain text or hyphenated text); it reads the
+    executable, the .pak, .dat, .bin and Vulkan files and, for 'hyphens: auto' in English text only,
+    hyphen-data/hyph-en-us.hyb. The failure once seen (hyphen-data size 0 -> 12288) was the old snapshot
+    reading NTFS's cache state. Negative control: a debug.log written and removed again next to the
+    executable is seen."""
+    with short_folder("ng-env-") as root, fresh_shell(pdf_shell) as shell:
+        source = root / "results.json"
+        source.write_bytes(canonical.dumps(results))
+        private = {
+            name: root / name.lower() for name in ("TEMP", "LOCALAPPDATA", "APPDATA", "XDG_CACHE_HOME", "CWD")
+        }
+        for folder in private.values():
+            folder.mkdir()
+        env = {
+            **os.environ,
+            **{name: str(folder) for name, folder in private.items() if name != "CWD"},
+            "TMP": str(private["TEMP"]),
+            "TMPDIR": str(private["TEMP"]),
+            "XDG_CONFIG_HOME": str(private["XDG_CACHE_HOME"]),
+            "XDG_DATA_HOME": str(private["XDG_CACHE_HOME"]),
+            pdf.ENV_BROWSER_DIR: str(shell.folder),
+            "PYTHONIOENCODING": "utf-8",
+        }
+        before = folder_content(shell.folder)
+        out = root / "out"
+        command = ["report", str(source), "--lang", "zh,en", "--format", "pdf", "--out", str(out)]
+        done = subprocess.run(
+            [sys.executable, "-m", "neurogrid", *command],
+            capture_output=True,
+            env=env,
+            cwd=private["CWD"],
+            check=False,
+        )
+        assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
+        assert sorted(p.name for p in out.iterdir()) == ["report.en.pdf", "report.zh.pdf"]
+        assert {name: sorted(p.name for p in folder.iterdir()) for name, folder in private.items()} == {
+            name: [] for name in private
+        }
+        assert folder_content(shell.folder) == before
+        child_log = shell.executable.parent / pdf.CHILD_LOG
+        child_log.write_bytes(b"[1026/120000.000:ERROR:example.cc(1)] written and undone\n")
+        child_log.unlink()
+        assert folder_content(shell.folder) != before
+
+
+# Browser tests of this module and of the CLI that print below their tmp_path (results, sources, --out).
+LONG_BASETEMP_TESTS = (
+    "tests/integration/test_report_pdf.py::test_pdf_qa_gate_green_zh_en",
+    "tests/integration/test_report_pdf.py::test_print_pdf_writes_only_a_passing_pdf",
+    "tests/integration/test_report_pdf.py::test_glyph_twins_extract_as_their_own_codepoints",
+    "tests/integration/test_report_pdf.py::test_no_network_events_in_chromium_netlog",
+    "tests/cli/test_report_pdf_cli.py::test_glyph_twins_in_the_dataset_name_exit_0_with_the_name_as_written",
+)
 
 
 @pytest.mark.pdf
-def test_no_files_left_in_temp_and_shell_folder_unchanged(
-    results: Results, pdf_shell: ShellInstall, tmp_path: Path
-) -> None:
-    """A-54: driver and browser use the run's work folder. A run with its own, empty temporary and user
-    data folders leaves all of them empty (no Playwright folder, no browser profile), leaves the browser
-    folder unchanged (the shell would otherwise write debug.log next to its executable) and the output
-    folder holds only the reports."""
-    source = tmp_path / "results.json"
-    source.write_bytes(canonical.dumps(results))
-    private = {
-        name: tmp_path / name.lower() for name in ("TEMP", "LOCALAPPDATA", "APPDATA", "XDG_CACHE_HOME")
-    }
-    for folder in private.values():
-        folder.mkdir()
-    env = {
-        **os.environ,
-        **{name: str(folder) for name, folder in private.items()},
-        "TMP": str(private["TEMP"]),
-        "TMPDIR": str(private["TEMP"]),
-        "XDG_CONFIG_HOME": str(private["XDG_CACHE_HOME"]),
-        "XDG_DATA_HOME": str(private["XDG_CACHE_HOME"]),
-        pdf.ENV_BROWSER_DIR: str(pdf_shell.folder),
-        "PYTHONIOENCODING": "utf-8",
-    }
-    before_shell = _tree(pdf_shell.shell_dir)
-    out = tmp_path / "out"
+def test_pdf_tests_pass_with_a_long_basetemp(tmp_path: Path) -> None:
+    """P2: the browser's work folder never follows the paths a caller uses (kernel.pdf.browser_work; the
+    tests take theirs from it too), so a long pytest basetemp changes nothing: with one of 200 characters
+    (the tests' tmp_path then about 230) a selection of browser tests that write below tmp_path passes."""
+    basetemp = long_path(tmp_path / "b", 200)
+    assert len(str(basetemp)) >= 200
+    basetemp.parent.mkdir(parents=True)  # pytest creates the basetemp itself, not its parents
     done = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "neurogrid",
-            "report",
-            str(source),
-            "--lang",
-            "zh,en",
-            "--format",
-            "pdf",
-            "--out",
-            str(out),
-        ],
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--basetemp={basetemp}"]
+        + list(LONG_BASETEMP_TESTS),
         capture_output=True,
-        env=env,
+        cwd=Path(__file__).parent.parent.parent,
+        env={**os.environ, "NEUROGRID_REQUIRE_PDF": "1", "PYTHONIOENCODING": "utf-8"},
         check=False,
     )
-    assert done.returncode == 0, done.stderr.decode("utf-8", "replace")
-    assert sorted(p.name for p in out.iterdir()) == ["report.en.pdf", "report.zh.pdf"]
-    assert {name: sorted(p.name for p in folder.iterdir()) for name, folder in private.items()} == {
-        name: [] for name in private
-    }
-    assert _tree(pdf_shell.shell_dir) == before_shell
+    report = done.stdout.decode("utf-8", "replace")
+    assert done.returncode == 0, report[-3000:]
+    summary = report.strip().splitlines()[-1]
+    assert re.match(r"^6 passed\b", summary) and "skipped" not in summary, summary
 
 
 @pytest.mark.pdf
@@ -545,7 +574,6 @@ def test_glyph_twins_extract_as_their_own_codepoints(
     body = f"<p>{line}</p><p><b>{line}</b></p>"
     wanted = [re.sub("[ \u00ad]", "", "".join(chr(cp) for cp in group)) for group in groups] * 2
     expect = PdfExpect(meta=PdfMeta("Control", AS_OF), fonts=FONTS, once=("|",))
-    work = tmp_path / "work"
 
     def printed(name: str) -> str:
         source = work / f"{name}.html"
@@ -554,7 +582,7 @@ def test_glyph_twins_extract_as_their_own_codepoints(
         assert qa_gate(result.data, expect, log=result.log) == []
         return "".join(_texts(result.data))
 
-    with PdfPrinter(pdf_shell, work) as printer:
+    with pdf.browser_work() as work, PdfPrinter(pdf_shell, work) as printer:
         assert _twin_tokens(printed("separated")) == wanted
         with _shared_glyphs_kept(monkeypatch):
             kept = _twin_tokens(printed("kept"))
@@ -737,12 +765,16 @@ def test_write_reports_prints_each_language_with_its_locale(
     results: Results, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Spec D5: the zh report is printed in a zh-CN browser context, the en report in en-US (without a
-    browser: printer, start check and gate replaced)."""
+    browser: printer, start check and gate replaced). P2: the printer works in a private folder in the
+    computer's temporary folder (kernel.pdf.browser_work), not below the output folder, and the folder is
+    gone afterwards."""
     printed: list[tuple[str, str]] = []
+    folders: list[Path] = []
 
     class Printer:
         def __init__(self, shell: object, work: Path) -> None:
-            pass
+            folders.append(work)
+            assert work.is_dir() and not any(work.iterdir())
 
         def __enter__(self) -> Printer:
             return self
@@ -759,9 +791,14 @@ def test_write_reports_prints_each_language_with_its_locale(
     monkeypatch.setattr(output, "preflight", lambda shell: None)
     monkeypatch.setattr(output, "PdfPrinter", Printer)
     monkeypatch.setattr(output, "qa_gate", lambda *args, **kwargs: [])
-    paths = write_reports(results, ["zh", "en"], ["pdf"], tmp_path, environ={})
+    out = tmp_path / "out"
+    paths = write_reports(results, ["zh", "en"], ["pdf"], out, environ={})
     assert printed == [("report.zh.html", "zh-CN"), ("report.en.html", "en-US")]
     assert [p.read_bytes() for p in paths] == [b"%PDF", b"%PDF"]
+    assert sorted(p.name for p in out.iterdir()) == ["report.en.pdf", "report.zh.pdf"]
+    (work,) = folders
+    assert work.parent == Path(tempfile.gettempdir()).absolute() and work.name.startswith(pdf.WORK_PREFIX)
+    assert not work.exists()
     assert output.LOCALES == {"zh": "zh-CN", "en": "en-US"} and set(output.LOCALES.values()) == pdf.LOCALES
 
 
@@ -773,8 +810,7 @@ def test_context_locale_leaves_the_pdf_bytes_unchanged(
     output stays byte-identical. Each delivered HTML printed in a zh-CN and in an en-US context gives the
     same bytes, and they are the bytes write_reports delivered (the HTML names its language, JavaScript is
     off, the fonts are embedded)."""
-    work = tmp_path / "work"
-    with PdfPrinter(pdf_shell, work) as printer:
+    with pdf.browser_work() as work, PdfPrinter(pdf_shell, work) as printer:
         for lang in ("zh", "en"):
             source = work / f"report.{lang}.html"
             source.write_bytes(written[f"report.{lang}.html"].read_bytes())
@@ -828,15 +864,14 @@ def test_print_pdf_writes_only_a_passing_pdf(pdf_shell: ShellInstall, tmp_path: 
     source.write_text(page, encoding="utf-8")
     expect = PdfExpect(meta=PdfMeta("Control", AS_OF), fonts=FONTS, every_page=("Hello",), once=("bold",))
     target = tmp_path / "out" / "page.pdf"
-    printed = pdf.print_pdf(
-        source, target, meta=expect.meta, expect=expect, shell=pdf_shell, work=tmp_path / "w"
-    )
+    with pdf.browser_work() as work:
+        printed = pdf.print_pdf(source, target, meta=expect.meta, expect=expect, shell=pdf_shell, work=work)
     assert target.read_bytes() == printed.data and printed.log.seen == 1
     assert sorted(p.name for p in target.parent.iterdir()) == ["page.pdf"]
     other = tmp_path / "other" / "page.pdf"
     wrong = PdfExpect(meta=expect.meta, fonts=FONTS, every_page=("absent phrase",))
-    with pytest.raises(PdfError) as info:
-        pdf.print_pdf(source, other, meta=expect.meta, expect=wrong, shell=pdf_shell, work=tmp_path / "w2")
+    with pytest.raises(PdfError) as info, pdf.browser_work() as work:
+        pdf.print_pdf(source, other, meta=expect.meta, expect=wrong, shell=pdf_shell, work=work)
     assert info.value.params == {"checks": "phrase_missing_on_page"} and not other.exists()
 
 

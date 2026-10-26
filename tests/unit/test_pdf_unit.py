@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ from pypdf.generic import (
     NameObject,
 )
 
+from conftest import short_folder  # type: ignore[import-not-found]
 from neurogrid.kernel import pdf
 from neurogrid.kernel.errors import InputError, PdfError
 from neurogrid.kernel.pdf import (
@@ -320,6 +322,7 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     class Starter:
         def start(self) -> Driver:
             environment_at_start.update({name: os.environ.get(name) for name in ("TMP", "NODE_OPTIONS")})
+            environment_at_start["cwd"] = str(Path.cwd())  # the driver and the browser keep it
             return Driver()
 
     import playwright.sync_api
@@ -327,9 +330,9 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(playwright.sync_api, "sync_playwright", lambda: Starter())
     monkeypatch.setenv("NODE_OPTIONS", "--require=evil.js")
     shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
-    work = tmp_path / "work"
-    with PdfPrinter(shell, work, extra_flags=("--log-net-log=x",)):
-        pass
+    before = Path.cwd()
+    with pdf.browser_work() as work, PdfPrinter(shell, work, extra_flags=("--log-net-log=x",)):
+        assert Path.cwd() == before  # changed only while the driver starts
     assert launched["executable_path"] == str(tmp_path / "shell.exe") and "channel" not in launched
     log_file = f"--log-file={work / 'chromium.log'}"  # not next to the executable (A-54)
     expected = [*CHROMIUM_FLAGS, "--in-process-gpu", log_file, "--log-net-log=x"]
@@ -337,7 +340,7 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert launched["env"] == pdf.browser_environment(work) and launched["chromium_sandbox"] is False
     assert not (launched["handle_sigint"] or launched["handle_sigterm"] or launched["handle_sighup"])
     assert launched["closed"] and launched["stopped"]
-    assert environment_at_start == {"TMP": str(work), "NODE_OPTIONS": None}
+    assert environment_at_start == {"TMP": str(work), "NODE_OPTIONS": None, "cwd": str(work)}
     assert os.environ["NODE_OPTIONS"] == "--require=evil.js"  # restored after the driver start
 
 
@@ -373,8 +376,8 @@ def test_browser_errors_never_show_playwright_text(tmp_path: Path, monkeypatch: 
             "sync_playwright",
             lambda e=exc: type("S", (), {"start": lambda self: Driver(e)})(),
         )
-        with pytest.raises(PdfError) as info:
-            PdfPrinter(shell, tmp_path / "w").__enter__()
+        with pytest.raises(PdfError) as info, pdf.browser_work() as work:
+            PdfPrinter(shell, work).__enter__()
         assert info.value.message_key == key and secret not in str(info.value.params)
     assert stopped == [True, True]
     printer = PdfPrinter(shell, tmp_path / "w")
@@ -412,6 +415,115 @@ def test_driver_environment_is_restored_and_cleaned(tmp_path: Path, monkeypatch:
     assert os.environ["TMP"] == "before" and os.environ["PWDEBUG"] == "1" and "TMPDIR" not in os.environ
     assert os.environ["PLAYWRIGHT_NODEJS_PATH"] == str(tmp_path / "other-node.exe")
     assert os.environ["PW_TEST_SCREENSHOT_NO_FONTS_READY"] == "1" and os.environ["DEBUGP"] == "1"
+
+
+def test_driver_runs_in_the_work_folder_and_the_caller_folder_comes_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2: the driver starts with the work folder as current folder; it keeps it and the browser and its
+    child processes inherit it, so a debug.log Chromium writes into its current folder goes with the work
+    folder (measured with a 208-character work folder: in the caller's folder before, in the work folder
+    with this). The caller's folder is restored; if it is gone meanwhile, the process leaves the work folder
+    for its parent, so that the work folder can be removed."""
+    caller, work = tmp_path / "caller", tmp_path / "work"
+    caller.mkdir()
+    work.mkdir()
+    monkeypatch.chdir(caller)
+    with pdf.driver_environment(work):
+        assert Path.cwd() == work
+    assert Path.cwd() == caller
+    with pytest.raises(ValueError), pdf.driver_environment(work):
+        raise ValueError
+    assert Path.cwd() == caller
+    with pdf.driver_environment(work):
+        caller.rmdir()
+    assert Path.cwd() == tmp_path
+
+
+def test_work_folder_limits_on_windows_only() -> None:
+    """P2: Windows refuses paths that are too long for the shell's profile (MAX_PATH; the shell is not
+    long-path aware). A work folder longer than WORK_PATH_LIMIT characters ends with exit 2, its own message
+    and the hint to set a shorter temporary folder (at most TEMP_PATH_LIMIT characters: the work folder adds
+    a separator, the prefix and mkdtemp's eight characters). Linux has no such limit."""
+    anchor = Path(Path.cwd().anchor)
+    at_limit = anchor / ("w" * (pdf.WORK_PATH_LIMIT - len(str(anchor))))
+    assert len(str(at_limit)) == pdf.WORK_PATH_LIMIT == 100
+    pdf.check_work_path(at_limit, windows=True)
+    with pytest.raises(PdfError) as info:
+        pdf.check_work_path(Path(f"{at_limit}x"), windows=True)
+    assert info.value.message_key == "pdf.work_path_too_long"
+    assert info.value.params == {"length": pdf.WORK_PATH_LIMIT + 1, "limit": pdf.WORK_PATH_LIMIT}
+    assert info.value.hint == ("pdf.temp_hint", {"limit": pdf.TEMP_PATH_LIMIT})
+    assert pdf.TEMP_PATH_LIMIT == pdf.WORK_PATH_LIMIT - 1 - len(pdf.WORK_PREFIX) - 8 == 84
+    pdf.check_work_path(Path(f"{at_limit}{'x' * 300}"), windows=False)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the path limit is Windows' (MAX_PATH); Linux has none")
+def test_printer_refuses_a_long_work_folder_before_the_driver_starts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import playwright.sync_api
+
+    def never() -> None:
+        raise AssertionError("the driver was started")
+
+    monkeypatch.setattr(playwright.sync_api, "sync_playwright", never)
+    shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
+    work = Path(Path.cwd().anchor) / ("w" * pdf.WORK_PATH_LIMIT)
+    with pytest.raises(PdfError) as info:
+        PdfPrinter(shell, work).__enter__()
+    assert info.value.message_key == "pdf.work_path_too_long" and not work.exists()
+
+
+def test_browser_work_lies_in_the_temporary_folder_and_is_removed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """P2: the browser's work folder is a private folder in the computer's temporary folder, independent
+    of --out; it is removed afterwards, also after an error."""
+    with short_folder("ng-temp-") as base:  # stands in for the computer's temporary folder
+        monkeypatch.setattr(tempfile, "tempdir", str(base))
+        assert pdf.work_base() == base
+        with pdf.browser_work() as work:
+            assert work.parent == base and work.name.startswith(pdf.WORK_PREFIX) and not any(work.iterdir())
+            (work / "profile").mkdir()
+            (work / "profile" / "Local State").write_text("{}", encoding="utf-8")
+        assert not work.exists()
+        with pytest.raises(RuntimeError), pdf.browser_work() as work:
+            raise RuntimeError
+        assert not work.exists() and not any(base.iterdir())
+        monkeypatch.undo()
+
+
+def test_temporary_folder_too_long_or_unusable_ends_with_its_own_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2: a temporary folder whose path is too long for the shell's profile (Windows) or in which no work
+    folder can be created ends with exit 2 and its own hint, before anything is created; the start check
+    (preflight) tests it before any rendering."""
+    with short_folder("ng-temp-") as root:
+        long = root / ("t" * (pdf.TEMP_PATH_LIMIT + 1))
+        monkeypatch.setattr(tempfile, "tempdir", str(long))
+        with pytest.raises(PdfError) as info, pdf.browser_work(windows=True):
+            pass
+        assert info.value.message_key == "pdf.work_path_too_long"
+        assert info.value.params == {"length": len(str(long)), "limit": pdf.TEMP_PATH_LIMIT}
+        assert info.value.hint == ("pdf.temp_hint", {"limit": pdf.TEMP_PATH_LIMIT}) and not long.exists()
+        long.mkdir()
+        with pdf.browser_work(windows=False) as work:  # Linux: no such limit
+            assert work.parent == long
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "missing"))
+    with pytest.raises(PdfError) as info, pdf.browser_work(windows=False):
+        pass
+    assert info.value.message_key == "pdf.temp_unusable" and info.value.hint == ("pdf.temp_unusable_hint", {})
+
+    def no_folder() -> str:
+        raise FileNotFoundError("No usable temporary directory found")
+
+    monkeypatch.setattr(tempfile, "gettempdir", no_folder)
+    with pytest.raises(PdfError) as info:
+        pdf.work_base()
+    assert info.value.message_key == "pdf.temp_unusable"
+    with pytest.raises(PdfError) as info:
+        pdf.preflight(ShellInstall(tmp_path, tmp_path, tmp_path / "x.exe", "win64"))
+    assert info.value.message_key == "pdf.temp_unusable"
 
 
 @pytest.mark.parametrize("before", [None, b"older lines\n"])
@@ -454,12 +566,12 @@ def test_child_log_next_to_the_executable_is_undone(
         playwright.sync_api, "sync_playwright", lambda: type("S", (), {"start": lambda s: Driver()})()
     )
     shell = ShellInstall(tmp_path, tmp_path / "shell", executable, "win64")
-    with PdfPrinter(shell, tmp_path / "work"):
+    with pdf.browser_work() as work, PdfPrinter(shell, work):
         pass
     assert (log.read_bytes() if log.exists() else None) == before
     Driver.chromium.fail = True
-    with pytest.raises(PdfError):
-        PdfPrinter(shell, tmp_path / "work2").__enter__()
+    with pytest.raises(PdfError), pdf.browser_work() as work:
+        PdfPrinter(shell, work).__enter__()
     assert (log.read_bytes() if log.exists() else None) == before
 
 
@@ -621,7 +733,7 @@ def test_print_context_locale_per_document_and_fixed_options(
     page = tmp_path / "r.html"
     page.write_text(f'<head><meta http-equiv="Content-Security-Policy" content="{CSP}"></head>', "utf-8")
     shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
-    with PdfPrinter(shell, tmp_path / "work") as printer:
+    with pdf.browser_work() as work, PdfPrinter(shell, work) as printer:
         dated = printer.print(page, PdfMeta("t", AS_OF), locale="zh-CN")
         printer.print(page, PdfMeta("t", AS_OF))
         with pytest.raises(ValueError):
@@ -648,12 +760,14 @@ def test_relative_work_folder_becomes_absolute(tmp_path: Path, monkeypatch: pyte
     browser still get absolute TMP, profile and log paths."""
     launched: dict[str, Any] = {}
     _fake_playwright(monkeypatch, launched)
-    monkeypatch.chdir(tmp_path)
     shell = ShellInstall(tmp_path, tmp_path, tmp_path / "shell.exe", "win64")
-    with PdfPrinter(shell, Path("out") / "run-1") as printer:
-        assert printer.work == tmp_path / "out" / "run-1"
-    assert launched["env"]["TMP"] == str(tmp_path / "out" / "run-1")
-    assert f"--log-file={tmp_path / 'out' / 'run-1' / 'chromium.log'}" in launched["args"]
+    with pdf.browser_work() as base:  # a short current folder: the absolute work folder stays in the limit
+        monkeypatch.chdir(base)
+        with PdfPrinter(shell, Path("out") / "run-1") as printer:
+            assert printer.work == base / "out" / "run-1"
+        assert launched["env"]["TMP"] == str(base / "out" / "run-1")
+        assert f"--log-file={base / 'out' / 'run-1' / 'chromium.log'}" in launched["args"]
+        monkeypatch.chdir(tmp_path)
 
 
 def test_playwright_prints_without_a_timeout_and_navigates_with_one() -> None:
