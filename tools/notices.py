@@ -921,6 +921,19 @@ def site_licence_problems(package: BundledPackage, review: SiteReview) -> list[s
     )
 
 
+# A file of this repository that the own prose of the notices names (notes of the manifests and of
+# components.toml): only the two top-level folders that hold no third-party sources, so the paths quoted from
+# the bundled sources (src/..., tools/...) are not taken for files of NeuroGrid.
+REPOSITORY_PATH = re.compile(r"(?<![\w./@-])(?:LICENSES|license-gate)/[\w@.+\-/]*\w")
+
+
+def missing_repository_paths(text: str, root: Path = ROOT) -> list[str]:
+    """The repository paths named in ``text`` (REPOSITORY_PATH) that do not exist under ``root``, sorted:
+    a note still naming a text after it was moved (R27)."""
+    named = set(REPOSITORY_PATH.findall(text))
+    return sorted(path for path in named if not (root / path).exists())
+
+
 def check_site_review(review: SiteReview | None, known_missing: Sequence[Mapping[str, str]]) -> list[str]:
     """The review of the documentation site: every package has its texts (recorded SHA-256 and size) or a
     known_missing.toml entry, a reviewed licence that is permissive (site_licence_problems) unless that entry
@@ -1678,6 +1691,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         site = load_site_review(locked_version(SITE_THEME))
         problems += check_site_review(site, known)
         text = render(wheels, components, known, bundle, exceptions=exceptions, site=site)
+        gone = missing_repository_paths(text)
+        problems += [f"the notices name a file not in the repository: {p}" for p in gone]
     except NoticeError as exc:
         print(f"notices: {exc}", file=sys.stderr)
         return 2

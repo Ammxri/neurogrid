@@ -1041,6 +1041,32 @@ def test_repository_notices_must_exist(tmp_path: Path) -> None:
     assert "Creative Commons Attribution 4.0 International" in text
 
 
+def test_a_note_naming_a_moved_text_is_found(tmp_path: Path) -> None:
+    """R27: the notes of the manifests are prose; a text moved away from LICENSES/ must not stay named."""
+    (tmp_path / "LICENSES").mkdir()
+    (tmp_path / "LICENSES" / "MIT.txt").write_text("MIT\n", encoding="utf-8")
+    kept = tmp_path / "license-gate" / "third_party" / "a@1.0.0"
+    kept.mkdir(parents=True)
+    (kept / "LICENSE.LGPL-3.0-or-later.txt").write_text("LGPL\n", encoding="utf-8")
+    text = (
+        "The texts are LICENSES/MIT.txt and LICENSES/LGPL-3.0-or-later.txt (moved). Kept next to it: "
+        "license-gate/third_party/a@1.0.0/LICENSE.LGPL-3.0-or-later.txt. A bundled source names src/md5.c, "
+        "tools/gyp and vendor/LICENSES/X.txt, which are no files of the repository."
+    )
+    assert notices.missing_repository_paths(text, tmp_path) == ["LICENSES/LGPL-3.0-or-later.txt"]
+    fixed = text.replace(" and LICENSES/LGPL-3.0-or-later.txt", "")
+    assert notices.missing_repository_paths(fixed, tmp_path) == []
+
+
+def test_committed_notices_and_notes_name_only_existing_repository_files() -> None:
+    """R27: neither the committed notices nor a note of license-gate names a repository file that is gone,
+    e.g. the copyleft texts of the D-16 exception after they moved next to isomorphic-git."""
+    assert notices.missing_repository_paths(_committed()) == []
+    for path in sorted((ROOT / "license-gate").rglob("*.toml")):
+        named = path.read_text(encoding="utf-8")
+        assert notices.missing_repository_paths(named) == [], path.relative_to(ROOT)
+
+
 # --- files and downloads ------------------------------------------------------------------------------------
 
 
