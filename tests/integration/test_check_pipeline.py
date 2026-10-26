@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
+import tempfile
 from datetime import date
 from pathlib import Path, PurePosixPath
 
@@ -42,6 +44,19 @@ def test_scan_result_schema() -> None:
     data = json.loads(canonical.dumps(pipeline.run_scan(FIX / "unsupported")))
     jsonschema.validate(data, json.loads((SCHEMAS / "scan.schema.json").read_text(encoding="utf-8")))
     assert data["formats"] == {"EDF": 1} and data["unsupported"][0]["format"] == "CNT"
+
+
+def test_a_run_without_an_output_folder_works_in_the_users_own_temp_base(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Library calls name no output folder; their work folder lies in the temporary folder (A-54). On
+    POSIX that folder is shared by every user, so the base is '<temp>/neurogrid-<uid>', not one
+    '<temp>/neurogrid' for all (kernel.safety.temp_work_base); nothing is left in it after the run."""
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    pipeline.run_check(FIX / "edf_ok", OPTIONS)
+    expected = "neurogrid" if os.name == "nt" else f"neurogrid-{os.getuid()}"
+    assert [p.name for p in tmp_path.iterdir()] == [expected]
+    assert list((tmp_path / expected).iterdir()) == []
 
 
 def test_single_file_target() -> None:

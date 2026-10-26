@@ -60,7 +60,13 @@ from neurogrid.io.eeglab import epoched as eeglab_epoched
 from neurogrid.kernel import canonical
 from neurogrid.kernel.errors import InputError, NeuroGridError, UnsafePathError
 from neurogrid.kernel.provenance import sha256_file
-from neurogrid.kernel.safety import create_temporary, read_limited, resolve_within, work_directory
+from neurogrid.kernel.safety import (
+    create_temporary,
+    read_limited,
+    resolve_within,
+    temp_work_base,
+    work_directory,
+)
 from neurogrid.metadata import RecordingMetadata, collect, mapped_entities
 from neurogrid.model.dataset import ProcessingStep, Recording
 
@@ -336,7 +342,7 @@ def convert_to_bids(
         if work is not None:
             folder = work()
         else:
-            folder = stack.enter_context(work_directory(Path(tempfile.gettempdir()) / "neurogrid"))
+            folder = stack.enter_context(work_directory(temp_work_base()))
         output.mkdir(parents=True, exist_ok=True)
         result = ConvertResult(output=output)
         for item in found.unsupported:

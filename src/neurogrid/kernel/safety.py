@@ -11,6 +11,7 @@ import re
 import secrets
 import shutil
 import socket
+import stat
 import sys
 import tempfile
 from collections.abc import Hashable, Iterable, Iterator, Mapping
@@ -549,6 +550,32 @@ def remove_leftovers(base: Path, prefix: str) -> None:
         return
     for name in names:
         _remove_leftover(base / name)
+
+
+def temp_work_base() -> Path:
+    """The base of the work folders of a run that names no output folder (library calls of run_check and
+    run_convert, convert_to_bids without a work folder; the CLI always works next to its output), A-54:
+    '<temp>/neurogrid' on Windows, whose temporary folder is the user's own. On POSIX the temporary folder
+    (/tmp) is shared by every user: one name for all let the first user's folder (0755) refuse every other
+    user's runs, and its owner could swap a run's work folder (staged recordings, validator output) for one
+    of theirs. There the base is '<temp>/neurogrid-<uid>', created for this user only (0700); one that is a
+    link, belongs to someone else or others may write to is refused (output.not_writable)."""
+    try:
+        base = Path(tempfile.gettempdir()) / "neurogrid"
+    except OSError:  # no usable temporary folder among TMPDIR, TEMP, TMP and tempfile's fallbacks
+        raise InputError("output.not_writable") from None
+    if sys.platform == "win32":
+        return base
+    uid = os.getuid()
+    base = base.with_name(f"neurogrid-{uid}")
+    try:
+        base.mkdir(mode=0o700, exist_ok=True)
+        info = base.lstat()
+    except OSError:
+        raise InputError("output.not_writable") from None
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != uid or info.st_mode & 0o022:
+        raise InputError("output.not_writable")
+    return base
 
 
 @contextmanager

@@ -9,7 +9,6 @@ import os
 import platform
 import re
 import sys
-import tempfile
 from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -65,6 +64,7 @@ from neurogrid.kernel.safety import (
     is_link,
     read_limited,
     resolve_within,
+    temp_work_base,
     work_directory,
 )
 from neurogrid.model.dataset import Dataset
@@ -324,7 +324,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
 
     found = scan(target.root, show_paths=options.show_paths, only=target.only)
     check_ids = {rule.check for loaded in packs for rule in loaded.pack.rules}
-    base = options.work_base if options.work_base is not None else Path(tempfile.gettempdir()) / "neurogrid"
+    base = options.work_base if options.work_base is not None else temp_work_base()
     with work_directory(base) as work:
         ctx = CheckContext.build(
             found,
@@ -749,7 +749,7 @@ def run_convert(
     output = check_operator_path(out)
     checked_config = check_operator_path(config_path) if config_path else None
     cfg = config_module.load(checked_config, target.root).config
-    base = work_base if work_base is not None else Path(tempfile.gettempdir()) / "neurogrid"
+    base = work_base if work_base is not None else temp_work_base()
     for path in (output, base):
         if "," in str(path) or "," in str(path.resolve()):
             raise ValidatorError("validator.comma_path")

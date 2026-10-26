@@ -4,6 +4,7 @@ import os
 import re
 import socket
 import stat
+import tempfile
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -217,6 +218,42 @@ def test_temporary_files_follow_the_umask_on_posix(tmp_path: Path) -> None:
     finally:
         os.umask(previous)
     assert stat.S_IMODE(Path(name).stat().st_mode) == 0o640
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the temporary folder of Windows is the user's own")
+def test_temp_work_base_on_windows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    assert safety.temp_work_base() == tmp_path / "neurogrid"
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX: the temporary folder is shared by every user")
+def test_temp_work_base_is_the_users_own_on_posix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """/tmp is shared: one '/tmp/neurogrid' for all users let the first user's folder (0755) refuse every
+    other user's runs, and its owner could swap a run's work folder (staged recordings, validator output)
+    for one of theirs. The base carries the uid, is created 0700, and one that is a link, belongs to someone
+    else or others may write to is refused."""
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    base = safety.temp_work_base()
+    assert base == tmp_path / f"neurogrid-{os.getuid()}"
+    assert stat.S_IMODE(base.stat().st_mode) == 0o700
+    with work_directory(base) as work:
+        assert work.parent == base
+    base.chmod(0o777)
+    with pytest.raises(InputError) as info:
+        safety.temp_work_base()
+    assert info.value.message_key == "output.not_writable"
+    base.chmod(0o700)
+    real_uid = os.getuid()
+    monkeypatch.setattr(os, "getuid", lambda: real_uid + 1)  # a folder of that name made by someone else
+    (tmp_path / f"neurogrid-{real_uid + 1}").mkdir(mode=0o700)
+    with pytest.raises(InputError):
+        safety.temp_work_base()
+    monkeypatch.setattr(os, "getuid", lambda: real_uid)
+    base.rmdir()
+    (tmp_path / "elsewhere").mkdir(mode=0o700)
+    base.symlink_to(tmp_path / "elsewhere", target_is_directory=True)
+    with pytest.raises(InputError):
+        safety.temp_work_base()
 
 
 def test_work_directory_is_removed(tmp_path: Path) -> None:
