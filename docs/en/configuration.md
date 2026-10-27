@@ -15,9 +15,10 @@ effective threshold and where it came from.
 
 ## [dataset] {#dataset}
 
-`id`, `name`, `version`, `source`, `license`: the dataset fields of the report and of `results.json` when
-`dataset_description.json` does not provide them. Without `id` the dataset is shown as "unnamed"; the folder
-name is never used, it could be identifying.
+`id`, `name`, `version`, `source`, `license`: the dataset fields of the report and of `results.json`. `name` and
+`license` set here take precedence over `Name` and `License` of `dataset_description.json`; that file fills one
+of them only when it is not set here. `id`, `version` and `source` come only from this section. Without `id` the
+dataset is shown as "unnamed"; the folder name is never used, it could be identifying.
 
 ## [check] {#check}
 

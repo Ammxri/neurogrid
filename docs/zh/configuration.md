@@ -13,8 +13,9 @@
 
 ## [dataset] {#dataset}
 
-`id`、`name`、`version`、`source`、`license`：当 `dataset_description.json` 未提供时，用于报告和 `results.json`
-的数据集字段。没有 `id` 时数据集显示为“unnamed”；从不使用文件夹名称，因为它可能可识别身份。
+`id`、`name`、`version`、`source`、`license`：用于报告和 `results.json` 的数据集字段。此处设置的 `name` 和 `license`
+优先于 `dataset_description.json` 中的 `Name` 和 `License`；只有此处未设置时才使用该文件中的值。`id`、`version` 和
+`source` 只来自本节。没有 `id` 时数据集显示为“unnamed”；从不使用文件夹名称，因为它可能可识别身份。
 
 ## [check] {#check}
 

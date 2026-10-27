@@ -6,9 +6,11 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 import typing
+from datetime import date
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -18,6 +20,7 @@ import typer
 from pydantic import BaseModel
 
 from neurogrid import config as config_module
+from neurogrid import pipeline
 from neurogrid.checks.registry import REGISTRY
 from neurogrid.cli import app
 from neurogrid.config import Config, MetadataDefaults
@@ -221,6 +224,52 @@ def test_documented_toml_examples_are_valid(lang: str) -> None:
     parsed = config_module.parse_bytes(examples[0].encode("utf-8"))
     assert parsed.check.rulepacks == ["core", "bids", "gxdsl008"]
     assert examples[0] == _tagged(_page("en", "configuration.md"), "neurogrid.toml", "toml")[0]
+
+
+DATASET_PRECEDENCE = {
+    "en": (
+        "`name` and `license` set here take precedence over `Name` and `License` of"
+        " `dataset_description.json`",
+        "`id`, `version` and `source` come only from this section",
+    ),
+    "zh": (
+        "此处设置的 `name` 和 `license` 优先于 `dataset_description.json` 中的 `Name` 和 `License`",
+        "`id`、`version` 和 `source` 只来自本节",
+    ),
+}
+DATASET_PRECEDENCE_REVERSED = {
+    "en": "when `dataset_description.json` does not provide them",
+    "zh": "当 `dataset_description.json` 未提供时",
+}
+
+
+def test_dataset_section_states_the_precedence_of_the_code(tmp_path: Path) -> None:
+    """A-04, A-63, review R09: [dataset] name and license of neurogrid.toml win over Name and License of
+    dataset_description.json, which fills a field only when the section leaves it unset; id, version and
+    source come from the section alone. The page said the reverse ("when dataset_description.json does not
+    provide them")."""
+    dataset = tmp_path / "ds"
+    shutil.copytree(FIXTURES / "synthetic" / "bids_ok", dataset)
+    description = json.loads((dataset / "dataset_description.json").read_text(encoding="utf-8"))
+    assert description["Name"] and description["License"]  # both sources are set
+    given = tmp_path / "given.toml"
+    given.write_text(
+        '[dataset]\nname = "Name from toml"\nlicense = "MIT-from-toml"\nversion = "2"\n', encoding="utf-8"
+    )
+    empty = tmp_path / "empty.toml"
+    empty.write_text("", encoding="utf-8")
+    shown: dict[str, Any] = {}
+    for name, config in (("given", given), ("empty", empty)):
+        options = pipeline.CheckOptions(config_path=config, as_of=date(2026, 10, 11), work_base=tmp_path)
+        shown[name] = pipeline.run_check(dataset, options).dataset
+    assert (shown["given"].name, shown["given"].license) == ("Name from toml", "MIT-from-toml")
+    assert (shown["empty"].name, shown["empty"].license) == (description["Name"], description["License"])
+    assert (shown["given"].id, shown["given"].version, shown["empty"].version) == ("unnamed", "2", None)
+    for lang in LANGUAGES:
+        flat = " ".join(_anchored(_page(lang, "configuration.md"))["dataset"].split())
+        assert DATASET_PRECEDENCE_REVERSED[lang] not in flat, lang
+        for sentence in DATASET_PRECEDENCE[lang]:
+            assert sentence in flat, (lang, sentence)
 
 
 def test_rulepack_tutorial_example_runs(tmp_path: Path) -> None:
