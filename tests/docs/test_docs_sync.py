@@ -4,13 +4,13 @@ registry, the rule packs, the configuration model, the CLI, the schemas and the 
 from __future__ import annotations
 
 import hashlib
-import inspect
 import json
 import re
 import shutil
 import subprocess
 import sys
 import typing
+from collections.abc import Sequence
 from datetime import date
 from importlib import metadata
 from pathlib import Path
@@ -818,20 +818,73 @@ def test_clean_room_definition_matches_each_platforms_clean_room() -> None:
             assert re.sub(r"\s+", "", sentence) in flat, (lang, room)
 
 
+# Why one rule covers the PDF browser: every one of its processes runs its one executable. That holds
+# whatever the process layout, so the pages give this reason and need no claim about where a part runs.
+ONE_EXECUTABLE = {
+    "en": "The PDF browser's own process and every process it starts run `{}`, so this one rule covers all"
+    " of them.",
+    "zh": "PDF 浏览器自身的进程及其启动的每个进程都运行 `{}`，因此这一条规则涵盖所有这些进程。",
+}
+# A page that says a part of the PDF browser runs inside the browser process on Windows (the wording the
+# pages had up to 901bda6) names the part; each part has the launch argument that puts it there.
+IN_BROWSER_PROCESS = {"en": "inside the browser process", "zh": "浏览器进程内"}
+LAYOUT_PARTS = {"en": ("GPU", "network service"), "zh": ("GPU", "网络服务")}
+OLD_LAYOUT_CLAIM = {
+    "en": "Every process of the PDF browser runs `chrome-headless-shell.exe`; on Windows its GPU and its"
+    " network service run inside the browser process itself, so this one rule covers them.",
+    "zh": "PDF 浏览器的每个进程都运行 `chrome-headless-shell.exe`；在 Windows 上，其 GPU 和网络服务就在"
+    "浏览器进程内运行，因此这一条规则也涵盖它们。",
+}
+
+
+def _windows_launch_arguments() -> list[str]:
+    """pdf.launch_arguments as the printer calls it on Windows. Up to 901bda6 the function has no Windows
+    switch: it returns the same flags on every platform, and those are the Windows flags."""
+    from neurogrid.kernel import pdf
+
+    try:
+        return pdf.launch_arguments(Path("work"), windows=True)  # type: ignore[call-arg, unused-ignore]
+    except TypeError:  # no keyword windows (before 88b15a4, branch p5-ci2-chrome-log)
+        return pdf.launch_arguments(Path("work"))
+
+
+def _unbacked_layout_claims(section: str, lang: str) -> list[str]:
+    """The parts of the PDF browser that the section says run inside the browser process although the
+    launch arguments for Windows do not put them there (GPU: --in-process-gpu; network service: the feature
+    NetworkServiceInProcess2 in --enable-features)."""
+    from neurogrid.kernel import pdf
+
+    flat = re.sub(r"\s+", "", section)
+    if re.sub(r"\s+", "", IN_BROWSER_PROCESS[lang]) not in flat:
+        return []
+    arguments = _windows_launch_arguments()
+    features = {
+        feature
+        for argument in arguments
+        if argument.startswith("--enable-features=")
+        for feature in argument.removeprefix("--enable-features=").split(",")
+    }
+    backed = (pdf.IN_PROCESS_GPU in arguments, "NetworkServiceInProcess2" in features)
+    named = [part for part in LAYOUT_PARTS[lang] if re.sub(r"\s+", "", part) in flat]
+    return [part for part, ok in zip(LAYOUT_PARTS[lang], backed, strict=True) if part in named and not ok]
+
+
 def test_firewall_check_blocks_what_the_ci_blocks() -> None:
     """NG-N01, A-49: 'Check it yourself' on Windows blocks every .exe of the installation and of the PDF
     browser folder with the rule the Windows clean room adds (cleanroom_windows.ps1 Block-Executables),
-    names the programs it covers and says that the PDF browser's processes all run its one executable (on
-    Windows the GPU and the network service run inside the browser process, see pdf.launch_arguments)."""
+    names the programs it covers and says that the PDF browser's processes all run its one executable.
+
+    The pages said that on Windows the GPU and the network service run inside the browser process. Without
+    88b15a4 (p5-ci2-chrome-log) the network service is a child process of its own (measured on Windows 11
+    at 901bda6: browser, utility network.mojom.NetworkService, renderer, all chrome-headless-shell.exe), and
+    the check of that claim here sat behind an inspect.signature test that skipped it without notice. The
+    pages now give the reason that holds whatever the process layout; a claim about the layout is checked
+    against the real launch arguments for Windows and fails here, never skipped, when the code lacks it."""
     from neurogrid.kernel import pdf
 
     script = " ".join(CLEANROOM_WINDOWS.read_text(encoding="utf-8-sig").split())
     assert FIREWALL_RULE.replace("neurogrid-block", '"$tag-block"') in script
     browser = Path(pdf.EXECUTABLES["win64"]).name
-    assert pdf.IN_PROCESS_GPU in pdf.launch_arguments(Path("work"))  # the GPU runs in the browser process
-    if "windows" in inspect.signature(pdf.launch_arguments).parameters:  # since 88b15a4 (p5-ci2-chrome-log)
-        windows = " ".join(pdf.launch_arguments(Path("work"), windows=True))
-        assert "NetworkServiceInProcess2" in windows  # and so does the network service on Windows
     for lang in LANGUAGES:
         section = _anchored(_page(lang, "privacy.md"))["check-yourself"]
         assert FIREWALL_RULE in " ".join(section.split()), lang
@@ -840,6 +893,47 @@ def test_firewall_check_blocks_what_the_ci_blocks() -> None:
             assert f"`{program}`" in section, (lang, program)
         assert "Remove-NetFirewallRule -DisplayName neurogrid-block" in section, lang
         assert "sys._base_executable" in section, lang  # the interpreter behind a venv's python.exe
+        flat = re.sub(r"\s+", "", section)
+        assert re.sub(r"\s+", "", ONE_EXECUTABLE[lang].format(browser)) in flat, lang
+        unbacked = _unbacked_layout_claims(section, lang)
+        assert not unbacked, (
+            f"privacy.md ({lang}) says {unbacked} run inside the browser process on Windows, but"
+            f" pdf.launch_arguments for Windows does not put them there: {_windows_launch_arguments()}"
+        )
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_layout_claims_are_checked_against_the_windows_launch_arguments(
+    lang: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """NG-N01: the check above flags a layout claim exactly when the launch arguments lack its switch, with
+    and without the keyword windows of launch_arguments (88b15a4), and never skips. The old wording of the
+    pages names the GPU and the network service; the current wording makes no layout claim."""
+    from neurogrid.kernel import pdf
+
+    gpu = [*pdf.CHROMIUM_FLAGS, pdf.IN_PROCESS_GPU]
+    network = "--enable-features=CDPScreenshotNewSurface,NetworkServiceInProcess2"
+
+    def before(work: Path, extra_flags: Sequence[str] = ()) -> list[str]:  # no keyword windows
+        return [*gpu, f"--log-file={work / 'chromium.log'}", *extra_flags]
+
+    def after(work: Path, extra_flags: Sequence[str] = (), *, windows: bool | None = None) -> list[str]:
+        return [*gpu, *([network] if windows else []), f"--log-file={work / 'chromium.log'}", *extra_flags]
+
+    old = OLD_LAYOUT_CLAIM[lang]
+    current = ONE_EXECUTABLE[lang].format("chrome-headless-shell.exe")
+    monkeypatch.setattr(pdf, "launch_arguments", before)
+    assert _unbacked_layout_claims(old, lang) == [LAYOUT_PARTS[lang][1]]
+    assert _unbacked_layout_claims(current, lang) == []
+    monkeypatch.setattr(pdf, "launch_arguments", after)
+    assert _unbacked_layout_claims(old, lang) == []
+    assert _unbacked_layout_claims(current, lang) == []
+
+    def neither(work: Path, extra_flags: Sequence[str] = (), *, windows: bool | None = None) -> list[str]:
+        return [*pdf.CHROMIUM_FLAGS, f"--log-file={work / 'chromium.log'}", *extra_flags]
+
+    monkeypatch.setattr(pdf, "launch_arguments", neither)
+    assert _unbacked_layout_claims(old, lang) == list(LAYOUT_PARTS[lang])
 
 
 INSTALLER = ROOT / "tools" / "install_pdf_browser.py"

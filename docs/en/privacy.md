@@ -81,10 +81,10 @@ on your own computer.
     ```
 
     This covers `neurogrid.exe`, `python.exe`, `deno.exe`, Playwright's `node.exe` and
-    `chrome-headless-shell.exe`. Every process of the PDF browser runs `chrome-headless-shell.exe`; on Windows its
-    GPU and its network service run inside the browser process itself, so this one rule covers them. For an
-    installation from PyPI or from the source code, name its virtual environment and also block the Python the
-    environment was created from (`python -c "import sys; print(sys._base_executable)"`).
+    `chrome-headless-shell.exe`. The PDF browser's own process and every process it starts run
+    `chrome-headless-shell.exe`, so this one rule covers all of them. For an installation from PyPI or from the
+    source code, name its virtual environment and also block the Python the environment was created from
+    (`python -c "import sys; print(sys._base_executable)"`).
 
 - **The decisions.** The decision log and the requirement matrix are part of the repository
   (`docs/umsetzung/`).

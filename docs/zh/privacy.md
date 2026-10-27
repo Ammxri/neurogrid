@@ -69,8 +69,8 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
     ```
 
     这涵盖 `neurogrid.exe`、`python.exe`、`deno.exe`、Playwright 的 `node.exe` 和 `chrome-headless-shell.exe`。
-    PDF 浏览器的每个进程都运行 `chrome-headless-shell.exe`；在 Windows 上，其 GPU 和网络服务就在浏览器进程内运行，
-    因此这一条规则也涵盖它们。从 PyPI 或源代码安装时，请填写其虚拟环境，并同时阻止创建该环境所用的 Python
+    PDF 浏览器自身的进程及其启动的每个进程都运行 `chrome-headless-shell.exe`，因此这一条规则涵盖所有这些进程。
+    从 PyPI 或源代码安装时，请填写其虚拟环境，并同时阻止创建该环境所用的 Python
     （`python -c "import sys; print(sys._base_executable)"`）。
 
 - **决策。** 决策记录和需求矩阵是仓库的一部分（`docs/umsetzung/`）。
