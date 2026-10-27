@@ -4,10 +4,10 @@ Diese Anleitung beschreibt, wie NeuroGrid von null auf einem eigenen Windows-11-
 Werkzeuge, Umgebungen, Repository, Arbeitsweise, Phasen P0–P5, Prüfwerkzeuge, Testkorpus und Downloads. Sie ist
 technisch; Geschäftsinhalte der PRD stehen hier nicht (A-01). Verweise auf die PRD nennen nur Abschnittsnummern.
 
-**Stand:** Zweig `dev`, Merge-Commit `584b7d2` (P5-Bereiche zusammengeführt) plus Doku-Commit `19bd93c` (D-15).
-**P5 ist noch nicht abgeschlossen.** Alle mit „Stand 584b7d2, P5 noch nicht abgeschlossen“ markierten Abschnitte
-beschreiben den gemergten Zwischenstand; Integration, Abnahme (A-88), Review, Matrix und FORTSCHRITT von P5 folgen
-und werden vom Lead nachgetragen.
+**Stand:** Zweig `dev`, Commit `181654e` (27.10.2026): P5 nach Bau, Integration, Abnahme, Review, Fix-Runde, Merge
+`55335ca` und Doku-Fix `181654e`. P5 ist gebaut und lokal geprüft; der Workflow `offline` ist auf GitHub grün, die
+Testjobs von `ci` sind noch rot (Lauf auf `55335ca`, 4.7.12). Eine zweite Fix-Runde (Zweige `p5-ci2-*`) läuft; ihre
+Ergebnisse trägt der Lead nach (Platzhalter `<ERGEBNIS NACH P5-CI2>`). Danach folgt **STOPP G1** (4.7.14).
 
 ---
 
@@ -33,18 +33,24 @@ und werden vom Lead nachgetragen.
 - die Testsuite, Abdeckungs- und Lizenz-Gate, Rückverfolgbarkeit
 - der öffentliche Testkorpus (gepinnt per SHA-256), Kalibrierung und Laufzeitmessung NG-N02
 - PDF-Browser, Dokumentationsseite, Notices, Offline-Bündel und Windows-Reinraumtest
+- die G1-Abnahme auf dem Korpus (`tools/acceptance_g1.py`), der Skalierungstest und das zh-Prüfpaket (4.7.8)
+
+**Nur in der CI (GitHub Actions) reproduzierbar:** Linux-Testläufe, Linux-Reinräume, glibc-Ablehnung, strace,
+PDF unter Debian 12, Windows-Reinraum mit WFP-Audit (D-09; lokal kein Linux und keine Änderung an
+Sicherheitseinstellungen).
 
 **Braucht den Projektverantwortlichen:**
 
 | Was | Wofür | Stand |
 |---|---|---|
-| Repository-URL `<REPO_URL>` (GitHub) und Push-Freigabe | erster CI-Lauf, Linux (D-07, D-09, D-15) | offen bis STOPP G1 |
+| Repository `https://github.com/Ammxri/neurogrid` (D-15, 26.10.2026) | CI, Linux (D-07, D-09, D-15) | angelegt und öffentlich; `dev` wird gepusht, CI läuft (4.7.9, 4.7.12) [G]; Push auf `main`, Tag und Release erst nach G1 |
 | die PRD selbst (PDF, privat) | nur für die Planung; liegt in `.local/prd/`, nie versioniert (A-01) | beim Projektverantwortlichen |
 | Normtexte GB/T 47127, YY/T 2029, ISO/IEC TS 27571 | P7, P8, P10 (D-02, A-55) | nicht vorhanden |
-| Konten: GitHub, Gitee, PyPI/TestPyPI (Trusted Publishing) | Release, Spiegel, Veröffentlichung (D-07, D-15) | nicht bekannt; weder Projektdokumente noch Faktenbasis belegen ein angelegtes Konto [NV] |
-| Freigabe von Downloads außerhalb D-06 | CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators (D-15); LGPL-3.0/GPL-3.0-Texte für isomorphic-git (D-16); URL-Liste der acht übrigen Lücken (D-17) | freigegeben und abgelegt (`LICENSES/`, `license-gate/third_party/`, `license-gate/licence_texts.toml`) |
+| Konten: Gitee, PyPI/TestPyPI (Trusted Publishing) | Spiegel, Veröffentlichung (D-07, D-15) | nicht bekannt; weder Projektdokumente noch Faktenbasis belegen ein angelegtes Konto [NV] |
+| Freigabe von Downloads außerhalb D-06 | CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators (D-15); LGPL-3.0/GPL-3.0-Texte für isomorphic-git (D-16); URL-Liste der acht übrigen Lücken (D-17) | freigegeben und abgelegt (`LICENSES/`, `license-gate/third_party/`, `license-gate/licence_texts.toml`; D-15/D-16 in 4.7.7) [G] |
 | Entscheidung zu den übrigen fehlenden Lizenztexten | Pakete im dist von hed-validator, hash-wasm (Brumme, argon2), `@jspm/core`, libaec/libsz im Linux-h5py-Wheel, Bibliotheken von python-build-standalone, focus-visible und material-design-color der Doku | entschieden (D-17, 27.10.2026); `license-gate/known_missing.toml` ist leer |
-| muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1) | offen |
+| Versand der Anfrage an die Validator-Entwickler (D-16) | Ersatz des LGPL-Abschnitts in isomorphic-git | Entwurf liegt privat in `.local/p5/upstream_issue_bids_validator.md`; Versand durch den Projektverantwortlichen [NV] |
+| muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1); Prüfpaket aus `tools/zh_review_package.py` (4.7.8) | offen |
 
 ### 0.3 Platzhalter
 
@@ -55,8 +61,9 @@ und werden vom Lead nachgetragen.
 | `%APPDATA%`, `%LOCALAPPDATA%`, `%TEMP%` | Windows-Standardordner (PowerShell: `$env:APPDATA` usw.; Git Bash: `$APPDATA` usw.) |
 | `<uv>` | Pfad zu `uv.exe`, siehe 1.3 Schritt 3 |
 | `<Ziel>` | ein beliebiger, leerer Ausgabeordner |
-| `<REPO_URL>`, `<owner>/<repo>` | öffentliches Repository, sobald angelegt |
+| `<REPO_URL>`, `<owner>/<repo>` | öffentliches Repository; für dieses Projekt `https://github.com/Ammxri/neurogrid` bzw. `Ammxri/neurogrid` (D-15). In der Nutzerdoku bleibt `<REPO_URL>` bis zum Release stehen (`tools/release_check.py` sperrt es außerhalb von `docs/umsetzung`) |
 | `<v>` | Paketversion, heute `0.1.0rc1` |
+| `<ERGEBNIS NACH P5-CI2>` | **vom Lead auszufüllen:** Ergebnis der zweiten CI-Fix-Runde (Testzahlen, CI-Läufe) |
 
 Alle Befehle laufen im `<Projektordner>`, wenn nichts anderes dasteht.
 
@@ -66,7 +73,7 @@ Wichtige Angaben tragen eine Belegstufe:
 
 | Kürzel | Bedeutung |
 |---|---|
-| **[G]** | geprüft: Befehl ausgeführt bzw. Datei oder Quelltext gelesen (für den heutigen Stand am 26.10.2026 auf `19bd93c`) |
+| **[G]** | geprüft: Befehl ausgeführt bzw. Datei oder Quelltext gelesen. Ohne Zusatz gilt für die Abschnitte bis P4 der Stand `19bd93c` (26.10.2026), für P5 der Stand `181654e` (27.10.2026). „[G, CI 55335ca]“ heißt: in den öffentlichen Annotationen bzw. Job-Ergebnissen eines GitHub-Actions-Laufs auf `55335ca` gesehen |
 | **[D]** | belegt in den Projektdokumenten, Commit-Nachrichten oder Messprotokollen, nicht neu ausgeführt |
 | **[R]** | rekonstruiert: nirgends protokolliert, folgt aber eindeutig aus den Artefakten |
 | **[NV]** | nicht verifiziert oder nicht mehr vorhanden |
@@ -83,7 +90,7 @@ Wichtige Angaben tragen eine Belegstufe:
 | Kerne / RAM | 8 physische / 16 logische Kerne, 33,6 GB RAM [D] | 4 Kerne, 16 GB für NG-N02 (D-12, D-14) |
 | Freier Platz | 323 GB zu Beginn [D] | ≈ 15 GB: Korpus 1,06 GB, 3 × 1 GB Laufzeitdateien, venvs, Caches, Bündel |
 | Lange Pfade | `LongPathsEnabled = 1` [G] | empfohlen; Bündel prüft selbst (A-87) |
-| Linux / WSL / Docker | kein Linux; Docker Desktop installiert, Engine nicht genutzt [D] | nicht nötig (D-09: Linux nur über CI) |
+| Linux / WSL / Docker | kein Linux; Docker Desktop installiert, Engine nicht genutzt [D] | nicht nötig (D-09: Linux nur über CI; GitHub Actions seit 26.10.2026) |
 
 ### 1.2 Werkzeuge und genaue Versionen
 
@@ -100,7 +107,7 @@ Wichtige Angaben tragen eine Belegstufe:
 | BIDS-Validator | bids-validator-deno 3.0.2 (Schema 1.2.7 = BIDS 1.11.1) | PyPI, kommt mit `uv sync` | Paket `bids` |
 | Playwright | 1.63.0 (mit Node.js 24.21.0 im Wheel) | PyPI, kommt mit `uv sync` | PDF-Druck (A-85) |
 | Chrome Headless Shell | Revision 1243 = 153.0.8010.12 | `tools/install_pdf_browser.py` (Download freigegeben durch D-06 „Chromium für Playwright“; D-08: nie im Bündel) | PDF, Doku-Browsertests |
-| PowerShell 7, gh, actionlint | – | **nicht** installiert / nicht verwendet | – |
+| PowerShell 7, gh, actionlint | – | lokal **nicht** installiert / nicht verwendet; PowerShell 7 läuft nur in der CI (`windows-latest`) | – |
 
 Nicht nötig: Node.js aus dem System (NeuroGrid nutzt es nicht), Microsoft Edge (verboten, A-26), Docker (D-09).
 
@@ -194,7 +201,8 @@ keinen `prompt`, `uv sync` mit `UV_PROJECT_ENVIRONMENT` schon [G].
 Erwartung und Prüfung:
 - `uv sync` installiert Laufzeit + Gruppen `dev` und `docs` (`[tool.uv] default-groups`), `neurogrid` editierbar
   (`direct_url.json`: `"editable": true`) über hatchling 1.32.4.
-- `uv lock --check --offline` → „Resolved 103 packages“, Exit 0 [G, Stand 19bd93c]. (Bis P4 waren es 84 Pakete.)
+- `uv lock --check --offline` → „Resolved 103 packages“, Exit 0 [G, Stand 19bd93c und 181654e; `pyproject.toml` und
+  `uv.lock` sind seit `584b7d2` unverändert]. (Bis P4 waren es 84 Pakete.)
 - `.venv\Scripts\neurogrid.exe --help` zeigt die sechs Befehle (Anhang A).
 - Nach jeder Änderung an `uv.lock` (z. B. P5-Merge) alle drei Umgebungen neu synchronisieren.
 
@@ -214,6 +222,7 @@ git-ignoriert, und nichts liest eine `.env` selbst (Variablen in der Shell setze
 | `NEUROGRID_LANG` | CLI | Sprache der Meldungen (`--lang` > `NEUROGRID_LANG` > Systemsprache > en; ungültig → Exit 2; A-07) |
 | `NEUROGRID_PDF_BROWSER_DIR` | CLI, `install_pdf_browser.py`, Tests | Ordner der Headless Shell; nur absoluter lokaler Pfad (A-85) |
 | `NEUROGRID_REQUIRE_PDF=1` | Tests | PDF-/Browser-Tests schlagen fehl statt übersprungen zu werden (CI, Schlusslauf) |
+| `NEUROGRID_NOTICES_WHEELS` | `tests/docs/test_notices.py` | zweiter Ordner mit den gelockten Wheels (befüllt von `tools/notices.py --download`) für einen Worktree ohne eigenes `.local/notices-wheels`; nur absoluter lokaler Pfad (seit `051fafb`) |
 | `UV` | `tools/licenses.py` (nur die venv-Stufen; `--components` braucht kein uv), `tools/bundle.py`, Tests | Pfad zu uv, nur nötig, wenn uv nicht im PATH liegt (`shutil.which("uv")` hat Vorrang); ohne `UV` überspringen einige uv-Tests |
 | `UV_PROJECT_ENVIRONMENT` | uv | Ziel-venv für 3.11/3.13 |
 | `NEUROGRID_BUNDLE_CACHE` | `tools/bundle.py`, `tools/notices.py` | Download-Cache (Standard `.local/bundle-cache`, Dateien nach SHA-256 benannt) |
@@ -260,9 +269,31 @@ Treiber ein minimales Umfeld ohne `NODE_OPTIONS`, `PLAYWRIGHT_*`, `PW_*` (A-85).
     Browserprozess; als Kindprozess schrieb er beim Schließen kurz nach dem Start die Warnung
     `Failed to post task ... sqlite_persistent_shared_dictionary_store.cc`). Der Wert wiederholt Playwrights
     eigenes `--enable-features` (Chromium behält nur den letzten Wert); ein `--disable-features` wird nie
-    übergeben. Ein `debug.log` der Renderer stellt NeuroGrid nach dem Lauf wieder her (A-85). Unter Linux loggen
-    Kindprozesse nach stderr; der Netzwerkdienst bleibt dort ein eigener Prozess. Nach Testläufen
-    `install_pdf_browser.py --check` ausführen.
+    übergeben. Den `debug.log` der Renderer räumt NeuroGrid auf: beim Start entfernt es einen vorgefundenen
+    `debug.log` (Rest eines abgebrochenen Laufs) und nach dem Lauf einen, den der Lauf angelegt hat; hält ein
+    laufender Browser die Datei offen, schneidet der Lauf nur ab, was er angehängt hat (`kernel.pdf._ChildLog`;
+    A-85, 4.7.6). Unter Linux loggen Kindprozesse nach stderr; der Netzwerkdienst bleibt dort ein eigener Prozess.
+    Nach Testläufen `install_pdf_browser.py --check` ausführen; es schlägt fehl, solange ein `debug.log` neben der
+    exe liegt.
+12. **Lange Pfade der Headless Shell:** Revision 1243 ist nicht langpfadfähig; ihr Profil reicht 96 Zeichen unter
+    den Arbeitsordner. Der Arbeitsordner liegt deshalb im Temp-Ordner (`ng-pdf-XXXXXXXX`); unter Windows darf der
+    Temp-Ordner höchstens 84 Zeichen lang sein (`TEMP_PATH_LIMIT`), sonst Exit 2 vor dem Rendern (4.7.6).
+13. **PowerShell 7 als Elternprozess:** Ein aus PowerShell 7 gestartetes Windows PowerShell 5.1 (GitHub-Standardshell,
+    Windows Terminal) erbt den Modulpfad von PowerShell 7; dann fehlt `Get-FileHash`. Installer, Reinraumskript und
+    `offline.yml` hashen deshalb über .NET `System.Security.Cryptography.SHA256` (4.7.11). Lokal nachstellen ohne
+    pwsh: siehe 4.7.11 (Bündel).
+14. **Kein Commit während `pytest -m bundle`:** Ohne `SOURCE_DATE_EPOCH` gilt die Commit-Zeit von HEAD; ein Commit
+    während des Laufs macht die beiden Linux-Bauten ungleich (tar-mtimes) [D].
+15. **Energiesparen bei Messungen:** Modern Standby hält die Prozesse an, `time.perf_counter` läuft weiter. Messläufe
+    (`-m perf`, Benchmark) nur auf einem wach gehaltenen Rechner (4.7.8).
+16. **`tools/notices.py --check` ohne `--wheelhouse` oder `--download`** sucht keine Wheels und endet mit Exit 2
+    („files missing“); immer `--wheelhouse .local/notices-wheels` angeben oder `--download` (4.7.4).
+17. **Negative Beispiele von Werkzeugaufrufen in Testdateien** aufteilen (`"tools/" + "licenses.py --release"`), sonst
+    hält `tests/docs/test_notices.py::test_every_named_option_of_the_gate_tools_exists` sie für echte Aufrufe.
+18. **Ordnergröße unter NTFS:** `os.stat` meldet für einen Ordner, über den der NTFS-Cache nichts weiß, Größe 0 und
+    nach einem Auflisten die Indexgröße. Schnappschüsse von Ordnerbäumen daher erst auflisten, dann `stat` (4.7.6).
+19. **`taskkill /F /T` kehrt zurück, bevor die Prozesse beendet sind;** vor dem Aufräumen auf jede genannte PID
+    warten (4.7.6).
 
 ---
 
@@ -270,9 +301,10 @@ Treiber ein minimales Umfeld ohne `NODE_OPTIONS`, `PLAYWRIGHT_*`, `PW_*` (A-85).
 
 ### 2.1 Herkunft
 
-- **Weg A (empfohlen): vorhandenes Repository.** Sobald `<REPO_URL>` existiert: `git clone <REPO_URL> neurogrid`,
-  dann `git checkout dev`. Bis dahin eine Kopie des lokalen Repositorys:
-  `git clone --no-hardlinks <Projektordner> <Ziel>` (Git Bash). Die Historie enthält alles außer `.local/`.
+- **Weg A (empfohlen): vorhandenes Repository.** `git clone https://github.com/Ammxri/neurogrid.git neurogrid`,
+  dann `git checkout dev` (öffentlich seit 26.10.2026, D-15; dort liegt bis G1 nur `dev`). Ohne Netz eine Kopie des
+  lokalen Repositorys: `git clone --no-hardlinks <Projektordner> <Ziel>` (Git Bash). Die Historie enthält alles außer
+  `.local/`.
 - **Weg B: neu aufbauen.** Abschnitt 3 und 4 beschreiben, in welcher Reihenfolge was gebaut wurde und welche
   Entscheidungen es formten. Der Code selbst ist die Referenz; Weg B ist nur mit dem Repository als Vorlage
   realistisch.
@@ -284,8 +316,12 @@ Logs und Messungen (`.local/perf/`), Review-Material. Nach einem Klon fehlt sie 
 ### 2.2 Zweige und Ablauf in git
 
 - `main`: nur der erste Doku-Commit `75e05a6`; Releases kommen später von `main` (Release-Gate).
-- `dev`: Arbeitszweig (D-07, D-09). Es gibt **keinen Remote** [G]; gepusht wird erst nach Freigabe.
-- Bereichszweige je Phase (`p4-*`, `p5-*`) in eigenen Worktrees, nach dem Merge gelöscht (3.5).
+- `dev`: Arbeitszweig (D-07, D-09). Remote `origin` = `https://github.com/Ammxri/neurogrid.git` [G]; seit dem
+  26.10.2026 wird nur `dev` gepusht (D-15), `main`, Tags und Releases erst nach G1. Jeder Push auf `dev` startet
+  `ci.yml` und `offline.yml` (4.7.12).
+- Bereichszweige je Phase (`p4-*`, `p5-*`) in eigenen Worktrees, nach dem Merge gelöscht (3.5); in P5 zusätzlich
+  Integrations- (`p5-int-*`), Abnahme- (`p5-acceptance`), Lizenztext- (`p5-licence-texts`) und Fix-Zweige
+  (`p5-fix-*`, `p5-ci2-*`).
 - Anlage aus dem Nichts [D: Reflog „checkout: moving from main to dev“]:
   ```bash
   git init -b main neurogrid && cd neurogrid
@@ -301,20 +337,21 @@ Logs und Messungen (`.local/perf/`), Review-Material. Nach einem Klon fehlt sie 
 | `.python-version` | `3.12` |
 | `.gitattributes`, `.gitignore` | Zeilenenden (1.6), ignorierte Pfade (`.local/`, `.venv/`, Caches, `.coverage*`, `site/`, `dist/`, `.env`) |
 | `.env.example` | alle Umgebungsvariablen, leer (1.5); ein Test vergleicht Code und Workflows damit |
-| `LICENSE`, `NOTICE`, `LICENSES/` | Apache-2.0, Lizenzhinweis, Lizenztexte (Apache-2.0, OFL-1.1, CC-BY-4.0 seit D-15, LicenseRef-NeuroGrid-Reproduced-Notices) |
+| `LICENSE`, `NOTICE`, `LICENSES/` | Apache-2.0, Lizenzhinweis, Lizenztexte der eigenen Dateien: `Apache-2.0.txt`, `CC-BY-4.0.txt` (seit D-15), `OFL-1.1.txt`, `LicenseRef-NeuroGrid-Reproduced-Notices.txt` (R26) [G] |
 | `REUSE.toml` | Lizenz je Pfad (2.7) |
 | `THIRD_PARTY_NOTICES.txt` | erzeugt von `tools/notices.py` (A-86) |
 | `README.md`, `DATA_SOURCES.md` | Kurzbeschreibung zh/en; Herkunft von Fixtures und Korpus |
 | `mkdocs.yml`, `docs/en`, `docs/zh`, `docs/_data`, `docs/assets` | Nutzerdoku (A-86) |
 | `docs/umsetzung/` | Matrix, Konzept, Entscheidungen, Fortschritt, diese Anleitung (Deutsch, nicht Teil der Website) |
-| `license-gate/` | `allowlist.txt`, `exceptions.txt`, `components.toml`, `known_missing.toml`, `licence_texts.toml`, `network_baseline.json`, `third_party/` (Lizenztexte gebündelter Teile mit `manifest.toml`) |
-| `packaging/` | Installer (`install.cmd`, `install.ps1`, `install.sh`), `README.bundle.txt`, `release-notes.md`, `bundle_lock.json`, `ci/*` (Reinraum, strace) |
+| `license-gate/` | `allowlist.txt`, `exceptions.txt`, `components.toml`, `known_missing.toml`, `network_baseline.json`, `licence_texts.toml` (Herkunft geladener Texte), `third_party/` (Lizenztexte gebündelter Teile mit `manifest.toml`): `bids-validator-3.0.2/` (gebündelte npm/jsr-Pakete, D-15/D-16/D-17), `h5py-3.16.0/` (libaec/libsz, D-17), `mkdocs-material-9.7.7/` (Prüfung der Doku-Seite, R19; Texte von focus-visible und material-design-color D-17), `python-build-standalone-3.12.15+20261009/` (D-17) |
+| `packaging/` | Installer (`install.cmd`, `install.ps1`, `install.sh`), `README.bundle.txt`, `release-notes.md`, `gitee-release.md` (R15), `bundle_lock.json`, `ci/*` (Reinraum, strace) |
 | `.github/workflows/` | `ci.yml`, `offline.yml`, `corpus.yml`, `docs.yml`, `release.yml`, `publish-pypi.yml`, `mirror-gitee.yml` |
 | `src/neurogrid/` | Paket (2.4) |
 | `tests/` | Tests und Fixtures |
 | `tools/` | Werkzeuge außerhalb des Pakets (Abschnitt 5) |
 
-Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 199 in `tests`; 32 Fixture-Ordner.
+Umfang [G, 181654e]: 540 versionierte Dateien (davon 111 unter `license-gate/third_party/`); 20 764 Zeilen Python
+in `src`, 45 738 in `tests` (`wc -l`); 32 Fixture-Ordner. (Stand `19bd93c`: 413 Dateien, 19 738 / 38 199 Zeilen.)
 
 ### 2.4 Paketstruktur `src/neurogrid`
 
@@ -331,7 +368,7 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
 | `rulepacks/` | `core.yaml` (0.1.1), `bids.yaml`, `gxdsl008.yaml`, `calibration/core.json` | P1–P5 |
 | `schemas/` | JSON-Schemas (erzeugt): results, scan, config, rulepack, evidence, manifest | P1, P4 |
 
-### 2.5 `pyproject.toml` (Stand 584b7d2)
+### 2.5 `pyproject.toml` (Stand 181654e, seit `584b7d2` unverändert)
 
 - `[build-system]`: `hatchling==1.32.4`. Version dynamisch aus `src/neurogrid/__init__.py` (`0.1.0rc1`).
 - `[project]`: `requires-python = ">=3.11,<3.14"` (A-42), `license = "Apache-2.0 AND OFL-1.1"`,
@@ -360,13 +397,16 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
 
 ### 2.6 Abhängigkeitsgruppen und `uv.lock`
 
-- `uv.lock`: `version = 1`, `revision = 5`, 103 Pakete (Stand 584b7d2) [G]. Einzige Versionsgabelung bis P4:
-  contourpy 1.3.3 (3.11) / 1.4.0 (≥ 3.12).
+- `uv.lock`: `version = 1`, `revision = 5`, 103 Pakete (Stand 584b7d2, unverändert bis 181654e) [G]. Einzige
+  Versionsgabelung bis P4: contourpy 1.3.3 (3.11) / 1.4.0 (≥ 3.12).
 - Laufzeitmenge für Lizenz-Gate, Notices, Bündel und Netzwerk-Scan **immer**:
-  `uv export --frozen --no-default-groups --no-emit-project` (A-86). Stand 584b7d2: Laufzeitexport 66 Pakete; ein
+  `uv export --frozen --no-default-groups --no-emit-project` (A-86). Stand 181654e: Laufzeitexport 66 Pakete; ein
   bloßes `--no-dev` ergibt 82 Pakete (mit den Doku-Werkzeugen) [G]. Die Werte 62/78 wurden im docs-Bereich gemessen,
-  vor dem pdf-Merge (playwright, pypdf, greenlet, pyee) [D]. Ein Test vergleicht den echten Export. Nachzählen
-  (Git Bash):
+  vor dem pdf-Merge (playwright, pypdf, greenlet, pyee) [D]. Der Test
+  `tests/packaging/test_bundle_wheels.py::test_runtime_export_holds_no_dev_or_docs_only_package` verlangt seit der
+  Integration (`4e0f39a`), dass der Export genau dem Abschluss der Laufzeitabhängigkeiten in `uv.lock` entspricht:
+  psutil steht in der Gruppe `dev`, ist aber auch Laufzeitabhängigkeit von pyprep und mne-icalabel und gehört deshalb
+  ins Bündel (4.7.6). Nachzählen (Git Bash):
   ```bash
   uv export --frozen --no-default-groups --no-emit-project --no-hashes --offline | grep -c '^[a-z0-9]'   # 66
   uv export --frozen --no-dev --no-emit-project --no-hashes --offline | grep -c '^[a-z0-9]'                # 82
@@ -387,9 +427,11 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
   `fonts.json` Apache-2.0.
 - **`REUSE.toml`:** Tabellen mit `precedence = "aggregate"`, die letzte passende gewinnt; Schriften mit
   `override`. Geprüft vom eigenen Test `tests/docs/test_licensing.py` (das REUSE-Werkzeug selbst ist GPL-3.0 und
-  keine Abhängigkeit). `LICENSES/CC-BY-4.0.txt` ist seit D-15 abgelegt; Herkunft, Größe und SHA-256 jedes geladenen
-  Lizenztextes stehen in `license-gate/licence_texts.toml` (Standardtexte) bzw. in den Manifesten von
-  `license-gate/third_party/` (D-15, D-16, D-17).
+  keine Abhängigkeit). Seit der Fix-Runde verhält sich der eigene Test wie `reuse lint`: jeder Text in `LICENSES/`
+  muss benutzt sein, Kopfzeilen in Lizenzdateien zählen nicht (R27). `THIRD_PARTY_NOTICES.txt` steht unter
+  `CC-BY-4.0 AND LicenseRef-NeuroGrid-Reproduced-Notices` (R26). `LICENSES/CC-BY-4.0.txt` ist seit `ce1ab9c` abgelegt
+  (D-15, 4.7.7); Herkunft, Größe und SHA-256 jedes geladenen Lizenztextes stehen in `license-gate/licence_texts.toml`
+  (Standardtexte) bzw. in den Manifesten von `license-gate/third_party/` (D-15, D-16, D-17).
 - **Lizenz-Gate (`tools/licenses.py`, NG-N07):** Stufe 1 `pip-licenses --allow-only` gegen
   `license-gate/allowlist.txt` mit versionsgebundenen Ausnahmen (`pybv:0.8.1`, `pyprep:0.9.0` in `exceptions.txt`);
   Stufe 2 sperrt jede Lizenz mit „GPL“ (`--partial-match`). Getrennt für `runtime`, `dev`, `docs`. Dazu
@@ -416,8 +458,9 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
 | `mkdocs.yml`, `tools/mkdocs_hooks.py` | Seitenstruktur, Suche, Hooks | von Hand |
 | `THIRD_PARTY_NOTICES.txt` | Drittanbieter-Hinweise | `tools/notices.py` |
 | `license-gate/components.toml` | geprüfte native/nicht-Python-Komponenten | von Hand, geprüft |
-| `license-gate/known_missing.toml` | fehlende Lizenztexte (seit D-17 leer; jeder Eintrag sperrt das Release) | von Hand |
-| `license-gate/third_party/*/manifest.toml`, `license-gate/licence_texts.toml` | geladene Lizenztexte mit URL, Größe, SHA-256, Abrufdatum und Entscheidung | von Hand, geprüft von `tools/notices.py` und `tests/docs/test_licensing.py` |
+| `license-gate/known_missing.toml` | fehlende Lizenztexte (seit D-17 leer; jeder Eintrag sperrt das Release; Abschnitt 8) | von Hand |
+| `license-gate/licence_texts.toml` | Herkunft (URL, Größe, SHA-256, Abrufdatum, Entscheidung) jedes geladenen Standard-Lizenztexts | von Hand, von `tests/docs/test_licensing.py` geprüft |
+| `license-gate/third_party/*/manifest.toml` | geprüfte Drittanbieter-Teile mit Texten (Validator-Bündel, Doku-Theme, seit D-17 auch h5py und python-build-standalone) mit URL, Größe, SHA-256, Abrufdatum und Entscheidung | einmalig erstellt, mit D-17 ergänzt (Skripte nur im Scratchpad [NV]), von `notices.py --check`, `build_docs.py` und `tests/docs/test_licensing.py` geprüft |
 | `license-gate/network_baseline.json` | geprüfte Netzwerk-Fundstellen der Laufzeitpakete | `tools/scan_runtime_network.py --draft`, dann von Hand |
 | `packaging/bundle_lock.json` | Interpreter und uv des Bündels (URL, Größe, SHA-256), Entfernung `_dbm` | `tools/bundle.py lock` |
 
@@ -457,11 +500,13 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
 
 ### 3.3 Entscheidungslog
 
-- `ENTSCHEIDUNGEN.md`: geprüfte Fakten, D-01..D-17 (Entscheidungen des Projektverantwortlichen), A-00..A-83
+- `ENTSCHEIDUNGEN.md`: geprüfte Fakten, D-01..D-17 (Entscheidungen des Projektverantwortlichen), A-00..A-88
   (Annahmen; je Phase ein Block „Annahmen aus der Umsetzung von Px“).
-- P5 bringt A-84 (Bericht), A-85 (PDF), A-86 (Doku, Meldungen, Notices, Lizenzen), A-87 (Bündel, Signatur,
-  Workflows), A-88 (Abnahme). **Stand 584b7d2: noch nicht eingetragen**; der Inhalt steht in den verbindlichen
-  Vorgaben des Leads und wird vor G1 eingetragen.
+- P5 bringt A-84 Bericht, A-85 PDF, A-86 Dokumentation/Meldungen/Notices/Lizenzen, A-87
+  Bündel/Signatur/Installation/Workflows und A-88 Abnahme. Grundlage sind die verbindlichen Vorgaben B1–B6 des Leads
+  sowie die `decisions_for_docs` der Bereiche, der Integration und der Fix-Runde; sie stehen in ENTSCHEIDUNGEN
+  („Annahmen aus der Umsetzung von P5“), zusammen mit den Hinweisen an älteren Annahmen (u. a. A-51 Konsole,
+  A-54 Arbeitsordner, A-67 Pfade unter Linux).
 
 ### 3.4 Orchestrierungsmuster (ab P4, voll ausgebildet in P5)
 
@@ -475,10 +520,11 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
 | 6 Unabhängige Verifikation | ein anderer Prüfer prüft jeden Bereich gegen Spezifikation und Vorgaben, findet neue Probleme | P5: report 15/7, pdf 4/8, docs 7/5, bundle 9/13 (Prüfpunkte/neue Probleme) [D] |
 | 7 Reparatur | Reparatur-Commit je Bereich | P5: `133bb94`, `7c99a82`, `9331600`, `2d41f44` |
 | 8 Merge | in fester Reihenfolge auf `dev`, danach `uv lock`, Generatoren neu | P5: report, docs, pdf, bundle |
-| 9 Adversariales Review | mehrere Prüfrichtungen; jeder Befund wird von einem zweiten Prüfer zu widerlegen versucht (bestätigt / strittig / beabsichtigt / widerlegt), schwere doppelt | P4: 57 Befunde |
-| 10 Fixes | Fix-Zweige je Bereich, je Befund ein Regressionstest, Nachprüfung, Reparaturrunde | P4: `p4-fix-*` |
-| 11 Gegenprüfung | gemergter Stand auf Rückfälle und neue Fehler aus dem Zusammenspiel | P4: `p4-fix2-*` |
-| 12 Doku und Commit | Matrix, ENTSCHEIDUNGEN, KONZEPT, FORTSCHRITT; Commit mit Anforderungs-IDs | P4: `e68e33e` |
+| 8a Integration und Abnahme | Integrationsaufgaben am gemergten Stand, Abnahmeskript, Lizenztexte; je Zweig Bau → unabhängige Verifikation → Reparatur | P5: `p5-int-pdf`, `p5-int-pack`, `p5-acceptance`, `p5-licence-texts` (4.7.6–4.7.8) |
+| 9 Adversariales Review | mehrere Prüfrichtungen; jeder Befund wird von einem zweiten Prüfer zu widerlegen versucht (bestätigt / strittig / beabsichtigt / widerlegt), schwere doppelt | P4: 57 Befunde; P5: 30 Befunde R00–R29 (4.7.10) |
+| 10 Fixes | Fix-Zweige je Bereich, je Befund ein Regressionstest, Nachprüfung, Reparaturrunde | P4: `p4-fix-*`; P5: `p5-fix-report`, `-linux`, `-bundle`, `-docs`, dazu die CI-Fehler (4.7.11) |
+| 11 Gegenprüfung | gemergter Stand auf Rückfälle und neue Fehler aus dem Zusammenspiel | P4: `p4-fix2-*`; P5: die CI auf dem gemergten Stand (`55335ca`), danach `p5-ci2-*` (4.7.12) |
+| 12 Doku und Commit | Matrix, ENTSCHEIDUNGEN, KONZEPT, FORTSCHRITT; Commit mit Anforderungs-IDs | P4: `e68e33e`; P5: Zweig `p5-docs` (diese Fassung) |
 
 Seit D-15 (Tempo): volle Testsuite nur nach dem Merge; ein Review je Phase mit vier Prüfrichtungen; diese Anleitung
 entsteht parallel.
@@ -501,7 +547,10 @@ git worktree remove ".claude\worktrees\<name>"
 git branch -d p5-<bereich>
 ```
 `.claude/worktrees/` ist nicht in `.gitignore`, bleibt aber ungetrackt. Probe-Merges ohne Risiko: in einem
-Wegwerf-Klon (`git clone --no-hardlinks --no-checkout <Projektordner> trial`).
+Wegwerf-Klon (`git clone --no-hardlinks --no-checkout <Projektordner> trial`) oder ohne Arbeitsbaum mit
+`git merge-tree --write-tree --name-only <zweig-a> <zweig-b>` (listet die Konfliktdateien; so in P5 vor jedem
+Integrations-Merge geprüft [D]). Ein Merge ohne Textkonflikt kann trotzdem semantisch brechen (P5: 4.7.11, Merge-
+Kopplungen); nach jedem Merge daher die Generatoren mit `--check` und die betroffenen Tests laufen lassen.
 
 ### 3.6 Was davon von Hand geht
 
@@ -511,7 +560,8 @@ Wegwerf-Klon (`git clone --no-hardlinks --no-checkout <Projektordner> trial`).
   Unabhängigkeit von Verifikation und Review. Ersatz: Spezifikation und Vorgaben schriftlich festhalten, jeden
   Bereich zeitversetzt gegen eine Prüfliste je Prüfrichtung durchgehen, jeden Befund mit einem eigenen
   Reproduktionsskript belegen, bevor er behoben wird, und nach dem Merge die Gegenprüfung (Schritt 11) wiederholen.
-- Zeitbedarf ist nicht protokolliert [NV]; die volle Suite dauert je Lauf 13–18 min.
+- Zeitbedarf ist nicht protokolliert [NV]; die volle Suite dauert je Lauf 13–18 min (bis P4), in P5 mit
+  `NEUROGRID_REQUIRE_PDF=1` 26–33 min [D].
 
 ### 3.7 Commit-Form und Rückverfolgbarkeit (TECH-12, A-43)
 
@@ -523,7 +573,9 @@ Wegwerf-Klon (`git clone --no-hardlinks --no-checkout <Projektordner> trial`).
   git commit -F <datei>
   ```
 - Jeder datierte FORTSCHRITT-Eintrag nennt IDs. Prüfung des ganzen Stands: `tools/check_commit_ids.py` →
-  „33 commit(s) and 5 phase entr(y/ies) checked, 0 problem(s)“ [G, 19bd93c].
+  „33 commit(s) and 5 phase entr(y/ies) checked, 0 problem(s)“ [G, 19bd93c]; „146 commit(s) and 5 phase entr(y/ies) checked, 0 problem(s)“ [G, 181654e].
+  Eine Annahmenummer (A-xx) allein gilt nicht als Anforderungs-ID; jeder Betreff braucht eine Matrix-ID wie
+  TECH-07 [D]. Für einen Zweig: `tools/check_commit_ids.py --since <basis>`.
 - Phasenbericht in FORTSCHRITT: Abgeschlossen, Beigetragen zu, Gebaut, Review, Ergebnisse, Nicht verifiziert,
   Für STOPP G1 vorgemerkt.
 
@@ -562,9 +614,14 @@ uv lock --check --offline                                 # Lock aktuell (TECH-0
 & $PY tools\gen_montage_names.py --check
 & $PY tools\calibrate.py --check
 & $PY tools\gen_docs.py --check                           # ab P5
+& $PY tools\linux_pdf_packages.py --check                 # ab P5
+& $PY tools\install_pdf_browser.py --check                # ab P5, nach jedem Testlauf
+& $PY tools\notices.py --wheelhouse .local\notices-wheels --check   # ab P5; seit D-17 Exit 0, kein "incomplete"
 & $PY tools\check_matrix_coverage.py
 & $PY tools\check_commit_ids.py
 ```
+Volle Suite ab P5: `$env:NEUROGRID_REQUIRE_PDF = "1"; $env:PYTHONWARNDEFAULTENCODING = "1"; & $PY -m pytest -q -p
+no:cacheprovider` (mit `UV` gesetzt oder über `uv run --no-sync`, sonst überspringen die uv-Tests).
 
 **Durchstich und Determinismus** (A-11, NG-N03), Git Bash:
 ```bash
@@ -770,20 +827,31 @@ acht Fixtures mit core+bids+gxdsl008 unter drei Pythons gleich bis auf `environm
 Exit jeweils 1, weil die synthetische EDF ohne Konfiguration CORE-M02-01 verletzt – zulässig (Kriterium: Exit 0 oder 1
 unter der Grenze).
 
-### 4.7 P5 – Bericht, PDF, Doku, Bündel (Stand 584b7d2, P5 noch nicht abgeschlossen)
+### 4.7 P5 – Bericht, PDF, Doku, Bündel (2026-10-23 bis 10-27; Stand 181654e)
 
-#### 4.7.1 Vorgehen bis heute
+Matrix: schließt NG-F13, NG-F14, NG-F18, CLI-05, REP-00..REP-07, POS-01, POS-02, ARC-05, ARC-06, TECH-05..TECH-08,
+TECH-10, NG-N01, NG-N03..NG-N08, CON-01, CON-04, CON-05, V-01, V-06, UF-01, UF-07, UF-08 ab (36), trägt zu UF-02,
+CON-02, TECH-01 bei (KONZEPT 6) [G]. Den Stand je Zeile führt die Matrix: jede Zeile, deren Nachweis die
+CI-Testjobs sind, steht bis zur zweiten Fix-Runde auf `nicht verifiziert` („umgesetzt, Nachweis ausstehend“: NG-F13,
+REP-00, TECH-05, TECH-07, NG-N04, NG-N08, UF-01; 4.7.12); V-01, NG-N07, POS-02 und CON-05 sind `teilweise`, TECH-08
+ist `blockiert (extern)`.
+
+#### 4.7.1 Vorgehen
 
 | Datum | Commit | Schritt |
 |---|---|---|
 | bis 23.10. | – | Spezifikationen report, pdf, docs, bundle, acceptance; Kritiker; Vorgaben B1–B6 (Bericht↔PDF-Vertrag, PDF, Doku/Notices/Lizenzen, Bündel/Signatur/CI, G1-Liste, gemeinsame Dateien) |
-| 23.10. 23:47 – 24.10. 00:40 | `8b9c949`, `d3f07ba`, `1dbb23e`, `73bb04b` | paralleler Bau in vier Worktrees |
+| 23.10. 23:47 – 24.10. 00:40 | `8b9c949`, `d3f07ba`, `1dbb23e`, `73bb04b` | paralleler Bau in vier Worktrees (4.7.2–4.7.5) |
 | 24.10. 01:28 – 05:10 | `133bb94`, `7c99a82`, `9331600`, `2d41f44` | Reparatur nach unabhängiger Verifikation |
 | 24.10. 04:03 – 16:51 | `f10e05b`, `e7e2352`, `23880d2`, `584b7d2` | Merge report → docs → pdf → bundle. `uv.lock` mit 103 Paketen entstand beim pdf-Merge `23880d2` (nach dem docs-Merge `e7e2352` waren es 99); im bundle-Merge `584b7d2` wurden nur `THIRD_PARTY_NOTICES.txt` neu erzeugt und in `pyproject.toml` der Marker `bundle` samt `addopts` ergänzt [G] |
-| 26.10. | `19bd93c` | D-15 Vorabentscheidungen zu G1 |
-| 26.10. | `261cbe4` | D-16 Lizenzausnahme im BIDS-Validator, Repository-URL |
-| 27.10. | Zweig `p5-licence-texts-2` | D-17 Lizenztexte der acht G1-Lücken; `known_missing.toml` leer |
-| laufend | Zweige `p5-int-pdf`, `p5-int-pack`, `p5-acceptance` | Integration und Abnahme (nicht Teil dieses Stands) |
+| 26.10. 10:44 – 13:30 | `19bd93c`, `42e129d`, `261cbe4` | D-15 Vorabentscheidungen zu G1; erste Fassung dieser Anleitung; erster Push von `dev` (`42e129d`, 12:57) [G: Reflog von `origin/dev`]; D-16 (LGPL-Abschnitt im Validator) und Repository-URL |
+| 25.–26.10. | Zweige `p5-int-pdf` (`3c3813d`), `p5-int-pack` (`6986940`), `p5-acceptance` (`1ed26e2`), `p5-licence-texts` (`9625233`) | Integration, Lizenztexte, G1-Abnahme; je Zweig Bau, unabhängige Verifikation, Reparatur (4.7.6–4.7.8) |
+| 26.10. 15:30 – 15:50 | `a702660`, `8394c5e`, `2ad5710`, `ce1ab9c`, `051fafb`, `c3be509` | Merge in dieser Reihenfolge, Merge-Fix `.env.example`, GitHub-Annotationen; Push (17:05) und CI-Lauf auf `c3be509` (4.7.9) |
+| 26.10. | – | Review mit vier Prüfrichtungen: 30 Befunde R00–R29 (4.7.10) |
+| 26.10. bis 22:17 | Zweige `p5-fix-report` (`c9a536a`), `p5-fix-linux` (`191a62a`), `p5-fix-bundle` (`d42bbf4`), `p5-fix-docs`; Merges `28de466`, `2e1e24e`, `e204c7b`, `862de1d` | Fix-Runde: Review-Befunde und CI-Fehler von `c3be509` (4.7.11) |
+| 26.10. 22:21 – 27.10. 01:57 | `55335ca`, `181654e` | zwei Merge-Fixes (semantische Konflikte); CI-Lauf auf `55335ca` (4.7.12) |
+| 27.10. | Zweig `p5-licence-texts-2` (Merge `9d8afcb`) | D-17 Lizenztexte der acht G1-Lücken; `known_missing.toml` leer |
+| ab 27.10. | Zweige `p5-ci2-chrome-log`, `p5-ci2-linux-p2`, `p5-ci2-linux-pdf`, `p5-ci2-win-runner` | zweite CI-Fix-Runde: `<ERGEBNIS NACH P5-CI2>` |
 
 Gemeinsame Merge-Konfliktstellen [D]: Pytest-Marker und `addopts` in `pyproject.toml` (Vereinigung: `pdf`,
 `browser`, `bundle`), `REUSE.toml`, `uv.lock` (neu erzeugen), `report/render.py` und Vorlage (Bericht-Bereich gewinnt),
@@ -807,8 +875,10 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   ```
   Gemessen (vor dem PDF-Merge, HTML zh+en) [D]: schlimmster Fall 128 742 Befunde, `results.json` 149 113 681 B,
   Erzeugung 37,6 s, `report` 13,4 s, Spitze 1675 MB; typischer Fall 6 110 Befunde, `results.json` 27 435 327 B, Erzeugung 9,7 s, `report` 6,1 s, Spitze 349 MB.
-  Grenzen legt A-88 nach Messung auf dem gemergten Stand fest [offen].
+  Die Grenzen hat A-88 auf dem gemergten Stand mit echten Schriften und PDF festgelegt (4.7.8).
 - Suite im Bereich nach Reparatur: 2831 bestanden, 14 übersprungen, 69 abgewählt in 895,85 s [D].
+- Spätere Änderungen: Schreiben alles oder nichts auch beim Umbenennen, Seitenbreite, Spaltenanteile,
+  Überschriften von Abschnitt 3, Diagrammgrenzen (Fix-Runde R00, R01, R03–R05; 4.7.11).
 
 #### 4.7.3 PDF (Bereich pdf; A-85; TECH-07, CLI-05, NG-F13, NG-N01, NG-N03)
 
@@ -846,7 +916,12 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   SHA-256 in drei Läufen; 3.11/3.12/3.13 drucken byte-gleiche PDFs; Korpus-Rauchtest auf ds002778, ds004148, ds000248
   ohne Exit 2, QA-Gate grün, 0 blockierte Verbindungen; Wheel `neurogrid-0.1.0.dev1-py3-none-any.whl` 13 060 889 B.
 - Linux-Pakete (Git Bash): `PY=.venv/Scripts/python.exe; "$PY" tools/linux_pdf_packages.py debian12` (21 Pakete);
-  `"$PY" tools/linux_pdf_packages.py --check` → „pdf_linux_packages.json matches Playwright“ [G].
+  `"$PY" tools/linux_pdf_packages.py --check` → „pdf_linux_packages.json matches Playwright“ [G]. Die CI installiert
+  auf `ubuntu-24.04` die Liste `linux_pdf_packages.py ubuntu24.04` per apt; der Job `pdf-debian12` nutzt die
+  Debian-12-Liste und war auf `55335ca` grün [G, CI 55335ca].
+- Spätere Änderungen: Arbeitsordner des Browsers im Temp-Ordner, Längengrenzen, Aufräumen abgebrochener Läufe,
+  `--out` vor dem Browserstart geprüft, Glyph-Kopien in GSUB/GPOS/GDEF (Integration, 4.7.6); Ligatur-Zwillinge,
+  ausführbarer Installationshinweis, `~` im Installer, Kodierung des ldd-Laufs (Fix-Runde R02, R06, R07, CI; 4.7.11).
 
 #### 4.7.4 Doku, Meldungen, Notices, Lizenzen (Bereich docs; A-86; TECH-06, TECH-10, POS-02, CON-05, NG-N06, V-06, D-03)
 
@@ -868,12 +943,19 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   $PY = ".\.venv\Scripts\python.exe"
   & $PY tools\notices.py --download --out THIRD_PARTY_NOTICES.txt   # lädt gepinnte Wheels nach .local\notices-wheels
   & $PY tools\notices.py --download --check                         # erwartet: "up to date", Exit 0
+  & $PY tools\notices.py --wheelhouse .local\notices-wheels --check # dasselbe offline aus dem Cache
   & $PY tools\notices.py --sources <Ordner mit den D-17-Downloads>  # optional: Quellen der Auszüge, Exit 0
   ```
   Seit D-17 ist `license-gate/known_missing.toml` leer; jeder neue Eintrag ließe `--check` mit Exit 1 enden
-  („incomplete: …“). Die Quellen der Auszüge (`source_size`, `source_sha256`) liegen nicht im Repository; `--sources`
-  prüft sie gegen eine lokale Kopie. Stand vor D-15: Datei 1 398 869 B [G]; in der Merge-Simulation
-  „129 wheels, 4 bundle parts“ [D].
+  („incomplete: …“). Bis D-17 endete `--check` hier gewollt mit Exit 1 (beim Bau sechs, auf `181654e` acht Lücken
+  [G, 181654e]). Die Quellen der Auszüge (`source_size`, `source_sha256`) liegen nicht im Repository; `--sources`
+  prüft sie gegen eine lokale Kopie. Ohne `--wheelhouse` und ohne `--download` endet `--check` mit Exit 2 („files
+  missing“), weil der Cache nur mit `--download` gelesen wird [D]. Datei seit D-17 1 850 317 B [G] (auf `181654e`
+  1 664 921 B [G, 181654e], beim Bau 1 398 869 B); „129 wheels, 4 bundle parts“ [D]. **Neu erzeugen nach jeder
+  Änderung** an `uv.lock`, `license-gate/components.toml`, `known_missing.toml`, `licence_texts.toml`, einem
+  `third_party/*/manifest.toml` oder `packaging/bundle_lock.json`:
+  `& $PY tools\notices.py --wheelhouse .local\notices-wheels --out THIRD_PARTY_NOTICES.txt`; die Tests in
+  `tests/docs/test_notices.py` erzwingen das.
 - Lizenz-Gate mit Doku-Gruppe (PowerShell):
   ```powershell
   $PY = ".\.venv\Scripts\python.exe"
@@ -881,12 +963,21 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   & $PY tools\licenses.py                            # runtime/dev/docs × allowlist/copyleft: je "ok"
   & $PY tools\licenses.py --components --download    # oder --wheelhouse <dir> je Ziel; braucht kein uv
   ```
-  Im Bereich (Lock vor dem Merge) runtime/dev/docs × allowlist/copyleft ok [D]; `--components` mit „129 wheels,
-  4 bundle parts“ nur in der Merge-Simulation [D]. **Auf dem gemergten Stand (103-Paket-Lock) ist keiner der beiden
-  Läufe protokolliert – nach dem Merge zu wiederholen** (Stand 584b7d2, P5 noch nicht abgeschlossen).
+  Im Bereich (Lock vor dem Merge) runtime/dev/docs × allowlist/copyleft ok [D]. Auf dem 103-Paket-Lock (Zweig
+  `p5-acceptance`, `228ec49`): runtime/dev/docs × allowlist/copyleft ok, `--components --wheelhouse
+  .local/notices-wheels` → „components (129 wheels, 4 bundle parts, win_amd64, linux_x86_64): ok“ [D]. Der CI-Job
+  „licence gate and scan of the installed runtime packages“ (`tools/licenses.py` für runtime/dev/docs und
+  `tools/scan_runtime_network.py`) war auf `55335ca` grün [G, CI 55335ca]; `--components` läuft in keinem Workflow.
+  `licenses.py` ist seit der Abnahme in `stage_commands()`/`run_stages()` geteilt, damit
+  `tests/acceptance/test_license_gate.py` beide Stufen an synthetischen Distributionen prüfen kann (dazu der CON-01-Test
+  der Sperrliste `metabci`, `openvibe`, `eegprep`).
 - `core.yaml` 0.1.0 → 0.1.1 (Quellenangabe verweist auf `metrics.md`).
 - Suite nach Reparatur (mit `UV` gesetzt): 2908 bestanden, 13 übersprungen, 65 abgewählt in 957,69 s [D]. Browser-Tests
-  (`-m browser`) liefen vor dem Merge nur in einem Ersatzaufbau.
+  (`-m browser`) liefen vor dem Merge nur in einem Ersatzaufbau; nach dem Merge laufen sie in der vollen Suite
+  (Integration: 4 bestanden in 42 s [D]).
+- Spätere Änderungen: geprüfte Teile der Doku-Seite (R19), Notices-Lizenz (R26), Ort der D-16-Texte (R27),
+  Adresse und SHA-256 von `install_pdf_browser.py` in `installation.md` (R28), strace-Regel auf der
+  Datenschutzseite (R25, `181654e`) (4.7.11).
 
 #### 4.7.5 Bündel, Signatur, Workflows (Bereich bundle; A-87; UF-08, ARC-06, CON-04, CON-02, NG-N01, NG-N04, TECH-05, TECH-08, V-01)
 
@@ -910,11 +1001,18 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   Nutzung geprüft). Weitere Befehle: `tools/bundle.py sizes`, `tools/bundle.py lock --python 3.12.15 --pbs-build
   20261009 --uv 0.13.0` (nur Pflege, Netz). `bundle.py sizes` maß **vor dem PDF-Merge** (ohne playwright, pypdf,
   greenlet, pyee) win_amd64 61 Wheels / 195,5 MiB, linux_x86_64 60 Wheels / 214,9 MiB, höchste manylinux-glibc 2.28;
-  die Spezifikationsprobe mit den PDF-Paketen 65 bzw. 64 Wheels, 233,1 bzw. 261,9 MiB [D]. Auf dem gemergten Stand
-  nicht gemessen [NV].
+  die Spezifikationsprobe mit den PDF-Paketen 65 bzw. 64 Wheels, 233,1 bzw. 261,9 MiB [D]. `bundle.py sizes` ist auf
+  dem gemergten Stand nicht protokolliert [NV].
 - Gemessen [D]: vor dem PDF-Merge Windows-zip 246 087 316 B (3510 Einträge), Linux-tar.gz 275 211 566 B, zwei Bauten je
   Plattform byte-gleich, Bau 14–19 s (Windows, warmer Cache) bzw. ≈ 55 s (Linux); gemergtes `0.1.0rc1`-Windows-Bündel
   in einer Probe 309 696 896 B, `max_relative_install_path` 148, Präfixgrenze 101.
+- Gemessen auf dem Integrationszweig `p5-int-pack` (`cb19b17`, Bau wie in `offline.yml`,
+  `SOURCE_DATE_EPOCH=1793008170` = Commit-Zeit) [D]: `uv build` 9 s, `build_docs.py` 33 s, `bundle.py build --platform
+  win_amd64 … --cache .local/bundle-cache` 15 s (warmer Cache), `verify` 3 s; `neurogrid-0.1.0rc1-offline-win_amd64.zip`
+  311 242 440 B (296,8 MiB), SHA-256 `2aede1125ca640e80b2b05255b7375327ccbb118403ed037618b757c7af9a3d4`, 3514 Einträge.
+  Ein unabhängiger Nachbau aus einem `git archive` ergab dasselbe Wheel und sdist und ein zip, das sich nur in
+  `BUNDLE.json` (`git_commit` = null ohne git) und der daraus folgenden `SHA256SUMS` unterscheidet. Ohne `UV` endet
+  `bundle.py` mit Exit 2 („uv not found: put uv on PATH or set UV“).
 - **Windows-Reinraum lokal:**
   ```powershell
   powershell -NoProfile -ExecutionPolicy Bypass -File packaging\ci\cleanroom_windows.ps1 -Archive <zip> -Evidence <Ziel> -NoOsAudit
@@ -923,7 +1021,24 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   Installation 116–135 s, ganzer Lauf 198–219 s, 16 257 Dateien / 641,9 MiB, 0 Reste in TEMP; Exitcodes: install 0,
   verify-only 0, scan 0, check-edf 0, check-edf-plus-d 0, check-bdf 0, check-brainvision 1, check-eeglab 1,
   check-bids 0, convert 0, check-converted 0, manifest 0, verify 0, report-html 0, report-pdf-ohne-Browser 2,
-  Bedienfehler 2. (Gemessen vor dem PDF-Merge; nach dem Merge zu wiederholen.)
+  Bedienfehler 2. (Gemessen vor dem PDF-Merge.)
+  **Nach der Integration** (`234dd1a`/`2b70ea5`) installiert das Skript in ein Präfix von genau der Grenze
+  (249 − `max_relative_install_path`, aufgefüllt als `<Raum>\安装 目录\NeuroGrid___…`), nachdem ein Präfix von Grenze + 1
+  mit Exit 2 abgelehnt wurde (Meldung nennt Länge und Grenze, kein Ordner angelegt). In beiden Zweigen (mit und ohne
+  `-PdfBrowserZip`) muss `report --format pdf` mit leerem `NEUROGRID_PDF_BROWSER_DIR` Exit 2 liefern, nichts schreiben
+  und den Installationshinweis des Bündels ausgeben. Lauf mit Browser-zip (PowerShell, kein Eingriff in
+  Sicherheitseinstellungen) [D]:
+  ```powershell
+  powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File packaging\ci\cleanroom_windows.ps1 -Archive <zip> -Evidence <Ziel> -NoOsAudit -PdfBrowserZip <chrome-headless-shell-win64.zip> -PdfBrowserSha256 7aec872f3090e639c4237467624ea863c20fe2878914c93a6556bdbb52aa6c4c
+  ```
+  Ergebnis auf `cb19b17` [D]: install-over-limit 2 (81,7 s, davon die `SHA256SUMS`-Prüfung von 3513 Dateien),
+  install 0 (81,9 s, mit PDF-Browser aus dem zip), install-verify-only 0, scan 0, check-edf 0, check-edf-plus-d 0,
+  check-bdf 0, check-brainvision 1, check-eeglab 1, check-bids 0, convert 0, check-converted 0, manifest 0, verify 0,
+  report-html 0, report-pdf 0 (20,2 s), report-pdf-without-shell 2 (3,1 s), usage-error 2; installiert 16 826 Dateien,
+  774,9 MiB, 5171 Module mit Bytecode, längster Pfad unter dem Präfix 148; 0 Reste in TEMP; Skript 275 s (mit
+  Aufruf 293 s). Den erwarteten Hinweistext baut das Skript seit der Fix-Runde wie NeuroGrid (R07, 4.7.11).
+  In der CI lief der Windows-Reinraum auf `55335ca` grün unter Windows PowerShell 5.1 und PowerShell 7, jeweils mit
+  WFP-Audit und PDF [G, CI 55335ca].
   **Prüfbares Ergebnis** im `-Evidence`-Ordner [D]: `exit-codes.txt` (je Schritt der Exitcode, Vergleich mit der
   Liste oben), `<schritt>.out.log` und `<schritt>.err.log` je Schritt, `summary.txt` (Dateien, Größe, Zeiten),
   `temp-left.txt` (Reste in TEMP, erwartet leer).
@@ -936,7 +1051,8 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   unter einem tiefen Worktree. Das Skript lag nur im Scratchpad [NV]; geprüft wurde mit dem reparierten `install.ps1`
   (Zeile in `SHA256SUMS` angepasst). Standardpräfix `%LOCALAPPDATA%\NeuroGrid\0.1.0rc1` = 41 Zeichen + Länge des
   Benutzernamens, also weit unter 101.
-- **Linux und CI** (nur auf CI-Runnern mit Docker, D-09; lokal nie gelaufen), Git Bash bzw. bash:
+- **Linux und CI** (nur auf CI-Runnern mit Docker, D-09; lokal nie gelaufen; im Workflow `offline` auf `55335ca` alle
+  Jobs grün [G, CI 55335ca], 4.7.12), Git Bash bzw. bash:
   ```bash
   # Reinraum: docker run --rm --network none --user 1000:1000, tests/fixtures schreibgeschützt eingebunden
   bash packaging/ci/cleanroom_linux.sh --image debian:12-slim [--trace] [--pdf-zip ZIP --pdf-sha256 HEX] [--evidence DIR] ARCHIVE
@@ -955,7 +1071,20 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   [-PdfBrowserZip ZIP -PdfBrowserSha256 HEX]`; Linux `./install.sh [--prefix DIR] [--cosign PATH |
   --skip-signature-check] [--verify-only] [--pdf-browser-zip ZIP --pdf-browser-sha256 HEX]`. Exit 0 installiert,
   2 Bedienung/Umgebung, 3 Integrität, 4 Signatur. Standardpräfix `%LOCALAPPDATA%\NeuroGrid\<v>`; keine Änderung an
-  PATH, Registry oder Profil. Unsignierte Entwicklungsbündel brauchen `-SkipSignatureCheck`.
+  PATH, Registry oder Profil. Unsignierte Entwicklungsbündel brauchen `-SkipSignatureCheck`. Stand nach der
+  Fix-Runde [G: Quelltext `install.ps1`, `install.sh`; Verhalten D: Tests der Fix-Runde]:
+  - Ein cosign im PATH oder über `-Cosign`/`--cosign` prüft immer; lehnt es ab, endet die Installation mit Exit 4, auch
+    mit dem Schalter. Der Schalter lässt nur eine Installation **ohne** cosign weiterlaufen (R16, wörtliche Lesart von
+    D-15; Bestätigung bei G1).
+  - Nach „signature verified: <Identität>“ fordern beide Installer auf, die Identität mit der in den Release-Notes
+    auf `https://github.com/Ammxri/neurogrid/releases` zu vergleichen (R12, Entscheidung des Leads: die Prüfung im
+    Archiv bleibt eine Integritätsprüfung, dokumentierte Grenze).
+  - Windows-Präfix nur als Laufwerk + `:` + Trenner auf einem lokalen Laufwerk (kein Netzlaufwerk); `-Cosign` wird
+    zum vollen Pfad der genannten Datei aufgelöst, nie über PATH (R17).
+  - Eine gescheiterte Installation hinterlässt das Ziel wie vorgefunden (R14).
+  - Konsolenausgabe und Ausgabe der aufgerufenen Programme zeigen `%LOCALAPPDATA%` und `~` (Windows, auch 8.3-Namen)
+    bzw. `${XDG_DATA_HOME}` und `~` (Linux) statt Benutzerordnern (R13, Nachprüfung V2).
+  - Hashes unter Windows über .NET `SHA256`, nicht `Get-FileHash` (CI-Fehler, 1.6 Punkt 13).
 - **Signatur (D-10 g, D-15):** Sigstore keyless nur in `release.yml`; Prüfung vor der Übertragung auf einem vernetzten
   Rechner:
   ```bash
@@ -964,19 +1093,31 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
     --certificate-oidc-issuer https://token.actions.githubusercontent.com
   sha256sum --check --ignore-missing SHA256SUMS
   ```
-  Windows: `(Get-FileHash <datei> -Algorithm SHA256).Hash.ToLower()` mit der Zeile in `SHA256SUMS` vergleichen.
+  Windows: `(Get-FileHash <datei> -Algorithm SHA256).Hash.ToLower()` mit der Zeile in `SHA256SUMS` vergleichen (in
+  einem eigenen PowerShell-Fenster; ein aus PowerShell 7 gestartetes 5.1 findet `Get-FileHash` nicht, 1.6 Punkt 13).
 - **Weitere Werkzeuge:** `tools/release_check.py`, `tools/scan_runtime_network.py` (gemessen **vor dem PDF-Merge**,
   ohne playwright, pypdf, greenlet, pyee: 61 Distributionen, 79 Dateien mit Fundstellen, 0 Probleme [D]; auf dem
-  gemergten Stand nicht wiederholt [NV]), `tools/strace_check.py` (Abschnitt 5).
+  gemergten Stand im CI-Job „licence gate and scan of the installed runtime packages“ grün [G, CI 55335ca], Zahlen dort
+  nicht festgehalten), `tools/strace_check.py` (Abschnitt 5).
 - **Workflows** (alle Actions per Commit-SHA gepinnt, Abschnitt 7) [G: `on:`-Blöcke]: `ci.yml` (Push dev/main, PRs;
   Jobs `test`, `compare`, `traceability`, `licenses`, `powershell51`, `pwsh`, **kein Bündel-Job**), `offline.yml`
   (Push dev/main, Dispatch, Aufruf aus `release.yml`; Jobs `build`, `offline-strace`, `cleanroom-linux`, `glibc-refusal`,
   `pdf-debian12`, `cleanroom-windows`), `docs.yml` (Push main, PRs, Dispatch), `corpus.yml` (Push main, Dispatch; ruft
   `tools/acceptance_g1.py --corpus .local/corpus --out .local/acceptance/g1` auf), `release.yml` (Tag `v*` und
   Dispatch, nur Entwurf), `publish-pypi.yml` (Dispatch, Trusted Publishing), `mirror-gitee.yml` (Dispatch/Release,
-  `vars.GITEE_MIRROR`). **Noch nie gelaufen** (kein Remote, D-09).
+  `vars.GITEE_MIRROR`; seit R15 mit dem Job `gitee-release`). **Gelaufen** sind seit dem ersten Push am 26.10.2026
+  `ci.yml` auf `dev` (unter anderem auf `c3be509` und `55335ca`) und – nachdem R10 den Auslöser auf `dev` erweitert
+  hatte – der Workflow `offline` auf `55335ca` (Lauf 40403791782; 4.7.9, 4.7.12); `docs.yml`,
+  `corpus.yml`, `release.yml`, `publish-pypi.yml` und `mirror-gitee.yml` sind noch nie gelaufen (nur `main`, Tag
+  oder Dispatch) [NV]. Seit `c3be509` folgen jedem pytest-Schritt in `ci.yml`, `docs.yml` und `offline.yml`
+  Annotationsschritte mit `tools/junit_annotations.py` (dort zwei: 10 Fehler, Zählung), seit der Fix-Runde (`98f0d92`)
+  fünf (Fehler 1–10, 11–20, 21–30, 31–40, Zählung) [G: `git show c3be509`, Workflows].
 - Langsamer Test: `uv run pytest -m bundle tests/packaging/test_bundle_real.py` (braucht `site/`, Notices,
-  `tools/install_pdf_browser.py`; 3 bestanden in 392,6 s [D]).
+  `tools/install_pdf_browser.py`; im Bereich 3 bestanden in 392,6 s; nach der Integration 4 Tests, 4 bestanden in
+  437,87 s auf `2b70ea5` [D]). Seit `8d93c19` ist er der letzte Schritt des Jobs `build` in `offline.yml`
+  (`NEUROGRID_BUNDLE_CACHE="$RUNNER_TEMP/bundle-cache" uv run --no-sync python -m pytest -m bundle -p no:cacheprovider
+  tests/packaging/test_bundle_real.py`; unter Linux wird der Windows-Reinraumtest übersprungen); auf `55335ca` grün
+  [G, CI 55335ca].
 - Suite im Bereich (Bau-Commit `73bb04b`, vor der Reparatur `2d41f44`): 2864 bestanden, 13 übersprungen, 68 abgewählt
   in 1118,97 s [D]; für den Reparaturstand ist keine volle Suite protokolliert [NV]. `tests/packaging` unter
   3.11/3.12/3.13 je 157 bestanden [D].
@@ -986,30 +1127,405 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   und `report r.json --lang "zh,en" --format html`; erwartet Exit 0 und beide Berichte. Den OS-Nachweis mit WFP-Audit
   macht nur die CI (keine Änderung an Sicherheitseinstellungen des eigenen Rechners).
 
-#### 4.7.6 Stand heute und was zu P5 noch fehlt
+#### 4.7.6 Integration (Zweige `p5-int-pdf` und `p5-int-pack`)
 
-Heute geprüft [G, 19bd93c]:
-- `uv lock --check --offline` → 103 Pakete; `ruff check` „All checks passed!“; `ruff format --check` „211 files
-  already formatted“ auf dem sauberen Stand `19bd93c`; sobald `docs/umsetzung/NACHBAU.md` versioniert ist, sind es
-  212 (ruff 0.17.0 zählt auch diese Markdown-Datei).
+Beide Zweige gingen von `584b7d2` aus, je mit eigenem Worktree und `uv sync --locked --no-build`; keine Downloads
+(Headless Shell 1243 schon in `%LOCALAPPDATA%\NeuroGrid\pdf-browser`, Bündel-Cache vorhanden) [D]. Ablauf je Zweig:
+Bau → unabhängige Verifikation → Reparatur (Commits in 4.7.1).
+
+**`p5-int-pdf` (A-85, A-54, A-27; TECH-07, CLI-05, NG-N03, NG-N05)** [D, Quelltext G]:
+- **P1 Prüfung des Browser-Ordners:** Ein Test meldete einmal einen geänderten Ordner `hyphen-data` (0 → 12 288 B),
+  ohne dass Chromium schrieb. Ursache gemessen: unter Python 3.12/Windows 11 meldet `os.stat` für einen Ordner ohne
+  NTFS-Cache-Eintrag Größe 0, nach dem Auflisten die Indexgröße (Doppelschnappschuss kalter Systemordner: 30–75
+  Abweichungen; „erst auflisten, dann stat“: 0). Keine Produktänderung. Neue Hilfen in `tests/conftest.py`:
+  `folder_content()` (Einträge, Größe nach dem Auflisten, mtime, SHA-256), `fresh_shell()` (Kopie der installierten
+  Shell in einen neuen kurzen Ordner), `short_folder()`. Messmethode: Änderungsbeobachter mit `ReadDirectoryChangesW`
+  (ctypes) auf einer `shutil.copytree`-Kopie; Kopieren der Shell (291 Dateien, 283 MB) 0,5 s, Hashen 3,9 s.
+- **P2 Arbeitsordner des Browsers:** Reproduziert auf `584b7d2`: `report --format pdf --out <195 Zeichen>` aus einem
+  leeren Ordner ergab Exit 0, aber ein `debug.log` (23 091 B, lokale Pfade) im aktuellen Ordner; bei 210 Zeichen
+  Exit 2 mit dem irreführenden Hinweis auf den Installer. Lösung: `kernel.pdf.browser_work()` legt einen privaten
+  Ordner `ng-pdf-XXXXXXXX` in `tempfile.gettempdir()` an (nie unter `--out`, nie `ms-playwright`), entfernt ihn im
+  `finally`; Treiber, Browser und Kindprozesse laufen mit ihm als aktuellem Ordner (`driver_environment` wechselt mit
+  `os.chdir` und stellt zurück). Grenzen unter Windows: Arbeitsordner ≤ 100 Zeichen (`WORK_PATH_LIMIT`), Temp-Ordner
+  ≤ 84 (`TEMP_PATH_LIMIT = 100 − 1 − len("ng-pdf-") − 8`); sonst Exit 2 mit `errors.pdf.work_path_too_long` und
+  `errors.pdf.temp_hint`, ohne Temp-Ordner `errors.pdf.temp_unusable`; geprüft in `preflight` vor dem Rendern.
+  Gemessene Längen des Arbeitsordners: bis 160 sauber, 170–200 Cache-Fehler im `debug.log` neben der exe, ab 210
+  Startfehler; tiefster Profilpfad 96 Zeichen. Danach: `--out` mit 195, 210, 240 Zeichen → Exit 0, aktueller Ordner
+  leer. `check` und `convert` behalten ihren Arbeitsordner neben der Ausgabe.
+- **P3 Glyph-Kopien:** `kernel.fonts.GlyphCopies` trägt jede Kopie überall ein, wo ihr Original in GSUB, GPOS und
+  GDEF steht (Coverage, Klassen, Paarsätze, Ersetzungen, Ligaturen, Kontextregeln Format 1–3, Extensions); eine
+  Ersetzung einer Kopie liefert eine eigene Kopie (Suffix), Ligaturausgaben `.L<len><suffix>`. Schriften mit nicht
+  kopierten Tabellen (CFF, COLR, SVG, `kern`, `morx` …) werden abgelehnt. Gemessen bei 100 px: „T–T L–L“ Regular
+  337,8125 px mit und ohne Kopie (vorher 358). Die ausgelieferten Schnitte nutzen nur GSUB 1/3/4 und GPOS 1/2/4.
+- **Reparatur** (`3c3813d`): Jeder Arbeitsordner (`run-*` und `ng-pdf-*`) enthält `neurogrid-work.lock` (Inhalt
+  `NeuroGrid work folder\n`, gesperrt mit `msvcrt.locking` bzw. `fcntl.flock`); `kernel.safety.remove_leftovers`
+  entfernt beim nächsten Start im selben Basisordner Ordner abgebrochener Läufe (Inhalt zuerst, Sperrdatei zuletzt).
+  Ein beim Start vorgefundener `debug.log` neben der Shell wird entfernt. `report.output.check_output_folder` prüft
+  `--out` vor dem Browserstart (`output.is_directory`, `output.not_writable`, Exit 2, nichts geschrieben). Gemessen:
+  `taskkill /F /T` kehrt vor dem Ende der Chromium-Prozesse zurück; der Hard-Kill-Test wartet je PID
+  (`OpenProcess(SYNCHRONIZE)` + `WaitForSingleObject`).
+- Volle Suite nach Reparatur (`NEUROGRID_REQUIRE_PDF=1`): 3349 bestanden, 21 übersprungen, 72 abgewählt in 1570 s.
+
+**`p5-int-pack` (A-87; TECH-05, CON-02, UF-08, V-01)** [D]:
+- **K1** `tests/packaging/test_workflows.py` prüft jeden Aufruf `tools/<name>.py` in Workflows, `packaging/ci/*`,
+  `install.sh` und `install.ps1` gegen den echten argparse-Parser des Werkzeugs (aus seinem `main()`). Die
+  Verifikation fand eine Lücke (Optionen zwischen zwei gequoteten Argumenten verschwanden); Reparatur `cf01d2c` mit
+  Sicherheitsnetz und Mutationstest.
+- **K2** `installation.md` (en/zh) nennt die Windows-Präfixgrenze (148 → 101) und das fehlende `dbm.ndbm` unter Linux.
+- **K3** `tests/packaging/test_install_ps1.py` arbeitet in einem kurzen Ordner unter dem System-Temp (≤ 120
+  Zeichen), unabhängig von `--basetemp`.
+- **K4** `tests/packaging/test_env_example.py` findet jede Variable in Paket, Werkzeugen, Tests, Workflows und
+  Skripten; Reparatur `ef27745`: Zuweisung vor einem Befehl zählt als Umgebung, Präfix-Auffangregel für
+  `NEUROGRID_`/`GITEE_`/`PYPI_` wieder da.
+- **K5** Bündelbau, Reinraum an der Präfixgrenze und ohne Browser, Bündel-Markertests, Notices (Zahlen in 4.7.5, 4.7.4).
+- Laufzeitexport gegen den Abschluss in `uv.lock` geprüft (psutil, 2.6).
+- Reparatur (`6986940`): Rückfälle K1/K4, PDF-Tests unabhängig von der Länge von `--basetemp`, `offline.yml` führt
+  `pytest -m bundle` aus (N3), `Shown` ohne `USERPROFILE` im Reinraum (N4). Gemessen: bis 196 Zeichen Arbeitsordner
+  schreibt der Browser `<profile>\Default\chrome_debug.log`, 197–209 fällt das Log in den aktuellen Ordner, ab 210
+  Startfehler; `--enable-logging=stderr`, `--log-level=3`, `--disable-logging` und
+  `--enable-features=NetworkServiceInProcess` verhindern das `debug.log` des Netzwerkdiensts neben der exe nicht.
+- Volle Suite nach Reparatur: 3352 bestanden, 13 übersprungen, 73 abgewählt in 1545 s.
+
+**Merge-Konflikte** (`8394c5e`): `kernel/pdf.py` und die PDF-Tests von `p5-int-pdf` (Arbeitsordner im Temp-Ordner)
+gewinnen; aus `p5-int-pack` bleiben der gemessene Kommentar zum Fallback-Log, der Test
+`test_fallback_log_of_a_long_work_folder_stays_in_the_work_folder` und `browser_root` für die als `file://`
+geöffnete Doku-Seite; `test_workflows.py` von `p5-int-pack` [G: Commit-Nachricht].
+
+#### 4.7.7 Lizenztexte (D-15, D-16; Zweig `p5-licence-texts`)
+
+- **CC BY 4.0** (D-15): `LICENSES/CC-BY-4.0.txt` byte-gleich aus SPDX license-list-data v3.27.0
+  (`https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/CC-BY-4.0.txt`, 17 023 B, SHA-256
+  `d557539df68e771cc1eedcc91d13f70fca930e508d11eedcafa4b15db49e3744`, geladen 26.10.2026), festgehalten in
+  `license-gate/licence_texts.toml` [G]. Die Verifikation merkte an: SPDX-Fassung, nicht wortgleich mit dem CC-Rechtstext
+  (Abschnitt 6 anders gegliedert, Haftungsausschluss nicht in Großbuchstaben) – für REUSE ausreichend [D].
+- **Validator-Bündel** (D-15): Die Source-Map von bids-validator 3.0.2 hat 790 Quellen: 18 jsr-, 53 npm-Pakete, dazu 9 in
+  der Distribution von hed-validator 4.2.0 eingebettete [D]. Lizenzdateien: npm aus dem Versions-Tarball (sha512 des
+  Versionsdokuments geprüft, nur LICENSE/LICENCE/COPYING/NOTICE der obersten Ebene, im Speicher gelesen), jsr aus
+  `https://jsr.io/<paket>/<version>/<datei>` (gegen `<version>_meta.json` geprüft). 146 Downloads, 9 381 740 B (größte
+  Datei: hed-validator-4.2.0-Tarball, 5,4 MB) [D]. Ablage `license-gate/third_party/bids-validator-3.0.2/` (Dateien
+  `LICENSE` bzw. `LICENSE.<herkunft>.txt`, nur LF) mit `manifest.toml` (je Paket Registry, Name, Version, Lizenz,
+  URLs, SHA-256, Texte, offene Punkte). Die Download- und Zusammenstellungsskripte wurden nicht versioniert (nur
+  Scratchpad) [NV]; das Manifest hält jede URL, Größe und SHA-256 zur Nachprüfung fest.
+- **D-16:** Die Verifikation fand in `isomorphic-git` 1.41.9 einen aus `@zenfs/core/path` kopierten Abschnitt unter
+  LGPL-3.0-or-later, den `notices.py` übersehen hatte (geprüft wurden nur die ersten 4000 Zeichen je Quelle); dazu
+  fehlten `@jspm/core` (Node-Polyfills) und die vollständigen Lizenzen von hash-wasm 4.12.0. Der
+  Projektverantwortliche entschied D-16; umgesetzt in `d74f413`…`9625233`: LGPL-3.0-or-later (42 098 B,
+  `996af0513df21f7496288951c41428a03c174e9e4a9d63665c57d670f845ccb1`) und GPL-3.0-or-later (34 674 B,
+  `fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0`), beide SPDX v3.27.0, seit R27 neben
+  isomorphic-git unter `license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9/` [G:
+  `licence_texts.toml`]. `notices.py --check` scheitert, wenn das Manifest nicht zur Source-Map passt, ein Text in
+  Größe oder SHA-256 abweicht, eine Lizenz nicht in `BUNDLED_ALLOWED` steht oder ein Paket ohne Text keinen Eintrag in
+  `known_missing.toml` hat.
+- Aufgelöst und aus `known_missing.toml` entfernt: CC-BY-4.0, Lizenzdateien der Validator-Pakete, BIDS-Schema 1.2.7
+  (laut jsr-LICENSE CC-BY-4.0). Neu eingetragen: hed-validator-Unterpakete ohne Version, hash-wasm-C-Quellen ohne
+  Text, `@jspm/core`. Abschnitt 3 der Notices listet 80 Pakete.
+- Prüfung: `notices.py --wheelhouse .local/notices-wheels --check` „up to date“; `--components` 0 Probleme in 129
+  Wheels und 4 Bündelteilen; `tests/docs/test_licensing.py`, `test_notices.py` grün [D].
+
+#### 4.7.8 Abnahme G1, Skalierung, zh-Prüfpaket (A-88; Zweig `p5-acceptance`)
+
+**G1-Werkzeug** `tools/acceptance_g1.py` [G: Optionen; Verhalten D]:
+```powershell
+$PY = ".\.venv\Scripts\python.exe"
+& $PY tools\acceptance_g1.py --corpus .local\corpus --out .local\acceptance\g1 [--datasets <ordner> …] [--runs 2] [--jobs 4] [--as-of 2026-10-11] [--replace]
+```
+- Je Datensatz als echte Prozesse des `neurogrid`-Skripts neben dem Interpreter (PYTHON*-Variablen entfernt):
+  `scan`, `check` (core+bids+gxdsl008, `--jobs 4`), `report --lang zh,en --format html,pdf`, `manifest`, `verify`,
+  zweimal (Lauf 1 Konsole en, Lauf 2 zh), dazu einmal `check --jobs 1` auf ds004148-1.0.1.
+- Prüft mit eigenem Code: kein Exit 2; Konsole strikt UTF-8 mit festem Satz; genau 7 Produktdateien; Schemas
+  (Draft 2020-12) und kanonisches `results.json`; jede Befundzeile mit den 10 Zellklassen, jede Leerzelle aus
+  `EXPLAINED_EMPTY`, höchstens 50 Zeilen je Regel plus genaue Sammelzeile; jedes PDF über das QA-Gate und eine
+  unabhängige pypdf-Lesung (Schriften, fester Satz/Kopf/Seitenzahl auf jeder Seite, A4, `/Info`, Datumsfelder, kein
+  XMP, keine `/ID`); Byte-Gleichheit beider Läufe; Datenschutzsuche über alle Ausgaben; Korpus vor und nach dem Lauf
+  unverändert (`corpus.py verify`). Schreibt `summary.json` (Schema `neurogrid-acceptance-g1/1`, nur Zahlen und
+  relative Namen) und `summary.md` (deutsche Tabelle, V-01-Checkliste, V-06-Zeile).
+- Exitcodes: 0 alle Kriterien dieses Laufs erfüllt, 1 ein Kriterium verfehlt, 2 Werkzeugfehler (Korpus fehlt oder
+  verändert, PDF-Browser fehlt, `--out` nicht leer ohne `--replace` oder im Korpus).
+- Ergebnis auf `4587546` [D]: „G1: 6/6 data sets passed, formats BDF, BrainVision, EDF, EEGLAB, FIF; minimum met; all
+  criteria met“, Exit 0, ≈ 20 min. Je Datensatz (check/report-Exit; Befunde; PDF-Seiten zh/en; check s Lauf 1/2;
+  report s Lauf 1/2): ds003775-1.2.1 EDF 0/0, 92, 26/28, 73,3/74,7, 29,8/17,3 · ds002778-1.0.5 BDF 1/0, 134,
+  30/32, 32,1/31,8, 19,5/20,9 · ds004148-1.0.1 BrainVision 1/0, 49, 22/25, 43,6/44,0, 15,8/15,1 · ds004504-1.0.9
+  EEGLAB 0/0, 50, 18/21, 44,5/43,5, 14,5/14,2 · ds000248-1.2.4 FIF 1/0, 87, 21/23, 30,1/29,8, 15,6/15,4 ·
+  psg-ipa-1.0.0 EDF+ (Rohordner) 1/0, 1721, 92/123, 15,1/15,1, 52,6/50,9. Alle Dateien beider Läufe byte-gleich.
+  Erneut auf `6a4f737` (≈ 17 min): 6/6, V-01 erfüllt. Ein unabhängiger Nachlauf ergab dieselben 42 Produktdateien
+  (SHA-256) bei anderem Ausgabepfad und anderer Uhrzeit.
+- pytest-Hülle: `$env:NEUROGRID_REQUIRE_PDF = "1"; & $PY -m pytest tests\acceptance\test_g1_corpus.py -m corpus [-k
+  <datensatz>]` → 52 bestanden in 1124 s auf `944037c` [D]. Korpus im Worktree als Junction (3.5).
+- Nach der Fix-Runde (R20–R24, R29; 4.7.11) lief das Werkzeug auf drei Datensätzen (`--datasets ds002778-1.0.5
+  ds004148-1.0.1 psg-ipa-1.0.0`): Exit 0; psg-ipa ergibt 556 gesuchte Rohnamen, keiner gefunden [D]. Ein voller
+  G1-Lauf auf dem gemergten Stand (`55335ca`/`181654e`) ist nicht protokolliert [NV] – vor G1 zu wiederholen; bei
+  einem Lauf traten ein `MemoryError` (autoreject auf ds002778) und ein `read.failed` auf, beides aus dem
+  Arbeitsspeicher des Rechners: auf einem Rechner mit genug freiem RAM laufen lassen oder je Datensatz einzeln.
+
+**Skalierung** (A-59, A-88) [G: `tests/perf/test_report_scaling.py`; Messwerte D]:
+```powershell
+$env:NEUROGRID_REQUIRE_PDF = "1"
+& $PY -m pytest tests\perf\test_report_scaling.py -m perf -s -p no:cacheprovider   # ≈ 8,5 min, schreibt .local\perf\report_scaling.json
+```
+Nur diese Datei angeben: `pytest tests/perf -m perf` startet auch NG-N02 mit 1-GB-Dateien. Grenze = ⌈1,5 × größter
+Wert wiederholter Läufe vom 26.10.2026⌉ (`MEASURED`, `RESERVE = 1.5`; Ryzen 9 6900HX, Windows 11 26200, Python
+3.12.15, Shell 1243). Ein einzelner Lauf ließ zu wenig Luft (QA-Gate schlimmster Fall 29,9 / 29,2 / 44,6 s).
+
+| Fall | Messung (größter Wert) | Grenze |
+|---|---|---|
+| schlimmster (128 742 Befunde, 149 MB `results.json`) | html 21,4 s / 1703 MB; html,pdf 108,8 s / 1929 MB; parse 4,3, render 7,8, print 5,0, QA-Gate 44,6 s; 99/106 Seiten zh/en; PDF 730 131 / 728 364 B; HTML 1 252 705 / 1 026 261 B | html 33 s / 2555 MB; html,pdf 164 s / 2894 MB; parse 7, render 12, print 8, Gate 67 s; 149/159 Seiten; PDF 1 095 197 / 1 092 546 B; HTML 1 879 058 / 1 539 392 B |
+| typischer (6 110 Befunde) | html 13,0 s / 364 MB; html,pdf 92,1 s / 1284 MB; parse 0,6, render 4,4, print 4,7, Gate 36,2 s; 136/142 Seiten | html 20 s / 546 MB; html,pdf 139 s / 1926 MB; parse 1, render 7, print 8, Gate 55 s; 204/213 Seiten |
+
+Zwei Nachtwerte (8 370,2 s Berichtsprozess, 14 936,9 s zh-Gate) sind ausgeschlossen: der Rechner schlief (Modern
+Standby). Beleg ohne Adminrechte (PowerShell):
+```powershell
+Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-Kernel-Power'; Id=506,507} |
+  ForEach-Object { ([xml]$_.ToXml()).Event.EventData.Data }
+```
+Ereignis 507 trägt `SleepEntered`, `SleepDurationInUs`, `DripsResidencyInUs`: Schlaf 8 282,0 s ab 02:31:45 und
+14 907,0 s ab 04:55:17 (UTC+1) lagen in den beiden Messungen; ohne sie bleiben 88,2 s bzw. 29,9 s. Die Grenzen gelten
+für einen wach gehaltenen Rechner dieser Art (1.6 Punkt 15).
+
+**zh-Prüfpaket** (A-07, STOPP G1):
+```powershell
+& $PY tools\zh_review_package.py [--g1 .local\acceptance\g1] [--examples ds002778-1.0.5 psg-ipa-1.0.0] [--out .local\acceptance\zh_review\zh_review.md] [--since a44d592]
+```
+Listet jede zh-Zeichenkette mit Quelle und Schlüssel, markiert neu/geändert gegenüber dem P1-Commit `a44d592`, legt
+die beiden Beispiel-PDFs aus dem G1-Lauf daneben (Exit 2 und nichts geschrieben, wenn die Basis oder ein Beispiel
+fehlt). Ergebnis auf `6a4f737` [D]: 2530 zh-Zeichenketten aus 34 Dateien (2268 neu, 6 geändert), dazu
+`ds002778-1.0.5.report.zh.pdf` (30 Seiten, 245 816 B, `9b8eb078d73d6bf6861ed7f91eaa1ef2c0672ae94e3167731b5c738959dcdf83`)
+und `psg-ipa-1.0.0.report.zh.pdf` (92 Seiten, 546 640 B,
+`fa96a58115dc6547e385c1b01344e3cd84a1719abaf34ef8c36b2f3b9a760d1f`). Nicht versioniert. Die Fix-Runde hat zh-Texte
+geändert und ergänzt; das Paket vor G1 neu erzeugen [NV].
+
+**Weitere Tests:** `tests/acceptance/test_g1_checks.py` (jede Prüfung erkennt einen eingepflanzten Fehler),
+`test_g1_fixture_runs.py`, `test_console_sentence.py` (fester Satz jedes Befehls in zh/en), `test_license_gate.py`,
+`test_zh_review_package.py`. V-06: das Werkzeug nennt die Norm genau einmal (`NORM` in `tools/acceptance_g1.py`,
+geprüfter Eintrag in `tests/unit/test_norm_independence.py`). Volle Suite nach Reparatur (`6a4f737`): 3381
+bestanden, 22 übersprungen, 126 abgewählt in 1588 s [D].
+
+#### 4.7.9 Merge der Integration und CI-Lauf auf `c3be509`
+
+- Merge-Reihenfolge am 26.10.: `p5-int-pdf` (`a702660`), `p5-int-pack` (`8394c5e`), `p5-acceptance` (`2ad5710`;
+  `test_workflows.py`: die Prüfung gegen die echten Parser bleibt, der PENDING-Eintrag für `acceptance_g1.py` entfällt),
+  `p5-licence-texts` (`ce1ab9c`; Notices ohne Konflikt, `--check` aktuell) [G: Commit-Nachrichten].
+- Merge-Fix `051fafb`: `tests/docs/test_notices.py` liest `NEUROGRID_NOTICES_WHEELS`, `test_env_example.py` verlangt
+  jede Variable in `.env.example` → eingetragen (1.5).
+- `c3be509`: `tools/junit_annotations.py` (nur Standardbibliothek, Exit immer 0) macht aus `pytest-junit.xml`
+  Fehler-Annotationen `::error title=<node ID>::<erste Zeile>`. Die Job-Logs von GitHub Actions brauchen eine
+  Anmeldung, die Annotationen der Check-Runs liefert die öffentliche REST-API ohne Anmeldung:
+  ```bash
+  curl -s https://api.github.com/repos/Ammxri/neurogrid/actions/runs/<run-id>/jobs          # Jobs und Ergebnis
+  curl -s https://api.github.com/repos/Ammxri/neurogrid/check-runs/<job-id>/annotations     # Fehler-Annotationen
+  ```
+  GitHub behält höchstens 10 Fehler-Annotationen je Schritt; seit der Fix-Runde fünf Schritte (40 Fehler + Zählung).
+- Lauf 40355705974 auf `c3be509` (Workflow `ci`) [G, CI-Annotationen]: grün Lizenz-Gate, PowerShell 5.1,
+  PowerShell 7, Rückverfolgbarkeit; rot alle sechs Testjobs. Windows: 18 fehlgeschlagen, 3466 bestanden,
+  8 übersprungen (3492 Tests) – 17 davon `test_install_ps1.py` mit „The term 'Get-FileHash' is not recognized“ (annotiert
+  sind 9; die Zahl 17 stammt aus der Nachstellung der Fix-Runde [D]), dazu `test_pdf_tests_pass_with_a_long_basetemp`.
+  Linux: 18 fehlgeschlagen, 10 Fehler, 3401 bestanden, 63 übersprungen; nur die ersten 10 annotiert. Diese Fehler
+  gingen in die Fix-Runde (4.7.11).
+
+#### 4.7.10 Review (30 Befunde R00–R29)
+
+Vier Prüfrichtungen (Bericht/PDF, Datenschutz, Bündel/CI, Doku/Lizenzen/Abnahme), jeder Befund reproduziert und von
+einem zweiten Prüfer gegengeprüft: 29 bestätigt, 1 strittig (R12) [D]. Schwere nach Gegenprüfung: 1 kritisch → major
+(R19), sonst major/minor.
+
+| Bereich | Befunde |
+|---|---|
+| Bericht/PDF | R00 Schreiben nicht alles-oder-nichts, wenn ein Ziel nicht ersetzbar ist (PDF im Betrachter offen); R01 ein langer Wert schrumpft das ganze PDF auf 2/3; R02 Ligatur-Zwillinge (ﬁ); R03 Diagrammbereich bei riesiger Schwelle (2·t → inf); R04 Wörter mitten getrennt; R05 Überschriften von Abschnitt 3 widersprechen der Zusammenfassung; R06 Installer zeigt den Benutzerordner |
+| Datenschutz | R07 Installationshinweis des Bündels mit `~` nicht ausführbar; R08 Doku verschweigt, dass `document`, `reviewer`, `comment` aus `evidence.yaml` im Klartext in `results.json` und Bericht stehen (Verhalten nach A-83 gewollt, Doku-Lücke); R09 Doku zu `[dataset]` dreht den Vorrang um (Code: `neurogrid.toml` gewinnt) |
+| Bündel/CI | R10 Bündel-Tests nicht bei Push auf `dev` (gegen D-15); R11 tote Loopback-Proxys tarnen Netzversuche als erlaubtes Loopback; R12 Signaturidentität stammt aus dem Bündel selbst (strittig); R13 Installer zeigt Benutzerpfade; R14 gescheiterte Installation hinterlässt Reste; R15 kein Workflow für das Gitee-Release; R16 Schalter übergeht ein ablehnendes cosign; R17 laufwerksrelatives `-Prefix`, relatives `-Cosign`; R18 README-Befehle nicht lauffähig |
+| Doku/Lizenzen/Abnahme | R19 Doku-Seite liefert ungeprüftes Drittanbieter-JS (lunr-languages MPL, wordcut); R20 G1-Zeilenprüfung vergleicht Zellen nicht mit dem Befund; R21 keine Suche nach echten Rohnamen; R22 keine Suche nach ganzzahligen Rohaltern; R23 unlesbare Aufnahmen zählen zum Minimum; R24 fester Satz im HTML nicht geprüft; R25 strace-Regel auf der Datenschutzseite falsch; R26 Lizenz der Notices; R27 LGPL/GPL-Texte ungenutzt in `LICENSES/`; R28 Adresse und SHA-256 von `install_pdf_browser.py` fehlen; R29 „Alle Kriterien erfüllt“ bei Teilabdeckung |
+
+R12, Entscheidung des Leads: dokumentierte Grenze; die Installer geben die geprüfte Identität aus und fordern den
+Vergleich mit den Release-Notes (4.7.5). **R08 und R09 waren keinem Fix-Bereich zugeordnet und sind auf `181654e`
+unverändert** [G: `docs/en/configuration.md` Abschnitt `[dataset]`, `src/neurogrid/pipeline.py` Zeilen 642/645,
+`docs/en/privacy.md`]; beide sind in Arbeit (`p5-ci2-userdocs`).
+
+#### 4.7.11 Fix-Runde (Zweige `p5-fix-report`, `p5-fix-linux`, `p5-fix-bundle`, `p5-fix-docs`)
+
+Alle vier Zweige von `c3be509`, je Befund ein Regressionstest, danach unabhängige Nachprüfung und Reparatur.
+Prüfbefehle wie in der CI: `ruff check .`, `ruff format --check .`, `mypy src/neurogrid tools --no-incremental`,
+`mypy --strict src/neurogrid/kernel --no-incremental`, `tools/check_commit_ids.py --since c3be509` [D].
+
+**report** (R00–R07, CI-Linux; Endstand `c9a536a`, volle Suite 3502 bestanden / 23 übersprungen [D]):
+- **CI Linux, eine Ursache für die meisten nicht annotierten Linux-Fehler:** `kernel/pdf.py` `preflight` startete
+  `ldd` mit `text=True` ohne `encoding`; mit `PYTHONWARNDEFAULTENCODING=1` und `filterwarnings =
+  error::EncodingWarning:neurogrid` wurde daraus ein Fehler (Fixture-Fehler in `test_report_pdf.py` und
+  `test_g1_checks.py`, Exit 2 in CLI-Tests). Jetzt `encoding="utf-8", errors="replace"` (`a5e527a`) [G: Quelltext];
+  ein statischer Test verlangt für jeden Unterprozess im Textmodus unter `src/neurogrid` eine Kodierung (ruff
+  `PLW1514` deckt nur `open()` ab).
+- R00 `write_all` transaktional: alle Dateien vorbereiten, vorhandene Ziele als `.<name>.<zufall>.bak` daneben
+  verschieben, neue einsetzen; bei Fehler zurück und Exit 2 (`output.not_writable`); Sicherungen erst nach Erfolg
+  löschen (`295ccc6`).
+- R01 `overflow-wrap: anywhere` am `body`, Beschriftungen der Schlüssel/Wert-Tabellen `nowrap`; kein Gate auf
+  „Schrumpfen“ (ein Datensatzwert darf nie Exit 2 auslösen). Testmethode: In Chromium-153-PDFs beginnt jeder
+  Seiteninhalt mit `.23999999 0 0 -.23999999 0 H cm`, dann `S 0 0 S x y cm` mit S = 3,125 bei 100 %; kleiner =
+  geschrumpft (gemessen: Basisbericht auf `c3be509` 99,5 %, langer Deckblattwert 2/3). Reparatur `7dc4b40`: eigene
+  Wörter in Tabellen mit automatischem Layout brechen nie (Klasse `td.own`).
+- R02 `kernel.fonts.substituted_glyphs`: eine cmap-Glyphe, die eine GSUB-Ersetzung aus anderen Glyphen erzeugt
+  (liga/ccmp/locl), gilt als Zwilling und bekommt Kopien (`06ddf20`).
+- R03 Diagrammbereich nur aus endlichen Grenzen, `nice_ceiling` nie unendlich (`c4dc7b1`).
+- R04 neue feste Spaltenanteile, je Tabelle 100 % (Befunde: Regel 12, Klausel 6,5, Titel 12, Status 7, Datei 11,
+  Kanal 6, Messwert 8, Schwelle 10, Zeit 11,5, Grund 16) (`2b1b2cd`).
+- R05 Überschriften „{Schwere}: N Befunde, davon C in der Zusammenfassung gezählt (F nicht bestanden, O Nachweis
+  offen)“; neue Schlüssel `report.text.severity_heading*` (zh/en/de) (`deb282e`).
+- R06 `tools/install_pdf_browser.py` zeigt den Benutzerordner als `~` (`2744ca2`).
+- R07 `kernel.pdf.install_hint` schreibt einen lauffähigen Befehl ohne Benutzernamen: Windows zwei Formen
+  (Eingabeaufforderung mit `%LOCALAPPDATA%\…`, PowerShell mit `& "$env:LOCALAPPDATA\…"`; neuer Schlüssel
+  `errors.pdf.install.command_windows`), Linux `"$HOME/…"` (`f214b44`); das Reinraumskript erwartet seit `5c6242e`
+  genau diesen Text.
+- Nicht behoben: `test_pdf_tests_pass_with_a_long_basetemp` auf `windows-latest` (lokal grün); `4ee617d` meldet seither,
+  welche Einträge während des Laufs entstanden. Auf `55335ca` zeigte die Annotation einen `debug.log` neben der exe
+  mit einer Warnung des Netzwerkdiensts (`sqlite_persistent_shared_dictionary_store`) [G, CI 55335ca] – Gegenstand der
+  zweiten Fix-Runde.
+
+**linux** (CI-Linux, Prüfung der POSIX-Zweige; Endstand `191a62a`, volle Suite mit `PYTHONWARNDEFAULTENCODING=1`
+3510 bestanden / 25 übersprungen [D]):
+- A-51: Unter Linux liegt `/tmp` außerhalb des Benutzerordners (CI: `/tmp/pytest-of-runner/…`). Die Konsole zeigt jetzt
+  Login- und Rechnernamen in Pfaden des Rechners als `<user>` und `<host>` (ganze Wörter, ab 3 Zeichen, nicht
+  `neurogrid`; Quellen `USERNAME`, `getpass`, passwd, `COMPUTERNAME`, `os.uname().nodename` – keine Socket-API außerhalb
+  von `netguard`) (`53188c4`, `84da9db`, `26b752c`). Unbekannter oder `/` als Benutzerordner ist kein Absturz mehr;
+  Laufwerkswurzel als Datensatzwurzel; Reparatur `c49a966` (Wörter wie „Size:“ blieben sonst nicht unverändert).
+- A-67: Unter Linux werden `//…`, `\\server\share`, `\\?\…`, `\\.\…`, `\??\…` wie unter Windows abgelehnt
+  (`kernel.safety.operator_path_problem(text, windows=…)`, `a2f8430`); A-67 in ENTSCHEIDUNGEN nachgetragen (`191a62a`).
+- A-54: Ausgaben mit 0666 abzüglich umask statt 0600 (`kernel.safety.create_temporary`, `4b25569`); Arbeitsbasis ohne
+  Ausgabeordner unter Linux `<temp>/neurogrid-<uid>` mit 0700, fremde oder für andere schreibbare Basis abgelehnt
+  (`temp_work_base`, `334ca4f`).
+- Tests mit nicht dekodierbaren Dateinamen laufen auch unter Linux (`76bcb99`).
+- Nicht behoben: `Path.home()` ungeschützt in `kernel/pdf.default_browser_dir` und `install_pdf_browser.py` (Linux ohne
+  `HOME` und passwd → „Internal error“, Exit 2); Sprache unter Linux aus `LC_CTYPE`, nicht `LC_MESSAGES` (A-07).
+
+**bundle** (R10–R18, CI-Windows; Endstand `d42bbf4`, volle Suite 3498 bestanden / 23 übersprungen [D]):
+- CI Windows: `Get-FileHash` fehlt in einem aus PowerShell 7 gestarteten 5.1 (1.6 Punkt 13); Hash über .NET in
+  `install.ps1`, `cleanroom_windows.ps1` und `offline.yml` (`4a5140d`). Lokal nachstellen ohne pwsh: Ordner `<dir>`
+  mit `Microsoft.PowerShell.Utility\Microsoft.PowerShell.Utility.psd1` (GUID `1DA87E53-152B-403E-98DC-74D7B4D63D59`,
+  ModuleVersion 7.0.0.0, CompatiblePSEditions Core, CmdletsToExport `Get-FileHash`, `Format-Hex` und alle Cmdlets der
+  5.1-Datei, NestedModules `Microsoft.PowerShell.Commands.Utility.dll`) vorn in `PSModulePath`; dann läuft
+  `ConvertFrom-Json`, aber nicht `Get-FileHash` [D]. Alle `test_install_ps1.py`-Tests laufen mit diesem Ersatz.
+- Annotationen in vier Schritten zu 10 plus Zählung (`98f0d92`).
+- R10 der Workflow `offline` auf `dev` und `main`, Concurrency je Ref (`a4a07bf`, `260b1f8`); R11 keine toten Proxys
+  mehr in den Linux-Reinräumen, unter Windows nur mit `-NoOsAudit`; `strace_check.py` und die WFP-Auswertung zählen
+  einen Loopback-Aufruf auf Port 9 als Netzversuch (`d3a7bfd`); R12 Identitätsvergleich (`a83297b`); R13 Pfade als
+  `%LOCALAPPDATA%`/`~` (`2c4605b`, `6c43ca1`); R14 Ziel bleibt wie vorgefunden (`6f7ee43`, `b0015d5`); R15 Job
+  `gitee-release` in `mirror-gitee.yml`: lädt Wheel, sdist, `SHA256SUMS` und Signatur des GitHub-Release, prüft
+  sie erneut und legt sie mit dem Text aus `packaging/gitee-release.md` als Artefakt ab; das Gitee-Release legt der
+  Projektverantwortliche von Hand an (kein Gitee-Token, D-15 gibt nur `GITEE_SSH_KEY` frei) (`213cc70`); R16
+  (`d0a2edc`); R17 (`56967bc`, `d42bbf4`); R18 README-Befehle in PowerShell-Form, als gedruckt geprüft (`871dbc7`).
+
+**docs** (R19–R29):
+- R19 `license-gate/third_party/mkdocs-material-9.7.7/manifest.toml` prüft jeden Drittanbieter-Teil der Seite
+  (mkdocs-material MIT, rxjs Apache-2.0, tslib 0BSD, clipboard/escape-html/lunr MIT, Material Design Icons
+  Apache-2.0, Octicons MIT, Font Awesome Free 7.1.0 CC-BY-4.0, Noto-Sans-SC-Teilmenge OFL-1.1); Texte aus dem
+  installierten Wheel, ohne Download. `tools/build_docs.py` entfernt `assets/javascripts/lunr/**` und alle `*.map` und
+  bricht mit Exit 1 ab bei ungeprüfter Datei, Copyleft-Kopf in `.js`/`.css`, nicht freizügiger Lizenz ohne
+  `known_missing`-Eintrag oder abweichender Theme-Version; ohne Prüfung der installierten Version Exit 2. Bis D-17
+  meldete jeder Bau „licence pending (blocks the release, STOPP G1): …“ für focus-visible und material-design-color
+  (`cce23d2`, `c8c3f6e`); seit ihre Texte abgelegt sind (D-17), entfällt die Zeile. Gebaute Seite danach: 33 HTML-Seiten plus Skripte, Stile, 2 woff-Teilmengen, 6 Schemas, Suchindex,
+  Sitemaps [D].
+- R20–R24, R29 im G1-Werkzeug: Zellvergleich mit `results.json` (`006836f`), Suche nach Rohnamen (`45c2e23`,
+  `8fefaab`) und ganzzahligen Altern im Kontext (`0293662`, Reparatur `0854df6`: chinesische Muster als Escapes),
+  unlesbare Aufnahmen zählen nicht (`cbeff1b`), fester Satz im HTML (`2394f00`), „Kriterien dieses Laufs“ und
+  `g1.outside_this_run` (Skalierung, Linux-strace, Reinraum debian:12-slim, Abdeckung) (`794deaa`).
+- R25 Datenschutzseite nennt die strace-Regel (`b962a30`); R26 (`0e2cefa`); R27 (`33b8e82`, `938acaf`: Prüfung auf
+  verschobene Pfade in den Notices); R28 `gen_docs.py` erzeugt den Block „pdf installer“ in `installation.md`
+  (`<REPO_URL>/releases/download/v<v>/install_pdf_browser.py` und SHA-256 des Skripts; `8f1aa89`). Heute:
+  `3e713e1400cde83a93782d1dacd0e8201fcb74693c787987e7e5ca51cfd6b149` [G, 181654e: Datei und Seite stimmen überein].
+- Volle Suite der docs-Fix-Runde: in den Quellen nicht protokolliert [NV].
+
+**Merge der Fix-Runde und Merge-Kopplungen** (26.10. 22:14–22:17, Reihenfolge report → linux → bundle → docs):
+- **Semantischer Konflikt `tempfile` gegen `create_temporary`:** `p5-fix-linux` ersetzte `tempfile.mkstemp` durch
+  `kernel.safety.create_temporary` und entfernte den Import, `p5-fix-report` fügte `_move_aside` mit `tempfile.mkstemp`
+  hinzu; der Merge hinterließ einen undefinierten Namen. Fix `55335ca`: auch die Sicherungsdatei kommt aus
+  `create_temporary` [G: Quelltext `report/output.py`].
+- **Semantischer Konflikt Port 9:** R11 (bundle) zählt Loopback auf Port 9 als Netzversuch, R25 (docs) schrieb
+  „Loopback erlaubt“ und testete mit Port 9. Lokal auf `55335ca` (Windows 11, Python 3.12,
+  `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`): 3597 bestanden, 24 übersprungen, 127 abgewählt,
+  1 fehlgeschlagen (`test_privacy_pages_state_the_strace_rule_of_the_offline_gate`) [D]; in der CI scheiterte derselbe
+  Test in jedem Testjob. Fix `181654e`: die Seiten (en/zh) nennen die Port-9-Ausnahme, der Test prüft gewöhnliche
+  Ports als erlaubt und Port 9 als abgelehnt.
+- **`gen_docs` nach Änderungen an `install_pdf_browser.py`:** `p5-fix-report` änderte das Skript, `p5-fix-docs` die
+  Seite mit seinem SHA-256; nach dem Merge `tools/gen_docs.py` laufen lassen und die beiden `installation.md`
+  committen, dann `gen_docs.py --check`, `tests/docs/test_docs_build.py`, `build_docs.py` [D]. Heute „documentation up
+  to date“ [G].
+- **Notices neu erzeugen** nach Änderungen an `uv.lock`, `components.toml`, `known_missing.toml`, Manifesten oder
+  `bundle_lock.json` (4.7.4); heute „up to date“ [G].
+- **`.env.example`** nach neuen Variablen in Tests oder Skripten (`051fafb`; `HOMEDRIVE`/`HOMEPATH` als Systemvariablen
+  in `c9a536a`).
+
+#### 4.7.12 CI-Stand auf `55335ca`
+
+Gelesen über die öffentliche Check-Run-API (4.7.9) [G, CI 55335ca]:
+
+| Workflow / Lauf | Job | Ergebnis |
+|---|---|---|
+| `offline`, 40403791782 | beide Offline-Bündel aus `uv.lock` (unsignierte Entwicklungsbündel), mit `pytest -m bundle` | grün |
+| | PDF in `debian:12-slim` mit der dokumentierten Paketliste (`--network none`, strace) | grün |
+| | glibc 2.27 mit Exit 2 abgelehnt (`ubuntu:18.04`, A-58) | grün |
+| | Reinraum Windows (PowerShell 5.1 und pwsh, WFP-Audit, PDF) | grün |
+| | Reinräume `debian:12-slim`, `ubuntu:24.04`, `ubuntu:22.04` (`--network none`, ohne Python, uid 1000) | grün |
+| | jeder v0.1-Befehl unter strace, `--network none` (Linux) | grün |
+| `ci`, 40403791901 | Lizenz-Gate und Netz-Scan der Laufzeitpakete; Windows PowerShell 5.1; PowerShell 7; Anforderungs-IDs | grün |
+| | Test ubuntu-24.04 × 3.11/3.12/3.13 | rot: je 6 fehlgeschlagen, 3531 bestanden, 85 übersprungen (3622) |
+| | Test windows-latest × 3.11/3.13 bzw. 3.12 | rot: 5 bzw. 6 fehlgeschlagen, 3606 bzw. 3605 bestanden, 11 übersprungen |
+| | plattformübergreifender Vergleich | übersprungen (hängt an den Testjobs) |
+
+Fehlgeschlagene Tests: Linux `test_review_p2_formats.py::test_mne_alone_follows_the_differently_decoded_reference`,
+zwei Codepage-/Marker-Fälle in `test_review_p2_convert.py`, `test_report_pdf.py::test_qa_gate_negative_controls`,
+`test_report_pdf.py::test_rule_ids_do_not_break_inside_in_the_pdf` und der strace-Doku-Test; Windows drei Tests in
+`test_install_ps1.py` (auf dem Runner), `test_pdf_tests_pass_with_a_long_basetemp` (Chrome schreibt `debug.log` in
+den Ordner der exe), der strace-Doku-Test und einmal ein Such-Timeout in `test_docs_browser.py`. Der strace-Doku-Test
+ist mit `181654e` behoben; die übrigen bearbeitet die zweite Fix-Runde `p5-ci2-*`. In den Testjobs liefen Lint und
+Typen grün (fehlgeschlagen war nur der Schritt „Tests with coverage“); die Abdeckungs-Gates (Schritt danach) sind in
+der CI deshalb nicht gelaufen [NV]. Ergebnis nach der zweiten Fix-Runde: `<ERGEBNIS NACH P5-CI2>`.
+
+D-15 verlangt die Bündel-Tests bei jedem Push auf `dev` und `main`: Seit Review R10 läuft der Workflow `offline` bei
+jedem Push auf `dev` und `main` sowie per Dispatch oder Aufruf aus `release.yml`; ein neuerer Push auf denselben Zweig
+bricht den älteren Lauf ab, ein Release-Lauf (Tag-Ref) wird nie abgebrochen [G: `on:`- und `concurrency:`-Block,
+`tests/packaging/test_workflows.py`]. `ci.yml` hat weiterhin keinen Bündel-Job. Auf `dev` lief `offline` auf `55335ca`
+ganz grün [G, CI 55335ca]; gepusht wurden `42e129d`, `c3be509` und `55335ca` [G: Reflog von `origin/dev`].
+
+#### 4.7.13 Stand heute und was zu P5 noch fehlt
+
+Geprüft [G, 181654e]:
+- `uv lock --check --offline` → 103 Pakete; `ruff check .` „All checks passed!“; `ruff format --check .` „224 files
+  already formatted“.
 - `gen_fixtures`, `gen_schemas`, `gen_montage_names`, `gen_docs`, `calibrate` jeweils `--check` grün;
-  `linux_pdf_packages.py --check` grün; `install_pdf_browser.py --check` grün; `corpus.py verify` „corpus verified“
-  in ≈ 2,5–4 s.
-- Testsammlung: 3414 Tests, Standardlauf 3342, abgewählt 72 (62 `corpus`, 7 `perf`, 3 `bundle`); Marker `pdf` 22,
+  `linux_pdf_packages.py --check` grün; `install_pdf_browser.py --check` „complete (revision 1243, 290 files)“;
+  `check_matrix_coverage.py` 166/166; `check_commit_ids.py` 146 Commits, 0 Probleme.
+- `notices.py --wheelhouse <.local/notices-wheels> --check` → auf `181654e` „up to date“, wegen der acht Lücken in
+  `known_missing.toml` Exit 1; seit D-17 (`9d8afcb`) „up to date“ ohne „incomplete“, Exit 0 [G].
+- Testsammlung: 3749 Tests, Standardlauf 3622, abgewählt 127 (114 `corpus`, 9 `perf`, 4 `bundle`); Marker `pdf` 98,
   `browser` 2.
-- Durchstich `check` + `report --format html,pdf` (4.0).
 
-Noch offen (Lead): volle Suite auf dem gemergten Stand unter 3.11/3.12/3.13 mit `NEUROGRID_REQUIRE_PDF=1` und `UV`,
-Abdeckungs- und Lizenz-Gate, Korpus- und Skalierungstest, `tools/acceptance_g1.py` (von `corpus.yml` aufgerufen,
-existiert noch nicht), A-84..A-88, Review mit vier Prüfrichtungen, Matrix/KONZEPT/FORTSCHRITT, Phasenbericht, STOPP G1.
-Dazu nach dem Merge zu wiederholen: Lizenz-Gate runtime/dev/docs und `--components` auf dem 103-Paket-Lock (4.7.4),
-Windows-Reinraum, `bundle.py sizes`, `scan_runtime_network.py` (4.7.5).
+Lokale volle Suiten [D]: Fix-Runde report `c9a536a` 3502 bestanden / 23 übersprungen; linux `191a62a` 3510 / 25 (mit
+`PYTHONWARNDEFAULTENCODING=1`); bundle `d42bbf4` 3498 / 23; gemergter Stand `55335ca` 3597 bestanden, 24
+übersprungen, 127 abgewählt, 1 fehlgeschlagen (behoben in `181654e`). Nach der zweiten Fix-Runde:
+`<ERGEBNIS NACH P5-CI2>`.
 
-D-15 verlangt, dass die Bündel-Tests nach dem ersten Push bei jedem Push auf `dev` und `main` laufen. Seit Review R10
-läuft `offline.yml` bei jedem Push auf `dev` und `main` sowie per Dispatch oder Aufruf aus `release.yml`; ein neuerer
-Push auf denselben Zweig bricht den älteren Lauf ab, ein Release-Lauf (Tag-Ref) wird nie abgebrochen [G: `on:`- und
-`concurrency:`-Block, `tests/packaging/test_workflows.py`]. `ci.yml` (Push `dev`/`main`) hat weiterhin keinen
-Bündel-Job; die Bündel-Tests liegen in `offline.yml`. Ein grüner Lauf von `offline.yml` auf `dev` steht noch aus [NV].
+Noch offen vor G1: CI-Testjobs grün auf Linux und Windows (zweite Fix-Runde); volle Suite unter 3.11/3.12/3.13 auf dem
+Endstand; Abdeckungs-Gate auf dem Endstand [NV]; Korpustests (`-m corpus`, 114) und voller G1-Lauf auf dem Endstand
+[NV]; `bundle.py sizes` [NV]; zh-Prüfpaket neu erzeugen; R08 und R09 (in Arbeit, `p5-ci2-userdocs`; 4.7.10); überholte Plattformangaben der
+Nutzerdoku (`installation.md`, `limitations.md`, `privacy.md` en/zh: Linux, PowerShell 7 und strace „bis zum ersten
+CI-Lauf nicht verifiziert“, Firewall-Test „nicht verifiziert“, obwohl `offline` auf `55335ca` sie grün prüfte) [G];
+Phasenbericht an den Projektverantwortlichen. Matrix, KONZEPT (1.1–1.3, 1.6, 2.6, 2.8, 3, 4, Risiko R10 in 5), FORTSCHRITT und
+A-84..A-88 in ENTSCHEIDUNGEN sind mit diesem Doku-Stand nachgetragen.
+
+#### 4.7.14 STOPP G1 (folgt)
+
+STOPP G1 ist noch **offen**; er folgt, sobald die CI-Testjobs grün sind und der Lead den Phasenbericht vorgelegt hat.
+Die vollständige Liste führt FORTSCHRITT („Für STOPP G1 vorgemerkt“); für den Nachbau wichtig sind:
+- Bestätigung der Annahmen A-84..A-88 und der Lesarten der PRD daraus (u. a. Abschnitt 4 mit Aggregaten von
+  `results.ai`, Anhang 6.1/6.6, nur 50 Zeilen je Regel plus `results.json`, Überschriften von Abschnitt 3), dazu die
+  geänderten A-51, A-54, A-67; die Lesart der Signatur (R12 Grenze, R16 cosign im PATH prüft immer).
+- Entscheidung über die acht Lücken in `known_missing.toml`: getroffen (D-17, 27.10.2026); die Texte sind abgelegt,
+  `known_missing.toml` ist leer, `notices.py --check` endet mit Exit 0 (Abschnitt 8).
+- Versand der Anfrage an die Validator-Entwickler (D-16).
+- muttersprachliche zh-Prüfung mit dem Paket aus 4.7.8, einschließlich der in der Fix-Runde neuen zh-Texte
+  (Installer, README.txt, Release-Notes, `packaging/gitee-release.md`, `installation.md`, `privacy.md`).
+- Sichtprüfung der Beispiel-PDFs (kein PDF-Renderer lokal).
+- Freigabe von Push auf `main`, Version `0.1.0`, Tag `v0.1.0`, `release.yml`, TestPyPI/PyPI, Gitee-Spiegel und
+  Gitee-Release von Hand (R15).
+- Zwei Fragen aus dem P6-Entwurf, entschieden mit D-17: (1) Befunde von M14 je Proband gegen A-30/A-35: Option B
+  (je Proband nur in `results.json`, im Bericht aggregiert); (2) zh-Prüfung der P6-Texte: Option C (bei G1 nur die
+  Kernbegriffe, die vollen Texte vor v0.2). P6 beginnt erst nach G1.
 
 ---
 
@@ -1035,13 +1551,16 @@ Alle Werkzeuge laufen im `<Projektordner>` mit `& $PY tools\<name>.py` (PowerShe
 | `install_pdf_browser.py` | Headless Shell 1243 in NeuroGrids Ordner (nur Standardbibliothek, Meldungen zh+en) | `[--dir D] [--from-zip ZIP --sha256 HEX] [--download-only --platform win64\|linux64 --out DIR] [--force] [--check] [--print-info]` | 0 / 1 / 2 |
 | `linux_pdf_packages.py` | apt-Liste der Shell aus Playwright 1.63.0 | `[DISTRIBUTION]`, `--list`, `--check`, `--write` | 0 / 1 / 2 |
 | `gen_docs.py` | Referenzseiten und generierte Blöcke | `[--check]` | 0 / 1 / 2 |
-| `build_docs.py` | Website bauen und prüfen (Netz-Audit-Hook, `SOURCE_DATE_EPOCH`) | `[--site-dir site]` | 0 / 1 / 2 |
+| `build_docs.py` | Website bauen und prüfen (Netz-Audit-Hook, `SOURCE_DATE_EPOCH`; seit R19 Entfernen von `lunr/**` und `*.map`, Prüfung jedes Drittanbieter-Teils gegen `license-gate/third_party/mkdocs-material-<v>/manifest.toml`, Zeile „licence pending …“ je offenem Teil) | `[--site-dir site]` | 0 / 1 / 2 |
 | `mkdocs_hooks.py` | MkDocs-Hooks (Suche zh, Schemas, 404) – kein eigener Aufruf | über `mkdocs.yml` | – |
-| `notices.py` | `THIRD_PARTY_NOTICES.txt` statisch aus den Wheels beider Ziele | `--list`; `--wheelhouse DIR … --out F`; `--download [--cache DIR] --out F`; `--check`; `--components`; `[--bundle-lock F]` | 0 / 1 / 2 |
+| `notices.py` | `THIRD_PARTY_NOTICES.txt` statisch aus den Wheels beider Ziele; `--check` prüft auch die Manifeste unter `license-gate/third_party/` und meldet jeden `known_missing`-Eintrag als „incomplete“ | `--list`; `--wheelhouse DIR … --out F`; `--download [--cache DIR] --out F`; `--check` (nur mit `--wheelhouse` oder `--download`); `--components`; `--sources DIR …` (Quellen der Auszüge, D-17); `[--bundle-lock F]` | 0 / 1 (auch: Einträge in `known_missing.toml`) / 2 (u. a. Dateien fehlen) |
 | `bundle.py` | Offline-Bündel | `build --platform P --wheel W --docs D --notices N [--sdist S] [--pdf-installer F] [--out dist] [--cache DIR] [--sign none\|sigstore]`; `verify PATH`; `sizes [--platform P]`; `lock --python V --pbs-build B --uv V [--cache DIR]` | 0 / 1 / 2 |
 | `release_check.py` | Release-Gate (Tag = Version, auf main, sauberer Baum, keine Platzhalter, Lizenztexte) | `--tag v<v> [--root DIR] [--notes OUT] [--repository owner/repo]` | 0 / 1 / 2 |
 | `scan_runtime_network.py` | Netzwerk-/Telemetrie-Fundstellen der Laufzeitpakete gegen die Baseline | `[--site-packages DIR] [--baseline F] [--distribution NAME]… [--draft OUT]` | 0 / 1 / 2 |
-| `strace_check.py` | strace-Ausgaben auswerten (nicht-Loopback = Fehler) | `strace_check.py EVIDENCE_DIR` (kein `--help`) | 0 / 1 / 2 |
+| `strace_check.py` | strace-Ausgaben auswerten (nicht-Loopback = Fehler; seit R11 auch Loopback auf Port 9, den Port eines toten Proxys; liest seine eigene `strace-summary.txt` nicht zurück) | `strace_check.py EVIDENCE_DIR` (kein `--help`) | 0 / 1 / 2 |
+| `acceptance_g1.py` | G1-Abnahme auf dem Korpus (A-88, 4.7.8) | `--corpus DIR --out DIR [--datasets X …] [--runs 2] [--jobs 4] [--as-of 2026-10-11] [--replace]` | 0 / 1 / 2 |
+| `zh_review_package.py` | zh-Prüfpaket mit Beispiel-PDFs (A-07, 4.7.8) | `[--out F] [--since a44d592] [--g1 DIR] [--examples DS …]` | 0 / 2 |
+| `junit_annotations.py` | fehlgeschlagene Tests aus `pytest-junit.xml` als GitHub-Annotationen (4.7.9) | `REPORT [--root .] [--offset 0] [--limit 10]`; `REPORT --summary [--limit 40]` | immer 0 |
 
 Datendateien in `tools/`: `corpus_spec.json`, `corpus_lock.json`, `docs_templates/*.md.j2` (Vorlagen für
 `gen_docs.py`).
@@ -1050,7 +1569,7 @@ Prüfskripte unter `packaging/ci/` (genaue Aufrufe in 4.7.5):
 
 | Skript | Zweck | Aufruf | Exitcodes |
 |---|---|---|---|
-| `cleanroom_windows.ps1` | Windows-Reinraum: Installer und jeder v0.1-Befehl, Belegdateien | `powershell -NoProfile -ExecutionPolicy Bypass -File packaging\ci\cleanroom_windows.ps1 -Archive ZIP -Evidence DIR [-NoOsAudit] [-Root DIR] [-Installer cmd\|pwsh] [-PdfBrowserZip ZIP -PdfBrowserSha256 HEX] [-Keep]` | 0 = alle Schritte wie erwartet; sonst Abbruch mit ≠ 0 (z. B. Reste in TEMP); mit OS-Audit (CI) zusätzlich `wfp-*.txt` |
+| `cleanroom_windows.ps1` | Windows-Reinraum: Ablehnung bei Präfixgrenze + 1, Installation an der Grenze, jeder v0.1-Befehl, PDF ohne Browser, Belegdateien | `powershell -NoProfile -ExecutionPolicy Bypass -File packaging\ci\cleanroom_windows.ps1 -Archive ZIP -Evidence DIR [-NoOsAudit] [-Root DIR] [-Installer cmd\|pwsh] [-PdfBrowserZip ZIP -PdfBrowserSha256 HEX] [-Keep]` | 0 = alle Schritte wie erwartet; sonst Abbruch mit ≠ 0 (z. B. Reste in TEMP); mit OS-Audit (CI) zusätzlich `wfp-*.txt` |
 | `cleanroom_linux.sh` | Linux-Reinraum im Container ohne Netz, ohne Python, uid 1000 (nur CI) | `bash packaging/ci/cleanroom_linux.sh --image IMAGE [--expect-refusal] [--trace] [--pdf-zip ZIP --pdf-sha256 HEX] [--evidence DIR] ARCHIVE` | 0; 2 Bedienung; sonst Exitcode des Containers |
 | `cleanroom_inside.sh` | läuft im Container, von `cleanroom_linux.sh` gestartet | nie direkt | – |
 | `offline_strace_linux.sh` | `cleanroom_linux.sh --trace` in einem Debian-12-Image mit strace, danach `strace_check.py` | `bash packaging/ci/offline_strace_linux.sh ARCHIVE [EVIDENCE_DIR]` | 0 / ≠ 0 |
@@ -1140,12 +1659,15 @@ Worktrees bekommen den Korpus als Junction (3.5); vor dem Entfernen lösen (1.6)
 | PSG-IPA 1.0.0, `corpus.py fetch` | `https://physionet.org/files/psg-ipa/1.0.0/`, mit `--prefer-mirror` Spiegel `https://physionet-open.s3.amazonaws.com/psg-ipa/1.0.0/` | 377,5 MB | `SHA256SUMS.txt` | D-06 | Korpus, κ |
 | ICLabel-Netzgewichte | im Wheel mne-icalabel 0.10.0 | – | – | Herkunft/Lizenz offen (A-56) | M09b |
 | Standardmontagen colin27 | im Wheel mne 1.13.2 (`mne.datasets` verboten) | – | – | A-49, A-79 | M04, Positionen |
-| apt-Pakete, Container-Images (`debian:12-slim`, `ubuntu:22.04/24.04/18.04`), strace | Debian/Ubuntu, Docker Hub, nur auf CI-Runnern | – | Digest nur zur Laufzeit festgehalten | D-09, A-58 | Linux-Reinraum, strace, PDF-Linux |
+| apt-Pakete, Container-Images (`debian:12-slim`, `ubuntu:22.04/24.04/18.04`), strace | Debian/Ubuntu, Docker Hub, nur auf CI-Runnern (seit 26.10.2026 in Gebrauch) | – | Digest nur zur Laufzeit festgehalten | D-09, A-58 | Linux-Reinraum, strace, PDF-Linux, apt-Liste der Testjobs |
 | GitHub Actions | `actions/checkout` v7.0.1 `3d3c42e5…`, `astral-sh/setup-uv` v10.3.2 `07a047e6…`, `actions/upload-artifact` v7.0.2 `cf430e03…`, `actions/download-artifact` v8.0.2 `9000827c…`, `actions/cache` v6.1.0 `55cc8345…`, `sigstore/cosign-installer` v4.1.2 `6f9f1778…`, `pypa/gh-action-pypi-publish` v1.14.3 `7245906f…` | – | Commit-SHA (aufgelöst 23.10. mit `git ls-remote`) | D-07, D-09 | CI |
 | cosign | über `sigstore/cosign-installer` (Standardversion dieses Commits) | – | – | D-10 g | Signatur in der CI |
-| CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators | SPDX license-list-data v3.27.0 bzw. registry.npmjs.org/jsr.io | je Datei im Manifest | `license-gate/licence_texts.toml`, `license-gate/third_party/bids-validator-3.0.2/manifest.toml` | **D-15** (abgelegt) | `LICENSES/`, Notices |
-| LGPL-3.0- und GPL-3.0-Text für isomorphic-git 1.41.9 | SPDX license-list-data v3.27.0 | 42 098 B, 34 674 B | `license-gate/licence_texts.toml` | **D-16** (abgelegt) | Notices |
+| CC-BY-4.0-Rechtstext | `https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/CC-BY-4.0.txt` | 17 023 B | `d557539df68e771cc1eedcc91d13f70fca930e508d11eedcafa4b15db49e3744` (`license-gate/licence_texts.toml`) | **D-15** (abgelegt) | `LICENSES/CC-BY-4.0.txt` (4.7.7) |
+| LGPL-3.0-or-later, GPL-3.0-or-later für isomorphic-git 1.41.9 | `…/license-list-data/v3.27.0/text/LGPL-3.0-or-later.txt` bzw. `…/GPL-3.0-or-later.txt` | 42 098 B / 34 674 B | `996af0513df21f7496288951c41428a03c174e9e4a9d63665c57d670f845ccb1` / `fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0` (`license-gate/licence_texts.toml`) | **D-16** (abgelegt) | neben isomorphic-git 1.41.9 unter `license-gate/third_party/bids-validator-3.0.2/npm/`, Notices |
+| Lizenzdateien der npm/jsr-Pakete im Validator 3.0.2 | npm-Versionsdokumente und -Tarballs von registry.npmjs.org (URLs je Paket im Manifest), jsr `https://jsr.io/<paket>/<version>/<datei>` und `<version>_meta.json` | 146 Downloads des Zweigs `p5-licence-texts` (einschließlich CC-BY-Text), zusammen 9 381 740 B [D] | je Datei in `license-gate/third_party/bids-validator-3.0.2/manifest.toml` | **D-15** (nur genaue Versionen; abgelegt) | Notices Abschnitt 3 |
 | Lizenztexte der acht G1-Lücken (70 Downloads: Einzeldateien von raw.githubusercontent.com, unicode.org/license.txt, die Brumme-Seite, das npm-Tarball von `@jspm/core` 2.1.0) | URL-Liste des Projektverantwortlichen | je Datei im Manifest | Manifeste in `license-gate/third_party/` (bids-validator 45, h5py 1, mkdocs-material 3, python-build-standalone 21 Texte) | **D-17** (abgelegt; `known_missing.toml` leer) | Notices |
+| Texte der Doku-Seite (mkdocs-material 9.7.7) | kein Download: aus dem installierten Wheel (die Texte von focus-visible und material-design-color: D-17-Zeile) | – | in `license-gate/third_party/mkdocs-material-9.7.7/manifest.toml` | – | R19 |
+| `install_pdf_browser.py` als Release-Asset | `<REPO_URL>/releases/download/v<v>/install_pdf_browser.py` (erst ab dem ersten Release) | – | heute `3e713e1400cde83a93782d1dacd0e8201fcb74693c787987e7e5ca51cfd6b149`, erzeugt in `installation.md` von `gen_docs.py` | – | PyPI-/Quell-Nutzer (R28) |
 | torch, braindecode, moabb, MOABB-Daten | – | – | – | D-06 | P11, noch nicht geladen |
 
 Bewusst **nicht** verwendet: eegprep (D-05), pyEDFlib (A-24), EEGDash (D-11), openneuro-py (GPL-3.0), Microsoft Edge,
@@ -1157,42 +1679,76 @@ Cache entfernt).
 ## 8 Bekannte Grenzen und nicht Verifiziertes
 
 **Plattformen (D-09):**
-- Linux, CI, strace, Container und alle sieben Workflows sind **nie gelaufen** (kein Remote, kein Docker). Betroffen:
-  TECH-05, TECH-11, Linux-Teil von NG-N04, offline-strace (NG-N01), Linux-Reinräume, glibc-Ablehnung, `pdf-debian12`,
-  Windows-WFP-Audit, POSIX-Zweige der Provenienz, Linux-Start-Check des PDF-Browsers (ldd-Testdaten sind synthetisch).
-- PowerShell 7 ist nicht installiert; Windows 10 und die Windows-Server-Images von GitHub sind nicht verifiziert.
-- NG-N02 auf einem Runner mit 4 vCPU/16 GB ist nicht gemessen.
-- Neuere Action-Hauptversionen, WFP-Audit und strace im Container können beim ersten Lauf Anpassungen brauchen.
+- **In der CI gelaufen** (GitHub Actions, seit 26.10.2026): Im Workflow `offline` auf `55335ca` sind alle Jobs grün –
+  Bau beider Bündel mit `pytest -m bundle`, offline-strace aller v0.1-Befehle (NG-N01), Linux-Reinräume
+  `debian:12-slim`, `ubuntu:22.04`, `ubuntu:24.04`, glibc-Ablehnung `ubuntu:18.04`, `pdf-debian12`, Windows-Reinraum
+  unter PowerShell 5.1 und PowerShell 7 mit WFP-Audit [G, CI 55335ca]. In `ci` grün: Lizenz-Gate und Netz-Scan,
+  Kommandozeile unter PowerShell 5.1 und 7, Rückverfolgbarkeit, Lint und Typen in allen sechs Testjobs.
+- **Nachweis ausstehend:** Die Testjobs von `ci` (Windows und Linux × 3.11–3.13) sind auf `55335ca` rot (4.7.12);
+  alles, dessen Nachweis diese Testjobs sind (in der Matrix `nicht verifiziert`: NG-F13, REP-00, TECH-05, TECH-07,
+  NG-N04, NG-N08, UF-01; dazu POSIX-Zweige der Provenienz und des Datenschutzfilters, Linux-Start-Check des
+  PDF-Browsers), bleibt „umgesetzt, Nachweis ausstehend“: CI-Testjobs noch rot (Lauf auf 55335ca), zweite Fix-Runde
+  läuft (`<ERGEBNIS NACH P5-CI2>`). TECH-11 („CI aktiv“) steht auf `erfüllt`: Nach der DoD von P1 (KONZEPT 6) gilt
+  die Zeile, sobald nach dem Push der erste CI-Lauf möglich ist; `ci.yml` und `offline.yml` laufen auf jedem Push auf
+  `dev` (Läufe 40403791901 und 40403791782 auf `55335ca`).
+  Abdeckungs-Gates und plattformübergreifender Vergleich sind in der CI noch nicht gelaufen.
+- Nie gelaufen: `docs.yml`, `corpus.yml`, `release.yml`, `publish-pypi.yml`, `mirror-gitee.yml` (nur `main`, Tag
+  oder Dispatch) [NV].
+- PowerShell 7 lokal nicht installiert (nur CI); Windows 10 nicht verifiziert; NG-N02 auf einem Runner mit
+  4 vCPU/16 GB nicht gemessen.
 
 **Nicht protokolliert / nicht erhalten:**
 - genaue Befehle für uv-Installation, `uv python install`, Anlage von venv3.11/3.13 (hier [R]), lokale pytest-Aufrufe,
   Probe-Wheel, Rauchtests PowerShell 5.1 in P1/P2, Zusatzmessung „256 Kanäle mit Manifest“
 - Prototypen S1–S5 (Skripte gelöscht); Bau-Reihenfolge innerhalb P1–P3; Herstellung von `architektur-s8.png`
 - Plattformvergleichsskript (nur Scratchpad)
+- P5: einmalige Lade- und Zusammenstellungsskripte der Validator-Lizenztexte, Prüf- und Messskripte der
+  Verifikationen (nur Scratchpad); das Skript der Präfixprobe; die volle Suite der docs-Fix-Runde; `bundle.py sizes`,
+  Korpustests (`-m corpus`) und ein voller G1-Lauf auf dem gemergten Stand
 
 **Inhaltlich offen (für G1 vorgemerkt):**
 - Lizenztexte: geschlossen. `license-gate/known_missing.toml` ist seit D-17 leer (CC-BY-4.0-Rechtstext und
   npm/jsr-Lizenzdateien nach D-15, LGPL-/GPL-Text nach D-16, die acht übrigen Lücken nach D-17). Ein neuer Eintrag
   sperrte das Release wieder über `notices.py --download --check` in `release.yml`. Die Versionen der 33 Pakete in
   `@jspm/core` 2.1.0 sind nur über das Lockfile von jspm-core belegt (D-17); die Quellen der Auszüge liegen nicht im
-  Repository (`notices.py --sources`).
+  Repository (`notices.py --sources`). Geschlossen hat D-17 die acht Einträge, die auf `181654e` noch offen waren
+  [G, 181654e]:
+  `bids-validator-deno:hed-validator@4.2.0/node_modules` (acht in hed-validator 4.2.0 eingebettete Pakete ohne
+  Version in der Source-Map: @nodable/entities, fast-xml-parser, lodash, path-expression-matcher, semver, strnum,
+  unicode-name, xml-naming), `bids-validator-deno:hash-wasm@4.12.0/src` (C-Quellen ohne Lizenztext: crc32, crc64,
+  xxhash32, xxhash64; argon2), `bids-validator-deno:node-modules-polyfills/@jspm/core` (Node-Polyfills ohne Version),
+  `h5py:h5py.libs/libaec-*.so*` und `h5py:h5py.libs/libsz-*.so*` (im Linux-h5py-Wheel weder Lizenz noch Text),
+  `python-build-standalone:3.12.15+20261009` (Texte der Bibliotheken außer CPython), `docs-site:focus-visible` und
+  `docs-site:material-design-color` (im Doku-Theme ohne Lizenzangabe).
+- Lesart von D-15 bei core-js-pure 3.49.0 (Version aus dem Quelltext der Source-Map, nicht aus einem Pfad) bestätigen.
 - Herkunft/Lizenz der ICLabel-Gewichte (A-56); Restpunkte A-78; Zeitangaben ab 27,8 h nur auf 1 s genau (A-61,
   A-79); loky „resource tracker“ ohne Netzwerkschutz (A-79); vorgemerkte Punkte aus A-80..A-83.
 - Container-Images per Tag, nicht per Digest gepinnt; cosign-Version = Standard des Installers; Windows-OS-Nachweis
   ordnet DNS-Anfragen des DNS-Client-Dienstes nicht zu.
-- PDF: kein Warten auf Web-Schriften vor dem Druck (Fehlfall wäre Exit 2 durch das Gate, nie beobachtet); Umbenennung
-  der Ausgaben nicht transaktional; kopierte Glyph-Zwillinge nehmen nicht an GSUB/GPOS teil; Sichtprüfung der PDFs
-  nicht gemacht (kein PDF-Renderer lokal).
+- PDF: kein Warten auf Web-Schriften vor dem Druck (Fehlfall wäre Exit 2 durch das Gate, nie beobachtet); die Code-Pfade
+  für GSUB 2/5/6/8 und GPOS 3/5–8 der Glyph-Kopien prüft nur eine synthetische Testschrift; Sichtprüfung der PDFs nicht
+  gemacht (kein PDF-Renderer lokal). (Erledigt: Umbenennung transaktional seit R00; Glyph-Kopien in GSUB/GPOS seit
+  der Integration.)
+- Ein hart beendeter Lauf, der zwischen `mkdtemp` und dem Anlegen seiner Sperrdatei endet, hinterlässt einen leeren
+  Ordner; Reste älterer Versionen ohne Sperrdatei werden nie automatisch entfernt; `ng-pdf-*`-Reste entfernt erst der
+  nächste PDF-Druck.
+- Linux: `Path.home()` ungeschützt im PDF-Teil (ohne `HOME` und passwd „Internal error“, Exit 2); Sprache aus `LC_CTYPE`
+  statt `LC_MESSAGES` (A-07); der Linux-Reinraum prüft den Hinweistext des fehlenden Browsers nicht.
+- R08 und R09 (Doku-Befunde zu `evidence.yaml` im Klartext und zum Vorrang von `[dataset]`): auf `181654e` nicht
+  behoben, in Arbeit (`p5-ci2-userdocs`; 4.7.10).
+- Signatur: die Prüfung im Archiv ist eine Integritätsprüfung, die Identität vergleicht der Nutzer (R12); cosign im
+  PATH prüft immer (R16); Gitee-Release von Hand (R15).
 - Pfadgrenzen 250/260 nur auf Windows 11 Build 26200 gemessen; Linux-PATH_MAX-Grenze beruht auf der dokumentierten
-  Konstante.
-- zh-Prüfung durch Muttersprachler (A-07) für alle zh-Texte, Doku, Installer- und Browser-Meldungen, auch für den
-  seit D-17 geänderten Satz zu focus-visible und material-design-color in `docs/zh/license.md`.
+  Konstante. Die Messgrenzen der Skalierung gelten für einen Rechner wie den Entwicklungsrechner, wach gehalten.
+- zh-Prüfung durch Muttersprachler (A-07) für alle zh-Texte, Doku, Installer- und Browser-Meldungen (4.7.8), auch für
+  den seit D-17 geänderten Satz zu focus-visible und material-design-color in `docs/zh/license.md`.
 
-**P5 (Stand 584b7d2, P5 noch nicht abgeschlossen):** volle Suite, Abdeckung, Lizenz-Gate (alle Gruppen und
-`--components`), Korpus, Skalierungsgrenzen (A-88), `bundle.py sizes`, `scan_runtime_network.py` und Reinraum auf dem
-gemergten Stand sind noch nicht gelaufen; `tools/acceptance_g1.py` fehlt; A-84..A-88, Matrix, KONZEPT 1.2/1.3/1.6 und
-FORTSCHRITT sind für P5 noch nicht nachgetragen. Die Bündel-Tests laufen seit Review R10 wie in D-15 verlangt bei jedem
-Push auf `dev` und `main` (`offline.yml`) [G]; ein grüner Lauf auf `dev` steht aus [NV].
+**P5 (Stand 181654e):** Bau, Integration, Lizenztexte, G1-Abnahme, Skalierungsgrenzen (A-88), Review und Fix-Runde
+sind gemacht (4.7.6–4.7.11). Offen: CI-Testjobs grün und volle Suiten auf dem Endstand (`<ERGEBNIS NACH P5-CI2>`),
+Abdeckung, Korpus und voller G1-Lauf auf dem Endstand, `bundle.py sizes`, R08/R09 (in Arbeit, `p5-ci2-userdocs`) und die überholten
+Plattformangaben der Nutzerdoku (4.7.13), dann STOPP G1 (4.7.14). A-84..A-88, Matrix, KONZEPT und FORTSCHRITT sind
+nachgetragen. Die Bündel-Tests laufen seit Review R10 wie in
+D-15 verlangt bei jedem Push auf `dev` und `main`; grün auf `dev` mit `55335ca` [G, CI 55335ca].
 
 ---
 
@@ -1247,35 +1803,54 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
 - [ ] `check_commit_ids.py` → 0 Probleme
 
 **Tests**
-- [ ] PDF-Browser installiert, `install_pdf_browser.py --check` → vollständig (290 Dateien)
-- [ ] `pytest -q` mit `NEUROGRID_REQUIRE_PDF=1` und `UV` unter 3.11, 3.12, 3.13 grün; Sammlung 3414, Standardlauf 3342
-- [ ] Abdeckung: `coverage_gates.py` → Kern ≥ 90 %, Prüfer ≥ 80 % (zuletzt 97,1 % / 97,2 % in P4)
-- [ ] `licenses.py` → runtime/dev/docs × allowlist/copyleft ok; `licenses.py --components --download` ok (auf dem
-      gemergten 103-Paket-Lock noch nicht protokolliert, 4.7.4)
-- [ ] Korpus: `corpus.py fetch` + `verify` → „corpus verified“ (297 Dateien); `pytest -m corpus` → 62 bestanden
-- [ ] `pytest -m perf` (NG-N02, Skalierung) unter den Grenzen aus D-14 bzw. A-88
+- [ ] PDF-Browser installiert, `install_pdf_browser.py --check` → vollständig (290 Dateien), auch nach jedem Testlauf
+- [ ] `pytest -q` mit `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1` und `UV` unter 3.11, 3.12, 3.13 grün;
+      Sammlung 3749, Standardlauf 3622, abgewählt 127 (Stand 181654e; Ergebnis: `<ERGEBNIS NACH P5-CI2>`)
+- [ ] Abdeckung: `coverage_gates.py` → Kern ≥ 90 %, Prüfer ≥ 80 % (zuletzt 97,1 % / 97,2 % in P4; P5 nicht protokolliert)
+- [ ] `licenses.py` → runtime/dev/docs × allowlist/copyleft ok; `licenses.py --components --wheelhouse
+      .local/notices-wheels` → „components (129 wheels, 4 bundle parts, win_amd64, linux_x86_64): ok“ (4.7.4)
+- [ ] Korpus: `corpus.py fetch` + `verify` → „corpus verified“ (297 Dateien); `pytest -m corpus` → 114 Tests
+      (62 Korpus + 52 G1-Hülle) bestanden
+- [ ] `pytest tests/perf/test_report_scaling.py -m perf` → 6 bestanden unter den Grenzen aus A-88 (4.7.8), Rechner wach
+      gehalten; NG-N02 (`tests/perf/test_ng_n02.py`, `benchmark.py --jobs 4`) unter den Grenzen aus D-14
 
 **Ende-zu-Ende**
 - [ ] `check` auf `edf_ok` mit `documented.toml` → Exit 0; zwei Läufe byte-gleich; 3.11/3.12/3.13 gleich bis auf `environment`
 - [ ] `check` auf `empty` → Exit 1; fehlender Pfad → Exit 2
 - [ ] `report --lang "zh,en" --format "html,pdf"` → Exit 0, vier Dateien; ohne PDF-Browser → Exit 2 mit Hinweis
 - [ ] `convert --to bids` je Format ohne Validator-Fehler; `manifest` + `verify` → Exit 0
+- [ ] G1: `acceptance_g1.py --corpus .local/corpus --out .local/acceptance/g1` → Exit 0, „6/6 data sets passed …
+      all criteria of this run met“; `summary.md` mit V-01-Checkliste und V-06-Zeile (4.7.8)
+- [ ] zh-Prüfpaket: `zh_review_package.py` → Exit 0, Markdown plus zwei Beispiel-PDFs (4.7.8)
 
 **Auslieferung**
-- [ ] `build_docs.py --site-dir site` → „documentation built and checked“, 0 Netzereignisse
-- [ ] `notices.py --download --check` → aktuell, kein „incomplete“, Exit 0 (seit D-17)
+- [ ] `build_docs.py --site-dir site` → „documentation built and checked“, 0 Netzereignisse, keine Zeile „licence
+      pending …“ (seit D-17; vorher je eine für focus-visible und material-design-color)
+- [ ] `notices.py --wheelhouse .local/notices-wheels --check` (oder `--download --check`) → aktuell, kein
+      „incomplete“, Exit 0 (seit D-17)
 - [ ] `bundle.py build` beider Plattformen + `bundle.py verify` → Exit 0; zwei Bauten byte-gleich
-- [ ] Windows-Reinraum `cleanroom_windows.ps1 … -NoOsAudit` → Exitcodes wie in 4.7.5; im `-Evidence`-Ordner
-      `exit-codes.txt`, `<schritt>.out.log`/`.err.log`, `summary.txt`, `temp-left.txt` (leer)
+      (`pytest -m bundle tests/packaging/test_bundle_real.py` → 4 bestanden; während des Laufs nicht committen)
+- [ ] Windows-Reinraum `cleanroom_windows.ps1 … -NoOsAudit [-PdfBrowserZip … -PdfBrowserSha256 …]` → Exitcodes wie in
+      4.7.5 (mit install-over-limit 2, report-pdf-without-shell 2); im `-Evidence`-Ordner `exit-codes.txt`,
+      `<schritt>.out.log`/`.err.log`, `summary.txt`, `temp-left.txt` (leer)
 - [ ] Präfixgrenze (A-87): `install.cmd -SkipSignatureCheck -Prefix <102 Zeichen>` → Exit 2, nichts angelegt;
       `<101 Zeichen>` → Exit 0
 - [ ] optional: Flugmodus-Test (4.7.5)
 
-**Nur mit dem Projektverantwortlichen / CI (offen)**
-- [ ] Push auf `<REPO_URL>`, erster Lauf von `ci.yml`, `offline.yml`, `docs.yml`, `corpus.yml`
-- [ ] Bündel-Tests laufen bei jedem Push auf `dev` und `main` grün (D-15; seit Review R10 so konfiguriert,
-      `offline.yml` Push `dev`/`main`; erster grüner Lauf auf `dev` steht aus, 4.7.6)
-- [ ] Linux-Reinräume (`cleanroom_linux.sh` je Image, Ablehnung `ubuntu:18.04`), `offline_strace_linux.sh`,
-      `pdf_debian12.sh` grün (4.7.5)
-- [x] fehlende Lizenztexte abgelegt (D-15, D-16, D-17), `known_missing.toml` leer
-- [ ] zh-Prüfung, STOPP G1, dann `0.1.0`, Tag, `release.yml`, `publish-pypi.yml`, `mirror-gitee.yml`
+**CI (GitHub Actions, `https://github.com/Ammxri/neurogrid`)**
+- [x] Push auf `dev`, Läufe von `ci.yml` und `offline.yml` (erledigt, 4.7.9, 4.7.12)
+- [x] Bündel-Tests bei jedem Push auf `dev` und `main` (D-15; seit Review R10, `offline.yml` Push `dev`/`main`);
+      grün auf `55335ca` (Lauf 40403791782), Linux-Reinräume, glibc-Ablehnung `ubuntu:18.04`, offline-strace,
+      `pdf-debian12`, Windows-Reinraum mit WFP-Audit unter PowerShell 5.1 und 7
+- [ ] Testjobs von `ci.yml` (Windows und Linux × 3.11–3.13) grün – auf `55335ca` rot, zweite Fix-Runde:
+      `<ERGEBNIS NACH P5-CI2>`; danach Abdeckungs-Gates und Vergleich in der CI
+- [ ] Fehler eines Laufs ohne Anmeldung lesen: Annotationen über die Check-Run-API (4.7.9)
+
+**Nur mit dem Projektverantwortlichen (offen, STOPP G1)**
+- [x] Entscheidung zu den acht Lücken in `known_missing.toml` (D-17); fehlende Lizenztexte abgelegt (D-15, D-16,
+      D-17), `known_missing.toml` leer und Notices neu
+- [ ] Anfrage an die Validator-Entwickler versendet (D-16)
+- [ ] zh-Prüfung, Sichtprüfung der Beispiel-PDFs, Bestätigung A-84..A-88, STOPP G1
+- [ ] danach `0.1.0`, Push auf `main`, Tag, `release.yml`, `publish-pypi.yml`, `mirror-gitee.yml` (Spiegel) und das
+      Gitee-Release von Hand aus dem Artefakt des Jobs `gitee-release` (R15); `docs.yml` und `corpus.yml` laufen erst
+      mit `main`
