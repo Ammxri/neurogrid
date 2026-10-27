@@ -42,8 +42,8 @@ und werden vom Lead nachgetragen.
 | die PRD selbst (PDF, privat) | nur für die Planung; liegt in `.local/prd/`, nie versioniert (A-01) | beim Projektverantwortlichen |
 | Normtexte GB/T 47127, YY/T 2029, ISO/IEC TS 27571 | P7, P8, P10 (D-02, A-55) | nicht vorhanden |
 | Konten: GitHub, Gitee, PyPI/TestPyPI (Trusted Publishing) | Release, Spiegel, Veröffentlichung (D-07, D-15) | nicht bekannt; weder Projektdokumente noch Faktenbasis belegen ein angelegtes Konto [NV] |
-| Freigabe von Downloads außerhalb D-06 | CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators | freigegeben (D-15); Ablage in `LICENSES/` und `license-gate/known_missing.toml` noch offen |
-| Entscheidung zu den übrigen fehlenden Lizenztexten | BIDS-Schema-Lizenz im Validator, libaec/libsz im Linux-h5py-Wheel, Bibliothekstexte von python-build-standalone (D-15 gibt nur zwei der sechs Einträge in `known_missing.toml` frei) | offen bis STOPP G1 |
+| Freigabe von Downloads außerhalb D-06 | CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators (D-15); LGPL-3.0/GPL-3.0-Texte für isomorphic-git (D-16); URL-Liste der acht übrigen Lücken (D-17) | freigegeben und abgelegt (`LICENSES/`, `license-gate/third_party/`, `license-gate/licence_texts.toml`) |
+| Entscheidung zu den übrigen fehlenden Lizenztexten | Pakete im dist von hed-validator, hash-wasm (Brumme, argon2), `@jspm/core`, libaec/libsz im Linux-h5py-Wheel, Bibliotheken von python-build-standalone, focus-visible und material-design-color der Doku | entschieden (D-17, 27.10.2026); `license-gate/known_missing.toml` ist leer |
 | muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1) | offen |
 
 ### 0.3 Platzhalter
@@ -301,13 +301,13 @@ Logs und Messungen (`.local/perf/`), Review-Material. Nach einem Klon fehlt sie 
 | `.python-version` | `3.12` |
 | `.gitattributes`, `.gitignore` | Zeilenenden (1.6), ignorierte Pfade (`.local/`, `.venv/`, Caches, `.coverage*`, `site/`, `dist/`, `.env`) |
 | `.env.example` | alle Umgebungsvariablen, leer (1.5); ein Test vergleicht Code und Workflows damit |
-| `LICENSE`, `NOTICE`, `LICENSES/` | Apache-2.0, Lizenzhinweis, Lizenztexte (Apache-2.0, OFL-1.1; CC-BY-4.0 fehlt noch) |
+| `LICENSE`, `NOTICE`, `LICENSES/` | Apache-2.0, Lizenzhinweis, Lizenztexte (Apache-2.0, OFL-1.1, CC-BY-4.0 seit D-15, LicenseRef-NeuroGrid-Reproduced-Notices) |
 | `REUSE.toml` | Lizenz je Pfad (2.7) |
 | `THIRD_PARTY_NOTICES.txt` | erzeugt von `tools/notices.py` (A-86) |
 | `README.md`, `DATA_SOURCES.md` | Kurzbeschreibung zh/en; Herkunft von Fixtures und Korpus |
 | `mkdocs.yml`, `docs/en`, `docs/zh`, `docs/_data`, `docs/assets` | Nutzerdoku (A-86) |
 | `docs/umsetzung/` | Matrix, Konzept, Entscheidungen, Fortschritt, diese Anleitung (Deutsch, nicht Teil der Website) |
-| `license-gate/` | `allowlist.txt`, `exceptions.txt`, `components.toml`, `known_missing.toml`, `network_baseline.json` |
+| `license-gate/` | `allowlist.txt`, `exceptions.txt`, `components.toml`, `known_missing.toml`, `licence_texts.toml`, `network_baseline.json`, `third_party/` (Lizenztexte gebündelter Teile mit `manifest.toml`) |
 | `packaging/` | Installer (`install.cmd`, `install.ps1`, `install.sh`), `README.bundle.txt`, `release-notes.md`, `bundle_lock.json`, `ci/*` (Reinraum, strace) |
 | `.github/workflows/` | `ci.yml`, `offline.yml`, `corpus.yml`, `docs.yml`, `release.yml`, `publish-pypi.yml`, `mirror-gitee.yml` |
 | `src/neurogrid/` | Paket (2.4) |
@@ -387,7 +387,9 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
   `fonts.json` Apache-2.0.
 - **`REUSE.toml`:** Tabellen mit `precedence = "aggregate"`, die letzte passende gewinnt; Schriften mit
   `override`. Geprüft vom eigenen Test `tests/docs/test_licensing.py` (das REUSE-Werkzeug selbst ist GPL-3.0 und
-  keine Abhängigkeit). `LICENSES/CC-BY-4.0.txt` fehlt noch (D-15: Download freigegeben).
+  keine Abhängigkeit). `LICENSES/CC-BY-4.0.txt` ist seit D-15 abgelegt; Herkunft, Größe und SHA-256 jedes geladenen
+  Lizenztextes stehen in `license-gate/licence_texts.toml` (Standardtexte) bzw. in den Manifesten von
+  `license-gate/third_party/` (D-15, D-16, D-17).
 - **Lizenz-Gate (`tools/licenses.py`, NG-N07):** Stufe 1 `pip-licenses --allow-only` gegen
   `license-gate/allowlist.txt` mit versionsgebundenen Ausnahmen (`pybv:0.8.1`, `pyprep:0.9.0` in `exceptions.txt`);
   Stufe 2 sperrt jede Lizenz mit „GPL“ (`--partial-match`). Getrennt für `runtime`, `dev`, `docs`. Dazu
@@ -414,7 +416,8 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
 | `mkdocs.yml`, `tools/mkdocs_hooks.py` | Seitenstruktur, Suche, Hooks | von Hand |
 | `THIRD_PARTY_NOTICES.txt` | Drittanbieter-Hinweise | `tools/notices.py` |
 | `license-gate/components.toml` | geprüfte native/nicht-Python-Komponenten | von Hand, geprüft |
-| `license-gate/known_missing.toml` | fehlende Lizenztexte (6 Einträge, sperren das Release) | von Hand |
+| `license-gate/known_missing.toml` | fehlende Lizenztexte (seit D-17 leer; jeder Eintrag sperrt das Release) | von Hand |
+| `license-gate/third_party/*/manifest.toml`, `license-gate/licence_texts.toml` | geladene Lizenztexte mit URL, Größe, SHA-256, Abrufdatum und Entscheidung | von Hand, geprüft von `tools/notices.py` und `tests/docs/test_licensing.py` |
 | `license-gate/network_baseline.json` | geprüfte Netzwerk-Fundstellen der Laufzeitpakete | `tools/scan_runtime_network.py --draft`, dann von Hand |
 | `packaging/bundle_lock.json` | Interpreter und uv des Bündels (URL, Größe, SHA-256), Entfernung `_dbm` | `tools/bundle.py lock` |
 
@@ -454,7 +457,7 @@ Umfang heute [G]: 413 versionierte Dateien; 19 738 Zeilen Python in `src`, 38 19
 
 ### 3.3 Entscheidungslog
 
-- `ENTSCHEIDUNGEN.md`: geprüfte Fakten, D-01..D-15 (Entscheidungen des Projektverantwortlichen), A-00..A-83
+- `ENTSCHEIDUNGEN.md`: geprüfte Fakten, D-01..D-17 (Entscheidungen des Projektverantwortlichen), A-00..A-83
   (Annahmen; je Phase ein Block „Annahmen aus der Umsetzung von Px“).
 - P5 bringt A-84 (Bericht), A-85 (PDF), A-86 (Doku, Meldungen, Notices, Lizenzen), A-87 (Bündel, Signatur,
   Workflows), A-88 (Abnahme). **Stand 584b7d2: noch nicht eingetragen**; der Inhalt steht in den verbindlichen
@@ -778,6 +781,8 @@ unter der Grenze).
 | 24.10. 01:28 – 05:10 | `133bb94`, `7c99a82`, `9331600`, `2d41f44` | Reparatur nach unabhängiger Verifikation |
 | 24.10. 04:03 – 16:51 | `f10e05b`, `e7e2352`, `23880d2`, `584b7d2` | Merge report → docs → pdf → bundle. `uv.lock` mit 103 Paketen entstand beim pdf-Merge `23880d2` (nach dem docs-Merge `e7e2352` waren es 99); im bundle-Merge `584b7d2` wurden nur `THIRD_PARTY_NOTICES.txt` neu erzeugt und in `pyproject.toml` der Marker `bundle` samt `addopts` ergänzt [G] |
 | 26.10. | `19bd93c` | D-15 Vorabentscheidungen zu G1 |
+| 26.10. | `261cbe4` | D-16 Lizenzausnahme im BIDS-Validator, Repository-URL |
+| 27.10. | Zweig `p5-licence-texts-2` | D-17 Lizenztexte der acht G1-Lücken; `known_missing.toml` leer |
 | laufend | Zweige `p5-int-pdf`, `p5-int-pack`, `p5-acceptance` | Integration und Abnahme (nicht Teil dieses Stands) |
 
 Gemeinsame Merge-Konfliktstellen [D]: Pytest-Marker und `addopts` in `pyproject.toml` (Vereinigung: `pdf`,
@@ -862,10 +867,13 @@ Docstring von `kernel/report.py`, i18n-Tabellen (Vereinigung der Schlüsselblöc
   ```powershell
   $PY = ".\.venv\Scripts\python.exe"
   & $PY tools\notices.py --download --out THIRD_PARTY_NOTICES.txt   # lädt gepinnte Wheels nach .local\notices-wheels
-  & $PY tools\notices.py --download --check                         # erwartet: "up to date" + 6 "incomplete: …", Exit 1
+  & $PY tools\notices.py --download --check                         # erwartet: "up to date", Exit 0
+  & $PY tools\notices.py --sources <Ordner mit den D-17-Downloads>  # optional: Quellen der Auszüge, Exit 0
   ```
-  Exit 1 ist bis G1 gewollt: `license-gate/known_missing.toml` hat 6 Einträge (Abschnitt 8). Heutige Datei
-  1 398 869 B [G]; in der Merge-Simulation „129 wheels, 4 bundle parts“ [D].
+  Seit D-17 ist `license-gate/known_missing.toml` leer; jeder neue Eintrag ließe `--check` mit Exit 1 enden
+  („incomplete: …“). Die Quellen der Auszüge (`source_size`, `source_sha256`) liegen nicht im Repository; `--sources`
+  prüft sie gegen eine lokale Kopie. Stand vor D-15: Datei 1 398 869 B [G]; in der Merge-Simulation
+  „129 wheels, 4 bundle parts“ [D].
 - Lizenz-Gate mit Doku-Gruppe (PowerShell):
   ```powershell
   $PY = ".\.venv\Scripts\python.exe"
@@ -1135,8 +1143,9 @@ Worktrees bekommen den Korpus als Junction (3.5); vor dem Entfernen lösen (1.6)
 | apt-Pakete, Container-Images (`debian:12-slim`, `ubuntu:22.04/24.04/18.04`), strace | Debian/Ubuntu, Docker Hub, nur auf CI-Runnern | – | Digest nur zur Laufzeit festgehalten | D-09, A-58 | Linux-Reinraum, strace, PDF-Linux |
 | GitHub Actions | `actions/checkout` v7.0.1 `3d3c42e5…`, `astral-sh/setup-uv` v10.3.2 `07a047e6…`, `actions/upload-artifact` v7.0.2 `cf430e03…`, `actions/download-artifact` v8.0.2 `9000827c…`, `actions/cache` v6.1.0 `55cc8345…`, `sigstore/cosign-installer` v4.1.2 `6f9f1778…`, `pypa/gh-action-pypi-publish` v1.14.3 `7245906f…` | – | Commit-SHA (aufgelöst 23.10. mit `git ls-remote`) | D-07, D-09 | CI |
 | cosign | über `sigstore/cosign-installer` (Standardversion dieses Commits) | – | – | D-10 g | Signatur in der CI |
-| CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators | creativecommons.org bzw. npm/jsr | – | beim Ablegen festhalten | **D-15** (freigegeben; Ablage in `LICENSES/` und `known_missing.toml` noch offen) | `LICENSES/`, Notices |
-| BIDS-Schema-Lizenz, libaec/libsz-Texte, Bibliothekstexte von python-build-standalone | – | – | – | **keine Freigabe** (Entscheidung zu G1) | `known_missing.toml` leeren |
+| CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators | SPDX license-list-data v3.27.0 bzw. registry.npmjs.org/jsr.io | je Datei im Manifest | `license-gate/licence_texts.toml`, `license-gate/third_party/bids-validator-3.0.2/manifest.toml` | **D-15** (abgelegt) | `LICENSES/`, Notices |
+| LGPL-3.0- und GPL-3.0-Text für isomorphic-git 1.41.9 | SPDX license-list-data v3.27.0 | 42 098 B, 34 674 B | `license-gate/licence_texts.toml` | **D-16** (abgelegt) | Notices |
+| Lizenztexte der acht G1-Lücken (70 Downloads: Einzeldateien von raw.githubusercontent.com, unicode.org/license.txt, die Brumme-Seite, das npm-Tarball von `@jspm/core` 2.1.0) | URL-Liste des Projektverantwortlichen | je Datei im Manifest | Manifeste in `license-gate/third_party/` (bids-validator 45, h5py 1, mkdocs-material 3, python-build-standalone 21 Texte) | **D-17** (abgelegt; `known_missing.toml` leer) | Notices |
 | torch, braindecode, moabb, MOABB-Daten | – | – | – | D-06 | P11, noch nicht geladen |
 
 Bewusst **nicht** verwendet: eegprep (D-05), pyEDFlib (A-24), EEGDash (D-11), openneuro-py (GPL-3.0), Microsoft Edge,
@@ -1162,10 +1171,11 @@ Cache entfernt).
 - Plattformvergleichsskript (nur Scratchpad)
 
 **Inhaltlich offen (für G1 vorgemerkt):**
-- `license-gate/known_missing.toml`, 6 Einträge: CC-BY-4.0-Rechtstext; Lizenzdateien der npm/jsr-Pakete im Validator;
-  Lizenz des BIDS-Schemas 1.2.7 im Validator; libaec 1.1.4 und libsz im Linux-h5py-Wheel; Texte der Bibliotheken in
-  python-build-standalone. Solange die Liste nicht leer ist, sperren `notices.py --check` und `release_check.py` das
-  Release.
+- Lizenztexte: geschlossen. `license-gate/known_missing.toml` ist seit D-17 leer (CC-BY-4.0-Rechtstext und
+  npm/jsr-Lizenzdateien nach D-15, LGPL-/GPL-Text nach D-16, die acht übrigen Lücken nach D-17). Ein neuer Eintrag
+  sperrte das Release wieder über `notices.py --download --check` in `release.yml`. Die Versionen der 33 Pakete in
+  `@jspm/core` 2.1.0 sind nur über das Lockfile von jspm-core belegt (D-17); die Quellen der Auszüge liegen nicht im
+  Repository (`notices.py --sources`).
 - Herkunft/Lizenz der ICLabel-Gewichte (A-56); Restpunkte A-78; Zeitangaben ab 27,8 h nur auf 1 s genau (A-61,
   A-79); loky „resource tracker“ ohne Netzwerkschutz (A-79); vorgemerkte Punkte aus A-80..A-83.
 - Container-Images per Tag, nicht per Digest gepinnt; cosign-Version = Standard des Installers; Windows-OS-Nachweis
@@ -1175,7 +1185,8 @@ Cache entfernt).
   nicht gemacht (kein PDF-Renderer lokal).
 - Pfadgrenzen 250/260 nur auf Windows 11 Build 26200 gemessen; Linux-PATH_MAX-Grenze beruht auf der dokumentierten
   Konstante.
-- zh-Prüfung durch Muttersprachler (A-07) für alle zh-Texte, Doku, Installer- und Browser-Meldungen.
+- zh-Prüfung durch Muttersprachler (A-07) für alle zh-Texte, Doku, Installer- und Browser-Meldungen, auch für den
+  seit D-17 geänderten Satz zu focus-visible und material-design-color in `docs/zh/license.md`.
 
 **P5 (Stand 584b7d2, P5 noch nicht abgeschlossen):** volle Suite, Abdeckung, Lizenz-Gate (alle Gruppen und
 `--components`), Korpus, Skalierungsgrenzen (A-88), `bundle.py sizes`, `scan_runtime_network.py` und Reinraum auf dem
@@ -1252,7 +1263,7 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
 
 **Auslieferung**
 - [ ] `build_docs.py --site-dir site` → „documentation built and checked“, 0 Netzereignisse
-- [ ] `notices.py --download --check` → aktuell, 6 „incomplete“ (Exit 1 bis G1)
+- [ ] `notices.py --download --check` → aktuell, kein „incomplete“, Exit 0 (seit D-17)
 - [ ] `bundle.py build` beider Plattformen + `bundle.py verify` → Exit 0; zwei Bauten byte-gleich
 - [ ] Windows-Reinraum `cleanroom_windows.ps1 … -NoOsAudit` → Exitcodes wie in 4.7.5; im `-Evidence`-Ordner
       `exit-codes.txt`, `<schritt>.out.log`/`.err.log`, `summary.txt`, `temp-left.txt` (leer)
@@ -1266,5 +1277,5 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
       `offline.yml` Push `dev`/`main`; erster grüner Lauf auf `dev` steht aus, 4.7.6)
 - [ ] Linux-Reinräume (`cleanroom_linux.sh` je Image, Ablehnung `ubuntu:18.04`), `offline_strace_linux.sh`,
       `pdf_debian12.sh` grün (4.7.5)
-- [ ] fehlende Lizenztexte abgelegt (D-15), `known_missing.toml` leer
+- [x] fehlende Lizenztexte abgelegt (D-15, D-16, D-17), `known_missing.toml` leer
 - [ ] zh-Prüfung, STOPP G1, dann `0.1.0`, Tag, `release.yml`, `publish-pypi.yml`, `mirror-gitee.yml`

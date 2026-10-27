@@ -4,9 +4,9 @@ REUSE.toml is checked with an own implementation of its rules (``*`` within a pa
 segments, the last matching table wins): the REUSE tool itself is GPL-3.0 and has no Windows wheel for the
 no-build lock (A-48), so this test is the REUSE gate. Like ``reuse lint`` it fails for a licence without its
 text in LICENSES/ and for a text in LICENSES/ that no file of the repository uses; a text whose download
-neither D-06 nor D-15 covers is listed in license-gate/known_missing.toml (STOPP G1) and blocks the release.
-Licence texts of bundled third-party packages (D-15, D-16) are kept next to the package in
-license-gate/third_party/, not in LICENSES/."""
+no decision covers (D-06, D-15, D-16, D-17) is listed in license-gate/known_missing.toml (STOPP G1) and blocks
+the release. Licence texts of bundled third-party packages and libraries (D-15, D-16, D-17) are kept next to
+the package in license-gate/third_party/, not in LICENSES/."""
 
 from __future__ import annotations
 
@@ -95,6 +95,23 @@ def _ids(expression: str) -> set[str]:
 def known_missing() -> set[str]:
     data = tomllib.loads(KNOWN_MISSING.read_text(encoding="utf-8"))
     return {str(item["component"]) for item in data.get("missing", [])}
+
+
+def test_rebuild_guide_states_the_current_licence_gaps() -> None:
+    """D-17 review: docs/umsetzung/NACHBAU.md kept saying that known_missing.toml had 6 entries and that
+    notices.py --check printed 6 'incomplete'. The guide's count of gaps follows the file: with no entry it
+    says the file is empty and names no count; with entries it names their number."""
+    guide = " ".join((ROOT / "docs" / "umsetzung" / "NACHBAU.md").read_text(encoding="utf-8").split())
+    count = len(known_missing())
+    claims = {int(n) for n in re.findall(r"known_missing\.toml` (?:hat )?(\d+) Einträge", guide)}
+    claims |= {int(n) for n in re.findall(r"\((\d+) Einträge, sperren das Release\)", guide)}
+    claims |= {int(n) for n in re.findall(r"(\d+) „incomplete", guide)}
+    if count:
+        assert claims == {count}, claims
+    else:
+        assert not claims, claims
+        assert "`license-gate/known_missing.toml` ist seit D-17 leer" in guide
+        assert "D-17" in (ROOT / "docs" / "umsetzung" / "ENTSCHEIDUNGEN.md").read_text(encoding="utf-8")
 
 
 def test_every_file_has_licence_information() -> None:
@@ -197,27 +214,34 @@ def test_used_licences_have_texts_and_texts_are_used() -> None:
 LICENCE_TEXTS = ROOT / "license-gate" / "licence_texts.toml"
 SHA256 = re.compile(r"[0-9a-f]{64}")
 SPDX_DATA = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0"
-# Every licence text downloaded into LICENSES/ and the decision that approved exactly that download.
+# Every standard licence text downloaded into LICENSES/ or next to a bundled package, with the decision that
+# approved exactly that download and its URL: SPDX license-list-data at one pinned tag, and the Unicode
+# License V3 as unicode.org publishes it (D-17).
 COPYLEFT_DIR = "license-gate/third_party/bids-validator-3.0.2/npm/isomorphic-git@1.41.9"
+UNICODE_TEXT = "license-gate/third_party/bids-validator-3.0.2/npm/unicode-name@1.1.0/LICENSE.Unicode-3.0.txt"
+W3C_TEXT = "license-gate/third_party/mkdocs-material-9.7.7/npm/focus-visible@5.2.1/LICENSE.W3C-20150513.txt"
 APPROVED_DOWNLOADS = {
-    "LICENSES/CC-BY-4.0.txt": "D-15",
-    f"{COPYLEFT_DIR}/LICENSE.LGPL-3.0-or-later.txt": "D-16",
-    f"{COPYLEFT_DIR}/LICENSE.GPL-3.0-or-later.txt": "D-16",
+    "LICENSES/CC-BY-4.0.txt": ("D-15", f"{SPDX_DATA}/text/CC-BY-4.0.txt"),
+    f"{COPYLEFT_DIR}/LICENSE.LGPL-3.0-or-later.txt": ("D-16", f"{SPDX_DATA}/text/LGPL-3.0-or-later.txt"),
+    f"{COPYLEFT_DIR}/LICENSE.GPL-3.0-or-later.txt": ("D-16", f"{SPDX_DATA}/text/GPL-3.0-or-later.txt"),
+    UNICODE_TEXT: ("D-17", "https://www.unicode.org/license.txt"),
+    W3C_TEXT: ("D-17", f"{SPDX_DATA}/text/W3C-20150513.txt"),
 }
 
 
 def test_downloaded_licence_texts_match_their_record() -> None:
-    """D-15, D-16: a licence text downloaded into LICENSES/ or next to a bundled package (the standard texts
-    of license-gate/third_party) is recorded with its URL, size and SHA-256 and stored byte for byte;
+    """D-15, D-16, D-17: a licence text downloaded into LICENSES/ or next to a bundled package (the standard
+    texts of license-gate/third_party) is recorded with its URL, size and SHA-256 and stored byte for byte;
     Apache-2.0 (a copy of LICENSE) and OFL-1.1 (the font's OFL.txt) are no downloads. Each download is the
-    one its decision approved, all from the same pinned tag of SPDX license-list-data."""
+    one its decision approved, from the pinned tag of SPDX license-list-data or, for the Unicode License V3,
+    from unicode.org."""
     data = tomllib.loads(LICENCE_TEXTS.read_text(encoding="utf-8"))
     assert data["version"] == 1
     recorded = {str(item["path"]): item for item in data["text"]}
     texts = {f"LICENSES/{path.name}" for path in LICENSES.glob("*.txt")}
     texts -= {"LICENSES/Apache-2.0.txt", "LICENSES/OFL-1.1.txt", f"LICENSES/{REPRODUCED}.txt"}
     assert set(recorded) == texts | set(third_party_texts().values())
-    assert {path: item["decision"] for path, item in recorded.items()} == APPROVED_DOWNLOADS
+    assert {path: (item["decision"], item["url"]) for path, item in recorded.items()} == APPROVED_DOWNLOADS
     assert not {Path(path).stem for path in recorded} & known_missing()
     for path, item in recorded.items():
         content = (ROOT / path).read_bytes()
@@ -226,8 +250,10 @@ def test_downloaded_licence_texts_match_their_record() -> None:
         assert len(content) == item["size"], path
         named = STANDARD_TEXT.search(path)
         assert item["spdx"] == (named.group(1) if named else Path(path).stem), path
-        assert str(item["url"]) == f"{SPDX_DATA}/text/{item['spdx']}.txt", path
         assert b"\r" not in content, path
+    unicode = (ROOT / UNICODE_TEXT).read_text(encoding="utf-8")
+    assert unicode.startswith("UNICODE LICENSE V3\n") and "Permission is hereby granted" in unicode
+    assert "W3C Software and Document Short Notice" in (ROOT / W3C_TEXT).read_text(encoding="utf-8")
     font_licence = ROOT / "src" / "neurogrid" / "report" / "fonts" / "OFL.txt"
     assert font_licence.read_bytes() == (LICENSES / "OFL-1.1.txt").read_bytes()
     cc_by = (LICENSES / "CC-BY-4.0.txt").read_text(encoding="utf-8")

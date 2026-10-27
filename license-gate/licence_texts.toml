@@ -1,4 +1,4 @@
-# Licence texts that were downloaded (TECH-10, D-15, D-16), in LICENSES/ or as standard texts next to a
+# Licence texts that were downloaded (TECH-10, D-15, D-16, D-17), in LICENSES/ or as standard texts next to a
 # bundled package in license-gate/third_party/: where each text comes from and its SHA-256 as downloaded (the
 # file is stored byte for byte). tests/docs/test_licensing.py checks every entry against the file.
 # LICENSES/Apache-2.0.txt is a copy of LICENSE and LICENSES/OFL-1.1.txt the font licence of
@@ -40,3 +40,28 @@ size = 34674
 sha256 = "fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0"
 retrieved = "2026-10-26"
 decision = "D-16"
+
+# D-17: the standard texts that bundled packages name without shipping them, kept next to the package like the
+# D-16 texts: the Unicode License V3 for the name data unicode-name 1.1.0 takes from the Unicode Character
+# Database (as unicode.org publishes it; the package's README refers to it), and the W3C Software and Document
+# License that the LICENSE.md of focus-visible 5.2.1 names (SPDX license-list-data, the tag of D-15).
+
+[[text]]
+path = "license-gate/third_party/bids-validator-3.0.2/npm/unicode-name@1.1.0/LICENSE.Unicode-3.0.txt"
+spdx = "Unicode-3.0"
+source = "Unicode, Inc., https://www.unicode.org/license.txt (Unicode License V3)"
+url = "https://www.unicode.org/license.txt"
+size = 1995
+sha256 = "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[text]]
+path = "license-gate/third_party/mkdocs-material-9.7.7/npm/focus-visible@5.2.1/LICENSE.W3C-20150513.txt"
+spdx = "W3C-20150513"
+source = "SPDX license-list-data, tag v3.27.0, text/W3C-20150513.txt"
+url = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/W3C-20150513.txt"
+size = 1807
+sha256 = "38b688e653a972897f6a875c53abbf867b261cbeba7ded0bdf100ae9907a6c19"
+retrieved = "2026-10-27"
+decision = "D-17"

@@ -27,12 +27,18 @@ Usage:
     python tools/notices.py --download [--cache DIR] --out THIRD_PARTY_NOTICES.txt
     python tools/notices.py --wheelhouse DIR --check         # the committed file is current and complete
     python tools/notices.py --wheelhouse DIR --components    # static component check only
+    python tools/notices.py --sources DIR    # the files excerpts were cut from, against copies (D-17)
 
 Files come from --wheelhouse folders (file name as in uv.lock or the bundle data, SHA-256 checked), from the
 bundle cache of tools/bundle.py (NEUROGRID_BUNDLE_CACHE or .local/bundle-cache, files named by their SHA-256)
 or, with --download, from their pinned URLs (PyPI and the python-build-standalone releases, D-06) into a cache
 (default .local/notices-wheels), size and SHA-256 checked. The network is used only with --download; this tool
 is not part of the NeuroGrid package.
+
+A stored text cut from a file that is not kept (kind 'document excerpt', a section of a web page or a text
+file, or a 'source header') records that file as retrieved (source_size, source_sha256). Offline these can
+only be checked against a copy of that file: --sources DIR looks for each one below DIR by size and SHA-256
+and checks that the text comes from it (check_text_sources); without a copy it reports the source as missing.
 
 --check fails while license-gate/known_missing.toml lists a gap: the notices are then incomplete, and the
 release workflow, which runs `--download --check`, stops (STOPP G1). The prose of the file is wrapped here
@@ -48,6 +54,7 @@ import argparse
 import email.parser
 import fnmatch
 import hashlib
+import html
 import json
 import os
 import re
@@ -139,9 +146,16 @@ VALIDATOR = "bids-validator-deno"
 VALIDATOR_MAP = "bids_validator_deno/bids-validator.js.map"
 # Licence texts of the packages compiled into the validator bundle (D-15): <folder>/bids-validator-<version>/
 THIRD_PARTY = ROOT / "license-gate" / "third_party"
+# The kinds of a kept licence text: a licence file of the package, the licence header of a source file, a
+# standard licence text the package names, the permission notice of a licence whose copyright line the
+# package states elsewhere, a section of a web page or of a text file (D-17).
+EXCERPT = "document excerpt"
+TEXT_KINDS = frozenset({"licence file", "source header", "standard text", "permission notice", EXCERPT})
 # Licences a package compiled into the validator bundle may have: permissive ones only. A public-domain
 # dedication counts as permissive, and so does a choice of licences with at least one permissive option, of
-# which the manifest names the one NeuroGrid uses (D-16, licence_policy).
+# which the manifest names the one NeuroGrid uses (D-16, licence_policy). D-17 added the permissive licences
+# whose texts were downloaded then: Unicode-3.0, Unlicense (a public-domain dedication), W3C-20150513 and
+# LicenseRef-Brumme-Disclaimer (the zlib licence without its third clause, hash-wasm's crc and xxhash parts).
 BUNDLED_ALLOWED = frozenset(
     {
         "0BSD",
@@ -151,8 +165,12 @@ BUNDLED_ALLOWED = frozenset(
         "CC-BY-4.0",
         "CC0-1.0",
         "ISC",
+        "LicenseRef-Brumme-Disclaimer",
         "LicenseRef-Public-Domain",
         "MIT",
+        "Unicode-3.0",
+        "Unlicense",
+        "W3C-20150513",
         "Zlib",
     }
 )
@@ -166,6 +184,11 @@ PBS_PACKAGE_LICENSE = re.compile(
     r"(licenses/.+|(LICEN[CS]E|COPYING|NOTICE|AUTHORS)[^/]*)$",
     re.I,
 )
+# The libraries python-build-standalone builds into the bundled Python have their licence texts in
+# license-gate/third_party/<component>-<version>/manifest.toml (D-17); their licences are the permissive ones
+# of the validator bundle plus those of the Tcl, X11 and bzip2 families (D-08: native libraries with notice).
+LIBRARY_ALLOWED = BUNDLED_ALLOWED | frozenset({"LicenseRef-itcl", "TCL", "X11", "bzip2-1.0.6"})
+LIBRARY_PLATFORMS = ("any", *TARGETS)
 UV = "uv"
 PENDING = "Text pending owner approval (G1)"
 WIDTH = 110  # line width of the generated prose (tables and licence texts keep their own lines)
@@ -182,15 +205,27 @@ VALIDATOR_INTRO = (
     "Taken from bids-validator.js.map; 'in <package>' marks a package that the prebuilt dist of that package "
     "carries, for which the map names no version. The wheel carries only the validator's own MIT licence. "
     "The licence files of these packages were taken at exactly these versions from registry.npmjs.org and "
-    "jsr.io (D-15) and are kept with URL and SHA-256 in license-gate/third_party/bids-validator-{version}/"
-    "manifest.toml; their texts are in section 6. Texts still missing, and licences outside the permissive "
-    "ones that wait for the owner's decision ('decision: section 5'), are listed in section 5."
+    "jsr.io (D-15); for a package whose version the map does not name, at the version its lockfile names, "
+    "from its repository (D-17, see the review notes). They are kept with URL and SHA-256 in "
+    "license-gate/third_party/bids-validator-{version}/manifest.toml; their texts are in section 6. Texts "
+    "still missing, and licences outside the permissive ones that wait for the owner's decision ('decision: "
+    "section 5'), are listed in section 5."
 )
 POLICY_INTRO = (
     "Permissive means: {allowed}. A public-domain dedication (LicenseRef-Public-Domain) counts as "
     "permissive, and so does a choice of licences with at least one permissive option; NeuroGrid uses the "
-    "option named under 'Licence choices' (D-16)."
+    "option named under 'Licence choices' (D-16). LicenseRef-Brumme-Disclaimer is the zlib licence without "
+    "its third clause, as Stephan Brumme's page states it (D-17)."
 )
+LIBRARIES_HEADING = "Libraries that {name} {version} builds into the bundled Python:"
+LIBRARIES_INTRO = (
+    "The pinned archives carry only CPython's LICENSE.txt and pip's licence files. The licence texts of the "
+    "other libraries were downloaded once (D-17) and are kept with URL and SHA-256 in "
+    "license-gate/third_party/{name}-{version}/manifest.toml; their texts are in section 6. Versions as "
+    "python-build-standalone's downloads.json at its release tag and the version strings of the binaries "
+    "name them; platform: where the library is built in."
+)
+NO_GAPS = "None: every licence text is in this file."
 CHOICES_HEADING = "Licence choices (D-16): the permissive option NeuroGrid uses of each choice of licences."
 TEXTS_INTRO = "Each text once (SHA-256 of the LF-normalized text), with the files that carry it."
 EXCEPTIONS_HEADING = "Version-bound exceptions to the permissive-only policy (D-05):"
@@ -712,10 +747,14 @@ class BundledText:
     path: Path
     label: str  # the file as the manifest names it
     origin: str  # where the text comes from inside the package
-    kind: str  # licence file | source header | standard text
+    kind: str  # one of TEXT_KINDS
     url: str
     size: int
     sha256: str
+    # a text cut from a file that is not kept: that file as retrieved (D-17), 0 and "" otherwise
+    source_size: int = 0
+    source_sha256: str = ""
+    retrieved: str = ""
 
 
 @dataclass(frozen=True)
@@ -743,6 +782,8 @@ class BundledPackage:
     choices: tuple[LicenceChoice, ...] = ()
     # licences of parts whose texts are still missing (the gap 'pending'); reviewed once the texts are there
     pending_licences: tuple[str, ...] = ()
+    # a library built into a bundle part: the target it is built in for (LIBRARY_PLATFORMS)
+    platform: str = "any"
 
     @property
     def key(self) -> tuple[str, str, str]:
@@ -786,6 +827,9 @@ def _bundled_packages(data: Mapping[str, Any], base: Path) -> list[BundledPackag
                     url=str(text.get("url", "")),
                     size=int(text["size"]),
                     sha256=str(text["sha256"]),
+                    source_size=int(text.get("source_size", 0)),
+                    source_sha256=str(text.get("source_sha256", "")),
+                    retrieved=str(text.get("retrieved", "")),
                 )
             )
         packages.append(
@@ -805,9 +849,108 @@ def _bundled_packages(data: Mapping[str, Any], base: Path) -> list[BundledPackag
                     for c in item.get("choice", [])
                 ),
                 pending_licences=tuple(str(unit) for unit in item.get("pending_licences", [])),
+                platform=str(item.get("platform", "any")),
             )
         )
     return packages
+
+
+def check_texts(label: str, texts: Iterable[BundledText]) -> list[str]:
+    """Every stored text has a known kind, exists and has its recorded SHA-256 and size; an excerpt records
+    the file it was cut from (url, retrieved, source_size larger than the excerpt, source_sha256)."""
+    problems = []
+    for text in texts:
+        if text.kind not in TEXT_KINDS:
+            problems.append(f"{label}: unknown kind '{text.kind}' of {text.label}")
+        if text.kind == EXCERPT or text.source_size or text.source_sha256:
+            if not (
+                text.url
+                and text.retrieved
+                and text.source_size > text.size
+                and re.fullmatch("[0-9a-f]{64}", text.source_sha256)
+            ):
+                problems.append(
+                    f"{label}: {text.label} needs url, retrieved, source_size (larger than the text) and "
+                    "source_sha256 of the file it was cut from"
+                )
+        if not text.path.is_file():
+            problems.append(f"{label}: licence text missing: {text.label}")
+            continue
+        data = text.path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != text.sha256 or len(data) != text.size:
+            problems.append(f"{label}: SHA-256 or size of {text.label} differs from manifest.toml")
+    return problems
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"\w+", text)
+
+
+def comes_from(excerpt: str, source: bytes, url: str) -> bool:
+    """Whether a stored excerpt or header was cut from its source: verbatim (LF) from a text file; from an
+    HTML page as plain text, so the words of the excerpt, without the link targets it adds in parentheses and
+    the numbers of list items, occur in this order in the text of the page."""
+    text = source.decode("utf-8").replace("\r\n", "\n")
+    if not urllib.parse.urlsplit(url).path.lower().endswith((".html", ".htm")):
+        return excerpt in text
+    page = _words(html.unescape(re.sub(r"<[^>]*>", " ", text)))
+    wanted = _words(re.sub(r"(?m)^\d+\. ", "", re.sub(r"\(https?://[^)\s]*\)", "", excerpt)))
+    count = len(wanted)
+    return count > 0 and any(page[i : i + count] == wanted for i in range(len(page) - count + 1))
+
+
+def check_text_sources(sources: Sequence[Path], folder: Path = THIRD_PARTY) -> tuple[list[str], int]:
+    """The files that the kept excerpts and headers were cut from (source_size, source_sha256) against copies
+    of them below the folders ``sources``, found by size and SHA-256: each source has a copy and the text
+    comes from it (comes_from). Returns the problems and the number of texts checked."""
+    by_size: dict[int, list[Path]] = {}
+    for root in sources:
+        for path in sorted(p for p in root.rglob("*") if p.is_file()):
+            by_size.setdefault(path.stat().st_size, []).append(path)
+    problems: list[str] = []
+    checked = 0
+    for manifest in sorted(folder.glob("*/manifest.toml")):
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        for package in _bundled_packages(data, manifest.parent):
+            for text in package.texts:
+                if not text.source_sha256:
+                    continue
+                checked += 1
+                where = f"{manifest.parent.name}: {text.label}"
+                copy = next(
+                    (p for p in by_size.get(text.source_size, []) if _sha256(p) == text.source_sha256), None
+                )
+                if copy is None:
+                    problems.append(
+                        f"{where}: no copy of its source ({text.source_size} bytes, SHA-256 "
+                        f"{text.source_sha256}) in --sources"
+                    )
+                elif not text.path.is_file() or not comes_from(
+                    text.path.read_text(encoding="utf-8"), copy.read_bytes(), text.url
+                ):
+                    problems.append(f"{where}: does not come from its source {copy}")
+    return problems, checked
+
+
+def check_kept_texts(folder: Path = THIRD_PARTY) -> list[str]:
+    """Every folder of license-gate/third_party holds exactly the texts its manifest.toml lists, each with its
+    recorded SHA-256 and size (the validator bundle, the documentation site, the libraries of a bundle part
+    and the native libraries of a wheel whose texts are kept here, D-15, D-17)."""
+    problems: list[str] = []
+    for manifest in sorted(folder.glob("*/manifest.toml")):
+        base = manifest.parent
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        listed: set[Path] = set()
+        for package in _bundled_packages(data, base):
+            label = f"{base.name}: {package.registry} {package.name} {package.version or package.found}"
+            problems += check_texts(label, package.texts)
+            listed |= {text.path.resolve() for text in package.texts}
+        for path in sorted(p for p in base.rglob("*") if p.is_file() and p != manifest):
+            if path.resolve() not in listed:
+                problems.append(
+                    f"{base.name}: file not listed in manifest.toml: {path.relative_to(base).as_posix()}"
+                )
+    return problems
 
 
 # --- the documentation site (docs/ of the offline bundle and of the release, TECH-06) --------------------
@@ -994,6 +1137,91 @@ def _site_lines(review: SiteReview) -> list[str]:
             "(the lunr language files of lunr-languages, tinyseg and wordcut, which the English-only search "
             "never loads, and the source maps)"
         ]
+    return out
+
+
+# --- the libraries built into a part of the offline bundle (python-build-standalone, D-17) -----------------
+
+
+@dataclass(frozen=True)
+class LibraryReview:
+    """The licence texts of the libraries a bundle part builds in, for one pinned version (manifest.toml)."""
+
+    name: str
+    version: str
+    folder: Path
+    packages: tuple[BundledPackage, ...]
+
+
+def library_review_folder(name: str, version: str, folder: Path = THIRD_PARTY) -> Path:
+    return folder / f"{name}-{version}"
+
+
+def load_library_review(name: str, version: str, folder: Path = THIRD_PARTY) -> LibraryReview | None:
+    """The review of the libraries inside bundle part ``name`` ``version``, or None without a manifest."""
+    base = library_review_folder(name, version, folder)
+    manifest = base / "manifest.toml"
+    if not manifest.is_file():
+        return None
+    data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+    if (
+        data.get("version") != 1
+        or data.get("component") != name
+        or str(data.get("component_version")) != version
+    ):
+        raise NoticeError(f"{manifest}: unsupported version or another component version")
+    return LibraryReview(name, version, base, tuple(_bundled_packages(data, base)))
+
+
+def library_reviews(bundle: Sequence[BundleInfo], folder: Path = THIRD_PARTY) -> list[LibraryReview]:
+    """The library reviews of the pinned python-build-standalone versions that have one."""
+    versions = sorted({part.version for part in bundle if part.name == PBS})
+    found = [load_library_review(PBS, version, folder) for version in versions]
+    return [review for review in found if review is not None]
+
+
+def check_library_review(
+    name: str, version: str, review: LibraryReview | None, known_missing: Sequence[Mapping[str, str]]
+) -> list[str]:
+    """The libraries a pinned bundle part builds in have their texts (recorded SHA-256 and size) and a
+    permissive licence (LIBRARY_ALLOWED, a choice names its permissive option); without a review the bundle
+    part needs its known_missing.toml entry."""
+    where = f"bundle part {name} {version}"
+    if review is None:
+        if f"{name}:{version}" in {item["component"] for item in known_missing}:
+            return []
+        folder = f"license-gate/third_party/{name}-{version}/manifest.toml"
+        return [f"{where}: no licence texts of the libraries it builds in ({folder})"]
+    problems: list[str] = []
+    for package in review.packages:
+        label = f"{where}: {package.name} {package.version}"
+        if not package.texts:
+            problems.append(f"{label}: no licence text")
+        if package.platform not in LIBRARY_PLATFORMS:
+            problems.append(f"{label}: unknown platform {package.platform}")
+        outside, policy = licence_policy(package, LIBRARY_ALLOWED)
+        problems += [f"{label}: {problem}" for problem in policy]
+        if outside or not package.spdx:
+            problems.append(f"{label}: licence {package.spdx or '(none)'} is not permissive")
+        problems += check_texts(label, package.texts)
+    return problems
+
+
+def _library_lines(review: LibraryReview) -> list[str]:
+    """The libraries of a bundle part in section 4: platform, licence, texts and the review notes."""
+    out = [
+        "",
+        LIBRARIES_HEADING.format(name=review.name, version=review.version),
+        "",
+        *paragraph(LIBRARIES_INTRO.format(name=review.name, version=review.version)),
+        "",
+    ]
+    rows = [(p.platform, p.name, p.version, p.spdx, _text_kinds(p)) for p in review.packages]
+    out += _table(rows, ("Platform", "Library", "Version", "Licence", "Licence texts"))
+    noted = [p for p in review.packages if p.note]
+    if noted:
+        out += ["", "Review notes (manifest.toml):"]
+        out += [f"- {p.name} {p.version}: {p.note}" for p in noted]
     return out
 
 
@@ -1269,7 +1497,9 @@ def check_components(
     licence pending at G1); no entry of a delivered package matches nothing (stale review); every pinned part
     of the offline bundle has a reviewed entry for exactly its version; the packages compiled into the
     validator bundle have their reviewed licence texts (check_validator_texts, with the version-bound
-    exceptions of components.toml unless others are given)."""
+    exceptions of components.toml unless others are given), so have the libraries python-build-standalone
+    builds in (check_library_review, D-17); every folder of ``third_party`` holds exactly the texts its
+    manifest lists (check_kept_texts)."""
     problems: list[str] = []
     pending = {item["component"] for item in known_missing}
     if exceptions is None:
@@ -1318,6 +1548,10 @@ def check_components(
                 f"{part.target}: bundle part {part.name} {part.version} has no reviewed entry in "
                 "components.toml"
             )
+    for version in sorted({part.version for part in bundle if part.name == PBS}):
+        review = load_library_review(PBS, version, third_party)
+        problems += check_library_review(PBS, version, review, known_missing)
+    problems += check_kept_texts(third_party)
     return problems
 
 
@@ -1575,9 +1809,11 @@ def render(
         out += [
             f"- removed from the bundle ({target}): {path} - {reason}" for target, path, reason in removals
         ]
-    if known:
-        out += ["", "5. Known gaps (the release workflow fails while this list is not empty)", ""]
-        out += [f"- {item['component']}: {item['what']} {gap_status(item)}." for item in known]
+    libraries = library_reviews(bundle, third_party)
+    for review in libraries:
+        out += _library_lines(review)
+    out += ["", "5. Known gaps (the release workflow fails while this list is not empty)", ""]
+    out += [f"- {item['component']}: {item['what']} {gap_status(item)}." for item in known] or [NO_GAPS]
     out += [
         "",
         "6. Licence texts",
@@ -1619,6 +1855,15 @@ def render(
     for part in bundle:
         for path, text in part.license_texts.items():
             add(text, f"{part.name} {part.version} ({part.target}): {path}")
+    for review in libraries:
+        for package in review.packages:
+            for item in package.texts:
+                if item.path.is_file():
+                    user = f"{package.name} {package.version} ({package.platform})"
+                    add(
+                        _text(item.path.read_bytes()),
+                        f"{review.name} {review.version}: {user}: {item.origin}",
+                    )
     if site is not None:
         for package in site.packages:
             for item in package.texts:
@@ -1670,11 +1915,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--components", action="store_true")
+    parser.add_argument("--sources", action="append", type=Path, default=[])
     args = parser.parse_args(argv)
     try:
         if args.list:
             sys.stdout.write(listing())
             return 0
+        if args.sources:
+            found, checked = check_text_sources(args.sources)
+            for problem in found:
+                print(f"source: {problem}", file=sys.stderr)
+            print(f"sources: {checked} texts cut from a file that is not kept, {len(found)} problem(s)")
+            return 1 if found or not checked else 0
         if not (args.out or args.check or args.components):
             parser.error("one of --list, --out, --check or --components is needed")
         wheels, missing = collect(args.wheelhouse, fetch=args.download, cache=args.cache)

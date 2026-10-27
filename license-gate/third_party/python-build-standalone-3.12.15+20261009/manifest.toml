@@ -1,0 +1,429 @@
+# Licence texts of the libraries that python-build-standalone 3.12.15+20261009 builds into the Python of the
+# offline bundle (TECH-10, NG-N07, D-08, D-17). The install_only_stripped archives that
+# packaging/bundle_lock.json pins carry only CPython's LICENSE.txt and pip's licence files. D-17 (2026-10-27):
+# the texts of the other libraries are the licence files python-build-standalone keeps at the root of its
+# repository at the release tag 20261009 (LICENSE.*.txt, which it copies into python/licenses/ of its full
+# archives) and, for what that set lacks, the project files: itcl 4.3.8 and Tcl thread 3.0.6 (license.terms of
+# the tcltk mirrors), the expat and libmpdec sections of CPython's Doc/license.rst at v3.12.15 (Windows builds
+# them from CPython's own sources) and the licence header of HACL* in CPython's Modules/_hacl. Not the
+# version-exact upstream files the URL list names as alternatives. Licence files are kept byte for byte; the
+# extracts of Doc/license.rst (its sections) and of Hacl_Hash_SHA2.c (its leading comment) are verbatim, UTF-8
+# with LF (kind 'document excerpt' and 'source header'), and their source_size and source_sha256 are those of
+# the file they come from (tools/notices.py --sources checks them against a copy). tools/notices.py checks
+# every SHA-256, that the pinned version has this review and that each licence is permissive
+# (LIBRARY_ALLOWED), lists the libraries in section 4 of THIRD_PARTY_NOTICES.txt and copies the texts into
+# section 6. Versions: pythonbuild/downloads.json at the tag 20261009 (commit ccc07c40), checked against the
+# version strings of the binaries in the pinned archives (read without running anything); platform: where the
+# library is built in. Not needed: Berkeley DB (the bundle leaves out _dbm), zstd and zlib-ng (from CPython
+# 3.14 on), openssl-1.1.
+version = 1
+component = "python-build-standalone"
+component_version = "3.12.15+20261009"
+decision = "D-17"
+retrieved = "2026-10-27"
+downloads = "Each file once from raw.githubusercontent.com: 16 licence files of astral-sh/python-build-standalone at the tag 20261009, license.terms of tcltk/itcl at itcl-4-3-8 and of tcltk/thread at thread-3-0-6, Doc/license.rst and Modules/_hacl/Hacl_Hash_SHA2.c of python/cpython at v3.12.15. Not downloaded: the full archives of the release (98368568 bytes for Linux, 43744049 for Windows), which carry the same LICENSE.*.txt files."
+
+[[package]]
+registry = "library"
+name = "OpenSSL"
+version = "3.5.9"
+platform = "any"
+spdx = "Apache-2.0"
+note = "libcrypto and libssl: in libpython3.12.so.1.0 on Linux, libcrypto-3-x64.dll and libssl-3-x64.dll on Windows (version string 3.5.9)."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.openssl-3.txt"
+origin = "LICENSE.openssl-3.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.openssl-3.txt"
+size = 10175
+sha256 = "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "libffi"
+version = "3.8.0"
+platform = "any"
+spdx = "MIT"
+note = "For ctypes: in libpython3.12.so.1.0 on Linux, libffi-8.dll on Windows."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.libffi.txt"
+origin = "LICENSE.libffi.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.libffi.txt"
+size = 1132
+sha256 = "deaf3a42effb551a5b140fa9afefed183a27f1341c6d1bf430d106a5e6931fc0"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "SQLite"
+version = "3.53.1"
+platform = "any"
+spdx = "LicenseRef-Public-Domain"
+note = "For sqlite3 (3530100; the same source ID 2026-05-05 in libpython3.12.so.1.0 and sqlite3.dll). Dedicated to the public domain; python-build-standalone lists no SPDX licence for it. D-16: public domain counts as permissive."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.sqlite.txt"
+origin = "LICENSE.sqlite.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.sqlite.txt"
+size = 1481
+sha256 = "38bef3d28b24f145ea293bd3b6eb4b20396982abc8303128fb493986ea5bc719"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "XZ Utils (liblzma)"
+version = "5.8.4"
+platform = "any"
+spdx = "0BSD"
+note = "For lzma: in libpython3.12.so.1.0 on Linux, _lzma.pyd on Windows."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.liblzma.txt"
+origin = "LICENSE.liblzma.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.liblzma.txt"
+size = 660
+sha256 = "9a4062de0a2c388a98cf35a35d348b62fa97c838a71c3c28ee1a2d7d0a565b02"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "zlib"
+version = "1.3.2"
+platform = "any"
+spdx = "Zlib"
+note = "In libpython3.12.so.1.0 on Linux; on Windows zlib1.dll 1.3.1 comes with the Tcl/Tk binaries (same licence). python-build-standalone's file carries the copyright years 1995-2017."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.zlib.txt"
+origin = "LICENSE.zlib.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.zlib.txt"
+size = 995
+sha256 = "818922b2620f12801a12bf78e399644a30990e66824abd8ca8ec24d451d6f92c"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "bzip2"
+version = "1.0.8"
+platform = "linux_x86_64"
+spdx = "bzip2-1.0.6"
+note = "For bz2 on Linux; the Windows archive carries the bzip2 terms in its LICENSE.txt already (_bz2.pyd). The file states 'bzip2/libbzip2 version 1.0.6'; 1.0.8 has the same terms (SPDX bzip2-1.0.6)."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.bzip2.txt"
+origin = "LICENSE.bzip2.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.bzip2.txt"
+size = 1743
+sha256 = "1f38bbc7caacafd65169276d759c0d88c991b753b643ce35d0e45ea1971dd441"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "ncurses"
+version = "6.5"
+platform = "linux_x86_64"
+spdx = "X11"
+note = "For the curses modules on Linux."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.ncurses.txt"
+origin = "LICENSE.ncurses.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.ncurses.txt"
+size = 1447
+sha256 = "87a4c4442337b8968ef956031c406b74f9cb7149b7ba87311bdaba534816201c"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "libedit"
+version = "20240808-3.1"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause"
+note = "The readline module on Linux."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.libedit.txt"
+origin = "LICENSE.libedit.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.libedit.txt"
+size = 1614
+sha256 = "29cea33c32bbc9785142386377915612a2fa786482c46843383384aded2e09b1"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "libuuid"
+version = "1.0.3"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause"
+note = "For uuid on Linux."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.libuuid.txt"
+origin = "LICENSE.libuuid.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.libuuid.txt"
+size = 1432
+sha256 = "122ee1f7e258f2c3c0e538a75c037684f420454bf3850ddc74ce750bbf5fe86b"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "expat"
+version = "2.9.0"
+platform = "linux_x86_64"
+spdx = "MIT"
+note = "pyexpat on Linux (version string expat_2.9.0)."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.expat.txt"
+origin = "LICENSE.expat.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.expat.txt"
+size = 1144
+sha256 = "122f2c27000472a201d337b9b31f7eb2b52d091b02857061a8880371612d9534"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "mpdecimal"
+version = "4.0.0"
+platform = "linux_x86_64"
+spdx = "BSD-2-Clause"
+note = "_decimal on Linux (libmpdec 4.0.0)."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.mpdecimal.txt"
+origin = "LICENSE.mpdecimal.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.mpdecimal.txt"
+size = 1284
+sha256 = "669512af7219f58be03a398766d7c9da11a3b3df9d3f05cb74c5ceca25c8da3b"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "Tcl/Tk"
+version = "9.0.4"
+platform = "linux_x86_64"
+spdx = "TCL"
+note = "libtcl9.0.so and libtcl9tk9.0.so on Linux. The Windows archive carries Tcl/Tk 8.6.15 with its terms in its LICENSE.txt already."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.tcl.txt"
+origin = "LICENSE.tcl.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.tcl.txt"
+size = 2255
+sha256 = "c0a69a2bfd757361ec7e6143973b103c90409316b49e9c88db26ad6388e79f16"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "libX11"
+version = "1.8.13"
+platform = "linux_x86_64"
+spdx = "MIT AND X11"
+note = "In libtcl9tk9.0.so on Linux. The file gathers many X11 and MIT-style notices of the library's parts (read before filing); one, for the TekHVC colour space of Tektronix (U.S. Patent No. 4,985,853, long expired), grants use, copying and distribution with the conditions to keep the notice and to name TekHVC colour coordinates as such in an application that displays them, which NeuroGrid does not."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.libX11.txt"
+origin = "LICENSE.libX11.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.libX11.txt"
+size = 47018
+sha256 = "2daec087a88e7c9b8082557cdeebad5bbb8155a4137472f0b22e269cd99d0c1e"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "libXau"
+version = "1.0.12"
+platform = "linux_x86_64"
+spdx = "MIT"
+note = "In libtcl9tk9.0.so on Linux; the Open Group form of the MIT licence."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.libXau.txt"
+origin = "LICENSE.libXau.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.libXau.txt"
+size = 1148
+sha256 = "56abe29bb1d9806a9e04fa9f80fed2c0f18027594df3f098148d814aef6bddfa"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "libxcb"
+version = "1.17.0"
+platform = "linux_x86_64"
+spdx = "X11"
+note = "In libtcl9tk9.0.so on Linux; the MIT licence with the X11 clause on the authors' names."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.libxcb.txt"
+origin = "LICENSE.libxcb.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.libxcb.txt"
+size = 1337
+sha256 = "c5ffbfeaa501071ceeb97b7de2c0d703fdaa35de01c0fb6cbac1c28453a3e9fd"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "Tix"
+version = "8.4.3.6"
+platform = "win_amd64"
+spdx = "TCL"
+note = "tix84.dll on Windows; its terms are in the LICENSE.txt of the Windows archive already, the file is kept for completeness. Its files docs/license.tcltk and docs/license.html_lib, which it names for parts based on Tcl/Tk and on Sun's HTML library, are not part of python-build-standalone's set."
+pending = ""
+
+[[package.text]]
+file = "python-build-standalone@20261009/LICENSE.tix.txt"
+origin = "LICENSE.tix.txt of python-build-standalone at the tag 20261009"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/astral-sh/python-build-standalone/20261009/LICENSE.tix.txt"
+size = 2826
+sha256 = "3ac5cdd0bef6c43ce34c6a7ced452081d9e5a0bf94082b9f9147d23ec9e214f5"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "itcl"
+version = "4.3.8"
+platform = "linux_x86_64"
+spdx = "LicenseRef-itcl"
+note = "libtcl9itcl4.3.8.so on Linux, a package of Tcl 9.0.4 for which python-build-standalone keeps no file. The text is license.terms at the tag itcl-4-3-8 of tcltk/itcl (the mirror of core.tcl-lang.org/itcl): the rewritten [incr Tcl] is copyrighted 'with BSD license or Public Domain at your choice' (Arnulf P. Wiedemann), and the parts of the original version keep the terms that follow in the file, the wording of the Tcl licence (Lucent Technologies, Inc.). LicenseRef-itcl names this whole file."
+pending = ""
+
+[[package.text]]
+file = "itcl@4.3.8/LICENSE"
+origin = "license.terms of itcl at the tag itcl-4-3-8"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/tcltk/itcl/itcl-4-3-8/license.terms"
+size = 2503
+sha256 = "b61edfaeead97546bc62b1f205b046f2e440b83bfc517bc0932b93bc3d505865"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "Tcl thread"
+version = "3.0.6"
+platform = "linux_x86_64"
+spdx = "TCL"
+note = "libtcl9thread3.0.6.so on Linux, a package of Tcl 9.0.4 for which python-build-standalone keeps no file; license.terms at the tag thread-3-0-6 of tcltk/thread."
+pending = ""
+
+[[package.text]]
+file = "thread@3.0.6/LICENSE"
+origin = "license.terms of Tcl thread at the tag thread-3-0-6"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/tcltk/thread/thread-3-0-6/license.terms"
+size = 2231
+sha256 = "0a03981c40f7813ce6ddbdfce9882020bcfd696ea044b21ef07619ed9b86abae"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package]]
+registry = "library"
+name = "expat (CPython's copy)"
+version = "2.8.5"
+platform = "win_amd64"
+spdx = "MIT"
+note = "pyexpat.pyd on Windows (version string expat_2.8.5), built from the copy in CPython's source tree; its text is not in LICENSE.txt but in the expat section of CPython's Doc/license.rst at v3.12.15."
+pending = ""
+
+[[package.text]]
+file = "cpython@3.12.15/LICENSE.Doc-license.rst-expat.txt"
+origin = "Doc/license.rst of CPython v3.12.15, section expat"
+kind = "document excerpt"
+url = "https://raw.githubusercontent.com/python/cpython/v3.12.15/Doc/license.rst"
+size = 1349
+sha256 = "cd5c3fdc602671f1b2f06d35550c64797571660243d9404a25acbeceaa0a9acc"
+retrieved = "2026-10-27"
+decision = "D-17"
+source_size = 54130
+source_sha256 = "341832873fd316a37927e79385093fbbfd40a467428480835fe435a80cadf4e5"
+
+[[package]]
+registry = "library"
+name = "libmpdec (CPython's copy)"
+version = "2.5.1"
+platform = "win_amd64"
+spdx = "BSD-2-Clause"
+note = "_decimal.pyd on Windows (libmpdec 2.5.1), built from the copy in CPython's source tree; its text is in the libmpdec section of CPython's Doc/license.rst at v3.12.15."
+pending = ""
+
+[[package.text]]
+file = "cpython@3.12.15/LICENSE.Doc-license.rst-libmpdec.txt"
+origin = "Doc/license.rst of CPython v3.12.15, section libmpdec"
+kind = "document excerpt"
+url = "https://raw.githubusercontent.com/python/cpython/v3.12.15/Doc/license.rst"
+size = 1550
+sha256 = "e59cc21ee1f03744ecd930d930886aa36a0d51f6a3735d297416fb99cf6af16a"
+retrieved = "2026-10-27"
+decision = "D-17"
+source_size = 54130
+source_sha256 = "341832873fd316a37927e79385093fbbfd40a467428480835fe435a80cadf4e5"
+
+[[package]]
+registry = "library"
+name = "HACL*"
+version = "CPython 3.12.15"
+platform = "any"
+spdx = "MIT"
+note = "The verified hash code of CPython's Modules/_hacl, which its built-in hash modules use, on both systems. Doc/license.rst of 3.12 has no section for them; the MIT text is the licence header of Modules/_hacl/Hacl_Hash_SHA2.c at v3.12.15 (Copyright (c) 2016-2022 INRIA, CMU and Microsoft Corporation, Copyright (c) 2022-2023 HACL* Contributors)."
+pending = ""
+
+[[package.text]]
+file = "cpython@3.12.15/LICENSE.Modules-_hacl-Hacl_Hash_SHA2.c.txt"
+origin = "Modules/_hacl/Hacl_Hash_SHA2.c of CPython v3.12.15, licence header"
+kind = "source header"
+url = "https://raw.githubusercontent.com/python/cpython/v3.12.15/Modules/_hacl/Hacl_Hash_SHA2.c"
+size = 1207
+sha256 = "998ce04fb8ad9dedb0bc1b44938f8c3dcf1089780fa105ce1c8c30fb5554d78c"
+retrieved = "2026-10-27"
+decision = "D-17"
+source_size = 36131
+source_sha256 = "30638efb75c8b185bb09c3df6977e3f3c5d21a1e696218cf7ade6bc4d5201b31"

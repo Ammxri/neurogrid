@@ -141,19 +141,19 @@ note = "HDF5 libraries hdf5 and hdf5_hl."
 dist = "h5py"
 pattern = "h5py.libs/libaec-*.so*"
 platform = "linux_x86_64"
-spdx = "NOASSERTION"
+spdx = "BSD-2-Clause"
 kind = "native"
-notice = ""
-note = "libaec 1.1.4 (build path libaec-v1.1.4 in the binary); the wheel states neither the licence nor its text (known_missing.toml)."
+notice = "license-gate/third_party/h5py-3.16.0/libaec@1.1.4/LICENSE"
+note = "libaec 1.1.4 (build path libaec-v1.1.4 in the binary); the wheel states neither the licence nor its text. D-17: the LICENSE.txt of libaec at the tag v1.1.4 (GitHub mirror of gitlab.dkrz.de/k202009/libaec), kept with URL and SHA-256 in license-gate/third_party/h5py-3.16.0/manifest.toml."
 
 [[component]]
 dist = "h5py"
 pattern = "h5py.libs/libsz-*.so*"
 platform = "linux_x86_64"
-spdx = "NOASSERTION"
+spdx = "BSD-2-Clause"
 kind = "native"
-notice = ""
-note = "libsz of libaec 1.1.4 (build path libaec-v1.1.4 in the binary); the wheel states neither the licence nor its text (known_missing.toml)."
+notice = "license-gate/third_party/h5py-3.16.0/libaec@1.1.4/LICENSE"
+note = "libsz of libaec 1.1.4 (build path libaec-v1.1.4 in the binary), the SZIP-compatible library of the same source tree under the same LICENSE.txt; the wheel states neither the licence nor its text. D-17: the text is the one of libaec (license-gate/third_party/h5py-3.16.0/manifest.toml)."
 
 # --- numpy, scipy, scikit-learn (OpenBLAS, GCC runtime, Microsoft runtime) ----------------------------------
 
@@ -519,8 +519,8 @@ pattern = "3.12.15+20261009"
 platform = "any"
 spdx = "Python-2.0"
 kind = "bundle"
-notice = "python/LICENSE.txt (Windows) and python/lib/python3.12/LICENSE.txt (Linux) in the archive"
-note = "CPython 3.12.15, install_only_stripped. LICENSE.txt holds the PSF licence stack (PSF, BeOpen, CNRI, CWI) and the zero-clause BSD licence for code in the documentation; on Windows also the conditions for the Microsoft Distributable Code, bzip2 1.0.8 and Tcl/Tk. pip inside the archive brings its own licence files. The texts of the further libraries built into the interpreter (for example OpenSSL, libffi, SQLite, XZ, zlib) are not in the archive (known_missing.toml). On Linux the bundle leaves out _dbm (Berkeley DB, Sleepycat; packaging/bundle_lock.json)."
+notice = "python/LICENSE.txt (Windows) and python/lib/python3.12/LICENSE.txt (Linux) in the archive; the libraries built in: license-gate/third_party/python-build-standalone-3.12.15+20261009/manifest.toml"
+note = "CPython 3.12.15, install_only_stripped. LICENSE.txt holds the PSF licence stack (PSF, BeOpen, CNRI, CWI) and the zero-clause BSD licence for code in the documentation; on Windows also the conditions for the Microsoft Distributable Code, bzip2 1.0.8 and Tcl/Tk. pip inside the archive brings its own licence files. The texts of the further libraries built into the interpreter (for example OpenSSL, libffi, SQLite, XZ, zlib) are not in the archive; D-17: they are kept in license-gate/third_party/python-build-standalone-3.12.15+20261009 (python-build-standalone's own licence files at the tag 20261009 and the project files for what that set lacks), listed below the bundle parts. On Linux the bundle leaves out _dbm (Berkeley DB, Sleepycat; packaging/bundle_lock.json)."
 
 [[component]]
 dist = "uv"

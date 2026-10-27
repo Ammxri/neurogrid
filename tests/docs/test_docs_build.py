@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import re
@@ -326,17 +327,28 @@ def test_site_ships_only_reviewed_permissive_parts(built_site: Any, tmp_path: Pa
 
 
 def test_the_build_log_names_each_site_licence_still_pending(built_site: Any) -> None:
-    """R19: a part of the site whose licence waits for the owner (focus-visible, material-design-color) does
-    not fail the docs build, but every build names it, and its known_missing.toml entry stops the release."""
+    """R19: a part of the site whose licence waits for the owner does not fail the docs build, but every build
+    names it, and its known_missing.toml entry stops the release. Since D-17 no part waits any more
+    (focus-visible and material-design-color have their texts), so the build names none."""
     review = build_docs.theme_review()
     lines = build_docs.pending_licences(review)
     pending = {p.name: p.pending for p in review.packages if p.pending}
-    assert {"focus-visible", "material-design-color"} <= set(pending)
     gaps = {item["component"] for item in notices.load_known_missing()}
     assert set(pending.values()) <= gaps
     assert lines == sorted(lines) and len(lines) == len(pending)
     for line in lines:
         assert line in built_site.output, line
+    assert not pending and "licence pending" not in built_site.output
+    waiting = dataclasses.replace(
+        review,
+        packages=tuple(
+            dataclasses.replace(p, pending="docs-site:x") if p.name == "focus-visible" else p
+            for p in review.packages
+        ),
+    )
+    assert build_docs.pending_licences(waiting) == [
+        "licence pending (blocks the release, STOPP G1): focus-visible (docs-site:x)"
+    ]
 
 
 def test_prune_removes_the_reviewed_files_only(tmp_path: Path) -> None:

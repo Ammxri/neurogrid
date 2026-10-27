@@ -153,6 +153,36 @@ Aufruf nach A-06). Entscheidung nach Empfehlung:
 - **Lizenzpolitik für gebündelte Teile:** Public Domain gilt als freizügig; bei einer Wahl-Lizenz mit mindestens einer
   freizügigen Option (z. B. „CC0-1.0 oder OpenSSL oder Apache-2.0“) gilt die freizügige Wahl, und NeuroGrid nennt sie.
 
+## Entscheidung zu den fehlenden Lizenztexten (27.10.2026)
+
+**D-17 Lizenztexte der acht G1-Lücken.** Der Projektverantwortliche hat die URL-Liste der fehlenden Lizenztexte
+(acht Einträge von `license-gate/known_missing.toml`, 70 URLs) freigegeben. Entscheidung:
+- **Downloads außerhalb von D-06 freigegeben** (nur Lizenztexte): genau die Dateien der Liste, dazu das npm-Tarball von
+  `@jspm/core` 2.1.0 für die byte-gleiche LICENSE mit CRLF. Jede Datei einmal, mit URL, Größe, SHA-256 und Abrufdatum in
+  den Manifesten von `license-gate/third_party/`; Standardtexte zusätzlich in `license-gate/licence_texts.toml`.
+- **Wahlen:**
+  1. python-build-standalone: die eigenen `LICENSE.*.txt` am Tag 20261009, dazu die Projektdateien für das, was sie
+     nicht abdecken (itcl 4.3.8, Tcl thread 3.0.6, HACL\*, unter Windows expat 2.8.5 und libmpdec 2.5.1 aus
+     `Doc/license.rst` von CPython v3.12.15); nicht die versionsgenauen Upstream-Alternativen der Liste.
+  2. focus-visible: Volltext der W3C Software and Document License; keine erfundene Copyright-Zeile. Die Notices sagen
+     wörtlich, dass das Projekt keine nennt, und verweisen auf sein Repository als Herkunft.
+  3. `@jspm/core`: die Versionen der gebündelten Pakete aus dem Lockfile von jspm-core, im Manifest offen als „nur
+     über Lockfile belegt“ gekennzeichnet. Die Zusammenfassung der Liste nennt 34 Pakete, ihre Tabelle 33 neben
+     `@jspm/core` selbst (dessen Version aus `deno.lock` folgt); abgelegt sind die Texte aller 33.
+  4. Brumme (hash-wasm): der Lizenzabschnitt der HTML-Seite als Auszug, mit Abrufdatum sowie Größe und SHA-256 der
+     Seite.
+  5. unicode-name: zusätzlich die Unicode License V3 (`unicode.org/license.txt`).
+- **Auszüge:** Ein Text, der aus einer nicht abgelegten Datei geschnitten ist (Art `document excerpt` oder
+  `source header`), nennt diese Datei mit `source_size` und `source_sha256`. `tools/notices.py --check` prüft Art und
+  Felder; `tools/notices.py --sources DIR` prüft die Quellen gegen eine lokale Kopie (Größe, SHA-256, Herkunft des
+  Textes).
+- **Ergebnis:** 70 Downloads, 70 abgelegte Texte (bids-validator 3.0.2: 45, h5py 3.16.0: 1, mkdocs-material 9.7.7: 3,
+  python-build-standalone 3.12.15+20261009: 21); zwei davon (Unicode-3.0, W3C-20150513) stehen auch in
+  `licence_texts.toml`. Nicht abgelegt: das Tarball (nur seine LICENSE), die LF-LICENSE von jspm-core auf GitHub
+  (nur zum Vergleich), die Brumme-Seite, `Doc/license.rst` und `Hacl_Hash_SHA2.c` (nur ihre Auszüge). Alle Lizenzen
+  sind freizügig nach D-05/D-16; `known_missing.toml` ist leer, `tools/notices.py --check` endet mit 0.
+- **Bei G1 offen:** die muttersprachliche zh-Prüfung (A-07) schließt den geänderten Satz in `docs/zh/license.md` ein.
+
 ## Annahmen (Nicht-Blocker)
 
 **A-00 Nicht ausgefüllte Eingaben des Auftrags.** Ausgangslage: neues Projekt unter `Projekte/neurogrid`.
