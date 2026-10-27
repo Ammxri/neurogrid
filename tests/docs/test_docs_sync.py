@@ -556,3 +556,24 @@ def test_pdf_browser_section_gives_the_installers_address_and_sha256() -> None:
     assert "that section gives its address and SHA-256" in tables()["en"]["errors.pdf.install.docs"]
     assert "该节给出其地址和 SHA-256" in tables()["zh"]["errors.pdf.install.docs"]
     assert "dieser Abschnitt nennt Adresse und SHA-256" in tables()["de"]["errors.pdf.install.docs"]
+
+
+def test_rebuild_guide_names_the_windows_launch_flags_of_the_printer(tmp_path: Path) -> None:
+    """Verifier finding after 88b15a4: NACHBAU.md section 1 item 11 named only --in-process-gpu, while the
+    printer also passes the network-service feature on Windows. The guide must name every flag that
+    launch_arguments adds beyond CHROMIUM_FLAGS on Windows and say that the network service stays a child
+    process on Linux."""
+    from neurogrid.kernel import pdf
+
+    guide = (DOCS / "umsetzung" / "NACHBAU.md").read_text(encoding="utf-8")
+    item = guide[guide.index("**Debug-Log der Headless Shell:**") :].split("\n\n", 1)[0]
+    item = re.sub(r"\s+", " ", item)
+    windows = pdf.launch_arguments(tmp_path, windows=True)
+    linux = pdf.launch_arguments(tmp_path, windows=False)
+    added = [f for f in windows if f not in pdf.CHROMIUM_FLAGS and not f.startswith("--log-file=")]
+    assert pdf.IN_PROCESS_GPU in added and pdf.IN_PROCESS_GPU in linux
+    for flag in added:
+        assert f"`{flag}`" in item, f"NACHBAU.md item 11 does not name the Windows launch flag {flag}"
+    assert not any(flag.startswith("--enable-features=") for flag in linux)
+    assert "Unter Linux" in item and "Netzwerkdienst bleibt dort ein eigener Prozess" in item
+    assert "--disable-features" in item  # never passed, it would replace Playwright's list

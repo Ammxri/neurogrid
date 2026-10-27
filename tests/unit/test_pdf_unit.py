@@ -8,6 +8,7 @@ import inspect
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -452,13 +453,49 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         assert Path.cwd() == before  # changed only while the driver starts
     assert launched["executable_path"] == str(tmp_path / "shell.exe") and "channel" not in launched
     log_file = f"--log-file={work / 'chromium.log'}"  # not next to the executable (A-54)
-    expected = [*CHROMIUM_FLAGS, "--in-process-gpu", log_file, "--log-net-log=x"]
+    # Windows: the network service in the browser process, Playwright's own feature kept
+    network = (
+        ["--enable-features=CDPScreenshotNewSurface,NetworkServiceInProcess2"] if os.name == "nt" else []
+    )
+    expected = [*CHROMIUM_FLAGS, "--in-process-gpu", *network, log_file, "--log-net-log=x"]
     assert launched["args"] == expected and launched["headless"] is True
     assert launched["env"] == pdf.browser_environment(work) and launched["chromium_sandbox"] is False
     assert not (launched["handle_sigint"] or launched["handle_sigterm"] or launched["handle_sighup"])
     assert launched["closed"] and launched["stopped"]
     assert environment_at_start == {"TMP": str(work), "NODE_OPTIONS": None, "cwd": str(work)}
     assert os.environ["NODE_OPTIONS"] == "--require=evil.js"  # restored after the driver start
+
+
+def test_launch_arguments_keep_child_processes_that_log_out_of_the_windows_shell(tmp_path: Path) -> None:
+    """A-54 (CI run of 55335ca, windows-latest): on Windows a child process of the shell logs into debug.log
+    next to the executable whatever the flags say, and the network service wrote its shutdown warning
+    there. So on Windows it runs in the browser process like the GPU; on Linux (children log to stderr)
+    the process model stays as it was. No --disable-features: it would replace Playwright's list."""
+    windows = pdf.launch_arguments(tmp_path, windows=True)
+    linux = pdf.launch_arguments(tmp_path, windows=False)
+    assert pdf.IN_PROCESS_GPU in windows and pdf.IN_PROCESS_GPU in linux
+    features = [flag for flag in windows if flag.startswith("--enable-features=")]
+    assert features == ["--enable-features=CDPScreenshotNewSurface,NetworkServiceInProcess2"]
+    assert not [flag for flag in linux if flag.startswith("--enable-features=")]
+    assert not [flag for flag in windows + linux if flag.startswith("--disable-features")]
+    assert windows[-1] == linux[-1] == f"--log-file={tmp_path / 'chromium.log'}"
+
+
+def test_printer_features_repeat_the_features_playwright_enables() -> None:
+    """Chromium keeps only the last --enable-features (base/command_line.cc: the shell sets no duplicate
+    handler), and the printer's comes after Playwright's: every feature the pinned driver enables in its
+    chromiumSwitches must be in PLAYWRIGHT_FEATURES, or the printer would switch it off (e.g. the screenshot
+    path the font measurements use). The driver's bundle of Playwright 1.63.0 is read as text."""
+    import playwright
+
+    bundle = Path(playwright.__file__).parent / "driver" / "package" / "lib" / "coreBundle.js"
+    code = bundle.read_text(encoding="utf-8")
+    start = code.index("chromiumSwitches = (options) => [")
+    switches = code[start : code.index("].filter(Boolean)", start)]
+    enabled = re.findall(r'"--enable-features=([^"]*)"', switches)
+    assert enabled == ["CDPScreenshotNewSurface"], enabled
+    assert set(",".join(enabled).split(",")) <= set(pdf.PLAYWRIGHT_FEATURES)
+    assert '"--disable-features=" + disabledFeatures.join(",")' in switches  # Playwright's own list
 
 
 def test_browser_errors_never_show_playwright_text(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
