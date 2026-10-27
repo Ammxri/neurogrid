@@ -104,6 +104,32 @@ def dir_link(link: Path, target: Path) -> None:
     pytest.skip("directory links not permitted on this system")
 
 
+LOCALE_ENCODINGS = {"Linux": "utf-8", "Western Windows": "cp1252", "Chinese Windows": "cp936"}
+
+
+@contextlib.contextmanager
+def locale_encoding(codec: str) -> Iterator[None]:
+    """Python's default text encoding as the locale of another system sets it: a text-mode ``open`` without
+    an encoding decodes with ``codec`` (UTF-8 on a Linux runner with C.UTF-8, the ANSI code page on Windows).
+    Python reads the locale's encoding in C, so the built-in ``open`` is replaced for the block."""
+    import builtins
+
+    real_open = builtins.open
+
+    def system_open(
+        file: Any, mode: str = "r", buffering: int = -1, encoding: Any = None, *rest: Any, **kw: Any
+    ) -> Any:
+        if "b" not in mode and encoding is None:
+            encoding = codec
+        return real_open(file, mode, buffering, encoding, *rest, **kw)
+
+    builtins.open = system_open
+    try:
+        yield
+    finally:
+        builtins.open = real_open
+
+
 @contextlib.contextmanager
 def short_folder(prefix: str) -> Iterator[Path]:
     """A new private folder in the computer's temporary folder, removed afterwards: a short path that does

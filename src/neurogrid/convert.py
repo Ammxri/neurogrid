@@ -125,10 +125,12 @@ class _NotConverted(Exception):
 def _reader(suffix: str) -> Any:
     import mne
 
+    from neurogrid.io.brainvision import mne_read_raw_brainvision
+
     return {
         ".edf": mne.io.read_raw_edf,
         ".bdf": mne.io.read_raw_bdf,
-        ".vhdr": mne.io.read_raw_brainvision,
+        ".vhdr": mne_read_raw_brainvision,
         ".set": mne.io.read_raw_eeglab,
         ".fif": mne.io.read_raw_fif,
     }[suffix]

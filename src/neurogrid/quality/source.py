@@ -342,8 +342,10 @@ def open_signals(path: Path, recording: Recording) -> SignalSource:
     eeg = [label for label, ch in zip(labels, recording.channels, strict=True) if ch.type == "EEG"]
     import mne
 
+    from neurogrid.io.brainvision import mne_read_raw_brainvision
+
     readers = {
-        "BrainVision": mne.io.read_raw_brainvision,
+        "BrainVision": mne_read_raw_brainvision,
         "EEGLAB": mne.io.read_raw_eeglab,
         "FIF": lambda p, **kw: mne.io.read_raw_fif(p, allow_maxshield=True, **kw),
     }

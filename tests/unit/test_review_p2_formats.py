@@ -18,13 +18,14 @@ import struct
 import subprocess
 import sys
 import time
+import warnings
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 import numpy as np
 import pytest
 
-from conftest import dir_link  # type: ignore[import-not-found,unused-ignore]
+from conftest import LOCALE_ENCODINGS, dir_link, locale_encoding  # type: ignore[import-not-found,unused-ignore]
 from neurogrid import pipeline
 from neurogrid.io import brainvision, fif
 from neurogrid.io.base import HeaderUnreadable
@@ -429,6 +430,99 @@ def test_brainvision_number_fields_beyond_int_do_not_stop_the_scan(tmp_path: Pat
     assert BrainVisionAdapter.companions(vhdr) == ("rec.eeg", "rec.vmrk")
     assert [found.relative.as_posix() for found in scan(ds).recordings] == ["rec.vhdr"]
     assert BrainVisionAdapter().inspect(vhdr).issues == ("header.number_field",)
+
+
+# --- BrainVision: MNE's reading does not depend on the locale (A-77, TECH-05) -----------------------------
+# CI ubuntu-24.04: a recording whose marker file is not UTF-8 was unreadable on Linux and readable on Windows.
+# MNE 1.13 reads the marker file once more in text mode without an encoding, to find the recording date, so
+# Python decodes it with the locale's encoding (UTF-8 on Linux, the ANSI code page on Windows).
+
+SEGMENT_WITH_DATE = "Mk1=New Segment,,1,1,0,20210824101500000000\n"
+MARKER_TEXTS = {  # Codepage of the marker file, the comment text in the bytes the recorder wrote
+    "Latin-1 text, Codepage=UTF-8": ("UTF-8", "Café".encode("latin-1")),
+    "Western ANSI (cp1252)": ("ANSI", "Größe ändern".encode("cp1252")),
+    "Chinese ANSI (GBK)": ("ANSI", "丄睁眼".encode("gbk")),  # 0x81 0x41 is '丄': 0x81 is no cp1252 byte
+    "UTF-8": ("UTF-8", "睁眼 Größe".encode()),
+}
+
+
+def _mne_marker_text(codepage: str, comment: bytes) -> str:
+    """The comment as MNE decodes the marker file itself: by its Codepage (ANSI as cp1252), else Latin-1."""
+    try:
+        return comment.decode("cp1252" if codepage == "ANSI" else codepage)
+    except UnicodeDecodeError:
+        return comment.decode("latin-1")
+
+
+@pytest.mark.parametrize("marker", list(MARKER_TEXTS))
+def test_brainvision_reading_is_the_same_whatever_the_locale(tmp_path: Path, marker: str) -> None:
+    """Simulated: the locale encodings of Linux, a Western and a Chinese Windows. The read check, the
+    recording date and the marker texts are the same under each; every marker file here is readable (A-77,
+    TECH-05)."""
+    import datetime
+
+    vhdr = _marker_case(tmp_path, marker)
+    outcomes = {}
+    for system, codec in LOCALE_ENCODINGS.items():
+        with locale_encoding(codec):
+            check = BrainVisionAdapter().read_check(vhdr)
+            raw = brainvision.mne_read_raw_brainvision(vhdr, preload=False, verbose="error")
+        outcomes[system] = (check, raw.info["meas_date"], tuple(raw.annotations.description))
+    date = datetime.datetime(2021, 8, 24, 10, 15, tzinfo=datetime.UTC)
+    description = f"Comment/{_mne_marker_text(*MARKER_TEXTS[marker])}"
+    assert set(outcomes.values()) == {(None, date, (description,))}, outcomes
+
+
+def _marker_case(tmp_path: Path, marker: str) -> Path:
+    """The dataset with a marker file of MARKER_TEXTS: its Codepage, a dated New Segment and the comment."""
+    ds, _outside = _dataset(tmp_path)
+    codepage, comment = MARKER_TEXTS[marker]
+    text = VMRK.replace("Codepage=UTF-8", f"Codepage={codepage}").replace("Mk1=New Segment,,1,1,0\n", "")
+    marker_line = b"Mk2=Comment," + comment + b",100,1,0\n"
+    (ds / "rec.vmrk").write_bytes((text + SEGMENT_WITH_DATE).encode("ascii") + marker_line)
+    return _header(ds, "DataFile=rec.eeg\nMarkerFile=rec.vmrk\n")
+
+
+def test_mne_alone_reads_the_marker_date_with_the_locale_encoding(tmp_path: Path) -> None:
+    """What mne_read_raw_brainvision prevents: plain MNE fails on a Latin-1 marker file under the locale of
+    Linux (UTF-8) and reads it under that of a Western Windows. If MNE stops doing this, the workaround in
+    brainvision._marker_date_without_locale can go."""
+    import mne
+
+    vhdr = _marker_case(tmp_path, "Latin-1 text, Codepage=UTF-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", EncodingWarning)  # MNE's own open without an encoding
+        with locale_encoding("cp1252"):
+            mne.io.read_raw_brainvision(vhdr, verbose="error")
+        with locale_encoding("utf-8"), pytest.raises(UnicodeDecodeError):
+            mne.io.read_raw_brainvision(vhdr, verbose="error")
+
+
+def test_neurogrid_calls_mne_for_brainvision_only_through_the_locale_free_reader() -> None:
+    """Every use of mne.io.read_raw_brainvision in NeuroGrid is the one inside mne_read_raw_brainvision."""
+    import ast
+
+    class Uses(ast.NodeVisitor):
+        def __init__(self, name: str) -> None:
+            self.name, self.functions, self.found = name, [""], list[tuple[str, str]]()
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.functions.append(node.name)
+            self.generic_visit(node)
+            self.functions.pop()
+
+        def visit_Attribute(self, node: ast.Attribute) -> None:
+            if node.attr == "read_raw_brainvision":
+                self.found.append((self.name, self.functions[-1]))
+            self.generic_visit(node)
+
+    root = Path(brainvision.__file__).parents[1]
+    found = []
+    for path in sorted(root.rglob("*.py")):
+        visitor = Uses(path.relative_to(root).as_posix())
+        visitor.visit(ast.parse(path.read_text(encoding="utf-8")))
+        found += visitor.found
+    assert found == [("io/brainvision.py", "mne_read_raw_brainvision")]
 
 
 def test_read_check_of_a_vanished_file_reports_the_error_class(tmp_path: Path) -> None:

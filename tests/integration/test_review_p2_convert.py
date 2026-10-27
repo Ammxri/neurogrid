@@ -37,7 +37,7 @@ from test_convert import (  # type: ignore[import-not-found]
 )
 
 import gen_fixtures  # type: ignore[import-not-found]
-from conftest import dir_link  # type: ignore[import-not-found]
+from conftest import LOCALE_ENCODINGS, dir_link, locale_encoding  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.convert import _strip_brainvision, write_mapping_template
 from neurogrid.io.discover import FoundFile, pseudonym
@@ -64,10 +64,21 @@ def _mapped_pair(raw: Path) -> None:
 
 
 def _data(vhdr_or_file: Path) -> Any:
+    """The samples as MNE reads them; BrainVision as NeuroGrid has MNE read it: plain MNE decodes the marker
+    file with the locale's encoding and cannot read a Latin-1 marker file on Linux (A-77, TECH-05)."""
     import mne
 
-    reader = {".vhdr": mne.io.read_raw_brainvision, ".set": mne.io.read_raw_eeglab}[vhdr_or_file.suffix]
+    from neurogrid.io.brainvision import mne_read_raw_brainvision
+
+    reader = {".vhdr": mne_read_raw_brainvision, ".set": mne.io.read_raw_eeglab}[vhdr_or_file.suffix]
     return reader(vhdr_or_file, preload=True, verbose="error").get_data()
+
+
+def _tree(folder: Path) -> dict[str, bytes]:
+    """Every file below ``folder`` with its bytes, by relative path."""
+    return {
+        path.relative_to(folder).as_posix(): path.read_bytes() for path in folder.rglob("*") if path.is_file()
+    }
 
 
 # --- one recording never aborts the run (A-77) --------------------------------------------------------------
@@ -354,6 +365,24 @@ def test_brainvision_and_eeglab_that_mne_bids_cannot_copy_are_written_as_brainvi
     vhdr = out / "sub-01" / "eeg" / "sub-01_task-rest_eeg.vhdr"
     np.testing.assert_allclose(_data(vhdr), _data(source), rtol=1e-6, atol=1e-12)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["bids", "raw"]
+
+
+def test_marker_not_in_its_codepage_is_converted_the_same_under_every_locale(tmp_path: Path) -> None:
+    """CI ubuntu-24.04, [marker-not-in-codepage]: (0, [(rec, 'read.failed')], 0, 1) instead of (1, [], 0, 0).
+    MNE read the Latin-1 marker file with the locale's encoding, UTF-8 there, and failed. Simulated here with
+    the locale encodings of Linux and of a Western and a Chinese Windows: converted, to the same files."""
+    trees = {}
+    for system, codec in LOCALE_ENCODINGS.items():
+        base = tmp_path / codec
+        raw = base / "raw"
+        _brainvision_triple(raw, "rec", marker_extra="Mk2=Comment,Größe,100,1,0\n".encode("latin-1"))
+        _write_config(raw, METADATA + _row("rec.vhdr", "01"))
+        with locale_encoding(codec):
+            summary = pipeline.run_convert(raw, base / "bids", work_base=base)
+        outcome = (summary.converted, summary.skipped, summary.validator_errors, summary.exit_code)
+        assert outcome == (1, [], 0, 0), system
+        trees[system] = _tree(base / "bids")
+    assert trees["Linux"] == trees["Western Windows"] == trees["Chinese Windows"]
 
 
 def test_upper_case_extensions_and_names_mne_bids_misreads_stay_file_copies(tmp_path: Path) -> None:
