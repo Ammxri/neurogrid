@@ -97,6 +97,23 @@ def known_missing() -> set[str]:
     return {str(item["component"]) for item in data.get("missing", [])}
 
 
+def test_rebuild_guide_states_the_current_licence_gaps() -> None:
+    """D-17 review: docs/umsetzung/NACHBAU.md kept saying that known_missing.toml had 6 entries and that
+    notices.py --check printed 6 'incomplete'. The guide's count of gaps follows the file: with no entry it
+    says the file is empty and names no count; with entries it names their number."""
+    guide = " ".join((ROOT / "docs" / "umsetzung" / "NACHBAU.md").read_text(encoding="utf-8").split())
+    count = len(known_missing())
+    claims = {int(n) for n in re.findall(r"known_missing\.toml` (?:hat )?(\d+) Einträge", guide)}
+    claims |= {int(n) for n in re.findall(r"\((\d+) Einträge, sperren das Release\)", guide)}
+    claims |= {int(n) for n in re.findall(r"(\d+) „incomplete", guide)}
+    if count:
+        assert claims == {count}, claims
+    else:
+        assert not claims, claims
+        assert "`license-gate/known_missing.toml` ist seit D-17 leer" in guide
+        assert "D-17" in (ROOT / "docs" / "umsetzung" / "ENTSCHEIDUNGEN.md").read_text(encoding="utf-8")
+
+
 def test_every_file_has_licence_information() -> None:
     files = _files()
     assert len(files) > 200
