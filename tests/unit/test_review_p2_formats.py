@@ -34,6 +34,7 @@ from neurogrid.io.brainvision import BrainVisionAdapter, parse_vhdr
 from neurogrid.io.discover import pseudonym
 from neurogrid.io.fif import FifAdapter
 from neurogrid.kernel import safety
+from neurogrid.kernel.errors import UnsafePathError
 
 VHDR_MAGIC = "Brain Vision Data Exchange Header File Version 1.0\n"
 VMRK = (
@@ -308,22 +309,41 @@ def test_mne_on_posix_opens_the_backslash_name_inside_the_dataset(tmp_path: Path
     assert adapter.read_check(vhdr) == "UnsafePathError"
 
 
-@pytest.mark.parametrize("reference", ["\x81\\x.eeg", "sub\\rec.eeg", "..\\OUTSIDE\\rec.eeg"])
+@pytest.mark.parametrize(
+    ("reference", "parts"),
+    [
+        ("\x81\\x.eeg", ("\x81", "x.eeg")),
+        ("sub\\rec.eeg", ("sub", "rec.eeg")),
+        ("..\\OUTSIDE\\rec.eeg", None),
+    ],
+)
 def test_backslash_in_a_reference_is_a_separator_on_every_system(
-    tmp_path: Path, reference: str, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, reference: str, parts: tuple[str, ...] | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """MNE joins DataFile with os.path.join: on POSIX the backslash stays in one file name inside the dataset,
-    on Windows it separates folders. NeuroGrid's check takes it for a separator on every system, so a dataset
-    gets the same outcome on Linux and Windows (A-52, TECH-05); os.name is set to both values."""
+    on Windows it separates folders (the posixpath and ntpath asserts; MNE's own POSIX reading is
+    test_mne_on_posix_opens_the_backslash_name_inside_the_dataset). NeuroGrid's decision does not ask the
+    system: check_relative splits at every backslash in the string alone, and _reference refuses a reference
+    with folders before it calls anything that looks at the system (resolve_within and is_link fail here if
+    called), so a dataset gets the same outcome on Linux and Windows (A-52, TECH-05)."""
     import ntpath
     import posixpath
 
     assert posixpath.dirname(posixpath.join("/ds", reference)) == "/ds"  # POSIX: one name in the folder
     assert ntpath.dirname(ntpath.join("C:\\ds", reference)) != "C:\\ds"  # Windows: folders
+    if parts is None:
+        with pytest.raises(UnsafePathError, match="path.parent"):
+            safety.check_relative(reference)
+    else:
+        assert safety.check_relative(reference).parts == parts
     ds, _outside = _dataset(tmp_path)
-    for name in ("nt", "posix"):
-        monkeypatch.setattr(safety.os, "name", name)
-        assert brainvision._reference(ds, reference) == (None, "unsafe")
+
+    def system_dependent(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("_reference looked at the file system for a reference with folders")
+
+    monkeypatch.setattr(brainvision, "resolve_within", system_dependent)
+    monkeypatch.setattr(brainvision, "is_link", system_dependent)
+    assert brainvision._reference(ds, reference) == (None, "unsafe")
 
 
 def test_brainvision_marker_fallback_of_mne_must_not_be_a_link(
