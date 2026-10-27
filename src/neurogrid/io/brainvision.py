@@ -27,7 +27,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
-from neurogrid.io.base import HeaderInspection, HeaderUnreadable, mne_read_check
+from neurogrid.io.base import HeaderInspection, HeaderUnreadable, ModulePatch, mne_read_check
 from neurogrid.io.channels import classify
 from neurogrid.io.identifying import looks_identifying, real_dates
 from neurogrid.kernel.errors import InputError, UnsafePathError
@@ -403,6 +403,9 @@ def _open_for_mne(file: Any, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
     return Path(file).open(mode, *args, **kwargs)  # MNE passes a path (str or Path), never a descriptor
 
 
+_MNE_READER_PATCH = ModulePatch("mne.io.brainvision.brainvision", added={"open": _open_for_mne})
+
+
 @contextmanager
 def mne_reading_without_locale() -> Iterator[None]:
     """Within the block, MNE's BrainVision module finds ``_open_for_mne`` instead of the built-in open.
@@ -414,20 +417,10 @@ def mne_reading_without_locale() -> Iterator[None]:
     read the recording on the other. MNE decodes the markers themselves by the Codepage of the file
     (``_read_mrk``) and is not changed here. Every block in which MNE may read a BrainVision recording holds
     it: ``mne_read_raw_brainvision`` and the write of MNE-BIDS, which reads a recording it copies once more
-    (convert._write).
+    (convert._write). Blocks may nest and overlap in several threads (``ModulePatch``).
     """
-    from mne.io.brainvision import brainvision as reader_module
-
-    names = reader_module.__dict__  # the module's globals: a name there hides the built-in of that name
-    previous = names.get("open")
-    names["open"] = _open_for_mne
-    try:
+    with _MNE_READER_PATCH.held():
         yield
-    finally:
-        if previous is None:
-            names.pop("open", None)
-        else:
-            names["open"] = previous
 
 
 def mne_read_raw_brainvision(path: Path | str, **kwargs: Any) -> Any:

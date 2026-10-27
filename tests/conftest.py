@@ -7,7 +7,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -169,6 +170,54 @@ def linux_text_system() -> Iterator[None]:
     """The locale encoding (UTF-8) and the codec registry of the Linux runner."""
     with locale_encoding(LOCALE_ENCODINGS["Linux"]), linux_codecs():
         yield
+
+
+def leave_out_of_order(hold: Callable[[], AbstractContextManager[Any]], inside: Callable[[], Any]) -> Any:
+    """Two threads hold ``hold()``: A enters, then B; A leaves while B is still inside, then B calls
+    ``inside()`` and leaves. Returns what ``inside`` returned; an exception in either thread is raised
+    here."""
+    import threading
+
+    a_in, b_in, a_out = threading.Event(), threading.Event(), threading.Event()
+    outcome: dict[str, Any] = {}
+
+    def wait(event: threading.Event) -> None:
+        if not event.wait(30):
+            raise TimeoutError("the other thread did not get there")
+
+    def thread_a() -> None:
+        with hold():
+            a_in.set()
+            wait(b_in)
+        a_out.set()
+
+    def thread_b() -> None:
+        wait(a_in)
+        with hold():
+            b_in.set()
+            wait(a_out)
+            outcome["inside"] = inside()
+
+    def run(name: str, body: Callable[[], None]) -> threading.Thread:
+        def guarded() -> None:
+            try:
+                body()
+            except BaseException as exc:  # handed to the test thread
+                outcome.setdefault("error", exc)
+                for event in (a_in, b_in, a_out):
+                    event.set()
+
+        thread = threading.Thread(target=guarded, name=name, daemon=True)
+        thread.start()
+        return thread
+
+    threads = [run("A", thread_a), run("B", thread_b)]
+    for thread in threads:
+        thread.join(60)
+    if "error" in outcome:
+        raise outcome["error"]
+    assert not any(thread.is_alive() for thread in threads), "a thread did not end"
+    return outcome["inside"]
 
 
 @contextlib.contextmanager

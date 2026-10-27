@@ -55,7 +55,7 @@ from typing import Any
 import neurogrid
 from neurogrid.config import Config
 from neurogrid.io import ADAPTERS, ORPHAN_SUFFIXES
-from neurogrid.io.base import FormatAdapter
+from neurogrid.io.base import FormatAdapter, ModulePatch
 from neurogrid.io.brainvision import mne_read_raw_brainvision, mne_reading_without_locale
 from neurogrid.io.discover import FoundFile, scan
 from neurogrid.io.eeglab import epoched as eeglab_epoched
@@ -632,23 +632,29 @@ def _copy_codec(declared: str) -> str:
     return _ANSI_COPY_CODEC if declared.upper() == "ANSI" else declared
 
 
-@contextmanager
-def _copy_codec_for_mne_bids() -> Iterator[None]:
-    """While MNE-BIDS writes a recording, the Codepage it reads from a BrainVision header
-    (``mne_bids.copyfiles._get_brainvision_encoding``, used for the header and the marker file) goes through
-    ``_copy_codec``, so that the copy does not depend on the system (TECH-05, A-77)."""
-    from mne_bids import copyfiles
-
-    original = copyfiles._get_brainvision_encoding
+def _copy_encoding(original: Callable[[Any], Any]) -> Callable[[Any], str]:
+    """``mne_bids.copyfiles._get_brainvision_encoding`` that passes the Codepage it reads through
+    ``_copy_codec``."""
 
     def encoding(vhdr_file: Any) -> str:
         return _copy_codec(str(original(vhdr_file)))
 
-    copyfiles._get_brainvision_encoding = encoding
-    try:
+    return encoding
+
+
+_MNE_BIDS_COPY_PATCH = ModulePatch(
+    "mne_bids.copyfiles", wrapped={"_get_brainvision_encoding": _copy_encoding}
+)
+
+
+@contextmanager
+def _copy_codec_for_mne_bids() -> Iterator[None]:
+    """While MNE-BIDS writes a recording, the Codepage it reads from a BrainVision header
+    (``mne_bids.copyfiles._get_brainvision_encoding``, used for the header and the marker file) goes through
+    ``_copy_codec``, so that the copy does not depend on the system (TECH-05, A-77). Blocks may nest and
+    overlap in several threads (``ModulePatch``)."""
+    with _MNE_BIDS_COPY_PATCH.held():
         yield
-    finally:
-        copyfiles._get_brainvision_encoding = original
 
 
 def _brainvision_copyable(vhdr: Path, stem: str) -> bool:

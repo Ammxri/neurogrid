@@ -26,7 +26,12 @@ from typing import Any
 import numpy as np
 import pytest
 
-from conftest import LOCALE_ENCODINGS, dir_link, locale_encoding  # type: ignore[import-not-found,unused-ignore]
+from conftest import (  # type: ignore[import-not-found,unused-ignore]
+    LOCALE_ENCODINGS,
+    dir_link,
+    leave_out_of_order,
+    locale_encoding,
+)
 from neurogrid import pipeline
 from neurogrid.io import brainvision, fif
 from neurogrid.io.base import HeaderUnreadable
@@ -518,6 +523,66 @@ def test_mne_alone_reads_the_marker_date_with_the_locale_encoding(tmp_path: Path
             mne.io.read_raw_brainvision(vhdr, verbose="error")
         with locale_encoding("utf-8"), pytest.raises(UnicodeDecodeError):
             mne.io.read_raw_brainvision(vhdr, verbose="error")
+
+
+def _mne_reader_globals() -> dict[str, Any]:
+    from mne.io.brainvision import brainvision as reader_module
+
+    return vars(reader_module)
+
+
+def test_mne_reading_without_locale_holds_for_threads_that_leave_out_of_order(tmp_path: Path) -> None:
+    """The patch of MNE's module is one for the whole process. Thread A enters, then B; A leaves first.
+    Before, A's exit took the patch away while B still read (B saw the built-in open and failed on the
+    Latin-1 marker file under the locale of Linux), and B's exit put A's patch back for good."""
+    import mne
+
+    vhdr = _marker_case(tmp_path, "Latin-1 text, Codepage=UTF-8")
+
+    def read_in_b() -> tuple[object, ...]:
+        assert _mne_reader_globals().get("open") is brainvision._open_for_mne, "B reads without the patch"
+        with locale_encoding(LOCALE_ENCODINGS["Linux"]):
+            raw = mne.io.read_raw_brainvision(vhdr, verbose="error")
+        return tuple(raw.annotations.description)
+
+    assert leave_out_of_order(brainvision.mne_reading_without_locale, read_in_b) == ("Comment/Café",)
+    assert "open" not in _mne_reader_globals(), "the patch outlived the last block"
+
+
+def test_mne_reading_without_locale_in_many_threads_at_once(tmp_path: Path) -> None:
+    """Eight threads read the Latin-1 marker recording at the same time under the locale of Linux, each
+    through mne_read_raw_brainvision: every read succeeds, and the module is unpatched afterwards."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    vhdr = _marker_case(tmp_path, "Latin-1 text, Codepage=UTF-8")
+    start = threading.Barrier(8)
+
+    def reads(_index: int) -> set[tuple[str, ...]]:
+        start.wait(30)
+        return {
+            tuple(brainvision.mne_read_raw_brainvision(vhdr, verbose="error").annotations.description)
+            for _ in range(5)
+        }
+
+    with locale_encoding(LOCALE_ENCODINGS["Linux"]), ThreadPoolExecutor(8) as pool:
+        results = list(pool.map(reads, range(8)))
+    assert set().union(*results) == {("Comment/Café",)}
+    assert "open" not in _mne_reader_globals() and brainvision._MNE_READER_PATCH.holders == 0
+
+
+def test_module_patch_refuses_a_module_that_changed() -> None:
+    """A wrapped function that is gone, or a built-in the module now defines itself: the patch would not do
+    what NeuroGrid relies on, so holding it fails instead (a library update is reviewed)."""
+    from neurogrid.io.base import ModulePatch
+
+    with pytest.raises(RuntimeError, match="has no function _no_such_function"):
+        with ModulePatch("mne.io.brainvision.brainvision", wrapped={"_no_such_function": lambda f: f}).held():
+            pass
+    with pytest.raises(RuntimeError, match="defines re"):
+        with ModulePatch("mne.io.brainvision.brainvision", added={"re": None}).held():
+            pass
+    assert "re" in _mne_reader_globals() and "_no_such_function" not in _mne_reader_globals()
 
 
 def test_neurogrid_calls_mne_for_brainvision_only_through_the_locale_free_reader() -> None:

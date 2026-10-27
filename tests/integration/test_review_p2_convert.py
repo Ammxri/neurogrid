@@ -42,6 +42,7 @@ import gen_fixtures  # type: ignore[import-not-found]
 from conftest import (  # type: ignore[import-not-found]
     LOCALE_ENCODINGS,
     dir_link,
+    leave_out_of_order,
     linux_text_system,
     locale_encoding,
 )
@@ -833,6 +834,23 @@ def test_ansi_recording_is_copied_the_same_with_the_codecs_of_linux(tmp_path: Pa
                 (b"MarkerFile=rec.vmrk", b"MarkerFile=sub-01_task-rest_eeg.vmrk"),
             ], system
     assert trees["Linux"] == trees["native"]
+
+
+def test_copy_codec_of_mne_bids_holds_for_threads_that_leave_out_of_order(tmp_path: Path) -> None:
+    """The patch of MNE-BIDS's module is one for the whole process. Thread A enters, then B; A leaves first.
+    Before, A's exit took the patch away while B still wrote (B's copy would read ANSI as the system's code
+    page again, LookupError on Linux), and B's exit put A's replacement back for good."""
+    from mne_bids import copyfiles
+
+    from neurogrid.convert import _copy_codec_for_mne_bids
+
+    _ansi_brainvision(tmp_path / "raw")
+    vhdr = tmp_path / "raw" / "rec.vhdr"
+    original = copyfiles._get_brainvision_encoding
+    assert original(vhdr) == "ANSI"
+    inside = leave_out_of_order(_copy_codec_for_mne_bids, lambda: copyfiles._get_brainvision_encoding(vhdr))
+    assert inside == "latin-1", "B copies without the patch"
+    assert copyfiles._get_brainvision_encoding is original, "the patch outlived the last block"
 
 
 def test_strip_cuts_comment_lines_as_the_header_parser_counts_them(tmp_path: Path) -> None:
