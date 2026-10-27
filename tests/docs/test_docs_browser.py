@@ -142,6 +142,47 @@ class _QuietHandler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+# The theme's search is ready when its worker has loaded the index: it then answers the empty query, and the
+# result line changes from "search.result.initializer" to "search.result.placeholder" (both from the page's
+# own translations in #__config).
+SEARCH_READY = """() => {
+    const meta = document.querySelector(".md-search-result__meta");
+    const config = JSON.parse(document.getElementById("__config").textContent);
+    return meta !== null && meta.textContent.trim() === config.translations["search.result.placeholder"];
+}"""
+SEARCH_META = "() => document.querySelector('.md-search-result__meta')?.textContent.trim() ?? null"
+
+
+def _search(page: Any, query: str) -> int:
+    """Number of results for `query`, entered as a user does: the theme reads the field when its worker is
+    ready, on focus and on keyup (components/search/query: watchSearchQuery), not on input. insert_text (the
+    only way to enter Chinese; Playwright's type() sends no key events for it either) fires input alone, so
+    the query reached the worker only when the worker became ready after the text was in the field - a race,
+    lost once on windows-latest py3.12 (CI of 55335ca: wait_for_selector timeout). Now the test waits for the
+    ready search, then enters the text and releases a key (End, which leaves the text as it is)."""
+    from playwright.sync_api import TimeoutError as PlaywrightTimeout
+
+    field = "input.md-search__input"
+    page.wait_for_selector(field)
+    page.focus(field)
+    try:
+        page.wait_for_function(SEARCH_READY, timeout=30_000)
+    except PlaywrightTimeout:
+        raise AssertionError(
+            f"search not ready after 30 s, result line {page.evaluate(SEARCH_META)!r}"
+        ) from None
+    page.keyboard.insert_text(query)
+    page.keyboard.press("End")
+    try:
+        page.wait_for_selector(".md-search-result__item", timeout=15_000)
+    except PlaywrightTimeout:
+        value = page.input_value(field)
+        raise AssertionError(
+            f"no result for {query!r} (field {value!r}, result line {page.evaluate(SEARCH_META)!r})"
+        ) from None
+    return int(page.locator(".md-search-result__item").count())
+
+
 @pytest.mark.browser
 def test_search_finds_zh_and_en_offline(browser: Any, server: str) -> None:
     context = browser.new_context()
@@ -159,12 +200,7 @@ def test_search_finds_zh_and_en_offline(browser: Any, server: str) -> None:
     hits = {}
     for start, query in QUERIES:
         page.goto(f"{server}/{start}", wait_until="load")
-        page.wait_for_selector("input.md-search__input")
-        page.focus("input.md-search__input")
-        page.keyboard.insert_text(query)
-        page.wait_for_selector(".md-search-result__item", timeout=15_000)
-        hits[query] = page.locator(".md-search-result__item").count()
-        page.fill("input.md-search__input", "")
+        hits[query] = _search(page, query)
     context.close()
     assert all(count >= 1 for count in hits.values()), hits
     assert blocked == []

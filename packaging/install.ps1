@@ -31,20 +31,46 @@ function Fail([int]$code, [string]$zh, [string]$en) {
     [Console]::Error.WriteLine("错误 / Error: $zh / $en")
     exit $code
 }
+# The full path in its long spelling: every 8.3 name (RUNNER~1) of the part that exists expanded, the rest as
+# given. [System.IO.Path]::GetFullPath expands the 8.3 names of an existing path under Windows PowerShell 5.1
+# (.NET Framework) and PowerShell 7 (.NET 10) alike, but of a path that does not exist fully reliably only
+# under PowerShell 7: 5.1 kept C:\PROGRA~1\x\y and C:\...\NGTEST~1\x short, and of C:\...\NGTEST~1\ANOTHE~1\x
+# it expanded the first 8.3 name only, while it fully expanded other names, such as a prefix below this
+# machine's normal TEMP (measured; it depends on the names). So the existing part is expanded on its own,
+# and the result depends neither on the PowerShell, nor on the names, nor on how much of the path exists.
+function Get-LongPath([string]$path) {
+    if ($path -notmatch '^([A-Za-z]:\\|\\\\)') { return $path }
+    $existing = [System.IO.Path]::GetFullPath($path).TrimEnd('\')
+    $rest = ''
+    while ($existing -and -not (Test-Path -LiteralPath $existing)) {
+        $rest = '\' + [System.IO.Path]::GetFileName($existing) + $rest
+        $existing = [System.IO.Path]::GetDirectoryName($existing)
+        if ($existing) { $existing = $existing.TrimEnd('\') }
+    }
+    if (-not $existing) { return [System.IO.Path]::GetFullPath($path).TrimEnd('\') }
+    return [System.IO.Path]::GetFullPath($existing + '\').TrimEnd('\') + $rest
+}
 # A-51: console text names no user. Every path or foreign message goes through Show: the local application
 # data folder becomes %LOCALAPPDATA%, the rest of the home folder ~ (as NeuroGrid's own messages show it), in
-# the long and in the 8.3 short spelling (C:\Users\RUNNER~1\... on GitHub's runners), ignoring case.
+# the variable's spelling, the long and the 8.3 short spelling, ignoring case. On GitHub's runners TEMP is
+# spelled C:\Users\RUNNER~1\..., so a variable that points below it is short (or mixed) while the prefix the
+# installer prints, and the paths below it that the programs it starts print, are long (Get-LongPath). Show
+# knew only the variable's and the short spelling, and the user folder showed (CI of 55335ca).
 $script:hidden = $null
 function Show([string]$text) {
     if ($null -eq $script:hidden) {
         $script:hidden = New-Object System.Collections.Generic.List[object]
         foreach ($entry in @(@([string]$env:LOCALAPPDATA, '%LOCALAPPDATA%'), @([string]$env:USERPROFILE, '~'))) {
-            $long = $entry[0].TrimEnd('\')
-            if (-not $long) { continue }
-            $forms = @($long)
+            $given = $entry[0].TrimEnd('\')
+            if (-not $given) { continue }
+            $forms = @($given)
             try {
-                $short = [string](New-Object -ComObject Scripting.FileSystemObject).GetFolder($long).ShortPath
-                if ($short -and $short -ne $long) { $forms += $short.TrimEnd('\') }
+                $long = Get-LongPath $given
+                if ($long -and $forms -notcontains $long) { $forms += $long }
+            } catch { }
+            try {
+                $short = [string](New-Object -ComObject Scripting.FileSystemObject).GetFolder($given).ShortPath
+                if ($short -and $forms -notcontains $short.TrimEnd('\')) { $forms += $short.TrimEnd('\') }
             } catch { }
             foreach ($form in $forms) { $script:hidden.Add(@($form, $entry[1])) }
         }
@@ -192,7 +218,9 @@ try {
     if ($Prefix -notmatch '^[A-Za-z]:[\\/]') {
         Fail 2 "安装文件夹须为本机绝对路径：$(Show $Prefix)" "the install folder must be an absolute local path: $(Show $Prefix)"
     }
-    $Prefix = [System.IO.Path]::GetFullPath($Prefix).TrimEnd('\')
+    # The long spelling (Get-LongPath): the guard below counts the characters of the path the files get, under
+    # both PowerShells, however much of the prefix exists already.
+    $Prefix = Get-LongPath $Prefix
     if ((New-Object System.IO.DriveInfo ($Prefix.Substring(0, 1))).DriveType -eq [System.IO.DriveType]::Network) {
         Fail 2 "安装文件夹须为本机绝对路径：$(Show $Prefix)" "the install folder must be an absolute local path: $(Show $Prefix)"
     }
