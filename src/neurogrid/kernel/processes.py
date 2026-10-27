@@ -55,8 +55,8 @@ def avoid_wmi() -> None:
     (``PC/_wmimodule.cpp``: ``struct _query_data data`` is a local, the thread reads ``data->writePipe``
     and closes it at its end). The thread then closes whatever handle value it reads there: any handle of
     the process, for example the semaphore of a worker's call queue (WinError 6 at ``call_queue.get``,
-    the G1 finding). On a busy computer WMI misses these waits regularly. CPython's main branch copies
-    the data into the thread; 3.12 receives security fixes only.
+    the G1 finding). On the computer of the G1 run every WMI query missed these waits (WinError 258 after
+    about 0.3 s). CPython's main branch copies the data into the thread; 3.12 receives security fixes only.
     """
     if sys.platform != "win32":
         return
@@ -129,8 +129,9 @@ if sys.platform == "win32":
         """``popen_spawn_win32.Popen`` (CPython 3.11 to 3.13) whose child gets the null device as its
         standard handles instead of copies of this process's console handles."""
 
-        def __init__(self, process_obj: BaseProcess) -> None:  # replaces the constructor, which starts
-            prep_data = spawn.get_preparation_data(process_obj.name)  # the child with the console
+        def __init__(self, process_obj: BaseProcess) -> None:
+            """Replaces the constructor of the base class, which starts the child with the console."""
+            prep_data = spawn.get_preparation_data(process_obj.name)
             # the child duplicates the read end itself (spawn_main); it stays open until the finalizer
             rhandle, whandle = _winapi.CreatePipe(None, 0)
             wfd = msvcrt.open_osfhandle(whandle, 0)
