@@ -27,14 +27,14 @@ CC BY 4.0 适用于本网站页面中 NeuroGrid 自己的文字。网站使用�
 | 部分 | 许可证 |
 |---|---|
 | mkdocs-material：页面模板、样式表、脚本、网站图标 | MIT |
-| 其脚本包中的 rxjs、tslib、clipboard、escape-html、focus-visible | Apache-2.0、0BSD、MIT、MIT；focus-visible：尚待确认 |
+| 其脚本包中的 rxjs、tslib、clipboard、escape-html、focus-visible | Apache-2.0、0BSD、MIT、MIT、W3C 软件和文档许可证（W3C Software and Document License） |
 | 其搜索中的 lunr | MIT |
-| 其样式表中的配色 material-design-color | 尚待确认 |
+| 其样式表中的配色 material-design-color | MIT |
 | 图标：Material Design Icons、Octicons、Font Awesome Free | Apache-2.0、MIT、CC BY 4.0 |
 | 中文字符：Noto Sans SC 的子集 | SIL 开放字体许可证 1.1 |
 
-`THIRD_PARTY_NOTICES.txt` 列出每个部分的版权声明和许可证文本。随附文件未写明许可证的两个部分在该文件中列为已知缺漏，
-并在正式发布前解决。
+`THIRD_PARTY_NOTICES.txt` 列出每个部分的版权声明和许可证文本。随附文件未写明许可证的两个部分 focus-visible 和
+material-design-color，其许可证文本取自各自的项目；focus-visible 未写明版权人，因此该文件改为注明其代码仓库。
 搜索的语言文件（lunr-languages，采用 Mozilla 公共许可证）不属于本网站：本文档的搜索不使用它们。
 
 ## 不分发的组件 {#not-distributed}

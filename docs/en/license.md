@@ -29,16 +29,17 @@ CC BY 4.0 covers NeuroGrid's own text of these pages. The site is built with the
 | Part | Licence |
 |---|---|
 | mkdocs-material: page templates, style sheets, scripts, favicon | MIT |
-| in its script bundle: rxjs, tslib, clipboard, escape-html, focus-visible | Apache-2.0, 0BSD, MIT, MIT; focus-visible: still to be confirmed |
+| in its script bundle: rxjs, tslib, clipboard, escape-html, focus-visible | Apache-2.0, 0BSD, MIT, MIT, W3C Software and Document License |
 | in its search: lunr | MIT |
-| in its style sheet: the colour palette material-design-color | still to be confirmed |
+| in its style sheet: the colour palette material-design-color | MIT |
 | icons: Material Design Icons, Octicons, Font Awesome Free | Apache-2.0, MIT, CC BY 4.0 |
 | the Chinese characters: a subset of Noto Sans SC | SIL Open Font License 1.1 |
 
-`THIRD_PARTY_NOTICES.txt` lists each part with its copyright and licence text. The two parts whose licence
-the shipped files do not state are known gaps there and are resolved before the publication. The language
-files of the search (lunr-languages, under the Mozilla Public License) are not part of the site: the search
-of this documentation does not use them.
+`THIRD_PARTY_NOTICES.txt` lists each part with its copyright and licence text. For the two parts whose
+licence the shipped files do not state, focus-visible and material-design-color, the texts come from the
+projects themselves; focus-visible names no copyright holder, so the file names its repository instead.
+The language files of the search (lunr-languages, under the Mozilla Public License) are not part of the
+site: the search of this documentation does not use them.
 
 ## Not distributed {#not-distributed}
 
