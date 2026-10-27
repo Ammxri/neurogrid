@@ -273,6 +273,87 @@ def test_kept_texts_and_library_reviews_are_checked(tmp_path: Path) -> None:
         notices.load_library_review(notices.PBS, "2.0+2", tmp_path / "other")
 
 
+def test_excerpts_record_their_source_and_sources_are_checked(tmp_path: Path) -> None:
+    """A text cut from a file that is not kept (D-17) records that file (url, retrieved, source_size,
+    source_sha256); --sources finds a copy by size and SHA-256 and checks that the text comes from it:
+    verbatim from a text file, as the words of the plain text from an HTML page."""
+    base = tmp_path / "pkg-1"
+    base.mkdir()
+    rst = b"Intro\n\nlib\n---\n\nPermission is hereby granted.\n\nOther\n"
+    page = (
+        b"<html><body><h2>License</h2><p>Licensed like the <a href='http://z.example/l.html'>zlib "
+        b"license</a>:</p><ol><li>Do no harm.</li></ol></body></html>"
+    )
+    excerpts = {
+        "a.txt": (b"lib\n---\n\nPermission is hereby granted.\n", rst, "https://x.example/license.rst"),
+        "b.txt": (
+            b"License\n\nLicensed like the zlib license (http://z.example/l.html):\n\n1. Do no harm.\n",
+            page,
+            "https://x.example/disclaimer.html",
+        ),
+    }
+    sources = tmp_path / "sources"
+    sources.mkdir()
+
+    def write_manifest(texts: dict[str, bytes]) -> str:
+        lines = ["version = 1", "[[package]]", 'registry = "library"', 'name = "lib"', 'version = "1"']
+        for name, (_, source, url) in excerpts.items():
+            text = texts[name]
+            (base / name).write_bytes(text)
+            lines += [
+                "[[package.text]]",
+                f'file = "{name}"',
+                'origin = "a section"',
+                f'kind = "{notices.EXCERPT}"',
+                f'url = "{url}"',
+                f"size = {len(text)}",
+                f'sha256 = "{hashlib.sha256(text).hexdigest()}"',
+                'retrieved = "2026-10-27"',
+                f"source_size = {len(source)}",
+                f'source_sha256 = "{hashlib.sha256(source).hexdigest()}"',
+            ]
+        content = "\n".join(lines) + "\n"
+        (base / "manifest.toml").write_text(content, encoding="utf-8")
+        return content
+
+    def put_sources(a: bytes, b: bytes) -> None:
+        (sources / "copy-a.txt").write_bytes(a)
+        (sources / "copy-b.txt").write_bytes(b)
+
+    texts = {name: text for name, (text, _, _) in excerpts.items()}
+    plain = write_manifest(texts)
+    put_sources(rst, page)
+    assert notices.check_kept_texts(tmp_path) == []
+    assert notices.check_text_sources([sources], tmp_path) == ([], 2)
+    empty = tmp_path / "no-copies"
+    empty.mkdir()
+    assert notices.main(["--sources", str(empty)]) == 1  # the committed reviews: no copy of any source
+
+    put_sources(rst.replace(b"hereby", b"not"), page.replace(b"no harm", b"what you like"))
+    found, checked = notices.check_text_sources([sources], tmp_path)
+    assert checked == 2 and [p.split(" (")[0] for p in found] == [
+        "pkg-1: a.txt: no copy of its source",
+        "pkg-1: b.txt: no copy of its source",
+    ]
+    put_sources(rst, page)
+    write_manifest({**texts, "b.txt": b"License\n\nAnything goes.\n"})  # not from the page
+    assert notices.check_kept_texts(tmp_path) == []
+    found, _ = notices.check_text_sources([sources], tmp_path)
+    assert len(found) == 1 and found[0].startswith("pkg-1: b.txt: does not come from its source")
+
+    # the kind is known and an excerpt names the file it was cut from
+    write_manifest(texts)
+    (base / "manifest.toml").write_text(plain.replace("source_size = ", "page_size = ", 1), encoding="utf-8")
+    assert notices.check_kept_texts(tmp_path) == [
+        "pkg-1: library lib 1: a.txt needs url, retrieved, source_size (larger than the text) and "
+        "source_sha256 of the file it was cut from"
+    ]
+    (base / "manifest.toml").write_text(plain.replace(notices.EXCERPT, "page excerpt", 1), encoding="utf-8")
+    assert notices.check_kept_texts(tmp_path) == [
+        "pkg-1: library lib 1: unknown kind 'page excerpt' of a.txt"
+    ]
+
+
 def _wheel_folders() -> list[Path]:
     """.local/notices-wheels and, for a worktree without its own cache, NEUROGRID_NOTICES_WHEELS."""
     folders = [notices.DEFAULT_CACHE]
@@ -1043,10 +1124,11 @@ def test_committed_hash_wasm_follows_the_licence_policy() -> None:
     units = notices.spdx_units(hash_wasm.spdx)
     assert {"LicenseRef-Brumme-Disclaimer", "BSD-3-Clause"} <= units and "LicenseRef-Not-Stated" not in units
     by_kind = {t.kind: t for t in hash_wasm.texts if "brumme" in t.label or "argon2-golang" in t.label}
-    assert set(by_kind) == {"page excerpt", "licence file"}
-    excerpt = by_kind["page excerpt"]
+    assert set(by_kind) == {notices.EXCERPT, "licence file"}
+    excerpt = by_kind[notices.EXCERPT]
     assert excerpt.url == "https://create.stephan-brumme.com/disclaimer.html"
-    assert "5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1" in excerpt.origin
+    page = "5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1"
+    assert page in excerpt.origin and (excerpt.source_size, excerpt.source_sha256) == (23966, page)
     assert excerpt.path.read_text(encoding="utf-8").startswith("License\n\nUnless otherwise noted,")
     assert by_kind["licence file"].url.startswith("https://raw.githubusercontent.com/golang/crypto/948cd5f3")
     outside, problems = notices.licence_policy(hash_wasm, notices.BUNDLED_ALLOWED)
@@ -1126,7 +1208,7 @@ def test_committed_validator_texts_match_their_manifest() -> None:
             assert hashlib.sha256(data).hexdigest() == text.sha256 and len(data) == text.size, text.label
             if b"\r" in data:
                 crlf.append(text.label)
-            assert text.kind in {"licence file", "source header", "standard text", "page excerpt"}, text.label
+            assert text.kind in notices.TEXT_KINDS, text.label
             if text.kind == "licence file":  # D-15: npm and jsr; D-17: the repositories on GitHub
                 assert text.url.startswith(
                     ("https://registry.npmjs.org/", "https://jsr.io/", "https://raw.githubusercontent.com/")

@@ -27,12 +27,18 @@ Usage:
     python tools/notices.py --download [--cache DIR] --out THIRD_PARTY_NOTICES.txt
     python tools/notices.py --wheelhouse DIR --check         # the committed file is current and complete
     python tools/notices.py --wheelhouse DIR --components    # static component check only
+    python tools/notices.py --sources DIR    # the files excerpts were cut from, against copies (D-17)
 
 Files come from --wheelhouse folders (file name as in uv.lock or the bundle data, SHA-256 checked), from the
 bundle cache of tools/bundle.py (NEUROGRID_BUNDLE_CACHE or .local/bundle-cache, files named by their SHA-256)
 or, with --download, from their pinned URLs (PyPI and the python-build-standalone releases, D-06) into a cache
 (default .local/notices-wheels), size and SHA-256 checked. The network is used only with --download; this tool
 is not part of the NeuroGrid package.
+
+A stored text cut from a file that is not kept (kind 'document excerpt', a section of a web page or a text
+file, or a 'source header') records that file as retrieved (source_size, source_sha256). Offline these can
+only be checked against a copy of that file: --sources DIR looks for each one below DIR by size and SHA-256
+and checks that the text comes from it (check_text_sources); without a copy it reports the source as missing.
 
 --check fails while license-gate/known_missing.toml lists a gap: the notices are then incomplete, and the
 release workflow, which runs `--download --check`, stops (STOPP G1). The prose of the file is wrapped here
@@ -48,6 +54,7 @@ import argparse
 import email.parser
 import fnmatch
 import hashlib
+import html
 import json
 import os
 import re
@@ -139,6 +146,11 @@ VALIDATOR = "bids-validator-deno"
 VALIDATOR_MAP = "bids_validator_deno/bids-validator.js.map"
 # Licence texts of the packages compiled into the validator bundle (D-15): <folder>/bids-validator-<version>/
 THIRD_PARTY = ROOT / "license-gate" / "third_party"
+# The kinds of a kept licence text: a licence file of the package, the licence header of a source file, a
+# standard licence text the package names, the permission notice of a licence whose copyright line the
+# package states elsewhere, a section of a web page or of a text file (D-17).
+EXCERPT = "document excerpt"
+TEXT_KINDS = frozenset({"licence file", "source header", "standard text", "permission notice", EXCERPT})
 # Licences a package compiled into the validator bundle may have: permissive ones only. A public-domain
 # dedication counts as permissive, and so does a choice of licences with at least one permissive option, of
 # which the manifest names the one NeuroGrid uses (D-16, licence_policy). D-17 added the permissive licences
@@ -735,10 +747,14 @@ class BundledText:
     path: Path
     label: str  # the file as the manifest names it
     origin: str  # where the text comes from inside the package
-    kind: str  # licence file | source header | standard text
+    kind: str  # one of TEXT_KINDS
     url: str
     size: int
     sha256: str
+    # a text cut from a file that is not kept: that file as retrieved (D-17), 0 and "" otherwise
+    source_size: int = 0
+    source_sha256: str = ""
+    retrieved: str = ""
 
 
 @dataclass(frozen=True)
@@ -811,6 +827,9 @@ def _bundled_packages(data: Mapping[str, Any], base: Path) -> list[BundledPackag
                     url=str(text.get("url", "")),
                     size=int(text["size"]),
                     sha256=str(text["sha256"]),
+                    source_size=int(text.get("source_size", 0)),
+                    source_sha256=str(text.get("source_sha256", "")),
+                    retrieved=str(text.get("retrieved", "")),
                 )
             )
         packages.append(
@@ -837,9 +856,23 @@ def _bundled_packages(data: Mapping[str, Any], base: Path) -> list[BundledPackag
 
 
 def check_texts(label: str, texts: Iterable[BundledText]) -> list[str]:
-    """Every stored text exists and has its recorded SHA-256 and size."""
+    """Every stored text has a known kind, exists and has its recorded SHA-256 and size; an excerpt records
+    the file it was cut from (url, retrieved, source_size larger than the excerpt, source_sha256)."""
     problems = []
     for text in texts:
+        if text.kind not in TEXT_KINDS:
+            problems.append(f"{label}: unknown kind '{text.kind}' of {text.label}")
+        if text.kind == EXCERPT or text.source_size or text.source_sha256:
+            if not (
+                text.url
+                and text.retrieved
+                and text.source_size > text.size
+                and re.fullmatch("[0-9a-f]{64}", text.source_sha256)
+            ):
+                problems.append(
+                    f"{label}: {text.label} needs url, retrieved, source_size (larger than the text) and "
+                    "source_sha256 of the file it was cut from"
+                )
         if not text.path.is_file():
             problems.append(f"{label}: licence text missing: {text.label}")
             continue
@@ -847,6 +880,56 @@ def check_texts(label: str, texts: Iterable[BundledText]) -> list[str]:
         if hashlib.sha256(data).hexdigest() != text.sha256 or len(data) != text.size:
             problems.append(f"{label}: SHA-256 or size of {text.label} differs from manifest.toml")
     return problems
+
+
+def _words(text: str) -> list[str]:
+    return re.findall(r"\w+", text)
+
+
+def comes_from(excerpt: str, source: bytes, url: str) -> bool:
+    """Whether a stored excerpt or header was cut from its source: verbatim (LF) from a text file; from an
+    HTML page as plain text, so the words of the excerpt, without the link targets it adds in parentheses and
+    the numbers of list items, occur in this order in the text of the page."""
+    text = source.decode("utf-8").replace("\r\n", "\n")
+    if not urllib.parse.urlsplit(url).path.lower().endswith((".html", ".htm")):
+        return excerpt in text
+    page = _words(html.unescape(re.sub(r"<[^>]*>", " ", text)))
+    wanted = _words(re.sub(r"(?m)^\d+\. ", "", re.sub(r"\(https?://[^)\s]*\)", "", excerpt)))
+    count = len(wanted)
+    return count > 0 and any(page[i : i + count] == wanted for i in range(len(page) - count + 1))
+
+
+def check_text_sources(sources: Sequence[Path], folder: Path = THIRD_PARTY) -> tuple[list[str], int]:
+    """The files that the kept excerpts and headers were cut from (source_size, source_sha256) against copies
+    of them below the folders ``sources``, found by size and SHA-256: each source has a copy and the text
+    comes from it (comes_from). Returns the problems and the number of texts checked."""
+    by_size: dict[int, list[Path]] = {}
+    for root in sources:
+        for path in sorted(p for p in root.rglob("*") if p.is_file()):
+            by_size.setdefault(path.stat().st_size, []).append(path)
+    problems: list[str] = []
+    checked = 0
+    for manifest in sorted(folder.glob("*/manifest.toml")):
+        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        for package in _bundled_packages(data, manifest.parent):
+            for text in package.texts:
+                if not text.source_sha256:
+                    continue
+                checked += 1
+                where = f"{manifest.parent.name}: {text.label}"
+                copy = next(
+                    (p for p in by_size.get(text.source_size, []) if _sha256(p) == text.source_sha256), None
+                )
+                if copy is None:
+                    problems.append(
+                        f"{where}: no copy of its source ({text.source_size} bytes, SHA-256 "
+                        f"{text.source_sha256}) in --sources"
+                    )
+                elif not text.path.is_file() or not comes_from(
+                    text.path.read_text(encoding="utf-8"), copy.read_bytes(), text.url
+                ):
+                    problems.append(f"{where}: does not come from its source {copy}")
+    return problems, checked
 
 
 def check_kept_texts(folder: Path = THIRD_PARTY) -> list[str]:
@@ -1832,11 +1915,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--components", action="store_true")
+    parser.add_argument("--sources", action="append", type=Path, default=[])
     args = parser.parse_args(argv)
     try:
         if args.list:
             sys.stdout.write(listing())
             return 0
+        if args.sources:
+            found, checked = check_text_sources(args.sources)
+            for problem in found:
+                print(f"source: {problem}", file=sys.stderr)
+            print(f"sources: {checked} texts cut from a file that is not kept, {len(found)} problem(s)")
+            return 1 if found or not checked else 0
         if not (args.out or args.check or args.components):
             parser.error("one of --list, --out, --check or --components is needed")
         wheels, missing = collect(args.wheelhouse, fetch=args.download, cache=args.cache)

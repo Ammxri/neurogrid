@@ -6,9 +6,11 @@
 # hed-validator 4.2.0, the polyfills of @jspm/core) has the version its lockfile names, see its note, and its
 # texts come from the package's repository at the npm gitHead of that version (raw.githubusercontent.com,
 # byte-equal to the npm package's file where it has one) or, for @jspm/core, from its npm tarball; those texts
-# carry retrieved and decision. kind 'page excerpt': the licence section of a web page as plain text (UTF-8,
-# LF), with the size and SHA-256 of the page as retrieved. Only the licence files (and licence headers of
-# compiled sources) are kept, byte for byte for licence files; header extracts are UTF-8 with LF.
+# carry retrieved and decision. kind 'document excerpt': the licence section of a web page as plain text
+# (UTF-8, LF; the targets of its links in parentheses, its list numbers kept), with source_size and
+# source_sha256 of the page as retrieved (tools/notices.py --sources checks them against a copy). Only the
+# licence files (and licence headers of compiled sources) are kept, byte for byte for licence files; header
+# extracts are UTF-8 with LF.
 # tools/notices.py checks every SHA-256 and that the packages equal the source map, and copies the texts into
 # THIRD_PARTY_NOTICES.txt. found: how the source map names the version. pending: the known_missing.toml entry
 # for texts that are still missing. owner_decision: the known_missing.toml entry (with a decision) of a
@@ -1662,14 +1664,14 @@ sha256 = "2f3890091a9bee75b01c6fba91e79807df5d5b53ef710b5a6749db9ed5c9e7df"
 [[package.text]]
 file = "npm/hash-wasm@4.12.0/LICENSE.brumme-disclaimer.html-license.txt"
 origin = "the License section of http://create.stephan-brumme.com/disclaimer.html (crc32, crc64, xxhash32, xxhash64), as plain text, page retrieved on 2026-10-27, SHA-256 5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1"
-kind = "page excerpt"
+kind = "document excerpt"
 url = "https://create.stephan-brumme.com/disclaimer.html"
 size = 1037
 sha256 = "87ae5539efe0c3c7e109f34f11ec43f0624f6fcfc0535a72525e2f694f4a990d"
 retrieved = "2026-10-27"
 decision = "D-17"
-page_size = 23966
-page_sha256 = "5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1"
+source_size = 23966
+source_sha256 = "5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1"
 
 [[package.text]]
 file = "npm/hash-wasm@4.12.0/LICENSE.argon2-golang-crypto.txt"

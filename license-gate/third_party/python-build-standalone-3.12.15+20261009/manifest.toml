@@ -8,14 +8,14 @@
 # them from CPython's own sources) and the licence header of HACL* in CPython's Modules/_hacl. Not the
 # version-exact upstream files the URL list names as alternatives. Licence files are kept byte for byte; the
 # extracts of Doc/license.rst (its sections) and of Hacl_Hash_SHA2.c (its leading comment) are verbatim, UTF-8
-# with LF, and their source_size and source_sha256 are those of the file they come from. tools/notices.py
-# checks every SHA-256, that the pinned version has this review and that each licence is permissive
+# with LF (kind 'document excerpt' and 'source header'), and their source_size and source_sha256 are those of
+# the file they come from (tools/notices.py --sources checks them against a copy). tools/notices.py checks
+# every SHA-256, that the pinned version has this review and that each licence is permissive
 # (LIBRARY_ALLOWED), lists the libraries in section 4 of THIRD_PARTY_NOTICES.txt and copies the texts into
-# section 6.
-# Versions: pythonbuild/downloads.json at the tag 20261009 (commit ccc07c40), checked against the version
-# strings of the binaries in the pinned archives (read without running anything); platform: where the library
-# is built in. Not needed: Berkeley DB (the bundle leaves out _dbm), zstd and zlib-ng (from CPython 3.14 on),
-# openssl-1.1.
+# section 6. Versions: pythonbuild/downloads.json at the tag 20261009 (commit ccc07c40), checked against the
+# version strings of the binaries in the pinned archives (read without running anything); platform: where the
+# library is built in. Not needed: Berkeley DB (the bundle leaves out _dbm), zstd and zlib-ng (from CPython
+# 3.14 on), openssl-1.1.
 version = 1
 component = "python-build-standalone"
 component_version = "3.12.15+20261009"
