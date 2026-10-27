@@ -249,8 +249,10 @@ def _gbk_header(ds: Path, data_file: bytes, marker_file: bytes) -> Path:
 
 
 def test_brainvision_reference_as_mne_decodes_it_is_checked(tmp_path: Path, no_mne: None) -> None:
-    """GBK reads 0x81 0x5C as one character, Latin-1 as '\\x81' and a backslash: MNE would open
-    '<ds>/\\x81/x.eeg', here a directory link to the outside data (A-52)."""
+    """GBK reads 0x81 0x5C as one character, Latin-1 as '\\x81' and a backslash: MNE on Windows would open
+    '<ds>/\\x81/x.eeg', here a directory link to the outside data (A-52). A backslash in a reference separates
+    folders for NeuroGrid on every system (BrainVision files are written on Windows), so the reference is
+    refused on Linux as well, where MNE would take it for one file name (the two tests below)."""
     ds, outside = _dataset(tmp_path)
     shutil.copy(ds / "rec.eeg", ds / "乗x.eeg")  # the file NeuroGrid's reading names, next to the header
     (outside / "rec.eeg").rename(outside / "x.eeg")
@@ -264,6 +266,12 @@ def test_brainvision_reference_as_mne_decodes_it_is_checked(tmp_path: Path, no_m
     assert adapter.read_check(vhdr) == "UnsafePathError"
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Windows only: the backslash of '\\x81\\\\x.eeg' is a path separator only there; on POSIX MNE "
+    "opens one file of that name inside the dataset "
+    "(test_mne_on_posix_opens_the_backslash_name_inside_the_dataset)",
+)
 def test_mne_alone_follows_the_differently_decoded_reference(tmp_path: Path) -> None:
     import mne
 
@@ -273,6 +281,46 @@ def test_mne_alone_follows_the_differently_decoded_reference(tmp_path: Path) -> 
     vhdr = _gbk_header(ds, b"\x81\x5cx.eeg", b"rec.vmrk")
     data = mne.io.read_raw_brainvision(vhdr, preload=True, verbose="error").get_data()
     assert np.allclose(data, OUTSIDE_VALUE * 1e-6)
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX only: Windows cannot store a file name with a backslash (there it is a path separator)",
+)
+def test_mne_on_posix_opens_the_backslash_name_inside_the_dataset(tmp_path: Path) -> None:
+    """CI ubuntu-24.04: MNE opened '<ds>/\\x81\\\\x.eeg' as one name (FileNotFoundError), not the folder link.
+    NeuroGrid refuses the reference all the same, so the outcome is that of Windows (A-52, TECH-05)."""
+    import mne
+
+    ds, outside = _dataset(tmp_path)
+    (outside / "rec.eeg").rename(outside / "x.eeg")
+    dir_link(ds / "\x81", outside)
+    shutil.copy(ds / "rec.eeg", ds / "乗x.eeg")  # the file NeuroGrid's reading names, next to the header
+    shutil.copy(ds / "rec.eeg", ds / "\x81\\x.eeg")  # one file name with a backslash, inside the dataset
+    vhdr = _gbk_header(ds, b"\x81\x5cx.eeg", b"rec.vmrk")
+    data = mne.io.read_raw_brainvision(vhdr, preload=True, verbose="error").get_data()
+    assert np.allclose(data, INSIDE_VALUE * 1e-6)  # the file inside, not the outside data behind the link
+    adapter = BrainVisionAdapter()
+    assert adapter.inspect(vhdr).missing_companions == ("companion.unsafe_reference",)
+    assert adapter.read_check(vhdr) == "UnsafePathError"
+
+
+@pytest.mark.parametrize("reference", ["\x81\\x.eeg", "sub\\rec.eeg", "..\\OUTSIDE\\rec.eeg"])
+def test_backslash_in_a_reference_is_a_separator_on_every_system(
+    tmp_path: Path, reference: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """MNE joins DataFile with os.path.join: on POSIX the backslash stays in one file name inside the dataset,
+    on Windows it separates folders. NeuroGrid's check takes it for a separator on every system, so a dataset
+    gets the same outcome on Linux and Windows (A-52, TECH-05); os.name is set to both values."""
+    import ntpath
+    import posixpath
+
+    assert posixpath.dirname(posixpath.join("/ds", reference)) == "/ds"  # POSIX: one name in the folder
+    assert ntpath.dirname(ntpath.join("C:\\ds", reference)) != "C:\\ds"  # Windows: folders
+    ds, _outside = _dataset(tmp_path)
+    for name in ("nt", "posix"):
+        monkeypatch.setattr(safety.os, "name", name)
+        assert brainvision._reference(ds, reference) == (None, "unsafe")
 
 
 def test_brainvision_marker_fallback_of_mne_must_not_be_a_link(
