@@ -6,9 +6,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 import typing
+from collections.abc import Sequence
+from datetime import date
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -18,6 +21,7 @@ import typer
 from pydantic import BaseModel
 
 from neurogrid import config as config_module
+from neurogrid import pipeline
 from neurogrid.checks.registry import REGISTRY
 from neurogrid.cli import app
 from neurogrid.config import Config, MetadataDefaults
@@ -221,6 +225,52 @@ def test_documented_toml_examples_are_valid(lang: str) -> None:
     parsed = config_module.parse_bytes(examples[0].encode("utf-8"))
     assert parsed.check.rulepacks == ["core", "bids", "gxdsl008"]
     assert examples[0] == _tagged(_page("en", "configuration.md"), "neurogrid.toml", "toml")[0]
+
+
+DATASET_PRECEDENCE = {
+    "en": (
+        "`name` and `license` set here take precedence over `Name` and `License` of"
+        " `dataset_description.json`",
+        "`id`, `version` and `source` come only from this section",
+    ),
+    "zh": (
+        "此处设置的 `name` 和 `license` 优先于 `dataset_description.json` 中的 `Name` 和 `License`",
+        "`id`、`version` 和 `source` 只来自本节",
+    ),
+}
+DATASET_PRECEDENCE_REVERSED = {
+    "en": "when `dataset_description.json` does not provide them",
+    "zh": "当 `dataset_description.json` 未提供时",
+}
+
+
+def test_dataset_section_states_the_precedence_of_the_code(tmp_path: Path) -> None:
+    """A-04, A-63, review R09: [dataset] name and license of neurogrid.toml win over Name and License of
+    dataset_description.json, which fills a field only when the section leaves it unset; id, version and
+    source come from the section alone. The page said the reverse ("when dataset_description.json does not
+    provide them")."""
+    dataset = tmp_path / "ds"
+    shutil.copytree(FIXTURES / "synthetic" / "bids_ok", dataset)
+    description = json.loads((dataset / "dataset_description.json").read_text(encoding="utf-8"))
+    assert description["Name"] and description["License"]  # both sources are set
+    given = tmp_path / "given.toml"
+    given.write_text(
+        '[dataset]\nname = "Name from toml"\nlicense = "MIT-from-toml"\nversion = "2"\n', encoding="utf-8"
+    )
+    empty = tmp_path / "empty.toml"
+    empty.write_text("", encoding="utf-8")
+    shown: dict[str, Any] = {}
+    for name, config in (("given", given), ("empty", empty)):
+        options = pipeline.CheckOptions(config_path=config, as_of=date(2026, 10, 11), work_base=tmp_path)
+        shown[name] = pipeline.run_check(dataset, options).dataset
+    assert (shown["given"].name, shown["given"].license) == ("Name from toml", "MIT-from-toml")
+    assert (shown["empty"].name, shown["empty"].license) == (description["Name"], description["License"])
+    assert (shown["given"].id, shown["given"].version, shown["empty"].version) == ("unnamed", "2", None)
+    for lang in LANGUAGES:
+        flat = " ".join(_anchored(_page(lang, "configuration.md"))["dataset"].split())
+        assert DATASET_PRECEDENCE_REVERSED[lang] not in flat, lang
+        for sentence in DATASET_PRECEDENCE[lang]:
+            assert sentence in flat, (lang, sentence)
 
 
 def test_rulepack_tutorial_example_runs(tmp_path: Path) -> None:
@@ -525,10 +575,365 @@ def test_privacy_pages_state_the_strace_rule_of_the_offline_gate(tmp_path: Path)
     assert len(attempts) == 1  # what the page names as the exception, the gate rejects
 
 
+EVIDENCE_IN_CLEAR = {
+    "en": {
+        "privacy.md#outputs": (
+            "appear as written in `results.json` and in section 5 of the report, also in raw folders without"
+            " `--show-paths`",
+            "The console never prints them.",
+            "Write a role or initials as `reviewer`, never a full name",
+        ),
+        "report.md#evidence": (
+            "appear as written in `evidence.yaml`, also in raw folders without `--show-paths`",
+            "use a role or initials as reviewer, never a full name",
+        ),
+        "report.md#pseudonymity": ("are the one exception: they appear as written",),
+        "configuration.md#files": (
+            "`reviewer`: a role or initials, never a full name",
+            "These four fields appear as written in `results.json` and in the report, also in raw folders"
+            " without `--show-paths`",
+        ),
+    },
+    "zh": {
+        "privacy.md#outputs": (
+            "按原样出现在 `results.json` 和报告第 5 部分中，"
+            "在原始数据文件夹中不使用 `--show-paths` 时也是如此",
+            "控制台从不输出这些字段。",
+            "`reviewer` 请填写角色或姓名缩写，从不填写全名",
+        ),
+        "report.md#evidence": (
+            "按 `evidence.yaml` 中的原样显示，在原始数据文件夹中不使用 `--show-paths` 时也是如此",
+            "审核人请填写角色或姓名缩写，从不填写全名",
+        ),
+        "report.md#pseudonymity": ("字段，它们按原样显示",),
+        "configuration.md#files": (
+            "`reviewer`：角色或姓名缩写，从不填写全名",
+            "这四个字段按原样出现在 `results.json` 和报告中，"
+            "在原始数据文件夹中不使用 `--show-paths` 时也是如此",
+        ),
+    },
+}
+# The evidence.yaml fields that are not free text of the user: they never name a person.
+EVIDENCE_FIXED_FIELDS = {"status", "sha256", "date"}
+
+
+def test_pages_state_that_evidence_free_text_appears_in_clear(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A-83 (display), A-15, review R08: document (relative path), reviewer, comment and justification of
+    evidence.yaml appear as written in results.json and in report section 5, also in raw folders without
+    --show-paths; the console never prints them; reviewer is a role or initials. The pages said only that raw
+    folders get pseudonymous IDs. The test checks the behaviour the pages now state, and the pages."""
+    from neurogrid.cli import main
+    from neurogrid.kernel.evidence import EvidenceItem
+
+    free_text = set(EvidenceItem.model_fields) - EVIDENCE_FIXED_FIELDS
+    assert free_text == {"document", "reviewer", "comment", "justification"}  # the four the pages name
+    dataset = tmp_path / "raw"
+    shutil.copytree(FIXTURES / "synthetic" / "edf_ok", dataset)
+    (dataset / ".neurogrid" / "evidence").mkdir(parents=True)
+    document = ".neurogrid/evidence/Zhang_San_SOP.txt"
+    (dataset / document).write_bytes(b"IT security SOP (synthetic test document)\n")
+    values = {
+        "document": document,
+        "reviewer": "Zhang San",
+        "comment": "checked with Li Si",
+        "justification": "Wang Wu keeps the key",
+    }
+    (dataset / ".neurogrid" / "evidence.yaml").write_text(
+        "format_version: 1\nevidence:\n  GXDSL008-ACC-001:\n    status: provided\n"
+        + "".join(f"    {name}: {text}\n" for name, text in values.items()),
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    written = str(out / "r.json")
+    console = []
+    for args in (
+        ["check", str(dataset), "--rulepack", "gxdsl008", "--as-of", "2026-10-11", "--out", written],
+        ["report", written, "--lang", "zh,en", "--format", "html", "--out", str(out / "rep")],
+    ):
+        with pytest.raises(SystemExit) as info:
+            main(args)
+        stdout, stderr = capsys.readouterr()
+        assert info.value.code in (0, 1, None), (args[0], stdout, stderr)
+        console.append(stdout + stderr)
+    results = json.loads((out / "r.json").read_text(encoding="utf-8"))
+    assert not results["dataset"]["is_bids"]  # a raw folder, checked without --show-paths
+    (record,) = results["evidence"]
+    assert {name: record[name] for name in values} == values  # in clear in results.json
+    for lang in LANGUAGES:
+        html = (out / "rep" / f"report.{lang}.html").read_text(encoding="utf-8")
+        section = html[html.index('<section id="evidence">') :]
+        section = section[: section.index("</section>")]
+        assert all(text in section for text in values.values()), lang  # and in report section 5
+    assert not [text for text in values.values() for line in console if text in line]  # never on the console
+    assert "notice.evidence_looks_identifying" in {notice["message_key"] for notice in results["notices"]}
+    for lang, pages in EVIDENCE_IN_CLEAR.items():
+        for where, sentences in pages.items():
+            name, anchor = where.split("#")
+            flat = " ".join(_anchored(_page(lang, name))[anchor].split())
+            assert all(f"`{field}`" in flat for field in free_text) or anchor == "evidence", (lang, where)
+            for sentence in sentences:
+                assert sentence in flat, (lang, where, sentence)
+
+
 DEAD_PROXY = {
     "en": "except calls to port 9 on loopback",
     "zh": "回环地址的端口 9 除外",
 }
+
+
+OFFLINE_WORKFLOW = ROOT / ".github" / "workflows" / "offline.yml"
+CLEANROOM_WINDOWS = ROOT / "packaging" / "ci" / "cleanroom_windows.ps1"
+BEFORE_CI = ("until the first CI run", "首次 CI 运行前", "首次 CI")
+BUNDLE_IN_CI = {"en": "offline bundle verified in CI", "zh": "离线安装包已在 CI 中验证"}
+SUITE_PENDING = {"en": "test suite not yet verified", "zh": "测试套件尚未验证"}
+REFUSED = {
+    "en": "the installer stops with exit code 2 (verified in CI)",
+    "zh": "安装程序以退出码 2 结束（已在 CI 中验证）",
+}
+AUDIT_HOOK_PENDING = {
+    "en": "on Linux and on the Windows runner not yet verified",
+    "zh": "在 Linux 和 Windows 运行器上尚未验证",
+}
+DISTRIBUTION = {"debian:12-slim": "Debian 12", "ubuntu:18.04": "Ubuntu 18.04"}
+SHELLS = {"powershell": "Windows PowerShell 5.1", "pwsh": "PowerShell 7"}
+EVIDENCE_IN_CI = {
+    "en": (
+        "verified in CI: installer and every v0.1 command",
+        "verified in CI on GitHub's Windows Server runner",
+    ),
+    "zh": (
+        "已在 CI 中验证：离线安装包的安装程序和 0.1 版的每条命令",
+        "已在 CI 中于 GitHub 的 Windows Server 运行器上",
+    ),
+}
+FIREWALL_RULE = (
+    "New-NetFirewallRule -DisplayName neurogrid-block -Direction Outbound -Action Block -Program $_.FullName"
+)
+
+
+def _table_rows(text: str) -> list[list[str]]:
+    lines = [line.strip() for line in text.splitlines() if line[:1] == "|"]
+    return [[cell.strip() for cell in line.strip("|").split("|")] for line in lines]
+
+
+def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
+    """V-06, NG-N01, TECH-06: the offline workflow ran green (both bundles, clean rooms of every image and
+    both Windows shells with WFP audit and PDF, glibc 2.27 refused, every command under strace without
+    network). The pages said 'not verified until the first CI run'. Each status now names what the workflow
+    verifies, read from offline.yml; the test suite on Linux and on the Windows runner stays 'not yet
+    verified' while the ci jobs of the test suite fail (CI run of 55335ca: 6 failures on ubuntu-24.04, 5-6 on
+    windows-latest). When they pass, the 'not yet verified' cells and SUITE_PENDING change by hand."""
+    jobs = load_yaml(OFFLINE_WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    images = [entry["image"] for entry in jobs["cleanroom-linux"]["strategy"]["matrix"]["include"]]
+    shells = [entry["shell"] for entry in jobs["cleanroom-windows"]["strategy"]["matrix"]["include"]]
+    refusal = " ".join(step.get("run", "") for step in jobs["glibc-refusal"]["steps"])
+    refused_image = re.search(r"--image (\S+) --expect-refusal", refusal)
+    assert refused_image and jobs["cleanroom-windows"]["runs-on"] == "windows-latest"
+    names = [DISTRIBUTION.get(image, image.replace("ubuntu:", "Ubuntu ")) for image in images]
+    assert names == ["Debian 12", "Ubuntu 22.04", "Ubuntu 24.04"] and shells == ["powershell", "pwsh"]
+    for path in sorted((DOCS / "en").rglob("*.md")) + sorted((DOCS / "zh").rglob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        assert not [phrase for phrase in BEFORE_CI if phrase in text], path.relative_to(DOCS).as_posix()
+    for lang in LANGUAGES:
+        rows = _table_rows(_anchored(_page(lang, "installation.md"))["platforms"])
+        verified = [(platform, status) for platform, status in rows if BUNDLE_IN_CI[lang] in status]
+        assert len(verified) == 2, (lang, rows)
+        (windows, _), (linux, _) = verified
+        assert "`windows-latest`" in windows and all(SHELLS[shell] in windows for shell in shells), lang
+        assert all(name in linux for name in names), lang
+        # the ci workflow's test jobs failed for 55335ca: no row may claim the test suite on these systems
+        assert all(SUITE_PENDING[lang] in status for _, status in verified), (lang, verified)
+        refused = [platform for platform, status in rows if REFUSED[lang] in status]
+        assert len(refused) == 1 and DISTRIBUTION[refused_image.group(1)] in refused[0], (lang, rows)
+        privacy = _anchored(_page(lang, "privacy.md"))["check-yourself"]
+        statuses = [status for _evidence, status in _table_rows(privacy)[2:]]
+        linux_run, firewall = EVIDENCE_IN_CI[lang]
+        assert any(status.startswith(linux_run) and "`debian:12-slim`" in status for status in statuses), lang
+        assert any(status.startswith(firewall) for status in statuses), lang
+        assert any(AUDIT_HOOK_PENDING[lang] in status for status in statuses), lang
+
+
+CLEANROOM_LINUX = ROOT / "packaging" / "ci" / "cleanroom_linux.sh"
+CLEANROOM_INSIDE = ROOT / "packaging" / "ci" / "cleanroom_inside.sh"
+# What "offline bundle verified in CI" means, per platform, as the clean-room scripts do it.
+CLEAN_ROOM = {
+    "en": {
+        "linux": (
+            "On Linux the clean room is a fresh container without network (`--network none`) and without a "
+            "preinstalled Python, run as an unprivileged user."
+        ),
+        "windows": (
+            "On Windows it is a fresh folder on the runner, whose network stays on: no Python or uv is"
+            " reachable on `PATH` (the runner's preinstalled Python stays installed, only its folders are"
+            " removed from `PATH`), an outbound firewall rule blocks every program of the bundle, the"
+            " installation and the PDF browser, and the Windows Filtering Platform audits every connection;"
+            " a connection or attempt of these programs to an address other than loopback fails the run"
+        ),
+    },
+    "zh": {
+        "linux": (
+            "在 Linux 上，洁净环境是一个全新的容器，没有网络（`--network none`），没有预装的 Python，以无特"
+            "权用户身份运行。"
+        ),
+        "windows": (
+            "在 Windows 上，它是运行器上的一个全新文件夹，运行器的网络保持开启：`PATH` 上找不到任何 Python "
+            "或 uv（运行器预装的 Python 仍然安装着，只是其文件夹已从 `PATH` 中移除），一条出站防火墙规则阻"
+            "止安装包、安装位置和 PDF 浏览器的每个程序，Windows 筛选平台审计每次连接；这些程序向回环地址以"
+            "外的地址发起的任何连接或连接尝试都会使运行失败"
+        ),
+    },
+}
+NO_NETWORK_FOR_BOTH = {
+    "en": "a fresh folder or container without network",
+    "zh": "全新的文件夹或容器，没有网络",
+}
+
+
+def test_clean_room_definition_matches_each_platforms_clean_room() -> None:
+    """V-06, NG-N01, TECH-06: installation.md defined "offline bundle verified in CI" as a clean room that is
+    "a fresh folder or container without network and without a preinstalled Python" for both platforms. Only
+    the Linux room is that (cleanroom_linux.sh: --network none, an image without Python, uid 1000). The
+    Windows room keeps the runner's network: it takes Python and uv off PATH (the runner's Python stays
+    installed), blocks every .exe of the bundle, the installation and the PDF browser with an outbound
+    firewall rule and audits every connection with the Windows Filtering Platform. The definition now says
+    so per platform; the facts are read from the scripts."""
+    linux = " ".join(CLEANROOM_LINUX.read_text(encoding="utf-8").split())
+    assert "docker run --rm --network none --user 1000:1000" in linux
+    inside = CLEANROOM_INSIDE.read_text(encoding="utf-8")
+    assert "the image has a Python interpreter: not a clean room" in inside
+    windows = " ".join(CLEANROOM_WINDOWS.read_text(encoding="utf-8-sig").split())
+    assert "-Direction Outbound -Action Block -Program $_.FullName" in windows
+    assert "auditpol /set /subcategory:$wfpConnection" in windows  # Filtering Platform Connection audit
+    assert r'$env:PATH = "$env:SystemRoot\System32;$env:SystemRoot;' in windows
+    assert "python or uv is reachable on PATH: not a clean room" in windows
+    # the Windows room never takes the runner off the network: nothing disables an adapter or isolates it
+    assert not [word for word in ("Disable-NetAdapter", "--network none", "-Isolation") if word in windows]
+    for lang in LANGUAGES:
+        platforms = _anchored(_page(lang, "installation.md"))["platforms"]
+        flat = re.sub(r"\s+", "", platforms)
+        assert re.sub(r"\s+", "", NO_NETWORK_FOR_BOTH[lang]) not in flat, lang
+        for room, sentence in CLEAN_ROOM[lang].items():
+            assert re.sub(r"\s+", "", sentence) in flat, (lang, room)
+
+
+# Why one rule covers the PDF browser: every one of its processes runs its one executable. That holds
+# whatever the process layout, so the pages give this reason and need no claim about where a part runs.
+ONE_EXECUTABLE = {
+    "en": "The PDF browser's own process and every process it starts run `{}`, so this one rule covers all"
+    " of them.",
+    "zh": "PDF 浏览器自身的进程及其启动的每个进程都运行 `{}`，因此这一条规则涵盖所有这些进程。",
+}
+# A page that says a part of the PDF browser runs inside the browser process on Windows (the wording the
+# pages had up to 901bda6) names the part; each part has the launch argument that puts it there.
+IN_BROWSER_PROCESS = {"en": "inside the browser process", "zh": "浏览器进程内"}
+LAYOUT_PARTS = {"en": ("GPU", "network service"), "zh": ("GPU", "网络服务")}
+OLD_LAYOUT_CLAIM = {
+    "en": "Every process of the PDF browser runs `chrome-headless-shell.exe`; on Windows its GPU and its"
+    " network service run inside the browser process itself, so this one rule covers them.",
+    "zh": "PDF 浏览器的每个进程都运行 `chrome-headless-shell.exe`；在 Windows 上，其 GPU 和网络服务就在"
+    "浏览器进程内运行，因此这一条规则也涵盖它们。",
+}
+
+
+def _windows_launch_arguments() -> list[str]:
+    """pdf.launch_arguments as the printer calls it on Windows. Up to 901bda6 the function has no Windows
+    switch: it returns the same flags on every platform, and those are the Windows flags."""
+    from neurogrid.kernel import pdf
+
+    try:
+        return pdf.launch_arguments(Path("work"), windows=True)  # type: ignore[call-arg, unused-ignore]
+    except TypeError:  # no keyword windows (before 88b15a4, branch p5-ci2-chrome-log)
+        return pdf.launch_arguments(Path("work"))
+
+
+def _unbacked_layout_claims(section: str, lang: str) -> list[str]:
+    """The parts of the PDF browser that the section says run inside the browser process although the
+    launch arguments for Windows do not put them there (GPU: --in-process-gpu; network service: the feature
+    NetworkServiceInProcess2 in --enable-features)."""
+    from neurogrid.kernel import pdf
+
+    flat = re.sub(r"\s+", "", section)
+    if re.sub(r"\s+", "", IN_BROWSER_PROCESS[lang]) not in flat:
+        return []
+    arguments = _windows_launch_arguments()
+    features = {
+        feature
+        for argument in arguments
+        if argument.startswith("--enable-features=")
+        for feature in argument.removeprefix("--enable-features=").split(",")
+    }
+    backed = (pdf.IN_PROCESS_GPU in arguments, "NetworkServiceInProcess2" in features)
+    named = [part for part in LAYOUT_PARTS[lang] if re.sub(r"\s+", "", part) in flat]
+    return [part for part, ok in zip(LAYOUT_PARTS[lang], backed, strict=True) if part in named and not ok]
+
+
+def test_firewall_check_blocks_what_the_ci_blocks() -> None:
+    """NG-N01, A-49: 'Check it yourself' on Windows blocks every .exe of the installation and of the PDF
+    browser folder with the rule the Windows clean room adds (cleanroom_windows.ps1 Block-Executables),
+    names the programs it covers and says that the PDF browser's processes all run its one executable.
+
+    The pages said that on Windows the GPU and the network service run inside the browser process. Without
+    88b15a4 (p5-ci2-chrome-log) the network service is a child process of its own (measured on Windows 11
+    at 901bda6: browser, utility network.mojom.NetworkService, renderer, all chrome-headless-shell.exe), and
+    the check of that claim here sat behind an inspect.signature test that skipped it without notice. The
+    pages now give the reason that holds whatever the process layout; a claim about the layout is checked
+    against the real launch arguments for Windows and fails here, never skipped, when the code lacks it."""
+    from neurogrid.kernel import pdf
+
+    script = " ".join(CLEANROOM_WINDOWS.read_text(encoding="utf-8-sig").split())
+    assert FIREWALL_RULE.replace("neurogrid-block", '"$tag-block"') in script
+    browser = Path(pdf.EXECUTABLES["win64"]).name
+    for lang in LANGUAGES:
+        section = _anchored(_page(lang, "privacy.md"))["check-yourself"]
+        assert FIREWALL_RULE in " ".join(section.split()), lang
+        assert "-Recurse -Filter *.exe" in section and r"$env:LOCALAPPDATA\NeuroGrid\pdf-browser" in section
+        for program in ("neurogrid.exe", "python.exe", "deno.exe", "node.exe", browser):
+            assert f"`{program}`" in section, (lang, program)
+        assert "Remove-NetFirewallRule -DisplayName neurogrid-block" in section, lang
+        assert "sys._base_executable" in section, lang  # the interpreter behind a venv's python.exe
+        flat = re.sub(r"\s+", "", section)
+        assert re.sub(r"\s+", "", ONE_EXECUTABLE[lang].format(browser)) in flat, lang
+        unbacked = _unbacked_layout_claims(section, lang)
+        assert not unbacked, (
+            f"privacy.md ({lang}) says {unbacked} run inside the browser process on Windows, but"
+            f" pdf.launch_arguments for Windows does not put them there: {_windows_launch_arguments()}"
+        )
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_layout_claims_are_checked_against_the_windows_launch_arguments(
+    lang: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """NG-N01: the check above flags a layout claim exactly when the launch arguments lack its switch, with
+    and without the keyword windows of launch_arguments (88b15a4), and never skips. The old wording of the
+    pages names the GPU and the network service; the current wording makes no layout claim."""
+    from neurogrid.kernel import pdf
+
+    gpu = [*pdf.CHROMIUM_FLAGS, pdf.IN_PROCESS_GPU]
+    network = "--enable-features=CDPScreenshotNewSurface,NetworkServiceInProcess2"
+
+    def before(work: Path, extra_flags: Sequence[str] = ()) -> list[str]:  # no keyword windows
+        return [*gpu, f"--log-file={work / 'chromium.log'}", *extra_flags]
+
+    def after(work: Path, extra_flags: Sequence[str] = (), *, windows: bool | None = None) -> list[str]:
+        return [*gpu, *([network] if windows else []), f"--log-file={work / 'chromium.log'}", *extra_flags]
+
+    old = OLD_LAYOUT_CLAIM[lang]
+    current = ONE_EXECUTABLE[lang].format("chrome-headless-shell.exe")
+    monkeypatch.setattr(pdf, "launch_arguments", before)
+    assert _unbacked_layout_claims(old, lang) == [LAYOUT_PARTS[lang][1]]
+    assert _unbacked_layout_claims(current, lang) == []
+    monkeypatch.setattr(pdf, "launch_arguments", after)
+    assert _unbacked_layout_claims(old, lang) == []
+    assert _unbacked_layout_claims(current, lang) == []
+
+    def neither(work: Path, extra_flags: Sequence[str] = (), *, windows: bool | None = None) -> list[str]:
+        return [*pdf.CHROMIUM_FLAGS, f"--log-file={work / 'chromium.log'}", *extra_flags]
+
+    monkeypatch.setattr(pdf, "launch_arguments", neither)
+    assert _unbacked_layout_claims(old, lang) == list(LAYOUT_PARTS[lang])
 
 
 INSTALLER = ROOT / "tools" / "install_pdf_browser.py"

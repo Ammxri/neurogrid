@@ -310,3 +310,29 @@ def test_readme_commands_are_complete_lines_in_the_named_shell() -> None:
         assert not re.search(r"\s--(lang|format) [^\"\s]*,", line), line  # a bare a,b: an array in PowerShell
     heading = lines.index(next(line for line in lines if line.startswith("2. ")))
     assert "PowerShell" in lines[heading] and "cmd.exe" in "\n".join(lines[heading : heading + 8])
+
+
+def _platform_status(lang: str) -> str:
+    """The #platforms paragraph of limitations.md without its link to the installation page and without
+    whitespace (the delivery texts wrap it at other places)."""
+    text = _read(DOCS / lang / "limitations.md")
+    section = re.split(r"^## .*\{#([A-Za-z0-9_.-]+)\}\s*$", text, flags=re.M)
+    body = dict(zip(section[1::2], section[2::2], strict=True))["platforms"]
+    body = re.sub(r"\s*[(（]\[[^\]]+\]\(installation\.md#platforms\)[)）]", "", body)
+    return re.sub(r"\s+", "", body)
+
+
+def test_delivery_texts_state_the_platform_status_of_the_documentation() -> None:
+    """V-06, NG-N01, TECH-06: README.txt of the bundle and the release notes still said "Not verified: Windows
+    10; Linux distributions other than Debian 12 and Ubuntu 22.04+" after the documentation had followed the
+    green offline workflow (limitations.md #platforms: the offline bundle verified in CI on Windows Server,
+    Debian 12, Ubuntu 22.04 and 24.04, the test suite there not yet verified, PowerShell 7 on Windows 11 and
+    Ubuntu after 24.04 not verified, other distributions not supported). Both delivery texts carry the
+    platform paragraph of limitations.md in both languages, so a change of the status changes all four."""
+    for path in (PACKAGING / "README.bundle.txt", PACKAGING / "release-notes.md"):
+        flat = re.sub(r"\s+", "", _read(path))
+        assert "otherthanDebian12andUbuntu22.04+" not in flat, path.name
+        for lang in ("en", "zh"):
+            status = _platform_status(lang)
+            assert "PowerShell7" in status and "Ubuntu24.04" in status, lang  # the paragraph was found
+            assert status in flat, (path.name, lang)

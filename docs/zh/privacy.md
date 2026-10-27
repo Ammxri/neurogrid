@@ -24,6 +24,10 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
   EEGLAB 注释），只报告字段名，从不报告字段值。
 - 在原始数据文件夹中，记录获得假名 ID（`rec-<8 位十六进制数>` 或 `neurogrid.toml` 中的映射）；数据集根目录显示为
   `<dataset>`，用户主文件夹显示为 `~`。`--show-paths` 显示真实名称——只在允许出现真实名称的场合使用。
+- 唯一的例外：`evidence.yaml` 中的 `document`（相对路径）、`reviewer`、`comment` 和 `justification` 字段按原样出现在
+  `results.json` 和报告第 5 部分中，在原始数据文件夹中不使用 `--show-paths` 时也是如此；报告需要每份文件的可读引用。
+  控制台从不输出这些字段。`reviewer` 请填写角色或姓名缩写，从不填写全名；证明材料文件请使用中性的文件名，`comment`
+  和 `justification` 中不要写人名。报告中的一条信息提示会统计审核人或文件名可能识别个人身份的条目。
 - 控制台显示本机路径时，用户主文件夹显示为 `~`，登录名和计算机名显示为 `<user>` 和 `<host>`，在用户主文件夹之外也是如此
   （例如 U 盘上的输出：`/media/<user>/…`）。
 - NeuroGrid 不对数据做假名化处理：ID 和文件名来自输入。`convert --strip-identifying-headers` 会在转换后的副本中把
@@ -52,13 +56,27 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
   `http://127.0.0.1:9`）指向该端口，向其发送请求的程序实际上是在尝试访问网络。源代码仓库中的
   `python3 tools/strace_check.py <folder>` 对该文件夹中的每个 `strace-*.txt` 文件应用完全相同的规则，并列出其统计的
   回环调用。
-- **Windows。** 为每个程序设置出站防火墙规则，例如
-  `New-NetFirewallRule -Direction Outbound -Action Block -Program <path of neurogrid.exe>`，并对 `python.exe`、
-  `deno.exe`、Playwright 的 `node.exe` 和 PDF 浏览器做同样设置。
+- **Windows。** 像 CI 一样，设置出站防火墙规则，阻止安装位置和 PDF 浏览器文件夹中的每个程序。这需要管理员权限，
+  并会更改计算机的安全设置；之后请删除这些规则。
+
+    ```powershell
+    $folders = "<installation folder or virtual environment>", "$env:LOCALAPPDATA\NeuroGrid\pdf-browser"
+    Get-ChildItem $folders -Recurse -Filter *.exe | ForEach-Object {
+        New-NetFirewallRule -DisplayName neurogrid-block -Direction Outbound -Action Block -Program $_.FullName
+    }
+    # afterwards
+    Remove-NetFirewallRule -DisplayName neurogrid-block
+    ```
+
+    这涵盖 `neurogrid.exe`、`python.exe`、`deno.exe`、Playwright 的 `node.exe` 和 `chrome-headless-shell.exe`。
+    PDF 浏览器自身的进程及其启动的每个进程都运行 `chrome-headless-shell.exe`，因此这一条规则涵盖所有这些进程。
+    从 PyPI 或源代码安装时，请填写其虚拟环境，并同时阻止创建该环境所用的 Python
+    （`python -c "import sys; print(sys._base_executable)"`）。
+
 - **决策。** 决策记录和需求矩阵是仓库的一部分（`docs/umsetzung/`）。
 
 | 证据 | 状态 |
 |---|---|
-| 源代码中的审计钩子和网络禁令（测试） | 已在本地验证 |
-| 无网络和 `strace` 下的 Linux 运行 | 首次 CI 运行前未验证 |
-| Windows 防火墙测试 | 未验证（它会更改计算机的安全设置） |
+| 源代码中的审计钩子和网络禁令（测试） | 已在本地验证；在 Linux 和 Windows 运行器上尚未验证（那里的 CI 测试运行尚未通过） |
+| 无网络和 `strace` 下的 Linux 运行 | 已在 CI 中验证：离线安装包的安装程序和 0.1 版的每条命令在 `debian:12-slim` 中以 `--network none` 在 `strace` 下运行，包括 PDF 报告，没有指向回环地址以外地址的调用；Debian 12、Ubuntu 22.04 和 Ubuntu 24.04 上的无网络洁净环境测试也已通过 |
+| Windows 防火墙测试 | 已在 CI 中于 GitHub 的 Windows Server 运行器上，分别用 Windows PowerShell 5.1 和 PowerShell 7 验证：对安装包、安装位置和 PDF 浏览器的每个程序设置出站阻止规则，并审计每次连接（Windows 筛选平台）；没有指向回环地址以外地址的连接或连接尝试，包括 PDF 报告。未在 Windows 11 上运行（它会更改计算机的安全设置） |

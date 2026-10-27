@@ -9,12 +9,25 @@ installed once; HTML reports work without it.
 | Platform | Status |
 |---|---|
 | Windows 11 x64, Windows PowerShell 5.1 | verified locally |
-| Windows 11 x64, PowerShell 7 | not verified until the first CI run |
+| Windows 11 x64, PowerShell 7 | not verified on Windows 11 |
+| Windows Server x64 (GitHub's `windows-latest` runner), Windows PowerShell 5.1 and PowerShell 7 | offline bundle verified in CI; test suite not yet verified |
 | Windows 10 x64 | not verified |
-| Linux x86_64 with glibc 2.28 or newer: Debian 12, Ubuntu 22.04 and newer | not verified until the first CI run |
+| Linux x86_64 with glibc 2.28 or newer: Debian 12, Ubuntu 22.04, Ubuntu 24.04 | offline bundle verified in CI; test suite not yet verified |
+| Linux x86_64: Ubuntu releases after 24.04 | not verified |
+| Linux with glibc older than 2.28, for example Ubuntu 18.04 | refused: the installer stops with exit code 2 (verified in CI) |
 | Linux ARM64, macOS | not supported |
 
-"Not verified" means: NeuroGrid is built for these systems, but no test run on them has been recorded yet.
+"Verified locally" means: the test suite and every command run on this system. "Offline bundle verified in CI"
+means: in the CI (GitHub Actions) the offline bundle was installed in a clean room and every command of version 0.1
+ran from the installation, PDF reports on Windows and on Debian 12 included. On Linux the clean room is a fresh
+container without network (`--network none`) and without a preinstalled Python, run as an unprivileged user. On
+Windows it is a fresh folder on the runner, whose network stays on: no Python or uv is reachable on `PATH` (the
+runner's preinstalled Python stays installed, only its folders are removed from `PATH`), an outbound firewall rule
+blocks every program of the bundle, the installation and the PDF browser, and the Windows Filtering Platform audits
+every connection; a connection or attempt of these programs to an address other than loopback fails the run
+([Privacy](privacy.md#check-yourself)). "Test suite not yet verified" means: the CI runs of the test suite on these
+systems do not pass yet. "Not verified" means: NeuroGrid is built for these systems, but no
+test run on them has been recorded yet.
 Python 3.11–3.13 is supported; the offline bundle brings its own Python 3.12.
 
 ## Offline bundle {#offline-bundle}
@@ -171,7 +184,8 @@ Get-FileHash -Algorithm SHA256 install_pdf_browser.py    # Windows PowerShell
 Without the browser, `neurogrid report --format pdf` stops with exit code 2 and a hint; `--format html` always
 works. On Linux the browser needs system libraries; NeuroGrid checks them before printing and names the missing
 packages. The package lists for Debian 12, Ubuntu 22.04 and Ubuntu 24.04 are in
-`src/neurogrid/kernel/pdf_linux_packages.json`.
+`src/neurogrid/kernel/pdf_linux_packages.json`; the CI prints PDF reports in Debian 12 with exactly its Debian 12
+list.
 
 ## From PyPI {#pypi}
 

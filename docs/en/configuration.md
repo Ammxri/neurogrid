@@ -15,9 +15,10 @@ effective threshold and where it came from.
 
 ## [dataset] {#dataset}
 
-`id`, `name`, `version`, `source`, `license`: the dataset fields of the report and of `results.json` when
-`dataset_description.json` does not provide them. Without `id` the dataset is shown as "unnamed"; the folder
-name is never used, it could be identifying.
+`id`, `name`, `version`, `source`, `license`: the dataset fields of the report and of `results.json`. `name` and
+`license` set here take precedence over `Name` and `License` of `dataset_description.json`; that file fills one
+of them only when it is not set here. `id`, `version` and `source` come only from this section. Without `id` the
+dataset is shown as "unnamed"; the folder name is never used, it could be identifying.
 
 ## [check] {#check}
 
@@ -156,7 +157,7 @@ splits = ".neurogrid/splits.tsv"
 
 | File | Content |
 |---|---|
-| `evidence.yaml` | Evidence for manual and semi-automatic rules: `format_version: 1`, `evidence: {rule ID: {status, document, sha256, reviewer, date, comment, justification}}`; status `open`, `provided`, `partial` or `not_applicable` (justification required). NeuroGrid computes the SHA-256 of each document and compares it with a recorded one. |
+| `evidence.yaml` | Evidence for manual and semi-automatic rules: `format_version: 1`, `evidence: {rule ID: {status, document, sha256, reviewer, date, comment, justification}}`; status `open`, `provided`, `partial` or `not_applicable` (justification required). NeuroGrid computes the SHA-256 of each document and compares it with a recorded one. `reviewer`: a role or initials, never a full name; give `document` a neutral file name and name no person in `comment` and `justification`. These four fields appear as written in `results.json` and in the report, also in raw folders without `--show-paths` ([Privacy](privacy.md#outputs)). |
 | `splits.tsv` | Columns `recording` (relative path or pseudonymous ID) and `split` (train, val, test). |
 | `provenance.yaml` | `processing_steps` and `software` (CORE-M13-03); `processing_steps: []` documents "no processing". |
 | `manifest.json` | Written by `manifest` ([Output files](reference/outputs.md#manifest)). |

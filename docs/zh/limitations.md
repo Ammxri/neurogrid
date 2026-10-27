@@ -29,8 +29,9 @@ NeuroGrid 是一个预检工具。结果只说明数据集是否通过已加载�
 
 ## 平台 {#platforms}
 
-Windows 11 已在本地验证。Windows 10 和 Linux（Debian 12、Ubuntu 22.04 及以上）在首次 CI 运行前未验证；其他 Linux
-发行版和 ARM64 不受支持（[安装](installation.md#platforms)）。
+Windows 11 已在本地验证。离线安装包已在 CI 中于 Windows Server（Windows PowerShell 5.1 和 PowerShell 7）、Debian 12、
+Ubuntu 22.04 和 Ubuntu 24.04 上验证；Linux 和 Windows 运行器上的测试套件尚未验证。Windows 10、Windows 11 上的
+PowerShell 7 以及 24.04 之后的 Ubuntu 版本未验证；其他 Linux 发行版和 ARM64 不受支持（[安装](installation.md#platforms)）。
 
 ## 不属于 0.1 版的内容 {#not-in-v01}
 

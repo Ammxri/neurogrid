@@ -13,8 +13,9 @@
 
 ## [dataset] {#dataset}
 
-`id`、`name`、`version`、`source`、`license`：当 `dataset_description.json` 未提供时，用于报告和 `results.json`
-的数据集字段。没有 `id` 时数据集显示为“unnamed”；从不使用文件夹名称，因为它可能可识别身份。
+`id`、`name`、`version`、`source`、`license`：用于报告和 `results.json` 的数据集字段。此处设置的 `name` 和 `license`
+优先于 `dataset_description.json` 中的 `Name` 和 `License`；只有此处未设置时才使用该文件中的值。`id`、`version` 和
+`source` 只来自本节。没有 `id` 时数据集显示为“unnamed”；从不使用文件夹名称，因为它可能可识别身份。
 
 ## [check] {#check}
 
@@ -150,7 +151,7 @@ splits = ".neurogrid/splits.tsv"
 
 | 文件 | 内容 |
 |---|---|
-| `evidence.yaml` | 人工和半自动规则的证明材料：`format_version: 1`，`evidence: {规则 ID: {status, document, sha256, reviewer, date, comment, justification}}`；status 为 `open`、`provided`、`partial` 或 `not_applicable`（须写明理由）。NeuroGrid 计算每份文件的 SHA-256，并与记录的值比较。 |
+| `evidence.yaml` | 人工和半自动规则的证明材料：`format_version: 1`，`evidence: {规则 ID: {status, document, sha256, reviewer, date, comment, justification}}`；status 为 `open`、`provided`、`partial` 或 `not_applicable`（须写明理由）。NeuroGrid 计算每份文件的 SHA-256，并与记录的值比较。`reviewer`：角色或姓名缩写，从不填写全名；`document` 请使用中性的文件名，`comment` 和 `justification` 中不要写人名。这四个字段按原样出现在 `results.json` 和报告中，在原始数据文件夹中不使用 `--show-paths` 时也是如此（[隐私](privacy.md#outputs)）。 |
 | `splits.tsv` | 列 `recording`（相对路径或假名 ID）和 `split`（train、val、test）。 |
 | `provenance.yaml` | `processing_steps` 和 `software`（CORE-M13-03）；`processing_steps: []` 表示“未经处理”。 |
 | `manifest.json` | 由 `manifest` 写入（[输出文件](reference/outputs.md#manifest)）。 |

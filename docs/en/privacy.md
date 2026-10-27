@@ -27,6 +27,12 @@ synchronised if that matters to you.
 - In raw folders recordings get pseudonymous IDs (`rec-<8 hex digits>` or the mapping of `neurogrid.toml`); the
   dataset root appears as `<dataset>`, the home folder as `~`. `--show-paths` shows real names – only use it where
   real names may appear.
+- One exception: the fields `document` (a relative path), `reviewer`, `comment` and `justification` of
+  `evidence.yaml` appear as written in `results.json` and in section 5 of the report, also in raw folders without
+  `--show-paths`; the report needs a readable reference to each document. The console never prints them. Write a
+  role or initials as `reviewer`, never a full name; give evidence documents neutral file names and name no person
+  in `comment` and `justification`. An info notice in the report counts the entries whose reviewer or document
+  name could identify a person.
 - The console writes the computer's paths with the home folder as `~` and the login name and the computer name
   as `<user>` and `<host>`, also outside the home folder (an output on a USB stick: `/media/<user>/…`).
 - NeuroGrid does not pseudonymize data: IDs and file names come from the input. `convert
@@ -61,14 +67,30 @@ on your own computer.
   network. `python3 tools/strace_check.py <folder>` of the source
   repository applies exactly this rule to every `strace-*.txt` file of the folder and lists the loopback calls
   it counted.
-- **Windows.** An outbound firewall rule per program, for example
-  `New-NetFirewallRule -Direction Outbound -Action Block -Program <path of neurogrid.exe>`, and the same for
-  `python.exe`, `deno.exe`, Playwright's `node.exe` and the PDF browser.
+- **Windows.** An outbound firewall rule that blocks every program of the installation and of the PDF browser
+  folder, as the CI does. It needs administrator rights and changes security settings of the computer; remove
+  the rules afterwards.
+
+    ```powershell
+    $folders = "<installation folder or virtual environment>", "$env:LOCALAPPDATA\NeuroGrid\pdf-browser"
+    Get-ChildItem $folders -Recurse -Filter *.exe | ForEach-Object {
+        New-NetFirewallRule -DisplayName neurogrid-block -Direction Outbound -Action Block -Program $_.FullName
+    }
+    # afterwards
+    Remove-NetFirewallRule -DisplayName neurogrid-block
+    ```
+
+    This covers `neurogrid.exe`, `python.exe`, `deno.exe`, Playwright's `node.exe` and
+    `chrome-headless-shell.exe`. The PDF browser's own process and every process it starts run
+    `chrome-headless-shell.exe`, so this one rule covers all of them. For an installation from PyPI or from the
+    source code, name its virtual environment and also block the Python the environment was created from
+    (`python -c "import sys; print(sys._base_executable)"`).
+
 - **The decisions.** The decision log and the requirement matrix are part of the repository
   (`docs/umsetzung/`).
 
 | Evidence | Status |
 |---|---|
-| audit hook and network ban in the source code (tests) | verified locally |
-| Linux run without network and under `strace` | not verified until the first CI run |
-| Windows firewall test | not verified (it changes security settings of the computer) |
+| audit hook and network ban in the source code (tests) | verified locally; on Linux and on the Windows runner not yet verified (the CI test runs there do not pass yet) |
+| Linux run without network and under `strace` | verified in CI: installer and every v0.1 command of the offline bundle in `debian:12-slim` with `--network none` under `strace`, PDF reports included, no call to an address other than loopback; the clean rooms without network on Debian 12, Ubuntu 22.04 and Ubuntu 24.04 passed as well |
+| Windows firewall test | verified in CI on GitHub's Windows Server runner, with Windows PowerShell 5.1 and with PowerShell 7: an outbound block rule for every program of the bundle, the installation and the PDF browser, and an audit of every connection (Windows Filtering Platform); no connection or attempt to an address other than loopback, PDF reports included. Not run on Windows 11 (it changes security settings of the computer) |

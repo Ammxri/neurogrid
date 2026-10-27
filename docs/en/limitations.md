@@ -34,8 +34,10 @@ and it is not a medical device. It gives no legal advice.
 
 ## Platforms {#platforms}
 
-Windows 11 is verified locally. Windows 10 and Linux (Debian 12, Ubuntu 22.04 and newer) are not verified until
-the first CI run; other Linux distributions and ARM64 are not supported ([Installation](installation.md#platforms)).
+Windows 11 is verified locally. In the CI the offline bundle is verified on Windows Server (Windows PowerShell 5.1
+and PowerShell 7), Debian 12, Ubuntu 22.04 and Ubuntu 24.04; the test suite on Linux and on the Windows runner is
+not yet verified. Windows 10, PowerShell 7 on Windows 11 and Ubuntu releases after 24.04 are not verified; other
+Linux distributions and ARM64 are not supported ([Installation](installation.md#platforms)).
 
 ## Not part of version 0.1 {#not-in-v01}
 

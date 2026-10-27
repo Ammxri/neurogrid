@@ -8,11 +8,21 @@ PDF 报告需要另外安装一次浏览器 Chrome Headless Shell；HTML 报告�
 | 平台 | 状态 |
 |---|---|
 | Windows 11 x64，Windows PowerShell 5.1 | 已在本地验证 |
-| Windows 11 x64，PowerShell 7 | 首次 CI 运行前未验证 |
+| Windows 11 x64，PowerShell 7 | 未在 Windows 11 上验证 |
+| Windows Server x64（GitHub 的 `windows-latest` 运行器），Windows PowerShell 5.1 和 PowerShell 7 | 离线安装包已在 CI 中验证；测试套件尚未验证 |
 | Windows 10 x64 | 未验证 |
-| glibc 2.28 及以上的 Linux x86_64：Debian 12、Ubuntu 22.04 及以上 | 首次 CI 运行前未验证 |
+| glibc 2.28 及以上的 Linux x86_64：Debian 12、Ubuntu 22.04、Ubuntu 24.04 | 离线安装包已在 CI 中验证；测试套件尚未验证 |
+| Linux x86_64：24.04 之后的 Ubuntu 版本 | 未验证 |
+| glibc 低于 2.28 的 Linux，例如 Ubuntu 18.04 | 拒绝安装：安装程序以退出码 2 结束（已在 CI 中验证） |
 | Linux ARM64、macOS | 不支持 |
 
+“已在本地验证”表示：测试套件和每条命令都在该系统上运行。“离线安装包已在 CI 中验证”表示：在 CI（GitHub Actions）中，
+离线安装包被安装在一个洁净环境中，并从安装位置运行了 0.1 版的每条命令，包括在 Windows 和 Debian 12 上生成 PDF 报告。
+在 Linux 上，洁净环境是一个全新的容器，没有网络（`--network none`），没有预装的 Python，以无特权用户身份运行。在
+Windows 上，它是运行器上的一个全新文件夹，运行器的网络保持开启：`PATH` 上找不到任何 Python 或 uv（运行器预装的
+Python 仍然安装着，只是其文件夹已从 `PATH` 中移除），一条出站防火墙规则阻止安装包、安装位置和 PDF 浏览器的每个程序，
+Windows 筛选平台审计每次连接；这些程序向回环地址以外的地址发起的任何连接或连接尝试都会使运行失败
+（[隐私](privacy.md#check-yourself)）。“测试套件尚未验证”表示：测试套件在这些系统上的 CI 运行尚未通过。
 “未验证”表示：NeuroGrid 面向这些系统构建，但尚未记录在其上的测试运行。支持 Python 3.11–3.13；离线安装包自带
 Python 3.12。
 
@@ -162,7 +172,7 @@ Get-FileHash -Algorithm SHA256 install_pdf_browser.py    # Windows PowerShell
 
 没有浏览器时，`neurogrid report --format pdf` 以退出码 2 结束并给出提示；`--format html` 始终可用。在 Linux 上，浏览器
 需要系统库；NeuroGrid 在打印前检查这些库，并列出缺少的软件包。Debian 12、Ubuntu 22.04 和 Ubuntu 24.04 的软件包列表
-见 `src/neurogrid/kernel/pdf_linux_packages.json`。
+见 `src/neurogrid/kernel/pdf_linux_packages.json`；CI 在 Debian 12 中恰好按其中的 Debian 12 列表安装软件包并打印 PDF 报告。
 
 ## 从 PyPI 安装 {#pypi}
 
