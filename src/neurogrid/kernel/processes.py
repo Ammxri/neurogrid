@@ -148,7 +148,8 @@ if sys.platform == "win32":
             command = " ".join(f'"{part}"' for part in cmd)
             null = _null_handle()
             startup = subprocess.STARTUPINFO(
-                dwFlags=subprocess.STARTF_USESTDHANDLES,
+                # CPython 3.13 passes STARTF_FORCEOFFFEEDBACK too (no busy cursor while the worker starts)
+                dwFlags=subprocess.STARTF_USESTDHANDLES | getattr(subprocess, "STARTF_FORCEOFFFEEDBACK", 0),
                 hStdInput=null,
                 hStdOutput=null,
                 hStdError=null,
