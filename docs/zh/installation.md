@@ -8,11 +8,18 @@ PDF 报告需要另外安装一次浏览器 Chrome Headless Shell；HTML 报告�
 | 平台 | 状态 |
 |---|---|
 | Windows 11 x64，Windows PowerShell 5.1 | 已在本地验证 |
-| Windows 11 x64，PowerShell 7 | 首次 CI 运行前未验证 |
+| Windows 11 x64，PowerShell 7 | 未在 Windows 11 上验证 |
+| Windows Server x64（GitHub 的 `windows-latest` 运行器），Windows PowerShell 5.1 和 PowerShell 7 | 离线安装包已在 CI 中验证；测试套件尚未验证 |
 | Windows 10 x64 | 未验证 |
-| glibc 2.28 及以上的 Linux x86_64：Debian 12、Ubuntu 22.04 及以上 | 首次 CI 运行前未验证 |
+| glibc 2.28 及以上的 Linux x86_64：Debian 12、Ubuntu 22.04、Ubuntu 24.04 | 离线安装包已在 CI 中验证；测试套件尚未验证 |
+| Linux x86_64：24.04 之后的 Ubuntu 版本 | 未验证 |
+| glibc 低于 2.28 的 Linux，例如 Ubuntu 18.04 | 拒绝安装：安装程序以退出码 2 结束（已在 CI 中验证） |
 | Linux ARM64、macOS | 不支持 |
 
+“已在本地验证”表示：测试套件和每条命令都在该系统上运行。“离线安装包已在 CI 中验证”表示：在 CI（GitHub Actions）中，
+离线安装包被安装在一个洁净环境中——全新的文件夹或容器，没有网络，没有预装的 Python，在 Linux 上以无特权用户身份
+运行——并从安装位置运行了 0.1 版的每条命令，包括在 Windows 和 Debian 12 上生成 PDF 报告；安装包中的任何程序都没有
+建立网络连接（[隐私](privacy.md#check-yourself)）。“测试套件尚未验证”表示：测试套件在这些系统上的 CI 运行尚未通过。
 “未验证”表示：NeuroGrid 面向这些系统构建，但尚未记录在其上的测试运行。支持 Python 3.11–3.13；离线安装包自带
 Python 3.12。
 
@@ -162,7 +169,7 @@ Get-FileHash -Algorithm SHA256 install_pdf_browser.py    # Windows PowerShell
 
 没有浏览器时，`neurogrid report --format pdf` 以退出码 2 结束并给出提示；`--format html` 始终可用。在 Linux 上，浏览器
 需要系统库；NeuroGrid 在打印前检查这些库，并列出缺少的软件包。Debian 12、Ubuntu 22.04 和 Ubuntu 24.04 的软件包列表
-见 `src/neurogrid/kernel/pdf_linux_packages.json`。
+见 `src/neurogrid/kernel/pdf_linux_packages.json`；CI 在 Debian 12 中恰好按其中的 Debian 12 列表安装软件包并打印 PDF 报告。
 
 ## 从 PyPI 安装 {#pypi}
 

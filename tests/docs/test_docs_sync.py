@@ -682,6 +682,74 @@ DEAD_PROXY = {
 }
 
 
+OFFLINE_WORKFLOW = ROOT / ".github" / "workflows" / "offline.yml"
+BEFORE_CI = ("until the first CI run", "首次 CI 运行前", "首次 CI")
+BUNDLE_IN_CI = {"en": "offline bundle verified in CI", "zh": "离线安装包已在 CI 中验证"}
+SUITE_PENDING = {"en": "test suite not yet verified", "zh": "测试套件尚未验证"}
+REFUSED = {
+    "en": "the installer stops with exit code 2 (verified in CI)",
+    "zh": "安装程序以退出码 2 结束（已在 CI 中验证）",
+}
+AUDIT_HOOK_PENDING = {
+    "en": "on Linux and on the Windows runner not yet verified",
+    "zh": "在 Linux 和 Windows 运行器上尚未验证",
+}
+DISTRIBUTION = {"debian:12-slim": "Debian 12", "ubuntu:18.04": "Ubuntu 18.04"}
+SHELLS = {"powershell": "Windows PowerShell 5.1", "pwsh": "PowerShell 7"}
+EVIDENCE_IN_CI = {
+    "en": (
+        "verified in CI: installer and every v0.1 command",
+        "verified in CI on GitHub's Windows Server runner",
+    ),
+    "zh": (
+        "已在 CI 中验证：离线安装包的安装程序和 0.1 版的每条命令",
+        "已在 CI 中于 GitHub 的 Windows Server 运行器上",
+    ),
+}
+
+
+def _table_rows(text: str) -> list[list[str]]:
+    lines = [line.strip() for line in text.splitlines() if line[:1] == "|"]
+    return [[cell.strip() for cell in line.strip("|").split("|")] for line in lines]
+
+
+def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
+    """V-06, NG-N01, TECH-06: the offline workflow ran green (both bundles, clean rooms of every image and
+    both Windows shells with WFP audit and PDF, glibc 2.27 refused, every command under strace without
+    network). The pages said 'not verified until the first CI run'. Each status now names what the workflow
+    verifies, read from offline.yml; the test suite on Linux and on the Windows runner stays 'not yet
+    verified' while the ci jobs of the test suite fail (CI run of 55335ca: 6 failures on ubuntu-24.04, 5-6 on
+    windows-latest). When they pass, the 'not yet verified' cells and SUITE_PENDING change by hand."""
+    jobs = load_yaml(OFFLINE_WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    images = [entry["image"] for entry in jobs["cleanroom-linux"]["strategy"]["matrix"]["include"]]
+    shells = [entry["shell"] for entry in jobs["cleanroom-windows"]["strategy"]["matrix"]["include"]]
+    refusal = " ".join(step.get("run", "") for step in jobs["glibc-refusal"]["steps"])
+    refused_image = re.search(r"--image (\S+) --expect-refusal", refusal)
+    assert refused_image and jobs["cleanroom-windows"]["runs-on"] == "windows-latest"
+    names = [DISTRIBUTION.get(image, image.replace("ubuntu:", "Ubuntu ")) for image in images]
+    assert names == ["Debian 12", "Ubuntu 22.04", "Ubuntu 24.04"] and shells == ["powershell", "pwsh"]
+    for path in sorted((DOCS / "en").rglob("*.md")) + sorted((DOCS / "zh").rglob("*.md")):
+        text = path.read_text(encoding="utf-8")
+        assert not [phrase for phrase in BEFORE_CI if phrase in text], path.relative_to(DOCS).as_posix()
+    for lang in LANGUAGES:
+        rows = _table_rows(_anchored(_page(lang, "installation.md"))["platforms"])
+        verified = [(platform, status) for platform, status in rows if BUNDLE_IN_CI[lang] in status]
+        assert len(verified) == 2, (lang, rows)
+        (windows, _), (linux, _) = verified
+        assert "`windows-latest`" in windows and all(SHELLS[shell] in windows for shell in shells), lang
+        assert all(name in linux for name in names), lang
+        # the ci workflow's test jobs failed for 55335ca: no row may claim the test suite on these systems
+        assert all(SUITE_PENDING[lang] in status for _, status in verified), (lang, verified)
+        refused = [platform for platform, status in rows if REFUSED[lang] in status]
+        assert len(refused) == 1 and DISTRIBUTION[refused_image.group(1)] in refused[0], (lang, rows)
+        privacy = _anchored(_page(lang, "privacy.md"))["check-yourself"]
+        statuses = [status for _evidence, status in _table_rows(privacy)[2:]]
+        linux_run, firewall = EVIDENCE_IN_CI[lang]
+        assert any(status.startswith(linux_run) and "`debian:12-slim`" in status for status in statuses), lang
+        assert any(status.startswith(firewall) for status in statuses), lang
+        assert any(AUDIT_HOOK_PENDING[lang] in status for status in statuses), lang
+
+
 INSTALLER = ROOT / "tools" / "install_pdf_browser.py"
 INSTALLER_ADDRESS = "<REPO_URL>/releases/download/v<version>/install_pdf_browser.py"
 PDF_SECTION = {"en": "PDF browser", "zh": "PDF 浏览器", "de": "PDF-Browser"}

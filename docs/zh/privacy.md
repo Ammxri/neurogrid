@@ -63,6 +63,6 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
 
 | 证据 | 状态 |
 |---|---|
-| 源代码中的审计钩子和网络禁令（测试） | 已在本地验证 |
-| 无网络和 `strace` 下的 Linux 运行 | 首次 CI 运行前未验证 |
-| Windows 防火墙测试 | 未验证（它会更改计算机的安全设置） |
+| 源代码中的审计钩子和网络禁令（测试） | 已在本地验证；在 Linux 和 Windows 运行器上尚未验证（那里的 CI 测试运行尚未通过） |
+| 无网络和 `strace` 下的 Linux 运行 | 已在 CI 中验证：离线安装包的安装程序和 0.1 版的每条命令在 `debian:12-slim` 中以 `--network none` 在 `strace` 下运行，包括 PDF 报告，没有指向回环地址以外地址的调用；Debian 12、Ubuntu 22.04 和 Ubuntu 24.04 上的无网络洁净环境测试也已通过 |
+| Windows 防火墙测试 | 已在 CI 中于 GitHub 的 Windows Server 运行器上，分别用 Windows PowerShell 5.1 和 PowerShell 7 验证：对安装包、安装位置和 PDF 浏览器的每个程序设置出站阻止规则，并审计每次连接（Windows 筛选平台）；没有指向回环地址以外地址的连接或连接尝试，包括 PDF 报告。未在 Windows 11 上运行（它会更改计算机的安全设置） |
