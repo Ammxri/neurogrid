@@ -404,15 +404,17 @@ def _open_for_mne(file: Any, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
 
 
 @contextmanager
-def _marker_date_without_locale() -> Iterator[None]:
-    """While MNE reads a BrainVision header, its module finds ``_open_for_mne`` instead of the built-in open.
+def mne_reading_without_locale() -> Iterator[None]:
+    """Within the block, MNE's BrainVision module finds ``_open_for_mne`` instead of the built-in open.
 
     MNE 1.13 opens the marker file in text mode without an encoding to find the recording date, so Python
     decodes it with the locale's encoding: UTF-8 on Linux, the ANSI code page on Windows (cp1252 on a Western,
     cp936 on a Chinese system). A marker file in another encoding (Codepage=ANSI or Latin-1 text on Linux,
-    GBK on a Western Windows) made MNE fail with UnicodeDecodeError on one system and read the recording on
-    the other. MNE decodes the markers themselves by the Codepage of the file (``_read_mrk``) and is not
-    changed here.
+    GBK or UTF-8 Chinese text on a Western Windows) made MNE fail with UnicodeDecodeError on one system and
+    read the recording on the other. MNE decodes the markers themselves by the Codepage of the file
+    (``_read_mrk``) and is not changed here. Every block in which MNE may read a BrainVision recording holds
+    it: ``mne_read_raw_brainvision`` and the write of MNE-BIDS, which reads a recording it copies once more
+    (convert._write).
     """
     from mne.io.brainvision import brainvision as reader_module
 
@@ -430,10 +432,10 @@ def _marker_date_without_locale() -> Iterator[None]:
 
 def mne_read_raw_brainvision(path: Path | str, **kwargs: Any) -> Any:
     """``mne.io.read_raw_brainvision``, with the same outcome on every system (see
-    ``_marker_date_without_locale``; A-77, TECH-05). NeuroGrid calls MNE for BrainVision only through it."""
+    ``mne_reading_without_locale``; A-77, TECH-05). NeuroGrid calls MNE for BrainVision only through it."""
     import mne
 
-    with _marker_date_without_locale():
+    with mne_reading_without_locale():
         return mne.io.read_raw_brainvision(path, **kwargs)
 
 

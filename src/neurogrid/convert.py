@@ -55,6 +55,7 @@ import neurogrid
 from neurogrid.config import Config
 from neurogrid.io import ADAPTERS, ORPHAN_SUFFIXES
 from neurogrid.io.base import FormatAdapter
+from neurogrid.io.brainvision import mne_read_raw_brainvision, mne_reading_without_locale
 from neurogrid.io.discover import FoundFile, scan
 from neurogrid.io.eeglab import epoched as eeglab_epoched
 from neurogrid.kernel import canonical
@@ -124,8 +125,6 @@ class _NotConverted(Exception):
 
 def _reader(suffix: str) -> Any:
     import mne
-
-    from neurogrid.io.brainvision import mne_read_raw_brainvision
 
     return {
         ".edf": mne.io.read_raw_edf,
@@ -548,6 +547,7 @@ def _write(
             raw.info["experimenter"] = None
             raw.info["description"] = None
         inputs = _input_files(root, source, item, raw)
+        stack.enter_context(mne_reading_without_locale())  # MNE-BIDS reads a recording it copies again
         written = write_raw_bids(
             raw,
             _bids_path(output, entities),

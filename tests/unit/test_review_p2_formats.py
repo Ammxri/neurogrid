@@ -486,7 +486,7 @@ def _marker_case(tmp_path: Path, marker: str) -> Path:
 def test_mne_alone_reads_the_marker_date_with_the_locale_encoding(tmp_path: Path) -> None:
     """What mne_read_raw_brainvision prevents: plain MNE fails on a Latin-1 marker file under the locale of
     Linux (UTF-8) and reads it under that of a Western Windows. If MNE stops doing this, the workaround in
-    brainvision._marker_date_without_locale can go."""
+    brainvision.mne_reading_without_locale can go."""
     import mne
 
     vhdr = _marker_case(tmp_path, "Latin-1 text, Codepage=UTF-8")

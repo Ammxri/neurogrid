@@ -367,21 +367,35 @@ def test_brainvision_and_eeglab_that_mne_bids_cannot_copy_are_written_as_brainvi
     assert sorted(p.name for p in tmp_path.iterdir()) == ["bids", "raw"]
 
 
-def test_marker_not_in_its_codepage_is_converted_the_same_under_every_locale(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("marker_extra", "copied"),
+    [
+        ("Mk2=Comment,Größe,100,1,0\n".encode("latin-1"), False),  # Codepage=UTF-8 claimed: rewritten
+        ("Mk2=Comment,睁眼,100,1,0\n".encode(), True),  # UTF-8: copied; 睁 holds 0x9D and 0x81 (no cp1252)
+    ],
+    ids=["latin-1-marker", "utf-8-chinese-marker"],
+)
+def test_brainvision_marker_text_is_converted_the_same_under_every_locale(
+    tmp_path: Path, marker_extra: bytes, copied: bool
+) -> None:
     """CI ubuntu-24.04, [marker-not-in-codepage]: (0, [(rec, 'read.failed')], 0, 1) instead of (1, [], 0, 0).
-    MNE read the Latin-1 marker file with the locale's encoding, UTF-8 there, and failed. Simulated here with
-    the locale encodings of Linux and of a Western and a Chinese Windows: converted, to the same files."""
+    MNE read the Latin-1 marker file with the locale's encoding, UTF-8 there, and failed; on a Western Windows
+    the same happened to a UTF-8 marker file with Chinese text, also when MNE-BIDS reads the recording it
+    copies once more. Simulated here with the locale encodings of Linux and of a Western and a Chinese
+    Windows: converted, to the same files."""
     trees = {}
     for system, codec in LOCALE_ENCODINGS.items():
         base = tmp_path / codec
         raw = base / "raw"
-        _brainvision_triple(raw, "rec", marker_extra="Mk2=Comment,Größe,100,1,0\n".encode("latin-1"))
+        _brainvision_triple(raw, "rec", marker_extra=marker_extra)
         _write_config(raw, METADATA + _row("rec.vhdr", "01"))
         with locale_encoding(codec):
             summary = pipeline.run_convert(raw, base / "bids", work_base=base)
         outcome = (summary.converted, summary.skipped, summary.validator_errors, summary.exit_code)
         assert outcome == (1, [], 0, 0), system
         trees[system] = _tree(base / "bids")
+        written = base / "bids" / "sub-01" / "eeg" / "sub-01_task-rest_eeg.eeg"
+        assert (written.read_bytes() == (raw / "rec.eeg").read_bytes()) is copied
     assert trees["Linux"] == trees["Western Windows"] == trees["Chinese Windows"]
 
 
