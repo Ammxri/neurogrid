@@ -677,7 +677,8 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
         title = titles.get(finding.rule_id, "")
         problems.extend(_row_problems(key, row, finding, lang, explained, title))
     problems.extend(f"row {key}: shown {count} times" for key, count in sorted(seen.items()) if count > 1)
-    text = html_lib.unescape(document)
+    # the text a reader sees: the inline span that keeps the rule ID on one line is no part of it
+    text = html_lib.unescape(re.sub(r"<[^>]*>", "", document))
     for section, total in sorted(_row_sections(results.findings).items()):
         rule = section[2]
         expected = min(total, MAX_ROWS_PER_RULE)

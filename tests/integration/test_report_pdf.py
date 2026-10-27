@@ -28,7 +28,7 @@ from typing import Any
 import pypdf
 import pytest
 from fontTools.ttLib import TTFont
-from pypdf.generic import DictionaryObject
+from pypdf.generic import ContentStream, DictionaryObject
 
 from conftest import folder_content, fresh_shell, long_path, short_folder  # type: ignore[import-not-found]
 from neurogrid import pipeline
@@ -290,6 +290,80 @@ def test_own_words_never_break_in_the_auto_layout_tables(
     assert not broken, broken
 
 
+# Other glyph metrics than the font's, simulated: every glyph one CSS pixel wider than its advance (on top of
+# the monospace look), about twice what whole-pixel positions put a glyph off its advance (the Linux shell
+# with its default 'full' hinting); a rule ID must stay on one line with it.
+WIDER_GLYPHS = (
+    "*, *::before, *::after { letter-spacing: 1px !important; } "
+    ".mono, .mono * { letter-spacing: calc(0.03em + 1px) !important; }"
+)
+_RULE_IDS_JS = """
+([wide, sections, ids]) => {
+  const broken = [];
+  let checked = 0;
+  const pattern = new RegExp('(?<![A-Za-z0-9-])(' + ids.join('|') + ')(?![A-Za-z0-9-])', 'g');
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!!node.parentElement.closest(sections) !== wide) continue;
+    for (const match of node.data.matchAll(pattern)) {
+      const range = document.createRange();
+      range.setStart(node, match.index);
+      range.setEnd(node, match.index + match[0].length);
+      const lines = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0)
+                            .map((r) => Math.round(r.top)));
+      checked += 1;
+      if (lines.size > 1) {
+        const cell = node.parentElement.closest('td, th, h4, p, li');
+        broken.push((cell ? cell.tagName.toLowerCase() + '.' + cell.className + ' ' : '') + match[0]);
+      }
+    }
+  }
+  return [broken, checked];
+}
+"""
+
+
+def _rule_ids(results: Results) -> list[str]:
+    return sorted({rule.id for rule in results.rules} | {f.rule_id for f in results.findings})
+
+
+@pytest.mark.pdf
+def test_rule_ids_never_break_whatever_the_glyph_metrics(
+    results: Results, written: dict[str, Path], pdf_shell: ShellInstall, tmp_path: Path
+) -> None:
+    """A rule ID never breaks inside, on any platform (REP-00, NG-F13; CI run of 55335ca: rule IDs did not
+    stand on one line of the zh PDF printed on ubuntu-24.04). Every occurrence of a rule ID in the reports
+    of ``results`` and with long dataset values, zh and en (the finding tables, the group headings, the
+    evidence table, the appendix tables, the cross references in the title cells, running text), stands on
+    one line, laid out by the real shell in print media at the content width of its page: with the font's
+    metrics and with every glyph a pixel wider (WIDER_GLYPHS). Before the repair (measured on Windows) the
+    zh cross reference '另见 CORE-M05-02' broke after the hyphen in its title cell with the font's metrics;
+    with wider glyphs also 'also reported as CORE-M05-02', the evidence table's 'GXDSL008-ACC-001
+    (gxdsl008)' and the threshold notes of three chart captions."""
+    long_values = {"name": "N" * 200, "license": "https://example.org/" + "l" * 160, "version": "v" * 120}
+    changed = results.model_copy(deep=True)
+    changed.dataset = changed.dataset.model_copy(update=long_values)
+    extra = write_reports(changed, ["zh", "en"], ["html"], tmp_path / "long", environ=os.environ)
+    documents = [written["report.zh.html"], written["report.en.html"], *extra]
+    ids = _rule_ids(results)
+    broken: list[tuple[str, bool, str, str]] = []
+    with _measuring_page(pdf_shell) as (page, _work):
+        page.emulate_media(media="print")
+        for document in documents:
+            for metrics in ("font", "wider"):
+                for wide, width in PAGE_WIDTHS.items():
+                    page.set_viewport_size({"width": width, "height": 1200})
+                    page.goto(document.as_uri())
+                    if metrics == "wider":
+                        page.add_style_tag(content=WIDER_GLYPHS)
+                    page.evaluate("document.fonts.ready")
+                    found, checked = page.evaluate(_RULE_IDS_JS, [wide, WIDE_SECTIONS, ids])
+                    assert checked or not wide, (document, metrics)  # the landscape sections hold rule IDs
+                    name = document.parent.name + "/" + document.name
+                    broken += [(name, wide, metrics, where) for where in found]
+    assert not broken, broken
+
+
 def _page_counter(number: int, total: int) -> re.Pattern[str]:
     """The page counter 'x / y' in the squeezed page text, with up to three characters of words around the
     slash ('1/19', '第1页/共19页'), whatever words the report's counter uses. The digit before 'x' is not
@@ -369,18 +443,155 @@ def test_every_finding_field_in_pdf_text(results: Results, written: dict[str, Pa
         assert all(f"{r.start_s:.3f}" in text for r in long.time_ranges)
 
 
+def _type0_tables(font: Any) -> tuple[dict[int, str], dict[int, float], float]:
+    """ToUnicode (bfchar, bfrange) and widths (/W, /DW) of a Type0 font as Chromium writes it (own
+    reading)."""
+    data = font["/ToUnicode"].get_object().get_data().decode("latin-1")
+    chars: dict[int, str] = {}
+    for block in re.findall(r"beginbfchar(.*?)endbfchar", data, re.S):
+        for code, text in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", block):
+            chars[int(code, 16)] = bytes.fromhex(text).decode("utf-16-be", "replace")
+    for block in re.findall(r"beginbfrange(.*?)endbfrange", data, re.S):
+        for low, high, start in re.findall(r"<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>\s*<([0-9A-Fa-f]+)>", block):
+            for offset, code in enumerate(range(int(low, 16), int(high, 16) + 1)):
+                chars[code] = chr(int(start, 16) + offset)
+    descendant = font["/DescendantFonts"][0].get_object()
+    widths: dict[int, float] = {}
+    items = list(descendant.get("/W", []))
+    while items:
+        first = int(items.pop(0))
+        if isinstance(items[0], list):
+            widths.update({first + k: float(w) for k, w in enumerate(items.pop(0))})
+        else:
+            last, width = int(items.pop(0)), float(items.pop(0))
+            widths.update(dict.fromkeys(range(first, last + 1), width))
+    return chars, widths, float(descendant.get("/DW", 1000))
+
+
+def _drawn_glyphs(data: bytes) -> list[list[tuple[str, float, float, float, float]]]:
+    """Per page the glyphs of the Type0 fonts in drawing order, (character, x, y, advance, size) in text
+    space (CSS px), read from Tf, Tm, Td and Tj as Skia writes them (own reading of the PDF)."""
+    reader = pypdf.PdfReader(io.BytesIO(data))
+    pages = []
+    for page in reader.pages:
+        fonts = page["/Resources"].get("/Font") or {}
+        tables = {
+            name: _type0_tables(ref.get_object())
+            for name, ref in fonts.items()
+            if ref.get_object().get("/Subtype") == "/Type0"
+        }
+        glyphs: list[tuple[str, float, float, float, float]] = []
+        font, size, scale, flip, line = None, 0.0, 1.0, 1.0, (0.0, 0.0)
+        x, y = line
+        for operands, operator in ContentStream(page.get_contents(), reader).operations:
+            if operator == b"Tf":
+                font, size = tables.get(operands[0]), float(operands[1])
+            elif operator == b"Tm":
+                scale, flip, line = (
+                    float(operands[0]),
+                    float(operands[3]),
+                    (float(operands[4]), float(operands[5])),
+                )
+                x, y = line
+            elif operator == b"Td":
+                line = (line[0] + float(operands[0]) * scale, line[1] + float(operands[1]) * flip)
+                x, y = line
+            elif operator == b"Tj" and font is not None:
+                chars, widths, default = font
+                raw = operands[0].original_bytes
+                for at in range(0, len(raw) - 1, 2):
+                    code = int.from_bytes(raw[at : at + 2], "big")
+                    advance = widths.get(code, default) * size / 1000 * scale
+                    glyphs.append((chars.get(code, "?"), x, y, advance, size))
+                    x += advance
+        pages.append(glyphs)
+    return pages
+
+
+def _how_split(rule_id: str, text: str, pages: list[list[tuple[str, float, float, float, float]]]) -> str:
+    """How the PDF holds a rule ID that no line of its text holds: the text around its characters (a line
+    break shown as '|', a space as '_') and, from its glyphs in drawing order, the pair whose distance
+    differs most from the advance of the first glyph and the number of baselines (diagnostics: a CI run's
+    annotation shows the first line of a failure only)."""
+    forms = sorted({m.group(0) for m in re.finditer(r"\s*".join(map(re.escape, rule_id)), text)} - {rule_id})
+    shown = ",".join(repr(form.replace("\n", "|").replace(" ", "_")) for form in forms[:2]) or "not as text"
+    for glyphs in pages:
+        chars = "".join(glyph[0] for glyph in glyphs)
+        if (at := chars.find(rule_id)) == -1:
+            continue
+        run = glyphs[at : at + len(rule_id)]
+        gaps = [(b[1] - a[1] - a[3], a[0] + b[0]) for a, b in zip(run, run[1:], strict=False)]
+        gap, pair = max(gaps, key=lambda item: abs(item[0]))
+        baselines = len({glyph[2] for glyph in run})
+        return f"{rule_id} as {shown}, gap {pair} {gap:+.2f}px at {run[0][4]:.1f}px, {baselines} baseline(s)"
+    return f"{rule_id} as {shown}, glyphs not in one run"
+
+
 @pytest.mark.pdf
 def test_rule_ids_do_not_break_inside_in_the_pdf(results: Results, written: dict[str, Path]) -> None:
     """Every rule ID of the finding tables stands on one line of the PDF text (the verifier saw
     'BIDS / -STO / -002' in the portrait table of this branch). The landscape finding tables with fixed
     columns are the report area's (B1, REP-00); without them the check is skipped, after the merge it
-    guards the layout of the printed tables."""
+    guards the layout of the printed tables.
+
+    CI run of 55335ca (ubuntu-24.04): in the zh PDF printed there no line held BIDS-STO-001/002/003 or
+    GXDSL008-STO-002 (their characters were all in the text, test_every_finding_field_in_pdf_text passed).
+    The headless shell's default 'full' hinting puts every glyph at a whole-pixel position on Linux; the
+    repair prints with --font-render-hinting=none (kernel.pdf.TEXT_LAYOUT_FLAG). Simulated on Windows with
+    letter spacing in the zh report (measured): from 1.2 CSS px more per glyph pypdf reads a space into
+    'BIDS -STO-001/002/003' first, from 2 px into every rule ID. Both languages are checked before the
+    assertion, whose message names for each split ID how the text holds it and the glyph distances that
+    split it, so a CI annotation shows the cause."""
+    found: list[str] = []
     for lang in ("zh", "en"):
         if "@page wide" not in written[f"report.{lang}.html"].read_text(encoding="utf-8"):
             pytest.skip("the landscape finding tables of the report area (B1) are not in this build")
-        lines = "\n".join(_texts(written[f"report.{lang}.pdf"].read_bytes())).splitlines()
-        broken = sorted({f.rule_id for f in results.findings if not any(f.rule_id in line for line in lines)})
-        assert not broken, (lang, broken)
+        if split := _split_rule_ids(written[f"report.{lang}.pdf"].read_bytes(), results):
+            found.append(f"{lang}: {split}")
+    assert not found, " | ".join(found)
+
+
+def _split_rule_ids(data: bytes, results: Results) -> str:
+    """The rule IDs of ``results``' findings that no line of the PDF's text holds, each with how the PDF
+    holds it (_how_split); empty when every one stands on a line."""
+    text = "\n".join(_texts(data))
+    lines = text.splitlines()
+    broken = sorted({f.rule_id for f in results.findings if not any(f.rule_id in line for line in lines)})
+    if not broken:
+        return ""
+    pages = _drawn_glyphs(data)
+    return "; ".join(_how_split(rule_id, text, pages) for rule_id in broken)
+
+
+@pytest.mark.pdf
+def test_font_render_hinting_is_read_by_the_shell(
+    results: Results, written: dict[str, Path], pdf_shell: ShellInstall
+) -> None:
+    """kernel.pdf.TEXT_LAYOUT_FLAG: the shell of revision 1243 reads --font-render-hinting on every
+    platform (an unknown value stops its start: pdf.launch_failed; the last value given counts). On Windows
+    the renderer applies no hinting preference (DirectWrite) and the switch changes nothing: the zh report
+    printed with 'full' is the delivered one byte for byte (measured). On Linux 'full' is the headless
+    default the CI run of 55335ca printed with (rule IDs on no line of the zh text); this negative control
+    prints the zh report with it again and names how the IDs split, while the delivered report (printed
+    with 'none') holds every ID on a line (test_rule_ids_do_not_break_inside_in_the_pdf)."""
+    meta = PdfMeta(translator("zh").t("report.title"), results.config.as_of)
+    with pdf.browser_work() as work:
+        source = work / "report.zh.html"
+        source.write_bytes(written["report.zh.html"].read_bytes())
+        with (
+            pytest.raises(PdfError) as info,
+            PdfPrinter(pdf_shell, work, extra_flags=("--font-render-hinting=x",)),
+        ):
+            pass
+        assert info.value.message_key == "pdf.launch_failed"
+        with PdfPrinter(pdf_shell, work, extra_flags=("--font-render-hinting=full",)) as printer:
+            full = printer.print(source, meta, locale="zh-CN").data
+    delivered = written["report.zh.pdf"].read_bytes()
+    if sys.platform == "win32":
+        assert full == delivered
+    else:  # the condition of the CI run of 55335ca, reproduced
+        assert full != delivered, "the zh report printed with 'full' hinting is the one printed with 'none'"
+        assert _split_rule_ids(full, results), "'full' hinting splits no rule ID of the zh report here"
 
 
 @pytest.mark.pdf

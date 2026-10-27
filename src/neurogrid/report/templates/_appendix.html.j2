@@ -15,7 +15,7 @@
     <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.parameter') }}</th><th>{{ t('report.label.threshold') }}</th><th>{{ t('report.label.origin') }}</th></tr></thead>
     <tbody>
     {% for rule_id, params in results.config.effective_params.items() %}{% for name, p in params.items() %}
-    <tr><td class="mono">{{ rule_id }}</td><td>{{ name }}</td><td>{{ fmt.value(p.value) }}</td><td class="own">{{ t('report.text.origin_' ~ p.origin) }}</td></tr>
+    <tr><td class="mono nowrap">{{ rule_id }}</td><td>{{ name }}</td><td>{{ fmt.value(p.value) }}</td><td class="own">{{ t('report.text.origin_' ~ p.origin) }}</td></tr>
     {% endfor %}{% endfor %}
     </tbody>
   </table>
@@ -25,7 +25,7 @@
     <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.file') }}</th><th>{{ t('report.label.exception_reason') }}</th><th>{{ t('report.label.approved_by') }}</th><th>{{ t('report.label.valid_until') }}</th><th>{{ t('report.label.used') }}</th><th>{{ t('report.label.expired') }}</th></tr></thead>
     <tbody>
     {% for use in results.exceptions %}
-    <tr><td class="mono">{{ use.entry.rule }}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td><td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td><td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td class="own">{{ fmt.value(use.used) }}</td><td class="own">{{ fmt.value(use.expired) }}</td></tr>
+    <tr><td class="mono">{% if use.entry.rule in known_rules %}<span class="nowrap">{{ use.entry.rule }}</span>{% else %}{{ use.entry.rule }}{% endif %}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td><td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td><td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td class="own">{{ fmt.value(use.used) }}</td><td class="own">{{ fmt.value(use.expired) }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -34,7 +34,7 @@
   {% endif %}
   <h3>6.4 {{ t('report.label.notices') }}</h3>
   {% if results.notices %}
-  <ul>{% for n in results.notices %}<li>{{ t('severity.' ~ n.level.value) }}: {{ t(n.message_key, **n.params) }}</li>{% endfor %}</ul>
+  <ul>{% for level, text in notices %}<li>{{ level }}: {{ text }}</li>{% endfor %}</ul>
   {% else %}
   <p>{{ t('report.text.no_notices') }}</p>
   {% endif %}

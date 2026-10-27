@@ -251,9 +251,10 @@ def test_remainder_sentence_is_required(overflowing: Results) -> None:
     remainder = total - MAX_ROWS_PER_RULE
     sentence = tr("report.text.rule_more", count=remainder, rule=rule)
     group = re.search(rf'<div class="rule-group" data-rule="{rule}">.*?</div>', document, re.S)
-    assert group is not None and sentence in html_lib.unescape(group.group(0))
+    # the sentence as the reader sees it: the rule ID in it stands in a span that never wraps (P5)
+    assert group is not None and sentence in html_lib.unescape(re.sub(r"<[^>]*>", "", group.group(0)))
     more = re.search(r'<p class="more">.*?</p>', group.group(0), re.S)
-    assert more is not None
+    assert more is not None and f'<span class="nowrap">{rule}</span>' in more.group(0)
     cut = document.replace(group.group(0), group.group(0).replace(more.group(0), ""))
     assert g1.check_finding_rows(cut, overflowing, lang).problems == [
         f"{rule}: the sentence naming the remaining {remainder} findings is missing"

@@ -17,9 +17,12 @@ from markupsafe import escape
 from conftest import documented_config  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.kernel import canonical
+from neurogrid.kernel.findings import Notice, Severity
 from neurogrid.model.results import Results
+from neurogrid.report import render
 from neurogrid.report.render import render_report
 from neurogrid.report.texts import translator
+from report_html import inline_text  # type: ignore[import-not-found]
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 AS_OF = date(2026, 10, 11)
@@ -69,7 +72,7 @@ def test_provided_evidence_uses_the_a15_wording_in_every_language(provided: Resu
     assert "docs/it-security-sop.pdf" in evidence and hashlib.sha256(SOP).hexdigest() in evidence
     assert "QA lead" in evidence and "2026-10-01" in evidence and "AES-256 at rest" in evidence
     assert str(escape(tr("report.document_check.ok"))) in evidence
-    assert "GXDSL008-ACC-001 (gxdsl008)" in evidence
+    assert '<span class="nowrap">GXDSL008-ACC-001</span> (gxdsl008)' in evidence  # the ID never breaks (P5)
 
 
 def test_open_and_missing_evidence_name_their_reason(tmp_path: Path) -> None:
@@ -110,7 +113,12 @@ def test_semi_automatic_rules_are_listed_with_their_document_check(tmp_path: Pat
     )
     tr = translator("en").t
     section = _section(render_report(results, "en"), "evidence", "appendix")
-    row = re.search(r"<tr><td class=\"mono\">SITE-STO-001 \(site\)</td>(.*?)</tr>", section, flags=re.S)
+    # the rule ID in a span that never wraps, the pack after it (P5, the rule ID never breaks inside)
+    row = re.search(
+        r"<tr><td class=\"mono\"><span class=\"nowrap\">SITE-STO-001</span> \(site\)</td>(.*?)</tr>",
+        section,
+        flags=re.S,
+    )
     assert row is not None
     assert tr("status.failed") in row.group(1) and tr("reason.evidence.document_missing") in row.group(1)
     assert tr("verification.semi_automatic") in row.group(1)
@@ -119,13 +127,40 @@ def test_semi_automatic_rules_are_listed_with_their_document_check(tmp_path: Pat
 
 def test_findings_of_packs_sharing_a_threshold_are_linked(provided: Results) -> None:
     findings = _section(render_report(provided, "en"), "findings", "metrics")
-    # P5: the title is the cell of class c-title after the rule and clause cells
-    title = r'<td class="c-clause">[^<]*</td><td class="c-title">([^<]*)</td>'
+    # P5: the title is the cell of class c-title after the rule and clause cells; the rule ID it names
+    # stands in a span that never wraps (the ID never breaks inside)
+    title = r'<td class="c-clause">[^<]*</td><td class="c-title">(.*?)</td>'
     core = re.findall(r'<td class="c-rule mono">CORE-M05-02</td>' + title, findings)
     gx = re.findall(r'<td class="c-rule mono">GXDSL008-ACQ-001</td>' + title, findings)
     assert core and gx
-    assert all("also reported as GXDSL008-ACQ-001" in title for title in core)
-    assert all("also reported as CORE-M05-02" in title for title in gx)
+    assert all('also reported as <span class="nowrap">GXDSL008-ACQ-001</span>' in title for title in core)
+    assert all('also reported as <span class="nowrap">CORE-M05-02</span>' in title for title in gx)
+
+
+def test_text_next_to_a_rule_id_never_takes_its_slot(provided: Results) -> None:
+    """P5: a rule ID goes into its sentence through a slot (render.RULE_SLOT) and stands in a span that never
+    wraps. The dataset and user text around it is glyph-safe before the sentence is formatted: the slot
+    character in a finding's subkey next to a cross reference, or in a notice's value next to a loaded rule,
+    is written as its code point; it moves no rule ID and never ends the report with an error (dataset data
+    never exit 2)."""
+    slot = render.RULE_SLOT
+    written = f"[U+{ord(slot):04X}]"
+    changed = provided.model_copy(deep=True)
+    changed.findings = [f.model_copy(update={"subkey": f"x{slot}y"}) for f in changed.findings]
+    params = {"rule": "CORE-M05-01", "valid_until": f"2026{slot}01"}
+    notice = Notice(level=Severity.WARNING, message_key="notice.exception_expired", params=params)
+    changed.notices.append(notice)
+    for lang in LANGUAGES:
+        html = render_report(changed, lang)
+        assert slot not in html
+        findings = _section(html, "findings", "metrics")
+        cross = re.escape(f"x{written}y") + r' · [^<]*<span class="nowrap">GXDSL008-ACQ-001</span>'
+        assert re.search(cross, findings), lang
+        # the notice as the reader sees it, the loaded rule's ID in a span of its own
+        notices = re.findall(r"<li>(.*?)</li>", html[html.index("<h3>6.4 ") :], re.S)
+        expected = translator(lang).t(notice.message_key, **{**params, "valid_until": f"2026{written}01"})
+        shown = [item for item in notices if inline_text(item).endswith(expected)]
+        assert len(shown) == 1 and '<span class="nowrap">CORE-M05-01</span>' in shown[0], (lang, notices)
 
 
 @pytest.mark.parametrize("lang", ["zh", "en"])
@@ -144,7 +179,10 @@ def test_appendix_marks_expired_exceptions_and_legend_follows_a16(provided: Resu
     tr = translator("en").t
     html = render_report(provided, "en")
     appendix = html[html.index('id="appendix"') :]
-    row = re.search(r"<tr><td class=\"mono\">CORE-M05-01</td>(.*?)</tr>", appendix, flags=re.S)
+    # the ID of a loaded rule in a span that never wraps (P5)
+    row = re.search(
+        r'<tr><td class="mono"><span class="nowrap">CORE-M05-01</span></td>(.*?)</tr>', appendix, flags=re.S
+    )
     assert row is not None and tr("report.label.expired") in appendix
     cells = re.findall(r"<td[^>]*>(.*?)</td>", row.group(1))
     assert cells[-2:] == [tr("report.value.no"), tr("report.value.yes")]  # not applied, expired
@@ -163,5 +201,6 @@ def test_p3_results_without_the_new_blocks_still_render(provided: Results) -> No
     assert old.evidence == [] and old.summary.open_evidence == 0 and old.config.evidence_sha256 is None
     for lang in ("zh", "en"):
         section = _section(render_report(old, lang), "evidence", "appendix")
-        assert "GXDSL008-ACC-001 (gxdsl008)" in section  # manual rules from the rules block, as in P3
+        # manual rules from the rules block, as in P3 (the rule ID in a span that never wraps, P5)
+        assert '<span class="nowrap">GXDSL008-ACC-001</span> (gxdsl008)' in section
     assert render_report(Results.model_validate_json(canonical.dumps(old)), "en")

@@ -27,6 +27,8 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   report language, time zone, colour scheme), CreationDate/ModDate set to the reference date by a
   same-length byte replacement of the two fields Chromium writes; the result is byte-identical for the same
   input.
+- **Text layout:** unhinted glyph advances at subpixel positions on every platform (TEXT_LAYOUT_FLAG: the
+  Linux shell would otherwise put every glyph at a hinted whole-pixel position).
 - **QA gate:** the fonts it accepts are passed in by the product (PdfExpect.fonts, the PostScript names
   of the report fonts); the kernel names no font itself (A-23).
 - **Metadata (A-51):** /Info holds exactly Title (the HTML title), Creator, Producer, CreationDate and
@@ -77,8 +79,20 @@ EXECUTABLES = {
     "win64": "chrome-headless-shell-win64/chrome-headless-shell.exe",
     "linux64": "chrome-headless-shell-linux64/chrome-headless-shell",
 }
+# Text layout (REP-00, NG-F13): the report's glyphs stand at the font's own advances on every platform.
+# Chromium 153.0.8010.12 (revision 1243): the headless shell's --font-render-hinting defaults to 'full'
+# (headless/public/switches.h) and becomes the renderer's hinting (headless_web_contents_impl.cc), which
+# only Linux applies (web_view_impl.cc: RendererPreferencesToSkiaHinting, not on Windows and macOS);
+# WebFontRenderStyle::ApplyToSkFont turns subpixel positioning on "except when full hinting is requested".
+# So on Linux every glyph stood at a hinted whole-pixel position: CI run of 55335ca (ubuntu-24.04), no line
+# of the zh report's text held BIDS-STO-001/002/003 or GXDSL008-STO-002, although all their characters were
+# there (the text extraction reads a space into a gap wider than half a space). 'none' gives unhinted
+# advances at subpixel positions, as DirectWrite does on Windows, where the switch changes nothing
+# (measured: byte-identical reports). An unknown value stops the start (command_line_handler.cc).
+TEXT_LAYOUT_FLAG = "--font-render-hinting=none"
 # A-49: fixed in code, not left to Playwright's defaults. --proxy-server=direct:// also stops the proxy
-# auto-detection (WPAD) the shell otherwise configures; the resolver rule makes every name unresolvable.
+# auto-detection (WPAD) the shell otherwise configures; the resolver rule makes every name unresolvable. The
+# last flag fixes the text layout (TEXT_LAYOUT_FLAG).
 CHROMIUM_FLAGS = (
     "--disable-background-networking",
     "--disable-component-update",
@@ -88,6 +102,7 @@ CHROMIUM_FLAGS = (
     "--disable-sync",
     "--proxy-server=direct://",
     "--host-resolver-rules=MAP * ~NOTFOUND",
+    TEXT_LAYOUT_FLAG,
 )
 CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:"
 # The browser context's locale per printed document (zh-CN for the Chinese report, en-US otherwise). The

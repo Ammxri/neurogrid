@@ -406,6 +406,17 @@ def test_linux_package_table_matches_playwright_driver() -> None:
             linux_pdf_packages.parse_deps(code)
 
 
+def test_text_is_laid_out_at_the_fonts_advances(tmp_path: Path) -> None:
+    """CI run of 55335ca (ubuntu-24.04): the zh report printed there held rule IDs on no line of its text.
+    The headless shell's default font render hinting 'full' puts every glyph at a hinted whole-pixel
+    position on Linux (Chromium 153.0.8010.12, see pdf.TEXT_LAYOUT_FLAG); every launch passes 'none', once,
+    as a fixed flag (tests/integration/test_report_pdf.py: test_font_render_hinting_is_read_by_the_shell)."""
+    assert pdf.TEXT_LAYOUT_FLAG == "--font-render-hinting=none"
+    assert pdf.TEXT_LAYOUT_FLAG in CHROMIUM_FLAGS
+    hinting = [a for a in pdf.launch_arguments(tmp_path) if a.startswith("--font-render-hinting")]
+    assert hinting == ["--font-render-hinting=none"]
+
+
 def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The browser is always the located shell (executable_path), never a channel; the flags are fixed."""
     assert CHROMIUM_FLAGS == (
@@ -417,6 +428,7 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         "--disable-sync",
         "--proxy-server=direct://",
         "--host-resolver-rules=MAP * ~NOTFOUND",
+        "--font-render-hinting=none",
     )
     launched: dict[str, Any] = {}
     environment_at_start: dict[str, str | None] = {}

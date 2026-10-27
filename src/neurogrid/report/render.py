@@ -18,7 +18,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from markupsafe import Markup
+from markupsafe import Markup, escape
 
 from neurogrid.kernel.evidence import EvidenceRecord, EvidenceState
 from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
@@ -68,6 +68,10 @@ FINDING_CELLS: tuple[str, ...] = (
     "reason",
 )
 _COUNTER = re.compile(r"(\{page\}|\{pages\})")
+# Where a rule ID goes into a translated sentence: a C0 control character. glyph_safe writes it as
+# '[U+001F]' in any text, whatever the fonts cover, so a sentence formatted with glyph-safe values
+# (_slot_safe) holds it only where a rule ID goes (_with_rule_ids); no dataset or user text can hold one.
+RULE_SLOT = "\x1f"
 
 
 def report_coverage() -> frozenset[int] | None:
@@ -75,6 +79,40 @@ def report_coverage() -> frozenset[int] | None:
     embeds) can draw; None without the font files (no font is embedded then)."""
     fonts = texts.FONT_FILES
     return font_coverage(fonts[weight] for weight in sorted(fonts))
+
+
+def _slot_safe(params: dict[str, Any]) -> dict[str, Any]:
+    """The values of a sentence that gets RULE_SLOTs, text made glyph-safe before it is formatted: a file
+    name or a configured value never holds a slot. The other values are JSON numbers, lists or mappings,
+    whose text form writes a control character as an escape."""
+    coverage = report_coverage()
+    return {
+        key: glyph_safe(value, coverage) if isinstance(value, str) else value for key, value in params.items()
+    }
+
+
+def _with_rule_ids(text: str, rule_ids: Sequence[str]) -> Markup:
+    """``text``, formatted with one RULE_SLOT per rule ID in order (its other values through _slot_safe), as
+    HTML: every rule ID in a span that never breaks (report.css .nowrap), the text around it glyph-safe and
+    escaped like every template value. A line may break before and after a rule ID, never inside it
+    (REP-00): in running text it would break after a hyphen like any word, e.g. in a narrow title cell
+    ('另见 CORE-M05-' | '02', measured)."""
+    pieces = text.split(RULE_SLOT)
+    if len(pieces) != len(rule_ids) + 1:
+        raise ValueError("one RULE_SLOT per rule ID")
+    coverage = report_coverage()
+    html = escape(glyph_safe(pieces[0], coverage))
+    for rule_id, piece in zip(rule_ids, pieces[1:], strict=True):
+        html += Markup('<span class="nowrap">%s</span>') % glyph_safe(rule_id, coverage)
+        html += glyph_safe(piece, coverage)
+    return Markup(html)
+
+
+def _rule_sentence(fmt: _Formatter, key: str, rule: str, **params: Any) -> Markup:
+    """The sentence ``key`` with the ID of the loaded rule ``rule`` wherever it names {rule}, each in a span
+    that never breaks (_with_rule_ids)."""
+    text = fmt.tr(key, **_slot_safe(params), rule=RULE_SLOT)
+    return _with_rule_ids(text, [rule] * text.count(RULE_SLOT))
 
 
 def has_value(value: Any) -> bool:
@@ -520,8 +558,10 @@ def _cover_rows(results: Results, fmt: _Formatter) -> list[tuple[str, str, bool]
 def _finding_row(f: Finding, fmt: _Formatter, title: str, see_also: list[str] | None) -> dict[str, str]:
     """The ten cells of one finding row (B1); no cell is empty: a missing value is '–' with its reason."""
     title_text = (title or fmt.tr("report.value.title_missing")) + (f" – {f.subkey}" if f.subkey else "")
-    if see_also:
-        title_text += " · " + fmt.tr("report.text.see_also", rules=", ".join(see_also))
+    if see_also:  # the title and subkey (rule pack and dataset text) stay outside the sentence with slots
+        slots = ", ".join(RULE_SLOT for _ in see_also)
+        rules = _with_rule_ids(fmt.tr("report.text.see_also", rules=slots), see_also)
+        title_text = escape(glyph_safe(title_text, report_coverage())) + " · " + rules
     return {
         "key": f.key,
         "rule": f.rule_id,
@@ -564,10 +604,10 @@ def _group_view(
     title = titles.get(group.rule_id, "")
     return {
         "rule": group.rule_id,
-        "heading": f"{group.rule_id} – {title}" if title else group.rule_id,
+        "title": title,  # the heading: the rule ID (unbreakable) and its title
         "aggregate": aggregate,
         "rows": [_finding_row(f, fmt, title, see_also.get(f.key)) for f in group.shown],
-        "more": tr("report.text.rule_more", count=group.remainder, rule=group.rule_id)
+        "more": _rule_sentence(fmt, "report.text.rule_more", group.rule_id, count=group.remainder)
         if group.remainder
         else "",
     }
@@ -698,20 +738,26 @@ def _charts(
     for data in tables.chart_data(results, failed):
         key = data.metric.key
         title = tr(f"report.chart.{key}")
-        caption = tr(
-            "report.chart.caption",
-            n=len(data.values),
-            unit=tr("report.chart.unit_recordings"),
-            missing=data.missing,
-        )
-        notes = []
-        if rules.get(data.metric.check):
-            notes.append(tr("report.chart.failed", failed=data.failed))
-        for rule_id, value, origin in data.thresholds:
-            notes.append(
+        coverage = report_coverage()
+        notes = [
+            glyph_safe(
                 tr(
+                    "report.chart.caption",
+                    n=len(data.values),
+                    unit=tr("report.chart.unit_recordings"),
+                    missing=data.missing,
+                ),
+                coverage,
+            )
+        ]
+        if rules.get(data.metric.check):
+            notes.append(glyph_safe(tr("report.chart.failed", failed=data.failed), coverage))
+        for rule_id, value, origin in data.thresholds:  # the rule ID of each threshold never breaks inside
+            notes.append(
+                _rule_sentence(
+                    fmt,
                     "report.chart.threshold",
-                    rule=rule_id,
+                    rule_id,
                     value=fmt.value(value),
                     origin=tr(f"report.text.origin_{origin}"),
                 )
@@ -722,7 +768,7 @@ def _charts(
                     data.values,
                     lo=data.lo,
                     hi=data.hi,
-                    label=glyph_safe(title, report_coverage()),
+                    label=glyph_safe(title, coverage),
                     thresholds=[value for _, value, _ in data.thresholds],
                 )
             )
@@ -734,7 +780,7 @@ def _charts(
                 "key": key,
                 "title": title,
                 "svg": svg,
-                "caption": tr("report.text.separator").join([caption, *notes]),
+                "caption": escape(tr("report.text.separator")).join(notes),  # glyph-safe, escaped
                 "empty": "" if data.values else tr("report.text.chart_no_values", title=title),
             }
         )
@@ -925,6 +971,22 @@ def _static_css() -> str:
     return (TEMPLATE_DIR / "report.css").read_text(encoding="utf-8")
 
 
+def _notices(results: Results, fmt: _Formatter, known_rules: frozenset[str]) -> list[tuple[str, str]]:
+    """Appendix 6.4: the level and the sentence of every notice. The ID of a loaded rule in it never breaks
+    inside (_rule_sentence); a rule a notice names that no pack loaded (the user's text, up to 64
+    characters) wraps like any text."""
+    rows: list[tuple[str, str]] = []
+    for notice in results.notices:
+        params = dict(notice.params)
+        rule = params.pop("rule", None)
+        if isinstance(rule, str) and rule in known_rules:
+            text: str = _rule_sentence(fmt, notice.message_key, rule, **params)
+        else:
+            text = fmt.tr(notice.message_key, **notice.params)
+        rows.append((fmt.tr(f"severity.{notice.level.value}"), text))
+    return rows
+
+
 def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[str, Any]:
     evidence_rules = frozenset(rule.id for rule in results.rules if rule.check == EVIDENCE_CHECK)
     fmt = _Formatter(
@@ -964,6 +1026,8 @@ def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[st
         # checks of placeholder packs are not evaluated, so they are not counted as passed either (A-41)
         "passed_total": sum(p.count for p in results.passed if p.rule_id not in placeholder_rules),
         "rule_overview": _rule_overview(results, fmt, titles),
+        "known_rules": frozenset(titles),
+        "notices": _notices(results, fmt, frozenset(titles)),
         "counted_statuses": [status.value for status in tables.COUNTED],
         "configuration_rows": _configuration_rows(results, fmt),
         "environment_rows": _environment_rows(results, fmt),
