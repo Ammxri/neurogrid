@@ -30,7 +30,8 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
 - **Text layout:** unhinted glyph advances at subpixel positions on every platform (TEXT_LAYOUT_FLAG: the
   Linux shell would otherwise put every glyph at a hinted whole-pixel position).
 - **QA gate:** the fonts it accepts are passed in by the product (PdfExpect.fonts, the PostScript names
-  of the report fonts); the kernel names no font itself (A-23).
+  of the report fonts); the kernel names no font itself (A-23). A glyph 0 (.notdef box) shown in any font
+  fails it too: where no system font has a character, Chromium draws that box in the report font.
 - **Metadata (A-51):** /Info holds exactly Title (the HTML title), Creator, Producer, CreationDate and
   ModDate; no XMP.
 
@@ -60,7 +61,15 @@ from typing import TYPE_CHECKING, Any
 
 import pypdf
 from pypdf.errors import PyPdfError
-from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, PdfObject
+from pypdf.generic import (
+    ArrayObject,
+    ByteStringObject,
+    DictionaryObject,
+    IndirectObject,
+    PdfObject,
+    StreamObject,
+    TextStringObject,
+)
 
 from neurogrid.kernel.errors import InputError, PdfError, UnsafePathError
 from neurogrid.kernel.fonts import is_radical_or_compat
@@ -144,6 +153,7 @@ LINUX_PACKAGES = Path(__file__).with_name("pdf_linux_packages.json")
 BUNDLE_MARKER = "BUNDLE.json"  # in the prefix of an offline-bundle installation (next to venv/, python/)
 # an embedded font subset: six capital letters, "+", the PostScript name of the face
 _SUBSET_FONT = re.compile(r"^/?[A-Z]{6}\+(.+)$")
+IDENTITY_ENCODINGS = frozenset({"/Identity-H", "/Identity-V"})
 INFO_KEYS = frozenset({"/Title", "/Creator", "/Producer", "/CreationDate", "/ModDate"})
 _DATE_FIELD = re.compile(rb"/(CreationDate|ModDate) ?\(D:\d{14}[+-]\d{2}'\d{2}'\)")
 _HEAD_END = re.compile(r"</head\s*>", re.IGNORECASE)
@@ -830,6 +840,19 @@ def _resolve(value: PdfObject | None) -> Any:
     return value.get_object() if isinstance(value, IndirectObject) else value
 
 
+def _descendant(font: DictionaryObject) -> DictionaryObject | None:
+    descendants = _resolve(font.get("/DescendantFonts"))
+    descendant = _resolve(descendants[0]) if isinstance(descendants, ArrayObject) and descendants else None
+    return descendant if isinstance(descendant, DictionaryObject) else None
+
+
+def _identity_encoded(font: DictionaryObject) -> bool:
+    """Whether the font's /Encoding names an Identity CMap. An embedded CMap is a stream (a dictionary, which
+    a set lookup could not hash): it is no Identity encoding."""
+    encoding = _resolve(font.get("/Encoding"))
+    return isinstance(encoding, str) and encoding in IDENTITY_ENCODINGS
+
+
 def _font_violations(font: DictionaryObject, allowed: frozenset[str]) -> set[str]:
     found: set[str] = set()
     subtype = _resolve(font.get("/Subtype"))
@@ -842,21 +865,121 @@ def _font_violations(font: DictionaryObject, allowed: frozenset[str]) -> set[str
         found.add("font_not_report_font")
     if "/ToUnicode" not in font:
         found.add("font_no_tounicode")
-    descendants = _resolve(font.get("/DescendantFonts"))
-    descendant = _resolve(descendants[0]) if isinstance(descendants, ArrayObject) and descendants else None
-    descriptor = (
-        _resolve(descendant.get("/FontDescriptor")) if isinstance(descendant, DictionaryObject) else None
-    )
+    descendant = _descendant(font)
+    descriptor = _resolve(descendant.get("/FontDescriptor")) if descendant is not None else None
     if (
-        not isinstance(descendant, DictionaryObject)
+        descendant is None
         or _resolve(descendant.get("/Subtype")) != "/CIDFontType2"
         or not isinstance(descriptor, DictionaryObject)
         or "/FontFile2" not in descriptor
         or "/FontFile" in descriptor
         or "/FontFile3" in descriptor
+        # Chromium (Skia) writes every TrueType subset with two-byte glyph codes; the glyph check below reads
+        # exactly these codes
+        or not _identity_encoded(font)
     ):
         found.add("font_not_cid_truetype")
     return found
+
+
+class _MissingGlyphs:
+    """Finds a shown glyph 0 (.notdef, the empty box a font draws for a character it has no glyph for) while
+    pypdf's text extraction walks a page's content and its form XObjects (visitor_operand_before/after).
+
+    Where no font of the system can draw a character either, Chromium draws the .notdef glyph of the first
+    font of the list, i.e. of the report font (measured with revision 1243: U+0378, which no font has). The
+    PDF then embeds only report fonts and its text holds nothing of the character, so the font and text
+    checks pass a PDF with a box in its place: in the CI run of 55335ca the Kangxi radical U+2F63, printed on
+    ubuntu-24.04 (no installed font has it), left a PDF that passed them all (only report fonts, no radical
+    in the text). This check fails such a PDF on every platform. Only Type0 fonts with
+    Identity encoding are read (two bytes per glyph code, the CID; the glyph is the CID through
+    CIDToGIDMap): the font check fails every other font."""
+
+    def __init__(self, resources: Any) -> None:
+        self.found = False
+        self._resources: list[Any] = [_resolve(resources)]  # the page's, then each form's being walked
+        self._font: Callable[[bytes], bool] | None = None  # the current font's test for glyph 0
+        self._saved: list[Callable[[bytes], bool] | None] = []  # q/Q
+        self._forms: list[tuple[Callable[[bytes], bool] | None, int]] = []  # Do: font and q depth
+        self._fonts: dict[int, Callable[[bytes], bool] | None] = {}
+
+    def before(self, operator: bytes, operands: list[Any], *_matrices: Any) -> None:
+        if operator == b"Tf" and operands:
+            self._font = self._lookup(operands[0])
+        elif operator in (b"Tj", b"'") and operands:
+            self._check(operands[0])
+        elif operator == b'"' and len(operands) >= 3:
+            self._check(operands[2])
+        elif operator == b"TJ" and operands and isinstance(operands[0], ArrayObject):
+            for item in operands[0]:
+                self._check(item)
+        elif operator == b"q":
+            self._saved.append(self._font)
+        elif operator == b"Q" and self._saved:
+            self._font = self._saved.pop()
+        elif operator == b"Do":
+            self._forms.append((self._font, len(self._saved)))
+            self._resources.append(self._form_resources(operands[0] if operands else None))
+
+    def after(self, operator: bytes, operands: list[Any], *_matrices: Any) -> None:
+        if operator == b"Do" and self._forms:
+            self._resources.pop()
+            self._font, depth = self._forms.pop()
+            del self._saved[depth:]
+
+    def _form_resources(self, name: Any) -> Any:
+        current = self._resources[-1]
+        xobjects = _resolve(current.get("/XObject")) if isinstance(current, DictionaryObject) else None
+        form = _resolve(xobjects.get(name)) if isinstance(xobjects, DictionaryObject) else None
+        if isinstance(form, DictionaryObject) and form.get("/Subtype") == "/Form":
+            return _resolve(form.get("/Resources"))
+        return current  # an image: nothing is walked inside it
+
+    def _lookup(self, name: Any) -> Callable[[bytes], bool] | None:
+        current = self._resources[-1]
+        fonts = _resolve(current.get("/Font")) if isinstance(current, DictionaryObject) else None
+        font = _resolve(fonts.get(name)) if isinstance(fonts, DictionaryObject) else None
+        if not isinstance(font, DictionaryObject):
+            return None
+        if id(font) not in self._fonts:
+            self._fonts[id(font)] = _shows_glyph_zero(font)
+        return self._fonts[id(font)]
+
+    def _check(self, item: Any) -> None:
+        if (
+            self._font is not None
+            and not self.found
+            and isinstance(item, (ByteStringObject, TextStringObject))
+        ):
+            self.found = self._font(item.original_bytes)
+
+
+def _shows_glyph_zero(font: DictionaryObject) -> Callable[[bytes], bool] | None:
+    """For a Type0 font with Identity encoding: whether a string of two-byte CIDs shows glyph 0 (CIDToGIDMap
+    /Identity or absent: CID 0; a map stream: every CID it maps to 0 or that lies beyond it). None for any
+    other font (the font check fails those)."""
+    if _resolve(font.get("/Subtype")) != "/Type0" or not _identity_encoded(font):
+        return None
+    descendant = _descendant(font)
+    mapping = _resolve(descendant.get("/CIDToGIDMap")) if descendant is not None else None
+    if not isinstance(mapping, StreamObject):
+
+        def identity(raw: bytes) -> bool:
+            at = raw.find(b"\x00\x00")
+            while at != -1 and at % 2:
+                at = raw.find(b"\x00\x00", at + 1)
+            return at != -1
+
+        return identity
+    table = mapping.get_data()
+    known = len(table) // 2
+    zero = frozenset(cid for cid in range(known) if table[2 * cid] == table[2 * cid + 1] == 0)
+
+    def mapped(raw: bytes) -> bool:
+        codes = (int.from_bytes(raw[i : i + 2], "big") for i in range(0, len(raw) - 1, 2))
+        return any(cid in zero or cid >= known for cid in codes)
+
+    return mapped
 
 
 def _resource_violations(resources: Any, seen: set[int], allowed: frozenset[str]) -> set[str]:
@@ -893,15 +1016,22 @@ def pdf_text(data: bytes) -> list[str]:
 def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = None) -> list[str]:
     """The PDF QA gate (KONZEPT 1.6, A-27): sorted violation codes, empty when the PDF passes.
 
-    Fonts: only embedded Type0/CIDFontType2 subsets of ``expect.fonts`` with ToUnicode, no Type3, no system
-    font. Text: no radical or compatibility code point; ``every_page`` phrases on each page, ``once``
-    phrases somewhere (whitespace ignored, cells wrap). Metadata: exactly the five /Info keys, the title and
-    the reference date, no XMP. Requests: none but the printed file, none aborted or failed."""
+    Fonts: only embedded Type0/CIDFontType2 subsets (Identity encoding) of ``expect.fonts`` with ToUnicode,
+    no Type3, no system font, no glyph 0 shown (a missing glyph drawn as an empty box, _MissingGlyphs).
+    Text: no radical or compatibility code point; ``every_page`` phrases on each page, ``once`` phrases
+    somewhere (whitespace ignored, cells wrap). Metadata: exactly the five /Info keys, the title and the
+    reference date, no XMP. Requests: none but the printed file, none aborted or failed."""
     data = pdf.read_bytes() if isinstance(pdf, Path) else pdf
+    missing_glyph = False
     try:
         reader = pypdf.PdfReader(io.BytesIO(data))
         pages = list(reader.pages)
-        texts = [page.extract_text() or "" for page in pages]
+        texts = []
+        for page in pages:
+            glyphs = _MissingGlyphs(page.get("/Resources"))
+            text = page.extract_text(visitor_operand_before=glyphs.before, visitor_operand_after=glyphs.after)
+            texts.append(text or "")
+            missing_glyph = missing_glyph or glyphs.found
         info = reader.metadata
         root = _resolve(reader.trailer.get("/Root"))
     except (PyPdfError, ValueError, KeyError, TypeError):
@@ -909,6 +1039,8 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
     violations: set[str] = set()
     if not pages:
         violations.add("no_pages")
+    if missing_glyph:
+        violations.add("glyph_missing")
     seen: set[int] = set()
     allowed = frozenset(expect.fonts)
     for page in pages:

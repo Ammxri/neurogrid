@@ -638,19 +638,68 @@ NG_CSS = (
 )
 
 
-def _print(
+def _printed(
     printer: PdfPrinter, work: Path, name: str, html: str, expect: PdfExpect, meta: PdfMeta | None = None
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
+    """The gate's verdict on ``html`` printed, and the faces the PDF embeds (own reading, subset prefix
+    left out)."""
     path = work / f"{name}.html"
     path.write_text(html, encoding="utf-8")
     printed = printer.print(path, meta or expect.meta)
-    return qa_gate(printed.data, expect, log=printed.log)
+    faces = sorted({re.sub(r"^/([A-Z]{6}\+)?", "", f["base"]) for f in _font_list(printed.data)})
+    return qa_gate(printed.data, expect, log=printed.log), faces
+
+
+def _print(
+    printer: PdfPrinter, work: Path, name: str, html: str, expect: PdfExpect, meta: PdfMeta | None = None
+) -> list[str]:
+    return _printed(printer, work, name, html, expect, meta)[0]
+
+
+def _edited_font_css(text: str, *, alias: dict[int, int] | None = None, postscript: str = "") -> str:
+    """@font-face rules of 'NG Sans' (400, 700) from report subsets for ``text`` and the source code points
+    of ``alias``, edited with fontTools: ``alias`` maps more code points to the glyphs of others (code point
+    -> source code point), ``postscript`` renames the faces (name ID 6, '-Regular'/'-Bold' appended)."""
+    alias = alias or {}
+    codepoints = ({ord(ch) for ch in text} | set(alias.values())) & font_codepoints(FONT_FILES)
+    rules = []
+    for weight, path in sorted(FONT_FILES.items()):
+        face = TTFont(io.BytesIO(fonts.subset_ttf(path, codepoints)))
+        for table in face["cmap"].tables:
+            if table.isUnicode():
+                table.cmap.update({target: table.cmap[source] for target, source in alias.items()})
+        if postscript:
+            for record in face["name"].names:
+                if record.nameID == 6:
+                    record.string = f"{postscript}-{'Bold' if weight == 700 else 'Regular'}"
+        data = io.BytesIO()
+        face.save(data)
+        rules.append(
+            f'@font-face {{ font-family: "{FONT_FAMILY}"; font-weight: {weight}; font-style: normal; '
+            f"src: url(data:font/ttf;base64,{base64.b64encode(data.getvalue()).decode('ascii')}) "
+            'format("truetype"); }'
+        )
+    return "\n".join(rules) + "\n"
+
+
+# The gate's verdict when the system has no font for a character either: Chromium draws the .notdef glyph
+# (an empty box) of the first font of the list, the report font (measured: U+0378, which no font has). The
+# CI run of 55335ca (ubuntu-24.04, no CJK font on the runner) printed the radical U+2F63 with report fonts
+# only and no radical in the text: the gate, which had no check for the box, passed that PDF.
+NO_SYSTEM_FONT = ["glyph_missing"]
 
 
 @pytest.mark.pdf
 def test_qa_gate_negative_controls(
     pdf_shell: ShellInstall, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Every check of the gate fails its control PDF. The controls of the font and text checks do not
+    depend on the system's fonts (CI run of 55335ca: on ubuntu-24.04 no installed font has the radical
+    U+2F63, so its control printed only report fonts and passed the gate): a radical drawn by a face named
+    like the report font (radical_codepoint), a face with another name (font_not_report_font), a code point
+    no font has (glyph_missing). A character the report font lacks fails the gate whatever fonts the system
+    has: through the system font that draws it (font codes) or as the report font's .notdef box where no
+    font has it (glyph_missing). Each message names the faces the PDF embeds."""
     text = "Hello 数据 <b>bold 粗体</b>"
     both = subset_font_css(FONT_FILES, text + "Control")
     regular_only = subset_font_css({400: FONT_FILES[400]}, text + "Control")
@@ -658,20 +707,37 @@ def test_qa_gate_negative_controls(
     outside = "file:///C:/Windows/win.ini" if os.name == "nt" else "file:///etc/passwd"
     with pdf.browser_work() as work, PdfPrinter(pdf_shell, work) as printer:
         assert _print(printer, work, "ok", _page(text, css=NG_CSS, font_css=both), expect) == []
-        system = _print(
+        # self-contained: the same on every platform
+        radical_face = _edited_font_css(text + "Control", alias={0x2F63: 0x751F})  # U+2F63 -> glyph of 生
+        verdict = _printed(
+            printer, work, "radical_face", _page(text + " \u2f63", css=NG_CSS, font_css=radical_face), expect
+        )
+        assert verdict == (["radical_codepoint"], ["NotoSansSC-Bold", "NotoSansSC-Regular"]), verdict
+        foreign = _edited_font_css(text + "Control", postscript="ForeignSans")
+        verdict = _printed(printer, work, "foreign", _page(text, css=NG_CSS, font_css=foreign), expect)
+        assert verdict == (["font_not_report_font"], ["ForeignSans-Bold", "ForeignSans-Regular"]), verdict
+        notdef = _printed(printer, work, "notdef", _page(text + " \u0378", css=NG_CSS, font_css=both), expect)
+        assert notdef == (NO_SYSTEM_FONT, ["NotoSansSC-Bold", "NotoSansSC-Regular"]), notdef
+        # with the system's fonts
+        system = _printed(
             printer, work, "system", _page(text, css="body { font-family: Arial, sans-serif; }"), expect
         )
-        assert "font_not_report_font" in system or "font_not_cid_truetype" in system
+        assert {"font_not_report_font", "font_not_cid_truetype"} & set(system[0]), system
         synthetic = "* { font-family: 'NG Sans' !important; }"  # bold without a bold face, synthesis on
         assert "font_type3" in _print(
             printer, work, "bold", _page(text, css=synthetic, font_css=regular_only), expect
         )
-        emoji = _print(printer, work, "emoji", _page(text + " \U0001f600", css=NG_CSS, font_css=both), expect)
-        assert {"font_type3", "font_not_report_font"} & set(emoji)
-        cross = _print(printer, work, "cross", _page(text + " \u2717", css=NG_CSS, font_css=both), expect)
-        assert "font_not_report_font" in cross
-        radical = _print(printer, work, "radical", _page(text + " \u2f63", css=NG_CSS, font_css=both), expect)
-        assert {"font_not_report_font", "radical_codepoint"} & set(radical)
+        emoji = _printed(
+            printer, work, "emoji", _page(text + " \U0001f600", css=NG_CSS, font_css=both), expect
+        )
+        assert {"font_type3", "font_not_report_font"} & set(emoji[0]) or emoji[0] == NO_SYSTEM_FONT, emoji
+        cross = _printed(printer, work, "cross", _page(text + " \u2717", css=NG_CSS, font_css=both), expect)
+        assert "font_not_report_font" in cross[0] or cross[0] == NO_SYSTEM_FONT, cross
+        radical = _printed(
+            printer, work, "radical", _page(text + " \u2f63", css=NG_CSS, font_css=both), expect
+        )
+        drawn = {"font_not_report_font", "radical_codepoint"} & set(radical[0])
+        assert drawn or radical[0] == NO_SYSTEM_FONT, radical
         missing = PdfExpect(
             meta=expect.meta, fonts=FONTS, every_page=("absent phrase",), once=("also absent",)
         )
