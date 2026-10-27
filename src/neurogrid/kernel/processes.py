@@ -138,9 +138,11 @@ if sys.platform == "win32":
             cmd = spawn.get_command_line(parent_pid=os.getpid(), pipe_handle=rhandle)
             python_exe = spawn.get_executable()
             env: Any = None
-            if popen_spawn_win32.WINENV and _same_path(python_exe, sys.executable):
+            base = getattr(sys, "_base_executable", sys.executable)
+            in_venv = getattr(popen_spawn_win32, "WINENV", not _same_path(sys.executable, base))
+            if in_venv and _same_path(python_exe, sys.executable):
                 # in a virtual environment the base interpreter starts directly (bpo-35797)
-                cmd[0] = python_exe = getattr(sys, "_base_executable", sys.executable)
+                cmd[0] = python_exe = base
                 env = os.environ.copy()
                 env["__PYVENV_LAUNCHER__"] = sys.executable
             command = " ".join(f'"{part}"' for part in cmd)
