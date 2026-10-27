@@ -253,9 +253,16 @@ Treiber ein minimales Umfeld ohne `NODE_OPTIONS`, `PLAYWRIGHT_*`, `PW_*` (A-85).
    die uv-Tests `UV`.
 9. **Konsolen-Kodierung** in Git Bash: `export PYTHONIOENCODING=utf-8` vor Werkzeugläufen mit Chinesisch.
 10. **Docker Desktop** ist nicht nutzbar (D-09); Linux-, Container- und strace-Prüfungen laufen nur in der CI.
-11. **Debug-Log der Headless Shell:** Kindprozesse schreiben Fehler in `debug.log` neben
-    `chrome-headless-shell.exe`; NeuroGrid startet mit `--in-process-gpu` und stellt die Datei nach dem Lauf wieder
-    her (A-85). Nach Testläufen `install_pdf_browser.py --check` ausführen.
+11. **Debug-Log der Headless Shell:** Kindprozesse schreiben unter Windows ab Stufe INFO in `debug.log` neben
+    `chrome-headless-shell.exe` (kein Schalter und keine Variable ändert das). NeuroGrid startet mit
+    `--in-process-gpu` (die GPU läuft im Browserprozess) und unter Windows zusätzlich mit
+    `--enable-features=CDPScreenshotNewSurface,NetworkServiceInProcess2` (auch der Netzwerkdienst läuft dort im
+    Browserprozess; als Kindprozess schrieb er beim Schließen kurz nach dem Start die Warnung
+    `Failed to post task ... sqlite_persistent_shared_dictionary_store.cc`). Der Wert wiederholt Playwrights
+    eigenes `--enable-features` (Chromium behält nur den letzten Wert); ein `--disable-features` wird nie
+    übergeben. Ein `debug.log` der Renderer stellt NeuroGrid nach dem Lauf wieder her (A-85). Unter Linux loggen
+    Kindprozesse nach stderr; der Netzwerkdienst bleibt dort ein eigener Prozess. Nach Testläufen
+    `install_pdf_browser.py --check` ausführen.
 
 ---
 
