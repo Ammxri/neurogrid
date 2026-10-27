@@ -487,30 +487,47 @@ def _total_path_limit() -> int:
     return int(match.group(1))
 
 
-def test_long_path_guard_applies_whatever_long_paths_enabled_says(folder: Path, work: Path) -> None:
+@pytest.mark.parametrize(
+    "spelling, shell",
+    [("as created", POWERSHELL), ("8.3", POWERSHELL), ("8.3", PWSH)],
+    ids=["as-created", "8.3-powershell-5.1", "8.3-pwsh"],
+)
+def test_long_path_guard_applies_whatever_long_paths_enabled_says(
+    folder: Path, work: Path, spelling: str, shell: str | None
+) -> None:
     """Every installed file stays within 250 characters: at the limit the guard lets the installation start
     (the stand-in uv then fails), one character more is refused before anything is created - also with
     LongPathsEnabled = 1 (this machine), where the old guard let a 181-character prefix through and extension
-    modules then failed to load (UF-08). The limit counts characters; the Chinese folder name checks that."""
-    prefix = work / "安装 目录"
-    length = len(str(prefix))
+    modules then failed to load (UF-08). The limit counts characters; the Chinese folder name checks that.
+
+    The guard counts the long spelling, the path the files get (GetFullPath expands 8.3 names): on GitHub's
+    runners TEMP is spelled C:\\Users\\RUNNER~1\\..., so the length this test expected was 3 characters short
+    of the one the installer measured, and the run at the limit was refused (CI of 55335ca). The prefix passed
+    in its 8.3 spelling, two folders of it new, under both PowerShells, shows that the long spelling is the
+    one counted: Windows PowerShell 5.1's GetFullPath alone kept such a prefix short (see Get-LongPath)."""
+    if shell is None:
+        pytest.skip("PowerShell 7 (pwsh) is not installed; CI runs it")
+    prefix = work / "安装 目录" / "9.8.7"
+    given = str(prefix) if spelling == "as created" else _spelled(work, "8.3") + "\\安装 目录\\9.8.7"
+    long_form = _long_path(work) + "\\安装 目录\\9.8.7"
+    length = len(long_form)
     total = _total_path_limit()
     assert total == 250
     _predict_longest_path(folder, total - 1 - length)
-    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
-    assert code == 2 and "install folder path too long" not in text, text
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", given, shell=shell)
+    assert code == 2 and "install folder path too long" not in text, (given, long_form, text)
     assert "creating the virtual environment failed" in text or "installation failed" in text
-    assert not prefix.exists()
+    assert not prefix.parent.exists()
     _predict_longest_path(folder, total - length)
-    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", str(prefix))
+    code, text = _run(folder, "-SkipSignatureCheck", "-Prefix", given, shell=shell)
     assert code == 2, text
     expected = f"install folder path too long ({length} characters, limit {length - 1})"
-    assert expected in text, (_long_paths_enabled(), text)
+    assert expected in text, (_long_paths_enabled(), given, long_form, text)
     assert (
         "even with long paths enabled" in text
         and f"安装文件夹路径过长（{length} 个字符，上限 {length - 1}）" in text
     )
-    assert not prefix.exists()
+    assert not prefix.parent.exists()
 
 
 @pytest.mark.parametrize("longest", [None, "88", -1, 1.5])
@@ -632,7 +649,12 @@ def installable(folder: Path, work: Path) -> tuple[Path, Path]:
         (cwd / name).mkdir(parents=True)
         (cwd / name / "__main__.py").write_text(text, encoding="utf-8")
     probe = subprocess.run(
-        [str(folder / "uv" / "uv.exe"), "-c", "print('ok')"], capture_output=True, text=True, check=False
+        [str(folder / "uv" / "uv.exe"), "-c", "print('ok')"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
     )
     if probe.stdout.strip() != "ok":
         pytest.skip(f"the copied venv launcher does not start: {probe.stderr}")
@@ -649,6 +671,29 @@ def _short_path(path: Path) -> str:
     return buffer.value if 0 < length < len(buffer) else str(path)
 
 
+def _long_path(path: Path) -> str:
+    """The long spelling of an existing path (every 8.3 name expanded)."""
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(1024)
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    length = kernel32.GetLongPathNameW(str(path), buffer, len(buffer))
+    assert 0 < length < len(buffer), path
+    return str(buffer.value)
+
+
+def _spelled(path: Path, spelling: str) -> str:
+    """`path` as created, or in its 8.3 spelling (what GitHub's runners give: TEMP is
+    C:\\Users\\RUNNER~1\\...); skipped where this volume makes no short names, as the condition cannot be
+    built there."""
+    if spelling == "as created":
+        return str(path)
+    short = _short_path(path)
+    if short.casefold() == _long_path(path).casefold():
+        pytest.skip(f"this volume makes no 8.3 names (fsutil 8dot3name): {path.drive}")
+    return short
+
+
 def test_the_working_stand_in_installs_to_the_end(installable: tuple[Path, Path], work: Path) -> None:
     folder, cwd = installable
     prefix = work / "ok"
@@ -659,18 +704,23 @@ def test_the_working_stand_in_installs_to_the_end(installable: tuple[Path, Path]
     assert disclaimer("en") in text
 
 
-def test_console_names_no_user_folder(installable: tuple[Path, Path], short_root: Path) -> None:
+@pytest.mark.parametrize("spelling", ["as created", "8.3"])
+def test_console_names_no_user_folder(
+    installable: tuple[Path, Path], short_root: Path, spelling: str
+) -> None:
     """A-51 (review R13): with the default prefix below %LOCALAPPDATA% the installer printed the full path
     with the user name ('installed: C:\\Users\\<name>\\AppData\\Local\\NeuroGrid\\...'). Like NeuroGrid's own
     console, it shows %LOCALAPPDATA% and ~, also for the 8.3 spelling (C:\\Users\\RUNNER~1 on GitHub's
-    runners) and another letter case."""
+    runners) and another letter case - also when the variables themselves are spelled 8.3 (the runners:
+    TEMP is C:\\Users\\RUNNER~1\\...) and the prefix is printed long (CI of 55335ca: no 'installed:
+    %LOCALAPPDATA%' line)."""
     import os
 
     folder, cwd = installable
     home = Path(tempfile.mkdtemp(prefix="h", dir=short_root)) / "Users" / "runneradmin"
     local = home / "AppData" / "Local"
     local.mkdir(parents=True)
-    env = {**os.environ, "USERPROFILE": str(home), "LOCALAPPDATA": str(local)}
+    env = {**os.environ, "USERPROFILE": _spelled(home, spelling), "LOCALAPPDATA": _spelled(local, spelling)}
     env.pop("NEUROGRID_PDF_BROWSER_DIR", None)
     code, text = _run(folder, "-SkipSignatureCheck", env=env, cwd=cwd)
     assert code == 0, text
@@ -693,20 +743,27 @@ def test_console_names_no_user_folder(installable: tuple[Path, Path], short_root
     assert code == 0 and "installed: ~\\ng\\x\\neurogrid.cmd" in text, text
 
 
+@pytest.mark.parametrize("spelling", ["as created", "8.3"])
 def test_program_output_names_no_user_folder(
-    installable: tuple[Path, Path], short_root: Path, work: Path
+    installable: tuple[Path, Path], short_root: Path, work: Path, spelling: str
 ) -> None:
     """A-51 (verification of review R13): Invoke-Native passed what uv, cosign and Python printed to the
     console unchanged (Out-Host, error output as it came), so a failing uv showed the user folder in its
     cache path %LOCALAPPDATA%\\NeuroGrid\\<version>\\.uv-cache. Their output and their errors go through Show
-    now, each on its own stream, under Windows PowerShell 5.1 and PowerShell 7."""
+    now, each on its own stream, under Windows PowerShell 5.1 and PowerShell 7 - also with the variables
+    spelled 8.3 (GitHub's runners), where the cache path is long (CI of 55335ca)."""
     import os
 
     folder, cwd = installable
     home = Path(tempfile.mkdtemp(prefix="p", dir=short_root)) / "Users" / "runneradmin"
     local = home / "AppData" / "Local"
     local.mkdir(parents=True)
-    env = {**os.environ, "USERPROFILE": str(home), "LOCALAPPDATA": str(local), "NG_STAND_IN_PIP_EXIT": "1"}
+    env = {
+        **os.environ,
+        "USERPROFILE": _spelled(home, spelling),
+        "LOCALAPPDATA": _spelled(local, spelling),
+        "NG_STAND_IN_PIP_EXIT": "1",
+    }
     code, out, err = _run_streams(folder, "-SkipSignatureCheck", env=env, cwd=cwd)
     assert code == 2 and "offline installation failed (uv exit code 1)" in err, out + err
     assert "error: failed to read %LOCALAPPDATA%\\NeuroGrid\\9.8.7\\.uv-cache\\wheels" in err, err
@@ -729,15 +786,19 @@ def test_program_output_names_no_user_folder(
         assert "runneradmin" not in (out + err).lower(), (shell, out + err)
 
 
-def _show(text: str, env: dict[str, str]) -> str:
-    """install.ps1's Show applied to `text` in a Windows PowerShell with `env`."""
+def _show(text: str, env: dict[str, str], shell: str | None = None) -> str:
+    """install.ps1's Show (with the Get-LongPath it uses) applied to `text` in a PowerShell (default Windows
+    PowerShell 5.1) with `env`."""
     assert POWERSHELL is not None
     source = SCRIPT.read_text(encoding="utf-8-sig")
-    (function,) = re.findall(r"^function Show\(.*?^}\n", source, re.M | re.S)
+    functions = re.findall(r"^function (?:Get-LongPath|Show)\(.*?^}\n", source, re.M | re.S)
+    assert len(functions) == 2, "install.ps1 no longer defines Get-LongPath and Show"
     escaped = text.replace("'", "''")
-    script = f"$ErrorActionPreference = 'Stop'\n$script:hidden = $null\n{function}Show '{escaped}'\n"
+    script = (
+        f"$ErrorActionPreference = 'Stop'\n$script:hidden = $null\n{''.join(functions)}Show '{escaped}'\n"
+    )
     done = subprocess.run(
-        [POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
+        [shell or POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -769,6 +830,68 @@ def test_show_replaces_only_whole_user_folders(short_root: Path) -> None:
     assert _show("C:\\data\\set", env) == "C:\\data\\set"
     bare = {k: v for k, v in env.items() if k.upper() not in ("USERPROFILE", "LOCALAPPDATA")}
     assert _show(f"{home}\\q", bare) == f"{home}\\q"  # nothing to hide, no error
+
+
+@pytest.mark.parametrize("shell", [POWERSHELL, PWSH], ids=["powershell-5.1", "pwsh"])
+def test_show_hides_the_long_spelling_of_short_variables(short_root: Path, shell: str | None) -> None:
+    """CI of 55335ca: on GitHub's runners TEMP is spelled C:\\Users\\RUNNER~1\\..., a variable below it is
+    short, and the paths the installer prints are long (GetFullPath expands 8.3 names). Show hid only the
+    variable's spelling and the short one; it hides the long one too, under both PowerShells."""
+    import os
+
+    if shell is None:
+        pytest.skip("PowerShell 7 (pwsh) is not installed; CI runs it")
+    home = Path(tempfile.mkdtemp(prefix="v", dir=short_root)) / "Users" / "runneradmin"
+    local = home / "AppData" / "Local"
+    local.mkdir(parents=True)
+    env = {**os.environ, "USERPROFILE": _spelled(home, "8.3"), "LOCALAPPDATA": _spelled(local, "8.3")}
+    long_home, long_local = _long_path(home), _long_path(local)
+    assert "RUNNER~" not in long_home.upper() and long_home.endswith("runneradmin"), long_home
+    sample = (
+        f"error: failed to read {long_local}\\NeuroGrid\\9.8.7\\.uv-cache\\wheels; "
+        f"{long_home.upper()}\\uv.toml; {env['USERPROFILE']}\\a"
+    )
+    shown = _show(sample, env, shell=shell)
+    assert shown == (
+        "error: failed to read %LOCALAPPDATA%\\NeuroGrid\\9.8.7\\.uv-cache\\wheels; ~\\uv.toml; ~\\a"
+    ), (env["USERPROFILE"], long_home, shown)
+
+
+@pytest.mark.parametrize("shell", [POWERSHELL, PWSH], ids=["powershell-5.1", "pwsh"])
+def test_get_long_path_expands_whatever_exists(short_root: Path, shell: str | None) -> None:
+    """Get-LongPath expands the 8.3 names of the existing part also when two or more folders below it do not
+    exist yet, where Windows PowerShell 5.1's GetFullPath keeps the short spelling (measured: so the guard
+    counted a prefix spelled C:\\Users\\RUNNER~1\\new\\folder shorter than the path the files get)."""
+    if shell is None:
+        pytest.skip("PowerShell 7 (pwsh) is not installed; CI runs it")
+    base = Path(tempfile.mkdtemp(prefix="long-folder-name-", dir=short_root))
+    short = _spelled(base, "8.3")
+    source = SCRIPT.read_text(encoding="utf-8-sig")
+    (function,) = re.findall(r"^function Get-LongPath\(.*?^}\n", source, re.M | re.S)
+    cases = [short, short + "\\", short + "\\new", short + "\\new\\安装 目录\\9.8.7", "C:\\", "relative\\x"]
+    calls = "".join(f"[Console]::Out.WriteLine((Get-LongPath '{case}'))\n" for case in cases)
+    script = (
+        "$ErrorActionPreference = 'Stop'\n"
+        "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false\n"
+        f"{function}{calls}"
+    )
+    done = subprocess.run(
+        [shell, "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    long = _long_path(base)
+    assert done.stdout.splitlines() == [
+        long,
+        long,
+        long + "\\new",
+        long + "\\new\\安装 目录\\9.8.7",
+        "C:",
+        "relative\\x",
+    ], (short, done.stdout)
 
 
 def test_a_failed_installation_leaves_the_target_as_it_was(
