@@ -4,6 +4,7 @@ registry, the rule packs, the configuration model, the CLI, the schemas and the 
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import re
 import shutil
@@ -683,6 +684,7 @@ DEAD_PROXY = {
 
 
 OFFLINE_WORKFLOW = ROOT / ".github" / "workflows" / "offline.yml"
+CLEANROOM_WINDOWS = ROOT / "packaging" / "ci" / "cleanroom_windows.ps1"
 BEFORE_CI = ("until the first CI run", "首次 CI 运行前", "首次 CI")
 BUNDLE_IN_CI = {"en": "offline bundle verified in CI", "zh": "离线安装包已在 CI 中验证"}
 SUITE_PENDING = {"en": "test suite not yet verified", "zh": "测试套件尚未验证"}
@@ -706,6 +708,9 @@ EVIDENCE_IN_CI = {
         "已在 CI 中于 GitHub 的 Windows Server 运行器上",
     ),
 }
+FIREWALL_RULE = (
+    "New-NetFirewallRule -DisplayName neurogrid-block -Direction Outbound -Action Block -Program $_.FullName"
+)
 
 
 def _table_rows(text: str) -> list[list[str]]:
@@ -748,6 +753,30 @@ def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
         assert any(status.startswith(linux_run) and "`debian:12-slim`" in status for status in statuses), lang
         assert any(status.startswith(firewall) for status in statuses), lang
         assert any(AUDIT_HOOK_PENDING[lang] in status for status in statuses), lang
+
+
+def test_firewall_check_blocks_what_the_ci_blocks() -> None:
+    """NG-N01, A-49: 'Check it yourself' on Windows blocks every .exe of the installation and of the PDF
+    browser folder with the rule the Windows clean room adds (cleanroom_windows.ps1 Block-Executables),
+    names the programs it covers and says that the PDF browser's processes all run its one executable (on
+    Windows the GPU and the network service run inside the browser process, see pdf.launch_arguments)."""
+    from neurogrid.kernel import pdf
+
+    script = " ".join(CLEANROOM_WINDOWS.read_text(encoding="utf-8-sig").split())
+    assert FIREWALL_RULE.replace("neurogrid-block", '"$tag-block"') in script
+    browser = Path(pdf.EXECUTABLES["win64"]).name
+    assert pdf.IN_PROCESS_GPU in pdf.launch_arguments(Path("work"))  # the GPU runs in the browser process
+    if "windows" in inspect.signature(pdf.launch_arguments).parameters:  # since 88b15a4 (p5-ci2-chrome-log)
+        windows = " ".join(pdf.launch_arguments(Path("work"), windows=True))
+        assert "NetworkServiceInProcess2" in windows  # and so does the network service on Windows
+    for lang in LANGUAGES:
+        section = _anchored(_page(lang, "privacy.md"))["check-yourself"]
+        assert FIREWALL_RULE in " ".join(section.split()), lang
+        assert "-Recurse -Filter *.exe" in section and r"$env:LOCALAPPDATA\NeuroGrid\pdf-browser" in section
+        for program in ("neurogrid.exe", "python.exe", "deno.exe", "node.exe", browser):
+            assert f"`{program}`" in section, (lang, program)
+        assert "Remove-NetFirewallRule -DisplayName neurogrid-block" in section, lang
+        assert "sys._base_executable" in section, lang  # the interpreter behind a venv's python.exe
 
 
 INSTALLER = ROOT / "tools" / "install_pdf_browser.py"

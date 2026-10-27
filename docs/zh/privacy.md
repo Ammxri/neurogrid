@@ -56,9 +56,23 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
   `http://127.0.0.1:9`）指向该端口，向其发送请求的程序实际上是在尝试访问网络。源代码仓库中的
   `python3 tools/strace_check.py <folder>` 对该文件夹中的每个 `strace-*.txt` 文件应用完全相同的规则，并列出其统计的
   回环调用。
-- **Windows。** 为每个程序设置出站防火墙规则，例如
-  `New-NetFirewallRule -Direction Outbound -Action Block -Program <path of neurogrid.exe>`，并对 `python.exe`、
-  `deno.exe`、Playwright 的 `node.exe` 和 PDF 浏览器做同样设置。
+- **Windows。** 像 CI 一样，设置出站防火墙规则，阻止安装位置和 PDF 浏览器文件夹中的每个程序。这需要管理员权限，
+  并会更改计算机的安全设置；之后请删除这些规则。
+
+    ```powershell
+    $folders = "<installation folder or virtual environment>", "$env:LOCALAPPDATA\NeuroGrid\pdf-browser"
+    Get-ChildItem $folders -Recurse -Filter *.exe | ForEach-Object {
+        New-NetFirewallRule -DisplayName neurogrid-block -Direction Outbound -Action Block -Program $_.FullName
+    }
+    # afterwards
+    Remove-NetFirewallRule -DisplayName neurogrid-block
+    ```
+
+    这涵盖 `neurogrid.exe`、`python.exe`、`deno.exe`、Playwright 的 `node.exe` 和 `chrome-headless-shell.exe`。
+    PDF 浏览器的每个进程都运行 `chrome-headless-shell.exe`；在 Windows 上，其 GPU 和网络服务就在浏览器进程内运行，
+    因此这一条规则也涵盖它们。从 PyPI 或源代码安装时，请填写其虚拟环境，并同时阻止创建该环境所用的 Python
+    （`python -c "import sys; print(sys._base_executable)"`）。
+
 - **决策。** 决策记录和需求矩阵是仓库的一部分（`docs/umsetzung/`）。
 
 | 证据 | 状态 |

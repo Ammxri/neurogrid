@@ -67,9 +67,25 @@ on your own computer.
   network. `python3 tools/strace_check.py <folder>` of the source
   repository applies exactly this rule to every `strace-*.txt` file of the folder and lists the loopback calls
   it counted.
-- **Windows.** An outbound firewall rule per program, for example
-  `New-NetFirewallRule -Direction Outbound -Action Block -Program <path of neurogrid.exe>`, and the same for
-  `python.exe`, `deno.exe`, Playwright's `node.exe` and the PDF browser.
+- **Windows.** An outbound firewall rule that blocks every program of the installation and of the PDF browser
+  folder, as the CI does. It needs administrator rights and changes security settings of the computer; remove
+  the rules afterwards.
+
+    ```powershell
+    $folders = "<installation folder or virtual environment>", "$env:LOCALAPPDATA\NeuroGrid\pdf-browser"
+    Get-ChildItem $folders -Recurse -Filter *.exe | ForEach-Object {
+        New-NetFirewallRule -DisplayName neurogrid-block -Direction Outbound -Action Block -Program $_.FullName
+    }
+    # afterwards
+    Remove-NetFirewallRule -DisplayName neurogrid-block
+    ```
+
+    This covers `neurogrid.exe`, `python.exe`, `deno.exe`, Playwright's `node.exe` and
+    `chrome-headless-shell.exe`. Every process of the PDF browser runs `chrome-headless-shell.exe`; on Windows its
+    GPU and its network service run inside the browser process itself, so this one rule covers them. For an
+    installation from PyPI or from the source code, name its virtual environment and also block the Python the
+    environment was created from (`python -c "import sys; print(sys._base_executable)"`).
+
 - **The decisions.** The decision log and the requirement matrix are part of the repository
   (`docs/umsetzung/`).
 
