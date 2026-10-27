@@ -5,7 +5,9 @@ Grundlage:
 - [ANFORDERUNGEN.md](ANFORDERUNGEN.md)
 - Entscheidungen D-01–D-07, offene Fragen E1–E5 und Annahmen A-00–A-61 in [ENTSCHEIDUNGEN.md](ENTSCHEIDUNGEN.md)
 
-Stand 11.10.2026, überarbeitet nach einer Prüfung aus drei Blickwinkeln (Abschnitt 10).
+Stand 11.10.2026, überarbeitet nach einer Prüfung aus drei Blickwinkeln (Abschnitt 10). Nach P5 (27.10.2026)
+sind die Abschnitte 1.1–1.3, 1.6, 2.6, 2.8, 3, 4 und 5 (Risiko R10) an den Code angeglichen (Annahmen A-84 bis A-88); was davon
+noch bei STOPP G1 zu bestätigen ist, steht dort als „für G1 vorgemerkt“.
 
 ---
 
@@ -28,9 +30,9 @@ kernel/  Regelmotor  ein Befund je Regel × Objekt × Unterschlüssel, mit Klaus
 kernel/  Ausgabe     results.json (kanonisch) · Bericht HTML/PDF zh/en · Exitcode 0/1/2
 ```
 
-- **Ein Prozess:** Alles läuft lokal in einem Python-Prozess, dazu je ein Unterprozess für deno und die Headless Shell.
+- **Ein Prozess:** Alles läuft lokal in einem Python-Prozess, dazu je ein Unterprozess für deno und für den PDF-Druck (Playwright-Treiber und Headless Shell, nur bei `--format pdf`).
 - **Kein Netzwerkcode:** NeuroGrid enthält keinen Netzwerkcode.
-- **Schutz:** Ein Audit-Hook sperrt Verbindungen aus dem Python-Prozess. Die Unterprozesse sind eigens abgesichert (A-49).
+- **Schutz:** Ein Audit-Hook sperrt Verbindungen und Namensauflösung aus dem Python-Prozess außer Loopback; die asyncio-Schleife von Playwright legt unter Windows ein Socketpaar über 127.0.0.1 an (A-49, A-85). Die Unterprozesse sind eigens abgesichert (A-49).
 
 ### 1.2 Paketstruktur
 
@@ -38,33 +40,54 @@ Der Aufbau folgt §13 (TECH-01). Ergänzungen sind mit „+“ markiert.
 
 ```
 neurogrid/
-  pyproject.toml  uv.lock  LICENSE (Apache-2.0)  NOTICE  THIRD_PARTY_NOTICES.md  DATA_SOURCES.md (+)  REUSE.toml (+)
-  .gitattributes (+, eol=lf; Fixtures binär)   .github/workflows/ ci.yml, offline.yml (+), corpus.yml (+), docs.yml (+), release.yml (+)
+  pyproject.toml  uv.lock  LICENSE (Apache-2.0)  NOTICE  THIRD_PARTY_NOTICES.txt (A-86)  README.md  DATA_SOURCES.md (+)
+  REUSE.toml (+)  LICENSES/ (+, REUSE: nur Lizenzen eigener Dateien)  .env.example (+, alle Umgebungsvariablen ohne Werte)
+  mkdocs.yml (+)  .gitattributes (+, eol=lf; Fixtures binär)
+  .github/workflows/      ci.yml, offline.yml (+), corpus.yml (+), docs.yml (+), release.yml (+), publish-pypi.yml (+), mirror-gitee.yml (+)
+  license-gate/ (+)       allowlist.txt exceptions.txt components.toml known_missing.toml licence_texts.toml network_baseline.json
+                          third_party/ (geprüfte Teile des Validator-Bündels und der Doku-Website; A-86)
+  packaging/ (+)          install.ps1 install.cmd install.sh README.bundle.txt release-notes.md gitee-release.md bundle_lock.json
+                          ci/ (Reinräume Linux/Windows, offline-strace, PDF in debian:12-slim; A-87)
   src/neurogrid/
-    cli.py                Typer-App (pretty_exceptions_show_locals=False)
+    cli.py                Typer-App (pretty_exceptions_show_locals=False); Hilfe und Bedienfehler übersetzt (A-86)
     + config.py           neurogrid.toml → Pydantic (strict)
     + convert.py          BIDS-Konvertierung; ab v0.2 GB/T 47127
     + diff.py  + dossier.py   v1.0
-    + safety.py           Pfadprüfung (A-52), Ausgabefilter (A-51), sicherer YAML-Lader (A-53), Arbeitsordner (A-54), Audit-Hook (A-49)
-    kernel/               nur Standardbibliothek, Pydantic, Jinja2, PyYAML, fontTools, Playwright; mypy --strict;
+    kernel/               nur Standardbibliothek, Pydantic, Jinja2, PyYAML, fontTools, Playwright, pypdf (A-85); mypy --strict;
                           importiert nichts aus neurogrid.* außerhalb von kernel (A-23)
       rules.py  engine.py  findings.py  provenance.py  canonical.py  i18n.py  report.py  glob.py (+, A-14)
+      + errors.py  + evidence.py (P4)
+      + safety.py (Pfadprüfung A-52, Ausgabefilter A-51, sicherer YAML-Lader A-53, Arbeitsordner A-54)  + netguard.py (Audit-Hook, A-49)
+      + fonts.py (Subsets, Glyph-Zwillinge)  + pdf.py (Shell, Druck, QA-Gate)  + pdf_linux_packages.json (A-85)
     io/                   edf.py bdf.py brainvision.py eeglab.py fif.py gbt47127.py (v0.2)  + base.py  + discover.py
     model/                dataset.py consent.py results.py
     checks/               structure.py metadata.py signal.py annotation.py ai_dataset.py provenance.py consent.py
                           + registry.py  + access.py (v1.0)  + evidence.py (P4)
     rulepacks/            core.yaml (+) bids.yaml gxdsl008.yaml yyt2029.yaml gbt47127.yaml   + rulepack.schema.json
     vault/                ledger.py roles.py pia.py  + store.py + risks.py + retention.py + export.py
-    report/               templates/  i18n/zh.yaml en.yaml de.yaml  + charts.py  + fonts/ (Noto Sans SC 400/700 + OFL.txt)
-                          + wording/forbidden.yaml (Sperrliste, A-57)
+    report/               templates/  i18n/zh.yaml en.yaml de.yaml  + render.py + tables.py + charts.py (eigenes SVG, A-84)
+                          + output.py (write_reports, A-85)  + glyphs.py  + texts.py  + validator_codes.yaml
+                          + fonts/ (Noto Sans SC 400/700, OFL.txt, fonts.json)
+                          + wording/forbidden.yaml (Sperrliste, A-57)  + wording/statements.yaml (ARC-05, A-84)
     + schemas/            results, rulepack, config, evidence, manifest, scan, diff (*.schema.json, aus Pydantic erzeugt)
-  tests/                  fixtures/synthetic/ (CC BY 4.0) fixtures/derived/ (mit DATA_SOURCES-Eintrag)  rules/  …
-  tools/   (+)            check_matrix_coverage.py gen_fixtures.py gen_large_edf.py corpus.py calibrate.py build_fonts.py
-                          bundle.py notices.py licenses.py coverage_gates.py install_pdf_browser.py
-  docs/                   zh/ en/ (MkDocs; metrics.md je Metrik = Quelle der core-Regeln), umsetzung/ (nicht Teil der Website)
+  tests/                  fixtures/synthetic/ (CC BY 4.0) fixtures/derived/ (mit DATA_SOURCES-Eintrag)  rules/  docs/  packaging/
+                          acceptance/  perf/  …
+  tools/   (+)            check_matrix_coverage.py check_commit_ids.py gen_fixtures.py gen_large_edf.py gen_schemas.py
+                          gen_montage_names.py corpus.py calibrate.py benchmark.py build_fonts.py coverage_gates.py
+                          bundle.py notices.py licenses.py install_pdf_browser.py linux_pdf_packages.py
+                          gen_docs.py build_docs.py mkdocs_hooks.py docs_templates/  release_check.py scan_runtime_network.py
+                          strace_check.py junit_annotations.py acceptance_g1.py zh_review_package.py
+  docs/                   zh/ en/ (MkDocs, je 16 Seiten; metrics.md je Metrik = Quelle der core-Regeln), _data/ und assets/
+                          (Daten bzw. Code der Website), umsetzung/ (nicht Teil der Website)
   research/neuroarena/ (+)  eigenes uv-Projekt mit eigenem Lock (A-36)
   action.yml, ci-templates/gitlab-ci.yml (+, v1.0, A-34)
 ```
+
+Abweichend vom Plan von Phase 2: Die Notices heißen `THIRD_PARTY_NOTICES.txt`, der Ordner des Lizenz-Gates heißt
+`license-gate/` (unter Windows kollidiert `licenses/` mit dem REUSE-Ordner `LICENSES/`; beides A-86); `safety.py`
+und der Audit-Hook `netguard.py` liegen im Kern. Der Baum nennt Ordner und die für die Architektur wichtigen Module;
+Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `validator.py`, `quality/`, weitere Leser in
+`io/`) stehen nur im Code.
 
 ### 1.3 Tech-Stack
 
@@ -83,12 +106,17 @@ neurogrid/
 | mne-icalabel[onnx], onnxruntime, python-picard | 0.10.0 / 1.31.0 / 0.8.2 | M09b | LIB-07, A-19 |
 | numpy, scipy, scikit-learn, threadpoolctl | exakt gepinnt (gemeinsame Linie für 3.11–3.13) | Rechnen, feste Threads | A-11, A-48 |
 | pymatreader, h5py | gepinnt | EEGLAB .set inkl. v7.3 | NG-F01 |
-| matplotlib | 3.11 | SVG-Verteilungsgrafiken | REP-04 |
-| Playwright + Chrome Headless Shell 1243 | 1.63.0 | PDF; Shell laut E1 nicht im Bündel | TECH-07, A-26 |
-| Noto Sans SC (statisch 400/700, OFL), fontTools, pypdf | – | Schrift, Subsetting, PDF-Prüfung und Datumsfelder | A-27 |
-| pytest, pytest-cov, ruff (inkl. PTH, PLW1514), mypy, pip-licenses | gepinnt (dev) | Qualität | TECH-04, NG-N07, NG-N08 |
-| MkDocs 1.6.1 + Material 9.7 + mkdocs-static-i18n | eingefroren (dev) | Doku zh/en | TECH-06, A-28 |
-| **nicht verwendet** | eegprep (D-05), pyEDFlib (A-24), EEGDash (E4), torch im Paket (A-19), openneuro-py (GPL), Edge, variable Schriften, MNE-Infomax | | |
+| matplotlib | 3.11.2 | nur als Abhängigkeit von MNE; die Verteilungsgrafiken des Berichts sind eigenes SVG (`report/charts.py`, A-84) | REP-04 |
+| Playwright + Chrome Headless Shell 1243 | 1.63.0 | PDF; Shell nicht im Bündel (D-08), Installation mit `tools/install_pdf_browser.py` | TECH-07, A-26, A-85 |
+| Noto Sans SC (statisch 400/700, OFL), fontTools, pypdf | – / 4.66.1 / 6.21.2 | Schrift, Subsetting, PDF-Prüfung (QA-Gate); Datumsfelder durch Ersetzen gleicher Länge, ohne pypdf | A-27, A-85 |
+| pytest, pytest-cov, ruff (inkl. PTH, PLW1514), mypy, pip-licenses | gepinnt (dev) | Qualität, Lizenz-Gate | TECH-04, NG-N07, NG-N08 |
+| MkDocs 1.6.1 + Material 9.7.7 + mkdocs-static-i18n 1.3.1 + pymdown-extensions 12.3 | eingefroren (Gruppe `docs`) | Doku zh/en | TECH-06, A-28, A-86 |
+| python-build-standalone (`install_only_stripped`) | 3.12.15+20261009 | Interpreter im Offline-Bündel; unter Linux ohne `_dbm` | UF-08, A-87 |
+| cosign (Sigstore, keyless) | Standard von `sigstore/cosign-installer` v4.1.2 | Signatur nur in `release.yml`; nicht im Bündel | D-10 g, D-15, A-87 |
+| **nicht verwendet** | eegprep (D-05), pyEDFlib (A-24), EEGDash (E4), torch im Paket (A-19), openneuro-py (GPL), Edge, variable Schriften, MNE-Infomax, matplotlib im Bericht (A-84), `playwright install`/ms-playwright (A-85), jieba und das Offline-Plugin von Material (A-86) | | |
+
+`[tool.uv] default-groups = ["dev", "docs"]`; jeder Export der Laufzeit (Lizenz-Gate, Bündel) nutzt
+`uv export --frozen --no-default-groups --no-emit-project` (A-86).
 
 ### 1.4 Ablauf `check`
 
@@ -141,31 +169,59 @@ neurogrid/
 - Umgebung bereinigt: `DENO_NO_UPDATE_CHECK=1`, eigenes `DENO_DIR` im Arbeitsordner, `NO_COLOR=1`, kein `BIDS_SCHEMA`.
 - Validiert wird gegen das mitgelieferte Schema 1.2.7 (BIDS 1.11.1).
 
-**PDF** (A-26):
-- Playwright mit der Chrome Headless Shell aus einem NeuroGrid-eigenen Ordner.
-- Netzwerk: Chromium-Flags fest im Code; `context.route` erlaubt nur die Berichtsdatei und `data:`; Anfragezähler im Lauf. CSP im HTML.
-- Seitenlayout: Kopf-/Fußzeilen über CSS `@page`; der feste Satz steht in jeder Fußzeile.
-- Datumsfelder: `CreationDate`/`ModDate` = Stichtag.
-- **Kein Edge-Rückfall.** Fehlt die Shell oder fehlen Linux-Bibliotheken, endet der Lauf mit Exit 2 und Hinweis.
-- Ob die Shell im Bündel liegt, hängt an **E1** (Empfehlung: nein; `tools/install_pdf_browser.py` lädt online oder spielt eine bereitgestellte zip mit geprüfter Prüfsumme ein).
+**Bericht** (A-84, A-85; `report/output.py` `write_reports`):
+- **Zwei Durchgänge je Sprache:** Der erste Entwurf liefert die Zeichen des Dokuments und die Texte, die nur im CSS stehen (`page_text`); daraus entstehen die Schrift-Subsets (`kernel/fonts.py`, Familie „NG Sans“), der zweite Durchgang bettet sie als `data:`-URI ein. Die gelieferte `report.<lang>.html` ist genau die gedruckte Datei, die Schriften stecken also auch im HTML.
+- **Zeichen ohne Glyphe** und Steuerzeichen (außer Tab, LF, CR) erscheinen als sichtbarer Text `[U+XXXX]` (`report/glyphs.py`); Datensatztext führt so nie zu Exit 2.
+- **Alles oder nichts:** Mit `pdf` laufen Shell-Suche und Startprüfung vor dem Rendern. Alle Dateien werden neben ihrem Ziel bereitgestellt; erst wenn jedes PDF das QA-Gate bestanden hat, werden frühere Berichte beiseitegelegt und die neuen eingesetzt. Bei einem Fehler werden die neuen Dateien entfernt, die früheren zurückgeholt, Exit 2 (R00). `--format html` braucht nie die Shell.
+- **Seiten:** A4; Deckblatt und Zusammenfassung hoch, Abschnitte 3–6 quer; Kopfzeile mit Titel und Stichtag, fester Satz auf jeder Seite unten links, „Seite x / y“ unten rechts; Tabellenkopf wiederholt, Zeilen nie geteilt; feste Spaltenanteile, nichts ist breiter als die Seite (R01, R04). Die Ränder über CSS `@page` sind Chromium-spezifisch; die kanonische Seitenform ist das PDF.
+- **Inhalt:** Befunde höchstens 50 Zeilen je Regel plus Sammelzeile mit dem genauen Rest und dem Verweis auf results.json (A-59; Lesart von NG-F13 für G1 vorgemerkt); leere Zellen „–“ mit Grund; Verteilungsgrafiken als eigenes SVG ohne matplotlib (A-84).
 
-**Schrift** (A-27): statische Noto-Sans-SC-Schnitte, eingecheckt; Subsetting zur Laufzeit; name-IDs 0/13/14 bleiben erhalten.
+**PDF** (A-26, A-85; `kernel/pdf.py`):
+- **Shell:** nur die Chrome Headless Shell 1243 (Playwright 1.63.0) aus dem NeuroGrid-Ordner: `NEUROGRID_PDF_BROWSER_DIR` (absoluter lokaler Ordner), sonst `%LOCALAPPDATA%\NeuroGrid\pdf-browser` bzw. `${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser`. Nie ms-playwright, `PLAYWRIGHT_BROWSERS_PATH`, ein Kanal, Edge oder eine Suche über PATH; auch die Browser-Tests der Doku starten die Shell nur über `locate_shell`.
+- **Installation (D-08):** Die Shell liegt nicht im Bündel. `tools/install_pdf_browser.py` (nur Standardbibliothek, Meldungen zh/en) lädt die gepinnte zip online (Adresse, Größe, SHA-256), spielt mit `--from-zip … --sha256 …` eine bereitgestellte zip ein, lädt mit `--download-only --platform … --out …` nur herunter und prüft mit `--check` die Installation. Es liegt im Offline-Bündel (`tools/`) und als Release-Datei; die Installationsseite der Doku nennt Adresse und SHA-256 (R28).
+- **Startprüfung:** Playwright-Version 1.63.0; unter Linux `ldd` auf die Shell, fehlende Bibliotheken werden über `kernel/pdf_linux_packages.json` (debian12, ubuntu22.04, ubuntu24.04) als apt-Pakete genannt, zu altes glibc eigens. Fehlt die Shell oder fehlt etwas, endet `report` mit Exit 2 und einem Hinweis, der je nach Installationsart den Befehl des Bündels oder die Doku-Seite nennt (R07: ein Befehl, der so ausgeführt werden kann, ohne Benutzernamen). **Kein Edge-Rückfall.**
+- **Netzwerk:** Chromium-Flags fest im Code (u. a. `--disable-background-networking`, `--disable-component-update`, `--no-pings`, `--proxy-server=direct://`, `--host-resolver-rules=MAP * ~NOTFOUND`, `--in-process-gpu`); Router lässt nur die Berichtsdatei durch, Anfragezähler im Lauf; CSP im `<head>` (sonst Abbruch vor dem Druck); JavaScript aus, Kontext offline, Service Worker gesperrt; Locale zh-CN bzw. en-US, Zeitzone UTC. Treiber und Browser bekommen eine minimale Umgebung und einen privaten Arbeitsordner `ng-pdf-*` im temporären Ordner (unter Windows höchstens 100 Zeichen), nie unter `--out`.
+- **Metadaten:** untagged, ohne Gliederung; `/Info` genau Title (= `report.title`, ohne Datensatznamen oder Pfad), Creator, Producer, CreationDate, ModDate; kein XMP. Die Datumsfelder werden byte-genau in gleicher Länge auf den Stichtag gesetzt (`D:<as_of>000000+00'00'`); fehlt eines oder steht es mehrfach, Exit 2.
+- Eine `debug.log` im Programmordner der Shell (Kindprozesse unter Windows) entfernt der Drucker beim Start als Rest eines abgebrochenen Laufs und beim Schließen, wenn der Lauf sie angelegt hat; hält ein laufender Browser sie offen, schneidet er nur ab, was der Lauf angehängt hat (A-85). Auf dem Windows-Runner der CI ändert sich der Browser-Ordner während des Laufs trotzdem (`test_pdf_tests_pass_with_a_long_basetemp` auf 55335ca rot; Gegenstand der zweiten Fix-Runde).
 
-**QA-Gate je PDF:**
-- nur eingebettete Type0/CIDFontType2-Subsets
-- keine Systemschrift, kein Type3
-- kein Radikal-Codepunkt im extrahierten Text
-- Pflichtphrasen inkl. fester Satz auffindbar
-- 0 abgebrochene Anfragen im Normalfall
+**Schrift** (A-27, A-85): statische Noto-Sans-SC-Schnitte 400/700, mit `tools/build_fonts.py` aus `NotoSansSC[wght].ttf` von google/fonts (gepinnter Commit und SHA-256) erzeugt, Radikal- und Kompatibilitäts-Codepunkte entfernt, eingecheckt mit `fonts.json` und `OFL.txt`. Subsetting zur Laufzeit mit fontTools (name-IDs 0–6, 13, 14; ohne Zeitstempel); Glyphen, die mehrere Codepunkte tragen oder aus GSUB-Ersetzungen entstehen, bekommen je Codepunkt eine eigene Kopie, damit der PDF-Text dem HTML-Text gleicht (Glyph-Zwillinge, R02).
 
-**Offline-Bündel je Plattform** (`tools/bundle.py`):
-- Inhalt: uv-Binary, python-build-standalone 3.12, cp312-Wheelhouse aus `uv.lock`, Dokumentation, Notices, `SHA256SUMS`, Installationsskripte (PowerShell 5.1 und Bash).
-- Signatur nach E3.
-- Verteilung über GitHub Releases.
+**QA-Gate je PDF** (zur Laufzeit auf jedem PDF und in den Tests; Codes):
+- Schriften: nur Type0 mit CIDFontType2 und ToUnicode, BaseFont `ABCDEF+` plus Name eines Berichtsschnitts (`font_type3`, `font_not_cid_truetype`, `font_not_report_font`, `font_no_tounicode`)
+- kein Radikal-Codepunkt im extrahierten Text (`radical_codepoint`)
+- fester Satz auf jeder Seite, Titel, Abschnittsüberschriften und gegebenenfalls das Platzhalter-Banner einmal (`phrase_missing_on_page`, `phrase_missing`)
+- Metadaten (`metadata_keys`, `metadata_title`, `metadata_dates`, `metadata_xmp`)
+- Anfragen: keine unerwartete, abgebrochene oder fehlgeschlagene (`requests_unexpected`, `requests_aborted`, `requests_failed`); dazu `unreadable`, `no_pages`
 
-**Nachweis „ohne Netz“** (A-49):
-- Linux-Lauf aller Befehle in einem Container mit `--network none` bzw. `unshare -rn`, zusätzlich unter `strace -f -e trace=connect`.
-- Windows per Firewall-Runner oder „nicht verifiziert“.
+**Offline-Bündel je Plattform** (`tools/bundle.py build`/`verify`, A-87):
+- **Archive:** `neurogrid-<v>-offline-win_amd64.zip` und `neurogrid-<v>-offline-linux_x86_64.tar.gz` mit genau einem Wurzelordner.
+- **Inhalt (Allowlist):** `BUNDLE.json`, LICENSE, NOTICE, `README.txt`, `SHA256SUMS`, `THIRD_PARTY_NOTICES.txt`, `docs/` (Website), `python/` (python-build-standalone 3.12.15+20261009; unter Linux ohne `_dbm`, in `BUNDLE.json` vermerkt), `requirements.lock.txt` (ein Pin und ein Hash je Wheel), `src/` (nur das sdist, CON-05), `tools/install_pdf_browser.py`, `uv/` (uv 0.13.0 aus dem PyPI-Wheel mit Lizenzen und SBOM), `wheels/` (cp312-Wheelhouse aus dem Laufzeit-Export von `uv.lock`); dazu `install.ps1` + `install.cmd` bzw. `install.sh` + `SYMLINKS`. `verify` lehnt u. a. Browserdateien, Bytecode außerhalb von `python/`, Links nach außen und Archive ab 2 GiB ab.
+- **Reproduzierbar:** Zeitstempel aus SOURCE_DATE_EPOCH (sonst Commit-Zeit von HEAD), sortierte Einträge; zwei Bauten sind byte-gleich je Plattform.
+- **Installation:** ohne Netz (`uv pip sync --no-index --require-hashes --no-build`, `UV_OFFLINE=1`), Standardpräfix `%LOCALAPPDATA%\NeuroGrid\<v>` bzw. `${XDG_DATA_HOME:-~/.local/share}/neurogrid/<v>`, keine Änderung an PATH, Registry oder Profil; ein nicht leeres Ziel wird abgelehnt, ein misslungener Lauf hinterlässt das Ziel wie vorgefunden (R14). Grenzen: unter Windows bleibt jede installierte Datei unter 250 Zeichen, auch mit LongPathsEnabled (Präfix höchstens 249 − `max_relative_install_path`, für 0.1.0rc1: 101); unter Linux x86_64 mit glibc ≥ 2.28 (A-58) und PATH_MAX. `-PdfBrowserZip`/`--pdf-browser-zip` installiert den PDF-Browser mit. Exitcodes 0 installiert, 2 Bedienung/Umgebung, 3 Integrität, 4 Signatur. Konsolenausgaben zeigen Benutzerordner nur als `%LOCALAPPDATA%` bzw. `~` (R13).
+- **Signatur (Lesart von D-10 g nach D-15):** Sigstore keyless nur in `release.yml` (signiert werden die `SHA256SUMS` jedes Bündels und eine Release-weite `SHA256SUMS`). Das Installationsskript prüft immer `SHA256SUMS` (jede gelistete Datei, keine ungelistete). Ist cosign da (`-Cosign`/`--cosign` oder auf PATH), wird die Signatur immer geprüft, und der Schalter `-SkipSignatureCheck`/`--skip-signature-check` übergeht keine Ablehnung (Exit 4); der Schalter lässt nur eine Installation ohne cosign weiterlaufen, die Meldung nennt den Weg für einen Rechner ohne Sigstore-Vertrauensanker (R16, für G1 vorgemerkt). Nach der Prüfung nennen die Installer die geprüfte Identität und bitten, sie mit den Release-Notes zu vergleichen; die Prüfung im Archiv belegt Integrität, nicht Herkunft (dokumentierte Grenze, R12). Kein cosign im Bündel, kein gespeicherter Schlüssel.
+- **Verteilung:** GitHub Releases (Entwurf aus `release.yml`, nur auf Tags `v*`); PyPI über `publish-pypi.yml` (Trusted Publishing, erst TestPyPI, von Hand gestartet); Gitee über `mirror-gitee.yml` (Spiegel per SSH, Release-Dateien nachgeprüft bereitgestellt, Release von Hand; R15). Das Release scheitert, solange `license-gate/known_missing.toml` Einträge hat (`tools/notices.py --download --check`) oder `tools/release_check.py` einen Platzhalter wie `<REPO_URL>` in der Doku findet.
+
+**Dokumentation** (A-28, A-86): Website zh/en mit MkDocs, nur über `tools/build_docs.py` gebaut (erzeugte Seiten aktuell, `mkdocs build --strict` unter einem Audit-Hook ohne Netz, SOURCE_DATE_EPOCH, Prüfungen danach). Die lunr-Sprachdateien (u. a. MPL) und Source-Maps werden entfernt; jede Datei der Website ist eigene oder in `license-gate/third_party/mkdocs-material-9.7.7/manifest.toml` geprüft (R19). Suche offline über einen lokalen Server auf 127.0.0.1; unter `file://` ist das Suchfeld mit Hinweis abgeschaltet; Chinesisch ohne Wörterbuch (ein Token je Han-Zeichen, kein jieba). Chinesische Schrift als Subset der Berichtsschrift.
+
+**Lizenzen** (NG-N07, A-86): Gate zweistufig mit pip-licenses für Laufzeit, Dev und Doku; statische Prüfung aller nativen Teile der gesperrten Wheels beider Ziele und der Bündelteile über `license-gate/components.toml`; `THIRD_PARTY_NOTICES.txt` aus einem eigenen statischen Leser (`tools/notices.py`, statt pip-licenses). D-16 gilt nur für den LGPL-Abschnitt in bids-validator-deno 3.0.2.
+
+**Nachweis „ohne Netz“** (A-49, A-87; `.github/workflows/offline.yml`, auf jedem Push auf `dev` und `main`):
+- Linux: alle v0.1-Befehle des installierten Bündels in einem Container mit `--network none` unter `strace -f -e trace=connect,sendto,sendmsg`; `tools/strace_check.py` scheitert an jeder AF_INET/AF_INET6-Verbindung zu einer Adresse außer Loopback und an Loopback-Port 9 (toter Proxy, R11); andere Loopback-Aufrufe werden gezählt und gelistet. Dazu PDF in `debian:12-slim` unter strace, Reinräume `debian:12-slim`, `ubuntu:22.04`, `ubuntu:24.04` (`--network none`, ohne Python, uid 1000) und die Ablehnung von glibc 2.27 (`ubuntu:18.04`).
+- Windows: Reinraum mit WFP-Audit und Sperrregeln für jede .exe von Bündel, Installation und PDF-Browser, unter Windows PowerShell 5.1 und PowerShell 7; Ereignisse 5156/5157 zu Adressen außer Loopback und zu Loopback-Port 9 müssen 0 sein (R11). Lokal nur der Reinraum auf Anwendungsebene (`-NoOsAudit`), keine Änderung an Sicherheitseinstellungen. Grenze: DNS-Anfragen über den DNS-Client-Dienst werden nicht zugeordnet.
+- Paketscan: `tools/scan_runtime_network.py` sucht in jedem .py der Laufzeit nach Netzwerkmodulen und Telemetrie-Markern; jeder Treffer braucht einen geprüften Eintrag in `license-gate/network_baseline.json`.
+- Stand: Lauf auf 55335ca ganz grün (Lauf 40403791782).
+
+**Workflows** (A-87; Actions per Commit-SHA gepinnt, oberste Rechte `contents: read`):
+
+| Workflow | Auslöser | Inhalt |
+|---|---|---|
+| `ci.yml` | Push auf `dev`/`main`, Pull Requests | ruff, mypy, Tests Windows/Linux × 3.11–3.13 mit Abdeckung (PDF-Tests mit `NEUROGRID_REQUIRE_PDF=1`), Lizenz-Gate und Paketscan, Kommandozeile unter Windows PowerShell 5.1 und PowerShell 7, Anforderungs-IDs |
+| `offline.yml` | Push auf `dev`/`main`, von Hand, Aufruf aus `release.yml` | Bündel bauen, offline-strace, Reinräume, glibc-Ablehnung, PDF in debian:12-slim (D-15, R10) |
+| `docs.yml` | Push auf `main`, Pull Requests, von Hand | Website bauen, Browser-Tests |
+| `corpus.yml` | Push auf `main`, von Hand | G1-Lauf auf dem öffentlichen Korpus, nur die Zusammenfassung wird hochgeladen |
+| `release.yml` | Tag `v*`, von Hand (nur auf Tags) | Release-Prüfung, Lizenzen, Bündel, Signatur, Release-Entwurf |
+| `publish-pypi.yml` | von Hand | Trusted Publishing, TestPyPI dann PyPI |
+| `mirror-gitee.yml` | von Hand, veröffentlichtes Release | Spiegel per SSH, Gitee-Release vorbereiten |
 
 ---
 
@@ -382,7 +438,7 @@ approval_ref = "EC-2026-17"
 | `neurogrid scan PFAD` | `--out scan.json`, [E3] `--show-paths` | Formate, Probanden, Aufnahmen, Größen, nicht unterstützte Dateien | CLI-01 |
 | `neurogrid convert PFAD --to bids --out ZIEL` | `--config`, `--to gbt47127` (v0.2), [E3] `--strip-identifying-headers` | BIDS-Datensatz + ProcessingSteps + Validatorlauf | CLI-02, NG-F02, NG-F03 |
 | `neurogrid check PFAD` | `--rulepack` (mehrfach), `--config`, `--out`, `--strict`, `--manifest`, `--evidence`, `--as-of`, `--role`, `--allow-draft-rulepacks`, [E3] `--jobs`, [E3] `--show-paths` | results.json, Kurzfassung, Exit 0/1/2 | CLI-03, CLI-04 |
-| `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf`, `--out`; v1.0 `--format dossier` | `report.<lang>.<html,pdf>` | CLI-05, REP-08 |
+| `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf` (Standard `html`), `--out` (Standard neben results.json); v1.0 `--format dossier` | `report.<lang>.<html,pdf>`, alle oder keine (A-84, A-85) | CLI-05, REP-08 |
 | `neurogrid manifest PFAD` | [E3] `--out` (Standard `.neurogrid/manifest.json`), [E3] `--show-paths` | manifest.json | CLI-06 |
 | `neurogrid verify PFAD --manifest manifest.json` | [E3] `--show-paths` | geändert/neu/fehlend/Art geändert/unlesbar; Exit 0/1, 2 bei ungültigem Manifest (A-82) | CLI-06 |
 | `neurogrid diff alt.json neu.json` | `--format text,json` | neu/behoben/verändert; Exit 1 bei neuen Fehlern | CLI-07 |
@@ -400,6 +456,7 @@ approval_ref = "EC-2026-17"
 ### 2.8 Rollen und Rechte
 
 - **Keine Benutzerkonten** (NZ-08). Zugriffsrechte regelt das Betriebssystem; Bericht und Doku sagen das ausdrücklich.
+- **Dateirechte der Ausgaben** (A-54, nach P5): results.json, Inventar, Manifest, Berichte und Zuordnungsvorlage entstehen mit 0666 abzüglich umask (unter Linux also nach der umask des Bedieners, nicht 0600); Arbeitsordner von Bibliotheksaufrufen ohne Ausgabeordner liegen unter Linux in `<temp>/neurogrid-<uid>` (0700, abgelehnt, wenn Link, fremder Besitzer oder für Gruppe oder andere beschreibbar).
 - **Rollenregister** `roles.yaml` (NV-F04): Rolle, Beschreibung, erlaubte Aktionen (read, check, convert, report, export, consent_manage), Objektbereich (Muster nach A-14), `ethics_approval_ref`. Die Vorlage enthält neutrale Beispielrollen.
 - **Beratende Durchsetzung:** Ereignisse werden gegen das Register geprüft (CORE-NV04-01). Ein Befehl warnt, wenn seine Rolle die Aktion nicht darf.
 - **Personenfelder** enthalten Rollen oder Kürzel, keine Klarnamen (NZ-09, A-51).
@@ -410,7 +467,7 @@ approval_ref = "EC-2026-17"
 
 | Vorgabe | Umsetzung | Prüfung |
 |---|---|---|
-| Lokal, offline, keine Telemetrie (NG-N01, CON-04, ARC-06) | kein Netzwerkcode; Audit-Hook (nur Python-Prozess); deno `--deny-net` + `DENO_NO_UPDATE_CHECK`; Chromium-Flags + route + CSP; `onnxruntime.disable_telemetry_events()` | Linux-Lauf ohne Netz + strace (OS-Ebene); Socket-Sperre in Tests; Quelltext- und Paket-Scan |
+| Lokal, offline, keine Telemetrie (NG-N01, CON-04, ARC-06) | kein Netzwerkcode; Audit-Hook (nur Python-Prozess); deno `--deny-net` + `DENO_NO_UPDATE_CHECK`; Chromium-Flags + route + CSP, JavaScript aus; `onnxruntime.disable_telemetry_events()` | Linux-Lauf ohne Netz + strace (OS-Ebene); Windows-Reinraum mit WFP-Audit; Socket-Sperre in Tests; Quelltext- und Paket-Scan (`tools/scan_runtime_network.py`) |
 | Daten nie selbst exportieren (CON-02) | keine Upload-Funktion; Export-ZIP nur fünf Teile + index.json; GitHub Action nur auf eigenen Runnern | ZIP-Test; Action-Test |
 | Pseudonymität (NG-N05, NZ-09) | Allowlist der Kopffelder, Ausgabefilter für alle Ausgaben, pseudonyme Aufnahme-IDs bei Rohordnern, Annotationscodes gefiltert, Aggregation mit Zellen < 5, keine Signal-Hashes, kein Rohalter, kein diagnosis_code (A-51) | Fixtures mit eingepflanzten Kennungen je Format; alle Ausgaben inkl. PDF-Text durchsucht |
 | Keine Rohsignale (NG-N05) | nur Kennzahlen und aggregierte Grafiken | Test auf Berichtsinhalt |
@@ -420,10 +477,10 @@ approval_ref = "EC-2026-17"
 | Vorprüfung, keine Konformität (POS-01, NZ-05) | fester Satz überall (A-08); Sperrliste (A-57); placeholder-Pakete gekennzeichnet und ohne Wertung (A-41) | Wort-Test über Vorlagen, Tabellen, Doku, README; Platzhalter-Banner-Test |
 | Keine klinischen Aussagen (NZ-01, ARC-05) | keine Patientenbewertung; NG-F17 mit Abgrenzungstext | Wort-Test |
 | Normtexte urheberrechtlich geschützt | nur Klauselnummern und eigene Kurztexte (A-55) | DoD P7, P8, P10 |
-| Lizenzen (NG-N07, CON-01, D-05, E1) | zweistufiges Gate getrennt für Laufzeit, Dev und research; Komponentenliste für Nicht-Python-Teile; Notices automatisch; DATA_SOURCES; REUSE | CI-Schritte |
+| Lizenzen (NG-N07, CON-01, D-05, E1) | zweistufiges Gate getrennt für Laufzeit, Dev und Doku (research ab P11); Komponentenliste `license-gate/components.toml` für Nicht-Python-Teile beider Ziele; Notices aus eigenem statischem Leser; Liste fehlender Lizenztexte (`known_missing.toml`); DATA_SOURCES; REUSE | CI-Schritte; eigener REUSE-Test; `notices.py --check` sperrt das Release, solange Texte fehlen |
 | Eingaben (A-52, A-53) | zentrale Pfadprüfung (UNC, `..`, ADS, Junctions); sicherer YAML-Lader; Größen- und Längengrenzen; Escape | Angriffs-Fixtures in der Windows- und Linux-CI |
 | Temporäre Dateien (A-54) | Arbeitsordner je Lauf, Aufräumen | Test ohne Reste in %TEMP% |
-| Lieferkette | `uv.lock` mit Hashes, exakte Pins, `no-build`; Release-Signatur nach E3 | `uv lock --check`; Signaturprüfung im Installationsskript |
+| Lieferkette | `uv.lock` mit Hashes, exakte Pins, `no-build`; Bündelteile in `packaging/bundle_lock.json` (URL, Größe, SHA-256); Actions per Commit-SHA; Sigstore-Signatur im Release (D-15) | `uv lock --check`; `SHA256SUMS` und Signatur im Installationsskript (Lesart R16 für G1 vorgemerkt) |
 | Rechtstexte | fester Satz zh/en, PIA-Vorlage = Platzhalter bis zur muttersprachlichen bzw. juristischen Prüfung | zh-Prüfung ist Bedingung für die Veröffentlichung von v0.1 |
 
 ---
@@ -443,10 +500,13 @@ approval_ref = "EC-2026-17"
 | CLI | Typer-Runner und echte Unterprozesse unter Bash, PowerShell 7 und Windows PowerShell 5.1; chinesische Pfade; `--lang "zh,en"` |
 | Datenschutz | eingepflanzte Kennungen je Format → keine in Konsole, JSON, HTML, PDF-Text, ZIP, Mappe; Fehlerpfade mit `--debug` bereinigt |
 | Sicherheit | UNC/`..`/Junction/ADS/Komma-Pfade; YAML-Aliase, doppelte Schlüssel, Übergröße; bösartige Dateinamen |
-| Offline | Socket-Sperre in allen Tests; Linux-Job ohne Netz + strace für den ganzen Ablauf |
-| Bericht | alle Abschnitte, Pflichtfelder je Befund, fester Satz auf jeder Seite, Platzhalter-Banner, PDF-QA-Gate, Skalierung 1000 × 64 |
-| Wortwahl, i18n, Schemas | Sperrliste; jeder Schlüssel in zh/en/de; erzeugte Schemas = eingecheckte |
-| Lizenzen | pip-licenses zweistufig (Laufzeit, Dev, research); Komponentenliste Nicht-Python |
+| Offline | Socket-Sperre in allen Tests; Linux-Job ohne Netz + strace für den ganzen Ablauf; Windows-Reinraum mit WFP-Audit (`offline.yml`) |
+| Bericht | alle Abschnitte, Pflichtfelder je Befund, fester Satz auf jeder Seite, Platzhalter-Banner, PDF-QA-Gate mit eigenem pypdf-Orakel, Skalierung 1000 × 64 (`perf`, Grenzen A-88) |
+| Wortwahl, i18n, Schemas | Sperrliste; keine Aussagen über Patienten (ARC-05); jeder Schlüssel in zh/en/de, auch Hilfe und Bedienfehler; erzeugte Schemas = eingecheckte |
+| Lizenzen | pip-licenses zweistufig (Laufzeit, Dev, Doku; research ab P11); Komponentenliste Nicht-Python statisch aus den Wheels beider Ziele; REUSE-Test; Notices aktuell zum Lock |
+| Bündel | Marker `bundle`: echter Bau beider Plattformen zweimal byte-gleich, `verify`, Windows-Reinraum; im Standardlauf: Installer unter Windows PowerShell 5.1 und Bash mit Ersatzbündeln, Workflows und ihre Werkzeugaufrufe |
+| Doku (`browser`) | Website-Bau und -Prüfungen; Suche und 0 externe Anfragen im PDF-Browser |
+| Abnahme G1 | `tools/acceptance_g1.py`: `scan`, `check`, `report` (HTML und PDF zh/en), `manifest`, `verify` auf jedem Korpus-Datensatz, zwei Läufe byte-gleich, Befundzeilen gegen results.json, unabhängige PDF-Prüfung, Datenschutzsuche (A-88) |
 | Abdeckung | `tools/coverage_gates.py`: combine über alle Läufe inkl. Unterprozesse; Kern ≥ 90 %, Prüfer ≥ 80 % (A-23) |
 | Korpus (`corpus`) | `check` und `report` auf allen 6 Datensätzen; Golden-Liste echter Metadatenfehler; κ auf PSG-IPA |
 | Laufzeit (`perf`) | 1-GB-EDF mit 64/128/256 Kanälen (A-50) |
@@ -472,7 +532,7 @@ approval_ref = "EC-2026-17"
 | R7 | Kalibrierte Schwellen untypisch | falsche Warnungen | Netzfrequenz je Aufnahme; Herkunft dokumentiert; überschreibbar | P3 |
 | R8 | Determinismus über Plattformen | nur je Umgebung zugesichert (A-11) | gemeinsame numpy/scipy-Linie; Messung in der CI | P1–P5 |
 | R9 | MkDocs/Material ohne Weiterentwicklung | Doku-Build altert | eingefroren; nur Build betroffen | P5 |
-| R10 | Kein GitHub-/Linux-Lauf vor v0.1 | NG-N04, TECH-05/11 spät geprüft | E2 | P1 |
+| R10 | Kein GitHub-/Linux-Lauf vor v0.1 | NG-N04, TECH-05/11 spät geprüft | E2; seit D-15 läuft `ci.yml`, seit Review R10 auch `offline.yml` auf jedem Push auf `dev` (Stand 55335ca: `offline` grün, Testjobs von `ci` rot) | P1 |
 | R11 | zh-Texte, Rechtstexte | Qualität | Platzhalter, Prüfung vor Veröffentlichung | P5, P9 |
 | R12 | Gate G1 (BIZ-05) | – | **STOPP nach P5** | nach P5 |
 | R13 | Gate G2 (BIZ-05) | – | **STOPP nach Abschluss von v0.2** (nach P8, oder früher, wenn nur normabhängige Phasen übrig sind) | nach P8 |
