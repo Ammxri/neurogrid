@@ -3,6 +3,7 @@ sources, header integrity facts and lazily computed readability (ARC-01: adapter
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path, PurePosixPath
@@ -128,8 +129,16 @@ class CheckContext:
             )
         return self._provenance
 
-    def compute_quality(self, *, stream: bool, sample: bool, jobs: int = 1) -> None:
-        """Run the signal quality job of every recording with signals (one process per job with --jobs)."""
+    def compute_quality(
+        self,
+        *,
+        stream: bool,
+        sample: bool,
+        jobs: int = 1,
+        on_recompute: Callable[[int], None] | None = None,
+    ) -> None:
+        """Run the signal quality job of every recording with signals (one process per job with --jobs);
+        ``on_recompute`` as in ``compute_all``."""
         cfg = self.config
         settings = QualitySettings(
             flat_tolerance_uv=cfg.quality.flat_tolerance_uv,
@@ -161,7 +170,7 @@ class CheckContext:
                     sidecar_reason=sidecar[1],
                 )
             )
-        for rec, result in zip(pending, compute_all(work, jobs), strict=True):
+        for rec, result in zip(pending, compute_all(work, jobs, on_recompute=on_recompute), strict=True):
             rec.quality = result
 
     @classmethod

@@ -451,7 +451,7 @@ def test_a_task_whose_result_cannot_be_delivered_runs_its_job_alone(
 
         def submit(self, fn: Any, *args: Any) -> Future[Any]:
             future: Future[Any] = Future()
-            if fn is sample_module.run_autoreject:
+            if fn is quality.autoreject_part:  # the M09a task (run_autoreject in the pool process)
                 future.set_exception(MemoryError("pickling the prepared sample"))
             else:
                 future.set_result(fn(*args))
@@ -460,6 +460,34 @@ def test_a_task_whose_result_cannot_be_delivered_runs_its_job_alone(
     monkeypatch.setattr(quality, "ProcessPoolExecutor", Pool)
     (result,) = quality.compute_all([_job(cap19)], workers=4)
     assert result == cap19_result
+
+
+def test_a_dying_loky_worker_is_named_once(
+    cap19: Path, cap19_result: quality.QualityResult, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A-89: a loky process that dies during autoreject's fit makes the pool process fit again (same value,
+    D-14); compute_all names that recording through on_recompute, which check prints as a translated note."""
+    import autoreject
+    from joblib.externals.loky.process_executor import TerminatedWorkerError
+
+    original = autoreject.AutoReject.fit
+    calls: list[int] = []
+
+    def fit(self: Any, data: Any) -> Any:
+        calls.append(self.n_jobs)
+        if self.n_jobs > 1:
+            raise TerminatedWorkerError(
+                "A worker process managed by the executor was unexpectedly terminated."
+            )
+        return original(self, data)
+
+    monkeypatch.setattr(autoreject.AutoReject, "fit", fit)
+    monkeypatch.setattr(sample_module, "AUTOREJECT_PARALLEL_MIN_CHANNELS", 2)  # loky also for 19 channels
+    monkeypatch.setattr(quality, "ProcessPoolExecutor", fake_pool({}, PoolLog()))  # tasks in this process
+    counts: list[int] = []
+    (result,) = quality.compute_all([_job(cap19)], workers=4, on_recompute=counts.append)
+    assert calls == [3, 1]  # three loky processes (--jobs 4 without the pool's own), then in its process
+    assert result == cap19_result and counts == [1]
 
 
 def test_small_samples_do_not_start_loky(

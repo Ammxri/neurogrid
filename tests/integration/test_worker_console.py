@@ -17,7 +17,7 @@ handle value it read there: the semaphore of the worker's call queue. The tests:
   the fork, at their bootstrap and at shutdown, and one that dies at ``call_queue.get``, leave stdout and
   stderr as the G1 acceptance demands (strict UTF-8, only translated lines, no traceback, no path, home
   folder or user name; tools/acceptance_g1.py), the CLI process asks no WMI either, and results.json is
-  byte-identical to ``--jobs 1``.
+  byte-identical to ``--jobs 1``. The dead worker is named once by NeuroGrid's own translated note.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ import importlib.util
 import multiprocessing
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -45,6 +46,7 @@ from conftest import documented_config  # type: ignore[import-not-found,unused-i
 from neurogrid import quality  # noqa: E402
 from neurogrid.io.edf import EdfAdapter  # noqa: E402
 from neurogrid.quality import QualityJob, QualitySettings, workers  # noqa: E402
+from neurogrid.report.texts import translator  # noqa: E402
 
 CLOSE_ONCE = "NEUROGRID_TEST_CLOSE_QUEUE_SEMAPHORE"  # marker file: the first worker that creates it
 WMI_SEEN = "NEUROGRID_TEST_WMI_SEEN"  # marker file: written when a worker calls _wmi.exec_query
@@ -231,7 +233,7 @@ def _run(arguments: list[str], cwd: Path, hook: Path, marks: Path) -> g1.Command
 def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_path: Path) -> None:
     """G1 console and privacy checks on check --jobs 2 whose workers write at start, bootstrap and shutdown
     and one of which dies at call_queue.get; results.json equals --jobs 1 (which computes in the CLI
-    process); no process asks WMI."""
+    process); no process asks WMI. The death shows only as NeuroGrid's note on stdout (A-89)."""
     dataset = tmp_path / "data"
     write_edf(dataset / "rest_a.edf", CAP_19, eeg_like(CAP_19, 64, 250, 71), 250)  # sample-capable
     write_edf(dataset / "rest_b.edf", CAP_8, eeg_like(CAP_8, 20, 256, 72), 256)
@@ -260,6 +262,15 @@ def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_
         assert g1.check_privacy([g1.console_output("check", run, tmp_path)], forbidden, None) == [], jobs
     assert runs[1].code == runs[2].code
     assert out[2].read_bytes() == out[1].read_bytes()  # NG-N03, also after the worker died
+    marker = "\x00"
+    note = re.compile(
+        re.escape(translator("en").t("cli.check.recomputed", count=marker)).replace(marker, r"[1-9]\d*")
+    )
+    notes = {
+        jobs: [line for line in run.stdout.decode("utf-8").splitlines() if note.fullmatch(line)]
+        for jobs, run in runs.items()
+    }
+    assert (len(notes[1]), len(notes[2])) == (0, 1), notes
     seen = {path.name.rsplit("-", 1)[0] for path in marks.iterdir()}
     assert {"start", "close", "shutdown"} <= seen  # the workers did write, one did lose its semaphore
     assert "wmi" not in seen  # neither the CLI process (--jobs 1 computes the sample) nor a worker

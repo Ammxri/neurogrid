@@ -300,6 +300,8 @@ class CheckOptions:
     show_paths: bool = False
     work_base: Path | None = None  # where the run's private work folder is created (A-54); default: temp
     jobs: int = 1  # processes for the signal quality jobs (E3 --jobs); results do not depend on it
+    # called with the number of recordings computed again after a process of --jobs died (console only, A-89)
+    on_recompute: Callable[[int], None] | None = None
     manifest_path: Path | None = None  # --manifest (CLI-04/CLI-06, A-22); None: the default location
     evidence_path: Path | None = None  # --evidence (A-15); None: the default location
 
@@ -344,7 +346,9 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         stream = bool(check_ids & (STREAM_CHECKS | ai_dataset.STREAM_CHECKS))  # M12 needs the signal hash
         sample = bool(check_ids & SAMPLE_CHECKS)
         if stream or sample:
-            ctx.compute_quality(stream=stream, sample=sample, jobs=options.jobs)
+            ctx.compute_quality(
+                stream=stream, sample=sample, jobs=options.jobs, on_recompute=options.on_recompute
+            )
         measurements = measure(ctx, check_ids)
         ai_outputs = ai_dataset.outputs(ctx, check_ids)
     result = engine.run(

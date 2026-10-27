@@ -27,6 +27,7 @@ cli:
     written: "结果已写入 {path}"
     placeholder: "已加载占位规则包。其结果并非依据标准原文，不计入统计。"
     open_evidence: "{count} 项证明材料待补，已计入上述错误和警告。"
+    recomputed: "提示：--jobs 的至少一个辅助进程意外终止（例如内存不足）；{count} 条记录的相关计算改为在没有该进程的情况下完成。"
   report:
     written: "报告已写入 {path}"
   convert:

@@ -765,6 +765,27 @@ def test_broken_pool_retries_jobs_one_at_a_time(
     assert quality.describe(results[1]) == {"state": "not_checkable", "reason": "quality.worker_failed"}
 
 
+def test_compute_all_names_the_recordings_it_computes_again(
+    cheap: Path, monkeypatch: pytest.MonkeyPatch, isolated_calls: list[str]
+) -> None:
+    """A-89: a dead worker leaves no trace on the console but NeuroGrid's own: on_recompute is called once,
+    before the retries, with the number of recordings computed again; never when no worker died."""
+    jobs = _jobs(cheap, ["rec_a.edf", "rec_b.edf", "rec_c.edf"], sample=False)
+    counts: list[tuple[int, list[str]]] = []
+    monkeypatch.setattr(quality, "ProcessPoolExecutor", fake_pool({}, PoolLog()))
+    quality.compute_all(jobs, workers=2, on_recompute=lambda n: counts.append((n, list(isolated_calls))))
+    assert counts == []
+    monkeypatch.setattr(
+        quality, "ProcessPoolExecutor", fake_pool({"rec_a.edf": 1, "rec_b.edf": 2}, PoolLog())
+    )
+    results = quality.compute_all(
+        jobs, workers=4, on_recompute=lambda n: counts.append((n, list(isolated_calls)))
+    )
+    assert counts == [(2, [])]  # before the two jobs ran again on their own
+    assert isolated_calls == ["rec_a.edf", "rec_b.edf"]
+    assert results[0] == quality.compute(jobs[0]) and results[1].reason == "quality.worker_failed"
+
+
 def test_a_worker_that_dies_twice_does_not_end_the_run(
     cheap: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, isolated_calls: list[str]
 ) -> None:
@@ -833,9 +854,9 @@ def test_quality_job_runs_only_for_loaded_quality_rules(
     calls: list[int] = []
     original = context.compute_all
 
-    def spy(jobs: Sequence[QualityJob], workers: int = 1) -> list[QualityResult]:
+    def spy(jobs: Sequence[QualityJob], workers: int = 1, **kwargs: Any) -> list[QualityResult]:
         calls.append(len(jobs))
-        return original(jobs, workers)
+        return original(jobs, workers, **kwargs)
 
     monkeypatch.setattr(context, "compute_all", spy)
     (tmp_path / "lab.yaml").write_text(LAB_PACK.format(check=check, params=params), encoding="utf-8")

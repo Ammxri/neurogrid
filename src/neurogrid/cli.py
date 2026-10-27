@@ -519,6 +519,8 @@ def check(
         allow_draft_rulepacks=allow_draft_rulepacks,
         show_paths=show_paths,
         jobs=jobs,
+        # a dead process of --jobs: only the time is lost, its output never reaches the console (A-89)
+        on_recompute=lambda count: _say("cli.check.recomputed", count=count),
         work_base=target.absolute().parent,  # work folder next to the results file (A-54)
         evidence_path=_given_path(evidence),
         manifest_path=_given_path(manifest_file),

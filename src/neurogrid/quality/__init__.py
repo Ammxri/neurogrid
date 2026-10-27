@@ -32,6 +32,7 @@ from neurogrid.quality.sample import (
     Stage,
     finish_sample,
     prepare_sample,
+    refits,
     run_autoreject,
     run_iclabel,
 )
@@ -191,6 +192,14 @@ def compute(job: QualityJob) -> QualityResult:
     return _combined(job, stream, sample)
 
 
+def autoreject_part(stage: Stage, n_jobs: int) -> tuple[MethodResult, bool]:
+    """M09a as a task of the pool, and whether a loky process died during it (the fit ran again in the
+    pool process: the same value, A-89)."""
+    before = refits()
+    value = run_autoreject(stage, n_jobs)
+    return value, refits() != before
+
+
 def _worker_start() -> None:
     worker_start()
 
@@ -236,11 +245,17 @@ class _Progress:
         return self.m09a is not None and self.m09b is not None
 
 
-def compute_all(jobs: Sequence[QualityJob], workers: int = 1) -> list[QualityResult]:
+def compute_all(
+    jobs: Sequence[QualityJob], workers: int = 1, on_recompute: Callable[[int], None] | None = None
+) -> list[QualityResult]:
     """Results in the order of ``jobs``, equal to ``[compute(job) for job in jobs]``. ``workers`` > 1 runs the
     parts of the jobs as tasks of a process pool (KONZEPT 1.4, D-14); at most ``workers`` recordings are in
     work at a time, which bounds the memory for prepared samples. If a worker dies, the jobs it took down are
-    run again one at a time, so a crash costs only its own recording."""
+    run again one at a time, so a crash costs only its own recording. Nothing of a dead process reaches the
+    console (A-89); instead ``on_recompute`` is called once, before those runs, with the number of
+    recordings whose work goes on without it: a process of the pool or one of autoreject's loky processes
+    died (or a part could not be delivered). Their values do not change, unless a recording's own process
+    dies too (quality.worker_failed)."""
     if workers <= 1:
         return [compute(job) for job in jobs]
     size = min(workers, MAX_WORKERS, TASKS_PER_JOB * max(1, len(jobs)))
@@ -253,6 +268,7 @@ def compute_all(jobs: Sequence[QualityJob], workers: int = 1) -> list[QualityRes
     order = 0
     waiting = list(range(len(jobs)))[::-1]  # next job at the end
     pool_broken = False  # after a dead worker the pool takes no more work: the rest runs one job at a time
+    refitted: set[int] = set()  # recordings whose autoreject fit ran again after a loky process died
     with _pool(size) as pool:
 
         def submit(index: int, kind: str, fn: Callable[..., Any], *args: Any) -> None:
@@ -306,13 +322,15 @@ def compute_all(jobs: Sequence[QualityJob], workers: int = 1) -> list[QualityRes
                     stage = value.value
                     stream_failed = state.stream is not None and state.stream.reason is not None
                     if not value.reason and stage.good is not None and not state.broken and not stream_failed:
-                        submit(index, "m09a", run_autoreject, stage, ar_jobs)
+                        submit(index, "m09a", autoreject_part, stage, ar_jobs)
                         submit(index, "m09b", run_iclabel, stage)
                         # only the head is needed here; the pool still holds the prepared sample with its two
                         # tasks until they end, so at most ``size`` prepared samples are in memory
                         state.sample = Part(value=replace(stage, good=_SENT))
                 elif kind == "m09a":
-                    state.m09a = value
+                    state.m09a, refitted_here = value
+                    if refitted_here:
+                        refitted.add(index)
                 else:
                     state.m09b = value
             busy = {entry[0] for entry in futures.values()}
@@ -321,6 +339,9 @@ def compute_all(jobs: Sequence[QualityJob], workers: int = 1) -> list[QualityRes
                 if index not in busy and (state.broken or state.complete(jobs[index])):
                     finish(index)
             refill()
+    again = refitted | {index for index, result in enumerate(results) if result is None}
+    if again and on_recompute is not None:
+        on_recompute(len(again))
     return [
         result if result is not None else _isolated(job) for job, result in zip(jobs, results, strict=True)
     ]
@@ -333,6 +354,7 @@ __all__ = [
     "QualityJob",
     "QualityResult",
     "QualitySettings",
+    "autoreject_part",
     "compute",
     "compute_all",
     "describe",

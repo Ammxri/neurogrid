@@ -434,8 +434,17 @@ def _fitted_autoreject(epochs: Any, interpolate: list[int], folds: int, seed: in
             with loky_processes():
                 return model(n_jobs).fit(epochs)
         except BrokenProcessPool:  # loky's TerminatedWorkerError is one
-            pass
+            _refits[0] += 1
     return model(1).fit(epochs)
+
+
+_refits = [0]  # fits of this process that ran again after a loky process died
+
+
+def refits() -> int:
+    """How many autoreject fits of this process ran again in it because a loky process died (D-14): the
+    value is the same, only the time is lost; ``--jobs`` tells the user (A-89)."""
+    return _refits[0]
 
 
 def _iclabel(raw: Any, positions: bool, seed: int, min_channels: int) -> MethodResult:
