@@ -614,7 +614,9 @@ def driver_environment(work: Path) -> Iterator[None]:
     """While Playwright's driver (node) starts: temporary files in the work folder, the work folder as the
     current folder (the driver keeps it and the browser and its child processes inherit it, so a debug.log
     Chromium writes into its current folder lands there), none of the variables that change the driver or
-    the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES). Restored right afterwards."""
+    the browser (DRIVER_ENV_REMOVED, DRIVER_ENV_PREFIXES), and sys.stderr on the null device: Playwright
+    starts the driver with this stderr (``sys.stderr.fileno()``), so nothing the driver writes reaches the
+    console (A-51, NG-N05; the browser's output goes to the driver). Restored right afterwards."""
     removed = [
         name
         for name in os.environ
@@ -632,7 +634,12 @@ def driver_environment(work: Path) -> Iterator[None]:
         for name in (*DRIVER_ENV_REMOVED, *removed):
             os.environ.pop(name, None)
         os.chdir(work)
-        yield
+        with Path(os.devnull).open("w", encoding="utf-8") as null:
+            console, sys.stderr = sys.stderr, null
+            try:
+                yield
+            finally:
+                sys.stderr = console
     finally:
         # back to the previous folder; if it is gone, out of the work folder so that it can be removed
         for folder in (previous, str(Path(work).absolute().parent)):
