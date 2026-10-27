@@ -33,10 +33,11 @@ function Fail([int]$code, [string]$zh, [string]$en) {
 }
 # The full path in its long spelling: every 8.3 name (RUNNER~1) of the part that exists expanded, the rest as
 # given. [System.IO.Path]::GetFullPath expands the 8.3 names of an existing path under Windows PowerShell 5.1
-# (.NET Framework) and PowerShell 7 (.NET 10) alike, but of a path that does not exist fully only under
-# PowerShell 7: 5.1 kept C:\PROGRA~1\x\y and C:\...\NGTEST~1\x short, and of C:\...\NGTEST~1\ANOTHE~1\x it
-# expanded the first 8.3 name only (measured). So the existing part is expanded on its own, and the result
-# depends neither on the PowerShell nor on how much of the path exists.
+# (.NET Framework) and PowerShell 7 (.NET 10) alike, but of a path that does not exist fully reliably only
+# under PowerShell 7: 5.1 kept C:\PROGRA~1\x\y and C:\...\NGTEST~1\x short, and of C:\...\NGTEST~1\ANOTHE~1\x
+# it expanded the first 8.3 name only, while it fully expanded other names, such as a prefix below this
+# machine's normal TEMP (measured; it depends on the names). So the existing part is expanded on its own,
+# and the result depends neither on the PowerShell, nor on the names, nor on how much of the path exists.
 function Get-LongPath([string]$path) {
     if ($path -notmatch '^([A-Za-z]:\\|\\\\)') { return $path }
     $existing = [System.IO.Path]::GetFullPath($path).TrimEnd('\')

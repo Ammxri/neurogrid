@@ -504,7 +504,11 @@ def test_long_path_guard_applies_whatever_long_paths_enabled_says(
     runners TEMP is spelled C:\\Users\\RUNNER~1\\..., so the length this test expected was 3 characters short
     of the one the installer measured, and the run at the limit was refused (CI of 55335ca). The prefix passed
     in its 8.3 spelling, two folders of it new, under both PowerShells, shows that the long spelling is the
-    one counted: Windows PowerShell 5.1's GetFullPath alone kept such a prefix short (see Get-LongPath)."""
+    one counted. Whether Windows PowerShell 5.1's GetFullPath alone keeps such a prefix short depends on
+    the names: with this machine's normal TEMP, 181654e (GetFullPath, no Get-LongPath) passed the
+    8.3-powershell-5.1 case because GetFullPath expanded the name fully; with TEMP itself spelled 8.3 it
+    failed. So this test does not reliably catch a missing Get-LongPath;
+    test_get_long_path_expands_whatever_exists is the direct regression test of that fix."""
     if shell is None:
         pytest.skip("PowerShell 7 (pwsh) is not installed; CI runs it")
     prefix = work / "安装 目录" / "9.8.7"
@@ -860,8 +864,11 @@ def test_show_hides_the_long_spelling_of_short_variables(short_root: Path, shell
 @pytest.mark.parametrize("shell", [POWERSHELL, PWSH], ids=["powershell-5.1", "pwsh"])
 def test_get_long_path_expands_whatever_exists(short_root: Path, shell: str | None) -> None:
     """Get-LongPath expands the 8.3 names of the existing part also when two or more folders below it do not
-    exist yet, where Windows PowerShell 5.1's GetFullPath keeps the short spelling (measured: so the guard
-    counted a prefix spelled C:\\Users\\RUNNER~1\\new\\folder shorter than the path the files get)."""
+    exist yet, where Windows PowerShell 5.1's GetFullPath may keep the short spelling depending on the
+    names (measured: kept short for some, fully expanded for others such as this machine's normal TEMP), so
+    the guard could count a prefix below C:\\Users\\RUNNER~1 shorter than the path the files get (CI of
+    55335ca). This is the direct regression test of the Get-LongPath fix: it checks the function itself, so
+    its result does not depend on whether GetFullPath happens to expand the names in use."""
     if shell is None:
         pytest.skip("PowerShell 7 (pwsh) is not installed; CI runs it")
     base = Path(tempfile.mkdtemp(prefix="long-folder-name-", dir=short_root))
