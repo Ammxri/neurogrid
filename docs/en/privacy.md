@@ -56,7 +56,9 @@ on your own computer.
   `strace -f -e trace=connect,sendto,sendmsg -o strace-check.txt neurogrid check <dataset>` records every
   connection attempt of NeuroGrid and of its child processes. The trace must not contain an `AF_INET` or
   `AF_INET6` call to an address other than loopback (127.0.0.0/8, `::1`); loopback calls are allowed (the PDF
-  step talks to its own browser process that way). `python3 tools/strace_check.py <folder>` of the source
+  step talks to its own browser process that way), except calls to port 9 on loopback: that is where a dead
+  proxy such as `http://127.0.0.1:9` points, so a program that sends its requests there tried to reach the
+  network. `python3 tools/strace_check.py <folder>` of the source
   repository applies exactly this rule to every `strace-*.txt` file of the folder and lists the loopback calls
   it counted.
 - **Windows.** An outbound firewall rule per program, for example

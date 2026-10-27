@@ -490,8 +490,9 @@ def test_decision_a67_records_the_posix_rules_of_the_code() -> None:
 
 def test_privacy_pages_state_the_strace_rule_of_the_offline_gate(tmp_path: Path) -> None:
     """NG-N01, A-49: 'Check it yourself' states the criterion of tools/strace_check.py (the offline gate of
-    CI): no AF_INET/AF_INET6 call to an address other than loopback; loopback calls are allowed. A trace that
-    the gate accepts must not look like a failure to a user who follows the page."""
+    CI): no AF_INET/AF_INET6 call to an address other than loopback; loopback calls are allowed, except to
+    port 9, where a dead proxy such as http://127.0.0.1:9 points (review R11). A trace that the gate accepts
+    must not look like a failure to a user who follows the page, and one it rejects must not look clean."""
     import strace_check  # type: ignore[import-not-found]
 
     for lang in LANGUAGES:
@@ -502,14 +503,32 @@ def test_privacy_pages_state_the_strace_rule_of_the_offline_gate(tmp_path: Path)
         assert "strace-check.txt" in flat, lang  # the trace file name the checker reads
         assert not re.search(r"must not contain\s+`AF_INET` or `AF_INET6`\.", flat), lang
         assert "记录中不得出现 `AF_INET` 或 `AF_INET6`。" not in flat, lang
-    loopback = 'connect(3, {sa_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("127.0.0.1")}, 16) = 0'
-    loopback6 = 'connect(3, {sa_family=AF_INET6, sin6_port=htons(9), inet_pton(AF_INET6, "::1", &x)}, 28) = 0'
+        assert DEAD_PROXY[lang] in flat, lang  # the port-9 exception of the gate
+    loopback = (
+        'connect(3, {sa_family=AF_INET, sin_port=htons(4512), sin_addr=inet_addr("127.0.0.1")}, 16) = 0'
+    )
+    loopback6 = (
+        "connect(3, {sa_family=AF_INET6, sin6_port=htons(4512), sin6_flowinfo=htonl(0),"
+        ' inet_pton(AF_INET6, "::1", &sin6_addr), sin6_scope_id=0}, 28) = 0'
+    )
     outside = 'connect(3, {sa_family=AF_INET, sin_port=htons(443), sin_addr=inet_addr("10.0.0.1")}, 16) = -1'
+    dead_proxy = loopback.replace("htons(4512)", "htons(9)")
+    dead_proxy6 = loopback6.replace("htons(4512)", "htons(9)")
     assert strace_check.classify(loopback)[0] == strace_check.classify(loopback6)[0] == "loopback"
     assert strace_check.classify(outside)[0] == "network"
+    assert strace_check.classify(dead_proxy)[0] == strace_check.classify(dead_proxy6)[0] == "network"
     (tmp_path / "strace-check.txt").write_text(f"{loopback}\n{loopback6}\n", encoding="utf-8")
     _summary, attempts = strace_check.check(tmp_path)
     assert attempts == []  # what the page allows, the gate allows
+    (tmp_path / "strace-check.txt").write_text(f"{loopback}\n{dead_proxy}\n", encoding="utf-8")
+    _summary, attempts = strace_check.check(tmp_path)
+    assert len(attempts) == 1  # what the page names as the exception, the gate rejects
+
+
+DEAD_PROXY = {
+    "en": "except calls to port 9 on loopback",
+    "zh": "回环地址的端口 9 除外",
+}
 
 
 INSTALLER = ROOT / "tools" / "install_pdf_browser.py"

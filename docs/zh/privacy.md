@@ -48,7 +48,8 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
 - **Linux，系统调用。**
   `strace -f -e trace=connect,sendto,sendmsg -o strace-check.txt neurogrid check <dataset>` 记录 NeuroGrid
   及其子进程的每次连接尝试。记录中不得出现指向回环地址（127.0.0.0/8、`::1`）以外地址的 `AF_INET` 或 `AF_INET6`
-  调用；回环调用是允许的（PDF 步骤通过回环与其自己的浏览器进程通信）。源代码仓库中的
+  调用；回环调用是允许的（PDF 步骤通过回环与其自己的浏览器进程通信），但回环地址的端口 9 除外：失效的代理（例如
+  `http://127.0.0.1:9`）指向该端口，向其发送请求的程序实际上是在尝试访问网络。源代码仓库中的
   `python3 tools/strace_check.py <folder>` 对该文件夹中的每个 `strace-*.txt` 文件应用完全相同的规则，并列出其统计的
   回环调用。
 - **Windows。** 为每个程序设置出站防火墙规则，例如
