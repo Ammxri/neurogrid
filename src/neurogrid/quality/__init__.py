@@ -7,7 +7,9 @@ in this process. With ``--jobs N`` (D-14) they are tasks of a pool of N processe
 the sample, autoreject next to the ICA, and for a single recording autoreject also spreads its threshold
 search over the free processes. Every process installs the network guard (A-49) and computes with one BLAS
 thread; the parts are put together by fixed rules, so the results are byte-identical for every N (A-11,
-NG-N03). A job never raises: problems become a reason key that the checks report as not_checkable.
+NG-N03). The processes start on the null device (``neurogrid.kernel.processes``): nothing they write
+reaches the console (A-51, NG-N05). A job never raises: problems become a reason key that the checks
+report as not_checkable.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
+from neurogrid.kernel.processes import pool_context
 from neurogrid.model.dataset import Recording
 from neurogrid.quality.positions import Position
 from neurogrid.quality.sample import (
@@ -192,10 +195,15 @@ def _worker_start() -> None:
     worker_start()
 
 
+def _pool(size: int) -> ProcessPoolExecutor:
+    """A pool of ``size`` processes that start on the null device and run ``_worker_start`` first."""
+    return ProcessPoolExecutor(max_workers=size, initializer=_worker_start, mp_context=pool_context())
+
+
 def _isolated(job: QualityJob) -> QualityResult:
     """One job in a pool of its own; a worker that dies (e.g. out of memory) only fails this recording."""
     try:
-        with ProcessPoolExecutor(max_workers=1, initializer=_worker_start) as pool:
+        with _pool(1) as pool:
             return pool.submit(compute, job).result()
     except BrokenProcessPool:
         line_hz, source_name = line_frequency(job.recording)
@@ -245,7 +253,7 @@ def compute_all(jobs: Sequence[QualityJob], workers: int = 1) -> list[QualityRes
     order = 0
     waiting = list(range(len(jobs)))[::-1]  # next job at the end
     pool_broken = False  # after a dead worker the pool takes no more work: the rest runs one job at a time
-    with ProcessPoolExecutor(max_workers=size, initializer=_worker_start) as pool:
+    with _pool(size) as pool:
 
         def submit(index: int, kind: str, fn: Callable[..., Any], *args: Any) -> None:
             nonlocal order, pool_broken

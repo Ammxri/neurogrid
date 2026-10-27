@@ -42,6 +42,7 @@ from test_quality_pipeline import (  # type: ignore[import-not-found,unused-igno
 from conftest import documented_config  # type: ignore[import-not-found,unused-ignore]  # noqa: E402
 from neurogrid import quality  # noqa: E402
 from neurogrid.io.edf import EdfAdapter  # noqa: E402
+from neurogrid.kernel import processes  # noqa: E402
 from neurogrid.quality import QualityJob, QualitySettings  # noqa: E402
 from neurogrid.quality import sample as sample_module  # noqa: E402
 from neurogrid.quality import source as source_module  # noqa: E402
@@ -150,6 +151,7 @@ def test_the_pool_never_exceeds_the_platform_limit(monkeypatch: pytest.MonkeyPat
     job = dataclasses.replace(_job(path), sample=False)
     quality.compute_all([job] * 70, workers=64)
     assert log.workers == [quality.MAX_WORKERS]
+    assert log.contexts == [processes.pool_context()]  # its processes start on the null device (A-51)
     assert quality.MAX_WORKERS == (61 if sys.platform == "win32" else 64)
 
 
@@ -436,7 +438,9 @@ def test_a_task_whose_result_cannot_be_delivered_runs_its_job_alone(
     from concurrent.futures import Future
 
     class Pool:
-        def __init__(self, max_workers: int | None = None, initializer: Any = None) -> None:
+        def __init__(
+            self, max_workers: int | None = None, initializer: Any = None, mp_context: Any = None
+        ) -> None:
             pass
 
         def __enter__(self) -> Pool:

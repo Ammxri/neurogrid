@@ -682,6 +682,7 @@ def test_compute_all_keeps_the_order_of_the_jobs(cheap: Path) -> None:
 class PoolLog:
     workers: list[int | None] = field(default_factory=list)  # max_workers of every pool created
     submitted: list[str] = field(default_factory=list)
+    contexts: list[object] = field(default_factory=list)  # mp_context of every pool created
 
 
 def fake_pool(breaks: dict[str, int], log: PoolLog) -> type:
@@ -691,8 +692,14 @@ def fake_pool(breaks: dict[str, int], log: PoolLog) -> type:
     left = dict(breaks)
 
     class FakePool:
-        def __init__(self, max_workers: int | None = None, initializer: Callable[[], None] | None = None):
+        def __init__(
+            self,
+            max_workers: int | None = None,
+            initializer: Callable[[], None] | None = None,
+            mp_context: object = None,
+        ):
             log.workers.append(max_workers)
+            log.contexts.append(mp_context)
             self.dying: set[str] = set()
             self.seen: set[str] = set()
 
