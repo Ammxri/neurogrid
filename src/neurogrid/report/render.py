@@ -95,8 +95,8 @@ def _with_rule_ids(text: str, rule_ids: Sequence[str]) -> Markup:
     """``text``, formatted with one RULE_SLOT per rule ID in order (its other values through _slot_safe), as
     HTML: every rule ID in a span that never breaks (report.css .nowrap), the text around it glyph-safe and
     escaped like every template value. A line may break before and after a rule ID, never inside it
-    (REP-00): in running text it would break after a hyphen like any word, e.g. in a narrow title cell
-    ('另见 CORE-M05-' | '02', measured)."""
+    (REP-00): in running text it would break after a hyphen like any word, e.g. the zh cross reference
+    report.text.see_also in a narrow title cell broke as 'CORE-M05-' | '02' (measured)."""
     pieces = text.split(RULE_SLOT)
     if len(pieces) != len(rule_ids) + 1:
         raise ValueError("one RULE_SLOT per rule ID")
