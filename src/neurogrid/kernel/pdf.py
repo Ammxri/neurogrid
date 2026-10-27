@@ -19,8 +19,9 @@ revision 1243 from NeuroGrid's own folder; every PDF passes the QA gate before a
   with local paths in the current folder, 210 characters ended in pdf.launch_failed). A temporary folder
   with a path too long for the profile ends with exit 2 and its own hint before anything is rendered.
   Driver and browser run with the work folder as their current folder (a debug.log Chromium writes there
-  goes with it); the GPU runs inside the browser process, and a debug.log that a child process appends
-  next to the executable is undone. What a run could not remove because it was killed is removed at the
+  goes with it); on Windows a child process logs into debug.log next to the executable whatever the flags
+  say, so the GPU and the network service run inside the browser process, and a debug.log that a renderer
+  still appends there is undone. What a run could not remove because it was killed is removed at the
   next start of a browser run: its work folder (its lock file, kernel.safety.remove_leftovers) and
   a debug.log next to the executable (also one an older version left).
 - **Determinism (A-11):** untagged PDF (tagged output embeds DOM node IDs), fixed context (locale of the
@@ -103,14 +104,30 @@ PAGE_TIMEOUT_MS = 300_000
 # checks. None of them may reach a NeuroGrid run.
 DRIVER_ENV_REMOVED = ("NODE_OPTIONS", "NODE_PATH", "DEBUG", "DEBUG_FILE", "DEBUGP", "PWDEBUG")
 DRIVER_ENV_PREFIXES = ("PLAYWRIGHT_", "PW_")
-# On Windows the shell's child processes do not use the log file of --log-file: an error is appended to
-# debug.log next to the executable, i.e. in NeuroGrid's browser folder (measured: the GPU process under load).
-# The GPU runs as a thread of the browser process instead; a debug.log a run causes is undone (A-51, A-54).
+# Logging of the shell (revision 1243 = Chromium 153.0.8010.12, headless/lib/headless_content_main_delegate.cc
+# and base/logging.cc): the browser process logs into its profile (<user-data-dir>\Default\chrome_debug.log,
+# inside the work folder; it reads no --log-file). On Windows a child process never sets up logging ("Child
+# processes in Windows are not able to initialize logging") and keeps base's default: LOG_TO_FILE into
+# debug.log next to the executable, i.e. into NeuroGrid's browser folder, from level INFO on; no switch and
+# no variable changes that. So nothing that logs may run as a child process there: the GPU runs as a thread
+# of the browser process (measured: the GPU process wrote under load), and so does the network service (CI
+# run of 55335ca and measured here: a browser closed right after its start made the network service write
+# "Failed to post task from operator()@net\extras\sqlite\sqlite_persistent_shared_dictionary_store.cc:259 to
+# client_task_runner_" at its shutdown, in every one of 6 and of 20 runs; in the browser process: no debug.log
+# in 10 runs, the warning not in the profile's log either). A debug.log that a renderer still writes is
+# undone (_ChildLog; A-51, A-54). On Linux a child process logs to stderr, which the driver reads; the
+# process model stays unchanged there.
 # Where a process cannot open its log file, Chromium's logging falls back to debug.log in its current folder
 # (measured with revision 1243: from a work folder of 197 characters on, the profile paths pass 260
 # characters). The browser inherits the driver's current folder, so the driver starts in the work folder: that
 # debug.log is removed with it and never lands in the user's current folder (driver_environment).
 IN_PROCESS_GPU = "--in-process-gpu"
+IN_PROCESS_NETWORK = "NetworkServiceInProcess2"
+# Playwright 1.63.0 passes --enable-features=CDPScreenshotNewSurface itself (chromiumSwitches); Chromium keeps
+# only the last value of a repeated switch (base/command_line.cc, no duplicate handler in the shell), so the
+# printer's own --enable-features repeats Playwright's features. NeuroGrid passes no --disable-features: it
+# would replace Playwright's list of disabled features.
+PLAYWRIGHT_FEATURES = ("CDPScreenshotNewSurface",)
 CHILD_LOG = "debug.log"
 # The browser's work folder lies in the computer's temporary folder (tempfile.gettempdir(): TMPDIR, TEMP or
 # TMP), independent of --out. Below it the driver's profile reaches 96 characters (measured, revision 1243,
@@ -633,10 +650,17 @@ def _failure(log: RequestLog) -> Callable[[Request], None]:
     return fail
 
 
-def launch_arguments(work: Path, extra_flags: Sequence[str] = ()) -> list[str]:
-    """The fixed flags, the GPU in the browser process and its log file inside the work folder: the shell
-    otherwise writes debug.log next to its executable, i.e. into NeuroGrid's browser folder (A-54)."""
-    return [*CHROMIUM_FLAGS, IN_PROCESS_GPU, f"--log-file={work / 'chromium.log'}", *extra_flags]
+def launch_arguments(
+    work: Path, extra_flags: Sequence[str] = (), *, windows: bool | None = None
+) -> list[str]:
+    """The fixed flags and the GPU in the browser process; on Windows also the network service (Playwright's
+    own features kept): a child process there writes debug.log next to the executable, i.e. into NeuroGrid's
+    browser folder (A-54, see IN_PROCESS_GPU). --log-file inside the work folder is passed on to the child
+    processes; the shell reads it in none (measured: no such file, the browser logs into its profile)."""
+    flags = [*CHROMIUM_FLAGS, IN_PROCESS_GPU]
+    if windows if windows is not None else os.name == "nt":
+        flags.append("--enable-features=" + ",".join((*PLAYWRIGHT_FEATURES, IN_PROCESS_NETWORK)))
+    return [*flags, f"--log-file={work / 'chromium.log'}", *extra_flags]
 
 
 class _ChildLog:

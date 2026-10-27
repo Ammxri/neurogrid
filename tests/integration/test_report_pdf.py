@@ -738,6 +738,45 @@ def test_pdf_tests_pass_with_a_long_basetemp(pdf_shell: ShellInstall, tmp_path: 
     )
 
 
+def _child_types() -> set[str]:
+    """--type and --utility-sub-type of every process below this one (the driver, the shell, its children)."""
+    import psutil  # dev dependency (pyproject)
+
+    found = set()
+    for child in psutil.Process().children(recursive=True):
+        with contextlib.suppress(psutil.Error):
+            found.add(
+                " ".join(a for a in child.cmdline() if a.startswith(("--type=", "--utility-sub-type=")))
+            )
+    return found
+
+
+@pytest.mark.pdf
+def test_a_browser_closed_right_after_its_start_leaves_the_browser_folder_untouched(
+    pdf_shell: ShellInstall,
+) -> None:
+    """A-54 (CI run of 55335ca, windows-latest, test_pdf_tests_pass_with_a_long_basetemp): a printer that
+    starts the shell and closes it again without printing made the network service, a child process, write
+    'Failed to post task from operator()@net\\extras\\sqlite\\sqlite_persistent_shared_dictionary_store.cc:
+    259 to client_task_runner_' into debug.log next to the executable (measured here before the repair:
+    in every one of 6 and of 20 such runs). On Windows the network service now runs in the browser process,
+    so no child process that logs is left and the fresh installation stays unchanged byte for byte, also
+    in between (the watcher sees a debug.log that _ChildLog removes again)."""
+    with fresh_shell(pdf_shell) as shell:
+        before = folder_content(shell.folder)
+        types: set[str] = set()
+        with _entries_seen(shell.folder) as seen:
+            for _ in range(3):
+                with pdf.browser_work() as work, PdfPrinter(shell, work):
+                    types |= _child_types()
+        after = folder_content(shell.folder)
+    assert seen == {}, f"written in the browser folder during the runs: {seen}"
+    assert after == before
+    if sys.platform == "win32":
+        assert not [kind for kind in types if "NetworkService" in kind], types
+        assert not [kind for kind in types if "--type=gpu-process" in kind], types
+
+
 @pytest.mark.pdf
 @pytest.mark.skipif(sys.platform != "win32", reason="the fallback to the current folder is Windows logging")
 def test_fallback_log_of_a_long_work_folder_stays_in_the_work_folder(
