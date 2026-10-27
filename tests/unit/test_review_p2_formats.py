@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import configparser
 import json
+import os
 import random
 import re
 import shutil
@@ -300,7 +301,8 @@ def test_mne_on_posix_opens_the_backslash_name_inside_the_dataset(tmp_path: Path
     shutil.copy(ds / "rec.eeg", ds / "\x81\\x.eeg")  # one file name with a backslash, inside the dataset
     vhdr = _gbk_header(ds, b"\x81\x5cx.eeg", b"rec.vmrk")
     data = mne.io.read_raw_brainvision(vhdr, preload=True, verbose="error").get_data()
-    assert np.allclose(data, INSIDE_VALUE * 1e-6)  # the file inside, not the outside data behind the link
+    # the file inside, not the outside data behind the link
+    assert np.allclose(data, INSIDE_VALUE * 1e-6), f"MNE read {data.flat[0]:g} V, sep={os.sep!r}"
     adapter = BrainVisionAdapter()
     assert adapter.inspect(vhdr).missing_companions == ("companion.unsafe_reference",)
     assert adapter.read_check(vhdr) == "UnsafePathError"

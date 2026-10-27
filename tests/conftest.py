@@ -130,6 +130,47 @@ def locale_encoding(codec: str) -> Iterator[None]:
         builtins.open = real_open
 
 
+def _clear_codec_lookup_cache() -> None:
+    """codecs.unregister clears the registry's cache of looked-up codecs (Python 3.10+)."""
+    import codecs
+
+    def nothing(_name: str) -> None:
+        return None
+
+    codecs.register(nothing)
+    codecs.unregister(nothing)
+
+
+@contextlib.contextmanager
+def linux_codecs() -> Iterator[None]:
+    """The codec registry of Linux: there Python knows no codec "ANSI" (or "dbcs"). On Windows both are
+    aliases of mbcs, the system's ANSI code page; the aliases and the lookup caches are removed for the block.
+    """
+    import encodings
+    import encodings.aliases
+
+    aliases = encodings.aliases.aliases
+    removed = {name: aliases.pop(name) for name in ("ansi", "dbcs") if name in aliases}
+    cache = encodings._cache  # type: ignore[attr-defined]
+    saved = dict(cache)
+    cache.clear()
+    _clear_codec_lookup_cache()
+    try:
+        yield
+    finally:
+        aliases.update(removed)
+        cache.clear()
+        cache.update(saved)
+        _clear_codec_lookup_cache()
+
+
+@contextlib.contextmanager
+def linux_text_system() -> Iterator[None]:
+    """The locale encoding (UTF-8) and the codec registry of the Linux runner."""
+    with locale_encoding(LOCALE_ENCODINGS["Linux"]), linux_codecs():
+        yield
+
+
 @contextlib.contextmanager
 def short_folder(prefix: str) -> Iterator[Path]:
     """A new private folder in the computer's temporary folder, removed afterwards: a short path that does
