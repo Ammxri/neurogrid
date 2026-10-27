@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import configparser
 import json
+import os
 import random
 import re
 import shutil
@@ -18,13 +19,19 @@ import struct
 import subprocess
 import sys
 import time
+import warnings
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 import numpy as np
 import pytest
 
-from conftest import dir_link  # type: ignore[import-not-found,unused-ignore]
+from conftest import (  # type: ignore[import-not-found,unused-ignore]
+    LOCALE_ENCODINGS,
+    dir_link,
+    leave_out_of_order,
+    locale_encoding,
+)
 from neurogrid import pipeline
 from neurogrid.io import brainvision, fif
 from neurogrid.io.base import HeaderUnreadable
@@ -32,6 +39,7 @@ from neurogrid.io.brainvision import BrainVisionAdapter, parse_vhdr
 from neurogrid.io.discover import pseudonym
 from neurogrid.io.fif import FifAdapter
 from neurogrid.kernel import safety
+from neurogrid.kernel.errors import UnsafePathError
 
 VHDR_MAGIC = "Brain Vision Data Exchange Header File Version 1.0\n"
 VMRK = (
@@ -249,8 +257,10 @@ def _gbk_header(ds: Path, data_file: bytes, marker_file: bytes) -> Path:
 
 
 def test_brainvision_reference_as_mne_decodes_it_is_checked(tmp_path: Path, no_mne: None) -> None:
-    """GBK reads 0x81 0x5C as one character, Latin-1 as '\\x81' and a backslash: MNE would open
-    '<ds>/\\x81/x.eeg', here a directory link to the outside data (A-52)."""
+    """GBK reads 0x81 0x5C as one character, Latin-1 as '\\x81' and a backslash: MNE on Windows would open
+    '<ds>/\\x81/x.eeg', here a directory link to the outside data (A-52). A backslash in a reference separates
+    folders for NeuroGrid on every system (BrainVision files are written on Windows), so the reference is
+    refused on Linux as well, where MNE would take it for one file name (the two tests below)."""
     ds, outside = _dataset(tmp_path)
     shutil.copy(ds / "rec.eeg", ds / "乗x.eeg")  # the file NeuroGrid's reading names, next to the header
     (outside / "rec.eeg").rename(outside / "x.eeg")
@@ -264,6 +274,12 @@ def test_brainvision_reference_as_mne_decodes_it_is_checked(tmp_path: Path, no_m
     assert adapter.read_check(vhdr) == "UnsafePathError"
 
 
+@pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="Windows only: the backslash of '\\x81\\\\x.eeg' is a path separator only there; on POSIX MNE "
+    "opens one file of that name inside the dataset "
+    "(test_mne_on_posix_opens_the_backslash_name_inside_the_dataset)",
+)
 def test_mne_alone_follows_the_differently_decoded_reference(tmp_path: Path) -> None:
     import mne
 
@@ -273,6 +289,66 @@ def test_mne_alone_follows_the_differently_decoded_reference(tmp_path: Path) -> 
     vhdr = _gbk_header(ds, b"\x81\x5cx.eeg", b"rec.vmrk")
     data = mne.io.read_raw_brainvision(vhdr, preload=True, verbose="error").get_data()
     assert np.allclose(data, OUTSIDE_VALUE * 1e-6)
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX only: Windows cannot store a file name with a backslash (there it is a path separator)",
+)
+def test_mne_on_posix_opens_the_backslash_name_inside_the_dataset(tmp_path: Path) -> None:
+    """CI ubuntu-24.04: MNE opened '<ds>/\\x81\\\\x.eeg' as one name (FileNotFoundError), not the folder link.
+    NeuroGrid refuses the reference all the same, so the outcome is that of Windows (A-52, TECH-05)."""
+    import mne
+
+    ds, outside = _dataset(tmp_path)
+    (outside / "rec.eeg").rename(outside / "x.eeg")
+    dir_link(ds / "\x81", outside)
+    shutil.copy(ds / "rec.eeg", ds / "乗x.eeg")  # the file NeuroGrid's reading names, next to the header
+    shutil.copy(ds / "rec.eeg", ds / "\x81\\x.eeg")  # one file name with a backslash, inside the dataset
+    vhdr = _gbk_header(ds, b"\x81\x5cx.eeg", b"rec.vmrk")
+    data = mne.io.read_raw_brainvision(vhdr, preload=True, verbose="error").get_data()
+    # the file inside, not the outside data behind the link
+    assert np.allclose(data, INSIDE_VALUE * 1e-6), f"MNE read {data.flat[0]:g} V, sep={os.sep!r}"
+    adapter = BrainVisionAdapter()
+    assert adapter.inspect(vhdr).missing_companions == ("companion.unsafe_reference",)
+    assert adapter.read_check(vhdr) == "UnsafePathError"
+
+
+@pytest.mark.parametrize(
+    ("reference", "parts"),
+    [
+        ("\x81\\x.eeg", ("\x81", "x.eeg")),
+        ("sub\\rec.eeg", ("sub", "rec.eeg")),
+        ("..\\OUTSIDE\\rec.eeg", None),
+    ],
+)
+def test_backslash_in_a_reference_is_a_separator_on_every_system(
+    tmp_path: Path, reference: str, parts: tuple[str, ...] | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """MNE joins DataFile with os.path.join: on POSIX the backslash stays in one file name inside the dataset,
+    on Windows it separates folders (the posixpath and ntpath asserts; MNE's own POSIX reading is
+    test_mne_on_posix_opens_the_backslash_name_inside_the_dataset). NeuroGrid's decision does not ask the
+    system: check_relative splits at every backslash in the string alone, and _reference refuses a reference
+    with folders before it calls anything that looks at the system (resolve_within and is_link fail here if
+    called), so a dataset gets the same outcome on Linux and Windows (A-52, TECH-05)."""
+    import ntpath
+    import posixpath
+
+    assert posixpath.dirname(posixpath.join("/ds", reference)) == "/ds"  # POSIX: one name in the folder
+    assert ntpath.dirname(ntpath.join("C:\\ds", reference)) != "C:\\ds"  # Windows: folders
+    if parts is None:
+        with pytest.raises(UnsafePathError, match="path.parent"):
+            safety.check_relative(reference)
+    else:
+        assert safety.check_relative(reference).parts == parts
+    ds, _outside = _dataset(tmp_path)
+
+    def system_dependent(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("_reference looked at the file system for a reference with folders")
+
+    monkeypatch.setattr(brainvision, "resolve_within", system_dependent)
+    monkeypatch.setattr(brainvision, "is_link", system_dependent)
+    assert brainvision._reference(ds, reference) == (None, "unsafe")
 
 
 def test_brainvision_marker_fallback_of_mne_must_not_be_a_link(
@@ -381,6 +457,159 @@ def test_brainvision_number_fields_beyond_int_do_not_stop_the_scan(tmp_path: Pat
     assert BrainVisionAdapter.companions(vhdr) == ("rec.eeg", "rec.vmrk")
     assert [found.relative.as_posix() for found in scan(ds).recordings] == ["rec.vhdr"]
     assert BrainVisionAdapter().inspect(vhdr).issues == ("header.number_field",)
+
+
+# --- BrainVision: MNE's reading does not depend on the locale (A-77, TECH-05) -----------------------------
+# CI ubuntu-24.04: a recording whose marker file is not UTF-8 was unreadable on Linux and readable on Windows.
+# MNE 1.13 reads the marker file once more in text mode without an encoding, to find the recording date, so
+# Python decodes it with the locale's encoding (UTF-8 on Linux, the ANSI code page on Windows).
+
+SEGMENT_WITH_DATE = "Mk1=New Segment,,1,1,0,20210824101500000000\n"
+MARKER_TEXTS = {  # Codepage of the marker file, the comment text in the bytes the recorder wrote
+    "Latin-1 text, Codepage=UTF-8": ("UTF-8", "Café".encode("latin-1")),
+    "Western ANSI (cp1252)": ("ANSI", "Größe ändern".encode("cp1252")),
+    "Chinese ANSI (GBK)": ("ANSI", "丄睁眼".encode("gbk")),  # 0x81 0x41 is '丄': 0x81 is no cp1252 byte
+    "UTF-8": ("UTF-8", "睁眼 Größe".encode()),
+}
+
+
+def _mne_marker_text(codepage: str, comment: bytes) -> str:
+    """The comment as MNE decodes the marker file itself: by its Codepage (ANSI as cp1252), else Latin-1."""
+    try:
+        return comment.decode("cp1252" if codepage == "ANSI" else codepage)
+    except UnicodeDecodeError:
+        return comment.decode("latin-1")
+
+
+@pytest.mark.parametrize("marker", list(MARKER_TEXTS))
+def test_brainvision_reading_is_the_same_whatever_the_locale(tmp_path: Path, marker: str) -> None:
+    """Simulated: the locale encodings of Linux, a Western and a Chinese Windows. The read check, the
+    recording date and the marker texts are the same under each; every marker file here is readable (A-77,
+    TECH-05)."""
+    import datetime
+
+    vhdr = _marker_case(tmp_path, marker)
+    outcomes = {}
+    for system, codec in LOCALE_ENCODINGS.items():
+        with locale_encoding(codec):
+            check = BrainVisionAdapter().read_check(vhdr)
+            raw = brainvision.mne_read_raw_brainvision(vhdr, preload=False, verbose="error")
+        outcomes[system] = (check, raw.info["meas_date"], tuple(raw.annotations.description))
+    date = datetime.datetime(2021, 8, 24, 10, 15, tzinfo=datetime.UTC)
+    description = f"Comment/{_mne_marker_text(*MARKER_TEXTS[marker])}"
+    assert set(outcomes.values()) == {(None, date, (description,))}, outcomes
+
+
+def _marker_case(tmp_path: Path, marker: str) -> Path:
+    """The dataset with a marker file of MARKER_TEXTS: its Codepage, a dated New Segment and the comment."""
+    ds, _outside = _dataset(tmp_path)
+    codepage, comment = MARKER_TEXTS[marker]
+    text = VMRK.replace("Codepage=UTF-8", f"Codepage={codepage}").replace("Mk1=New Segment,,1,1,0\n", "")
+    marker_line = b"Mk2=Comment," + comment + b",100,1,0\n"
+    (ds / "rec.vmrk").write_bytes((text + SEGMENT_WITH_DATE).encode("ascii") + marker_line)
+    return _header(ds, "DataFile=rec.eeg\nMarkerFile=rec.vmrk\n")
+
+
+def test_mne_alone_reads_the_marker_date_with_the_locale_encoding(tmp_path: Path) -> None:
+    """What mne_read_raw_brainvision prevents: plain MNE fails on a Latin-1 marker file under the locale of
+    Linux (UTF-8) and reads it under that of a Western Windows. If MNE stops doing this, the workaround in
+    brainvision.mne_reading_without_locale can go."""
+    import mne
+
+    vhdr = _marker_case(tmp_path, "Latin-1 text, Codepage=UTF-8")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", EncodingWarning)  # MNE's own open without an encoding
+        with locale_encoding("cp1252"):
+            mne.io.read_raw_brainvision(vhdr, verbose="error")
+        with locale_encoding("utf-8"), pytest.raises(UnicodeDecodeError):
+            mne.io.read_raw_brainvision(vhdr, verbose="error")
+
+
+def _mne_reader_globals() -> dict[str, Any]:
+    from mne.io.brainvision import brainvision as reader_module
+
+    return vars(reader_module)
+
+
+def test_mne_reading_without_locale_holds_for_threads_that_leave_out_of_order(tmp_path: Path) -> None:
+    """The patch of MNE's module is one for the whole process. Thread A enters, then B; A leaves first.
+    Before, A's exit took the patch away while B still read (B saw the built-in open and failed on the
+    Latin-1 marker file under the locale of Linux), and B's exit put A's patch back for good."""
+    import mne
+
+    vhdr = _marker_case(tmp_path, "Latin-1 text, Codepage=UTF-8")
+
+    def read_in_b() -> tuple[object, ...]:
+        assert _mne_reader_globals().get("open") is brainvision._open_for_mne, "B reads without the patch"
+        with locale_encoding(LOCALE_ENCODINGS["Linux"]):
+            raw = mne.io.read_raw_brainvision(vhdr, verbose="error")
+        return tuple(raw.annotations.description)
+
+    assert leave_out_of_order(brainvision.mne_reading_without_locale, read_in_b) == ("Comment/Café",)
+    assert "open" not in _mne_reader_globals(), "the patch outlived the last block"
+
+
+def test_mne_reading_without_locale_in_many_threads_at_once(tmp_path: Path) -> None:
+    """Eight threads read the Latin-1 marker recording at the same time under the locale of Linux, each
+    through mne_read_raw_brainvision: every read succeeds, and the module is unpatched afterwards."""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    vhdr = _marker_case(tmp_path, "Latin-1 text, Codepage=UTF-8")
+    start = threading.Barrier(8)
+
+    def reads(_index: int) -> set[tuple[str, ...]]:
+        start.wait(30)
+        return {
+            tuple(brainvision.mne_read_raw_brainvision(vhdr, verbose="error").annotations.description)
+            for _ in range(5)
+        }
+
+    with locale_encoding(LOCALE_ENCODINGS["Linux"]), ThreadPoolExecutor(8) as pool:
+        results = list(pool.map(reads, range(8)))
+    assert set().union(*results) == {("Comment/Café",)}
+    assert "open" not in _mne_reader_globals() and brainvision._MNE_READER_PATCH.holders == 0
+
+
+def test_module_patch_refuses_a_module_that_changed() -> None:
+    """A wrapped function that is gone, or a built-in the module now defines itself: the patch would not do
+    what NeuroGrid relies on, so holding it fails instead (a library update is reviewed)."""
+    from neurogrid.io.base import ModulePatch
+
+    with pytest.raises(RuntimeError, match="has no function _no_such_function"):
+        with ModulePatch("mne.io.brainvision.brainvision", wrapped={"_no_such_function": lambda f: f}).held():
+            pass
+    with pytest.raises(RuntimeError, match="defines re"):
+        with ModulePatch("mne.io.brainvision.brainvision", added={"re": None}).held():
+            pass
+    assert "re" in _mne_reader_globals() and "_no_such_function" not in _mne_reader_globals()
+
+
+def test_neurogrid_calls_mne_for_brainvision_only_through_the_locale_free_reader() -> None:
+    """Every use of mne.io.read_raw_brainvision in NeuroGrid is the one inside mne_read_raw_brainvision."""
+    import ast
+
+    class Uses(ast.NodeVisitor):
+        def __init__(self, name: str) -> None:
+            self.name, self.functions, self.found = name, [""], list[tuple[str, str]]()
+
+        def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+            self.functions.append(node.name)
+            self.generic_visit(node)
+            self.functions.pop()
+
+        def visit_Attribute(self, node: ast.Attribute) -> None:
+            if node.attr == "read_raw_brainvision":
+                self.found.append((self.name, self.functions[-1]))
+            self.generic_visit(node)
+
+    root = Path(brainvision.__file__).parents[1]
+    found = []
+    for path in sorted(root.rglob("*.py")):
+        visitor = Uses(path.relative_to(root).as_posix())
+        visitor.visit(ast.parse(path.read_text(encoding="utf-8")))
+        found += visitor.found
+    assert found == [("io/brainvision.py", "mne_read_raw_brainvision")]
 
 
 def test_read_check_of_a_vanished_file_reports_the_error_class(tmp_path: Path) -> None:

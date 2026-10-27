@@ -7,7 +7,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from contextlib import AbstractContextManager
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -102,6 +103,121 @@ def dir_link(link: Path, target: Path) -> None:
         _winapi.CreateJunction(str(target), str(link))
         return
     pytest.skip("directory links not permitted on this system")
+
+
+LOCALE_ENCODINGS = {"Linux": "utf-8", "Western Windows": "cp1252", "Chinese Windows": "cp936"}
+
+
+@contextlib.contextmanager
+def locale_encoding(codec: str) -> Iterator[None]:
+    """Python's default text encoding as the locale of another system sets it: a text-mode ``open`` without
+    an encoding decodes with ``codec`` (UTF-8 on a Linux runner with C.UTF-8, the ANSI code page on Windows).
+    Python reads the locale's encoding in C, so the built-in ``open`` is replaced for the block."""
+    import builtins
+
+    real_open = builtins.open
+
+    def system_open(
+        file: Any, mode: str = "r", buffering: int = -1, encoding: Any = None, *rest: Any, **kw: Any
+    ) -> Any:
+        if "b" not in mode and encoding is None:
+            encoding = codec
+        return real_open(file, mode, buffering, encoding, *rest, **kw)
+
+    builtins.open = system_open
+    try:
+        yield
+    finally:
+        builtins.open = real_open
+
+
+def _clear_codec_lookup_cache() -> None:
+    """codecs.unregister clears the registry's cache of looked-up codecs (Python 3.10+)."""
+    import codecs
+
+    def nothing(_name: str) -> None:
+        return None
+
+    codecs.register(nothing)
+    codecs.unregister(nothing)
+
+
+@contextlib.contextmanager
+def linux_codecs() -> Iterator[None]:
+    """The codec registry of Linux: there Python knows no codec "ANSI" (or "dbcs"). On Windows both are
+    aliases of mbcs, the system's ANSI code page; the aliases and the lookup caches are removed for the block.
+    """
+    import encodings
+    import encodings.aliases
+
+    aliases = encodings.aliases.aliases
+    removed = {name: aliases.pop(name) for name in ("ansi", "dbcs") if name in aliases}
+    cache = encodings._cache  # type: ignore[attr-defined]
+    saved = dict(cache)
+    cache.clear()
+    _clear_codec_lookup_cache()
+    try:
+        yield
+    finally:
+        aliases.update(removed)
+        cache.clear()
+        cache.update(saved)
+        _clear_codec_lookup_cache()
+
+
+@contextlib.contextmanager
+def linux_text_system() -> Iterator[None]:
+    """The locale encoding (UTF-8) and the codec registry of the Linux runner."""
+    with locale_encoding(LOCALE_ENCODINGS["Linux"]), linux_codecs():
+        yield
+
+
+def leave_out_of_order(hold: Callable[[], AbstractContextManager[Any]], inside: Callable[[], Any]) -> Any:
+    """Two threads hold ``hold()``: A enters, then B; A leaves while B is still inside, then B calls
+    ``inside()`` and leaves. Returns what ``inside`` returned; an exception in either thread is raised
+    here."""
+    import threading
+
+    a_in, b_in, a_out = threading.Event(), threading.Event(), threading.Event()
+    outcome: dict[str, Any] = {}
+
+    def wait(event: threading.Event) -> None:
+        if not event.wait(30):
+            raise TimeoutError("the other thread did not get there")
+
+    def thread_a() -> None:
+        with hold():
+            a_in.set()
+            wait(b_in)
+        a_out.set()
+
+    def thread_b() -> None:
+        wait(a_in)
+        with hold():
+            b_in.set()
+            wait(a_out)
+            outcome["inside"] = inside()
+
+    def run(name: str, body: Callable[[], None]) -> threading.Thread:
+        def guarded() -> None:
+            try:
+                body()
+            except BaseException as exc:  # handed to the test thread
+                outcome.setdefault("error", exc)
+                for event in (a_in, b_in, a_out):
+                    event.set()
+
+        thread = threading.Thread(target=guarded, name=name, daemon=True)
+        thread.start()
+        return thread
+
+    threads = [run("A", thread_a), run("B", thread_b)]
+    for thread in threads:
+        thread.join(60)
+    if "error" in outcome:
+        raise outcome["error"]
+    assert not any(thread.is_alive() for thread in threads), "a thread did not end"
+    return outcome["inside"]
 
 
 @contextlib.contextmanager

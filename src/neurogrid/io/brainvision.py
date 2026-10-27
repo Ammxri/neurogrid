@@ -11,6 +11,8 @@ without a key before ``[Comment]``, a key with more than ``MAX_KEY_SPACES`` whit
 ``Codepage=punycode``) are unreadable, also for MNE (A-53).
 Impedances recorded by BrainVision Recorder in the comment section become ``Channel.impedance_kohm`` (M05);
 nothing else of the comment is taken over (A-51).
+MNE is always called through ``mne_read_raw_brainvision``, which makes MNE's reading independent of the
+system's locale (the same recording is readable on Linux and Windows, or on neither; A-77, TECH-05).
 """
 
 from __future__ import annotations
@@ -18,12 +20,14 @@ from __future__ import annotations
 import codecs
 import configparser
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
+from typing import Any
 
-from neurogrid.io.base import HeaderInspection, HeaderUnreadable, mne_read_check
+from neurogrid.io.base import HeaderInspection, HeaderUnreadable, ModulePatch, mne_read_check
 from neurogrid.io.channels import classify
 from neurogrid.io.identifying import looks_identifying, real_dates
 from neurogrid.kernel.errors import InputError, UnsafePathError
@@ -54,6 +58,10 @@ _IMPEDANCE_NAME = re.compile(r"[ A-Za-z0-9_+-]+")
 _NEW_SEGMENT_DATE = re.compile(r"^Mk\d+=New Segment,[^,]*,\d+,\d+,\d+,(?P<date>\d{14,20})")
 _MULTIBYTE = re.compile(rb"[\x80-\xff]{2}")  # Chinese text in GBK has runs of non-ASCII bytes
 _IMPEDANCE_EXTRA = frozenset({"REF", "GND"})  # reference and ground lines of BrainVision Recorder
+# MNE reads the marker file once more in text mode without an encoding, only to find the recording date of
+# the 'New Segment' marker (mne.io.brainvision.brainvision._get_hdr_info). Latin-1 decodes every byte as one
+# character and keeps ASCII as it is, so the date digits read the same on every system and no byte fails.
+MNE_MARKER_DATE_CODEC = "latin-1"
 
 
 @dataclass
@@ -387,6 +395,43 @@ def _mne_unsafe(path: Path, header: VhdrHeader) -> bool:
     return bool(marker) and problems[-1] == "missing" and is_link(path.with_suffix(".vmrk"))
 
 
+def _open_for_mne(file: Any, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
+    """``open`` as MNE's BrainVision module sees it: a text-mode open without an encoding (only the marker
+    date read does that) gets ``MNE_MARKER_DATE_CODEC``; every other open is passed on unchanged."""
+    if "b" not in mode and len(args) < 2 and kwargs.get("encoding") is None:
+        kwargs["encoding"] = MNE_MARKER_DATE_CODEC
+    return Path(file).open(mode, *args, **kwargs)  # MNE passes a path (str or Path), never a descriptor
+
+
+_MNE_READER_PATCH = ModulePatch("mne.io.brainvision.brainvision", added={"open": _open_for_mne})
+
+
+@contextmanager
+def mne_reading_without_locale() -> Iterator[None]:
+    """Within the block, MNE's BrainVision module finds ``_open_for_mne`` instead of the built-in open.
+
+    MNE 1.13 opens the marker file in text mode without an encoding to find the recording date, so Python
+    decodes it with the locale's encoding: UTF-8 on Linux, the ANSI code page on Windows (cp1252 on a Western,
+    cp936 on a Chinese system). A marker file in another encoding (Codepage=ANSI or Latin-1 text on Linux,
+    GBK or UTF-8 Chinese text on a Western Windows) made MNE fail with UnicodeDecodeError on one system and
+    read the recording on the other. MNE decodes the markers themselves by the Codepage of the file
+    (``_read_mrk``) and is not changed here. Every block in which MNE may read a BrainVision recording holds
+    it: ``mne_read_raw_brainvision`` and the write of MNE-BIDS, which reads a recording it copies once more
+    (convert._write). Blocks may nest and overlap in several threads (``ModulePatch``).
+    """
+    with _MNE_READER_PATCH.held():
+        yield
+
+
+def mne_read_raw_brainvision(path: Path | str, **kwargs: Any) -> Any:
+    """``mne.io.read_raw_brainvision``, with the same outcome on every system (see
+    ``mne_reading_without_locale``; A-77, TECH-05). NeuroGrid calls MNE for BrainVision only through it."""
+    import mne
+
+    with mne_reading_without_locale():
+        return mne.io.read_raw_brainvision(path, **kwargs)
+
+
 def _segment_date(marker: Path) -> bool:
     """True if the marker file records a real start date in its 'New Segment' marker."""
     try:
@@ -495,8 +540,6 @@ class BrainVisionAdapter:
         existing plain file next to the header, read by NeuroGrid's rules and by MNE's (A-52, A-77). Otherwise
         MNE would follow the references itself: an unsafe one gives ``UnsafePathError``, a missing one
         ``FileNotFoundError``, without any file of the references being opened."""
-        import mne
-
         try:
             header = parse_vhdr(path)
         except HeaderUnreadable:
@@ -508,7 +551,7 @@ class BrainVisionAdapter:
             return UnsafePathError.__name__
         if "missing" in problems:
             return FileNotFoundError.__name__
-        return mne_read_check(mne.io.read_raw_brainvision, path)
+        return mne_read_check(mne_read_raw_brainvision, path)
 
     @staticmethod
     def companions(path: Path) -> tuple[str, ...]:

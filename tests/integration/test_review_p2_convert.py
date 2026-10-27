@@ -14,6 +14,8 @@ A-74, A-77, DM-07; .local/review_p2/CONFIRMED_FINDINGS.txt).
 
 from __future__ import annotations
 
+import codecs
+import contextlib
 import hashlib
 import os
 import shutil
@@ -37,9 +39,16 @@ from test_convert import (  # type: ignore[import-not-found]
 )
 
 import gen_fixtures  # type: ignore[import-not-found]
-from conftest import dir_link  # type: ignore[import-not-found]
+from conftest import (  # type: ignore[import-not-found]
+    LOCALE_ENCODINGS,
+    dir_link,
+    leave_out_of_order,
+    linux_text_system,
+    locale_encoding,
+)
 from neurogrid import pipeline
 from neurogrid.convert import _strip_brainvision, write_mapping_template
+from neurogrid.io.brainvision import mne_read_raw_brainvision
 from neurogrid.io.discover import FoundFile, pseudonym
 from neurogrid.kernel.errors import InputError, NeuroGridError
 from neurogrid.validator import ValidatorError
@@ -64,10 +73,19 @@ def _mapped_pair(raw: Path) -> None:
 
 
 def _data(vhdr_or_file: Path) -> Any:
+    """The samples as MNE reads them; BrainVision as NeuroGrid has MNE read it: plain MNE decodes the marker
+    file with the locale's encoding and cannot read a Latin-1 marker file on Linux (A-77, TECH-05)."""
     import mne
 
-    reader = {".vhdr": mne.io.read_raw_brainvision, ".set": mne.io.read_raw_eeglab}[vhdr_or_file.suffix]
+    reader = {".vhdr": mne_read_raw_brainvision, ".set": mne.io.read_raw_eeglab}[vhdr_or_file.suffix]
     return reader(vhdr_or_file, preload=True, verbose="error").get_data()
+
+
+def _tree(folder: Path) -> dict[str, bytes]:
+    """Every file below ``folder`` with its bytes, by relative path."""
+    return {
+        path.relative_to(folder).as_posix(): path.read_bytes() for path in folder.rglob("*") if path.is_file()
+    }
 
 
 # --- one recording never aborts the run (A-77) --------------------------------------------------------------
@@ -350,10 +368,58 @@ def test_brainvision_and_eeglab_that_mne_bids_cannot_copy_are_written_as_brainvi
     _write_config(raw, METADATA + _row(name, "01"))
     out = tmp_path / "bids"
     summary = pipeline.run_convert(raw, out, work_base=tmp_path)
-    assert (summary.converted, summary.skipped, summary.validator_errors, summary.exit_code) == (1, [], 0, 0)
+    outcome = (summary.converted, summary.skipped, summary.validator_errors, summary.exit_code)
+    assert outcome == (1, [], 0, 0), _why_not_converted(source)
     vhdr = out / "sub-01" / "eeg" / "sub-01_task-rest_eeg.vhdr"
     np.testing.assert_allclose(_data(vhdr), _data(source), rtol=1e-6, atol=1e-12)
     assert sorted(p.name for p in tmp_path.iterdir()) == ["bids", "raw"]
+
+
+def _why_not_converted(source: Path) -> str:
+    """For the CI annotation: the read check of the source, the locale's encoding and whether Python knows
+    the codec ANSI on this system."""
+    import locale
+
+    from neurogrid.io import ADAPTERS
+
+    try:
+        ansi = codecs.lookup("ANSI").name
+    except LookupError:
+        ansi = "unknown"
+    check = ADAPTERS[source.suffix].read_check(source)
+    return f"read_check={check}, locale encoding={locale.getpreferredencoding(False)}, codec ANSI={ansi}"
+
+
+@pytest.mark.parametrize(
+    ("marker_extra", "copied"),
+    [
+        ("Mk2=Comment,Größe,100,1,0\n".encode("latin-1"), False),  # Codepage=UTF-8 claimed: rewritten
+        ("Mk2=Comment,睁眼,100,1,0\n".encode(), True),  # UTF-8: copied; 睁 holds 0x9D and 0x81 (no cp1252)
+    ],
+    ids=["latin-1-marker", "utf-8-chinese-marker"],
+)
+def test_brainvision_marker_text_is_converted_the_same_under_every_locale(
+    tmp_path: Path, marker_extra: bytes, copied: bool
+) -> None:
+    """CI ubuntu-24.04, [marker-not-in-codepage]: (0, [(rec, 'read.failed')], 0, 1) instead of (1, [], 0, 0).
+    MNE read the Latin-1 marker file with the locale's encoding, UTF-8 there, and failed; on a Western Windows
+    the same happened to a UTF-8 marker file with Chinese text, also when MNE-BIDS reads the recording it
+    copies once more. Simulated here with the locale encodings of Linux and of a Western and a Chinese
+    Windows: converted, to the same files."""
+    trees = {}
+    for system, codec in LOCALE_ENCODINGS.items():
+        base = tmp_path / codec
+        raw = base / "raw"
+        _brainvision_triple(raw, "rec", marker_extra=marker_extra)
+        _write_config(raw, METADATA + _row("rec.vhdr", "01"))
+        with locale_encoding(codec):
+            summary = pipeline.run_convert(raw, base / "bids", work_base=base)
+        outcome = (summary.converted, summary.skipped, summary.validator_errors, summary.exit_code)
+        assert outcome == (1, [], 0, 0), system
+        trees[system] = _tree(base / "bids")
+        written = base / "bids" / "sub-01" / "eeg" / "sub-01_task-rest_eeg.eeg"
+        assert (written.read_bytes() == (raw / "rec.eeg").read_bytes()) is copied
+    assert trees["Linux"] == trees["Western Windows"] == trees["Chinese Windows"]
 
 
 def test_upper_case_extensions_and_names_mne_bids_misreads_stay_file_copies(tmp_path: Path) -> None:
@@ -714,27 +780,77 @@ def _ansi_brainvision(raw: Path) -> None:
 
 
 def test_strip_keeps_the_codepage_true_and_the_marker_text(tmp_path: Path) -> None:
-    import mne
-
+    """The ANSI recording is copied on every system (TECH-05): Codepage=ANSI and the cp1252 bytes stay."""
     raw = tmp_path / "raw"
     _ansi_brainvision(raw)
     _write_config(raw, METADATA + _row("rec.vhdr", "01"))
     out = tmp_path / "bids"
     summary = pipeline.run_convert(raw, out, strip_identifying_headers=True, work_base=tmp_path)
-    assert (summary.converted, summary.validator_errors, summary.exit_code) == (1, 0, 0)
+    outcome = (summary.converted, summary.validator_errors, summary.exit_code)
+    assert outcome == (1, 0, 0), _why_not_converted(raw / "rec.vhdr")
     vhdr = out / "sub-01" / "eeg" / "sub-01_task-rest_eeg.vhdr"
     header, marker = vhdr.read_bytes(), vhdr.with_suffix(".vmrk").read_bytes()
-    declared = header.split(b"Codepage=", 1)[1].split()[0].decode()
-    codec = "cp1252" if declared == "ANSI" else "utf-8"  # MNE-BIDS copies ANSI where Python knows the codec
-    text, marks = header.decode(codec), marker.decode(codec)
+    assert header.split(b"Codepage=", 1)[1].split()[0] == b"ANSI", _why_not_converted(raw / "rec.vhdr")
+    text, marks = header.decode("cp1252"), marker.decode("cp1252")
     assert "Ch1=Fp1,,0.1,µV" in text.splitlines()
-    if declared == "ANSI":
-        assert b"\xc2\xb5" not in header and "Codepage=ANSI" in marks
+    assert b"\xc2\xb5" not in header and "Codepage=ANSI" in marks
     assert "Müller" not in text and "1980" not in text
     assert "Impedance [kOhm] at 00:00:00 :" in text
     assert "Größe ändern" in marks and "20210824" not in marks
-    annotations = mne.io.read_raw_brainvision(vhdr, verbose="error").annotations.description
+    annotations = mne_read_raw_brainvision(vhdr, verbose="error").annotations.description
     assert "Comment/Größe ändern" in list(annotations)
+
+
+@pytest.mark.parametrize("strip", [False, True], ids=["as-is", "strip"])
+def test_ansi_recording_is_copied_the_same_with_the_codecs_of_linux(tmp_path: Path, strip: bool) -> None:
+    """CI ubuntu-24.04: Python knows no codec "ANSI" there (on Windows it is mbcs, the system's ANSI code
+    page), so MNE-BIDS could not copy a Codepage=ANSI recording and NeuroGrid wrote it from the loaded data
+    (float32, Codepage=UTF-8), while Windows copied it. Simulated: the codec registry and the locale encoding
+    of the Linux runner. The recording is copied with its bytes there too, to the same files (TECH-05)."""
+    with linux_text_system(), pytest.raises(LookupError):
+        codecs.lookup("ANSI")  # as on the runner: "LookupError: unknown encoding: ANSI"
+    trees = {}
+    for system, simulated in (("native", contextlib.nullcontext), ("Linux", linux_text_system)):
+        base = tmp_path / system
+        _ansi_brainvision(base / "raw")
+        _write_config(base / "raw", METADATA + _row("rec.vhdr", "01"))
+        with simulated():
+            summary = pipeline.run_convert(
+                base / "raw", base / "bids", strip_identifying_headers=strip, work_base=base
+            )
+        assert (summary.converted, summary.validator_errors, summary.exit_code) == (1, 0, 0), system
+        trees[system] = _tree(base / "bids")
+        eeg = base / "bids" / "sub-01" / "eeg"
+        assert (eeg / "sub-01_task-rest_eeg.eeg").read_bytes() == (base / "raw" / "rec.eeg").read_bytes()
+        # MNE-BIDS writes the copy in text mode, with the line ends of the system
+        written = (eeg / "sub-01_task-rest_eeg.vhdr").read_bytes().replace(b"\r\n", b"\n")
+        assert b"\nCodepage=ANSI\n" in written and b"\nCh1=Fp1,,0.1,\xb5V\n" in written, system
+        if not strip:  # the copy changes the references only
+            lines = zip(
+                (base / "raw" / "rec.vhdr").read_bytes().split(b"\n"), written.split(b"\n"), strict=True
+            )
+            assert [(old, new) for old, new in lines if old != new] == [
+                (b"DataFile=rec.eeg", b"DataFile=sub-01_task-rest_eeg.eeg"),
+                (b"MarkerFile=rec.vmrk", b"MarkerFile=sub-01_task-rest_eeg.vmrk"),
+            ], system
+    assert trees["Linux"] == trees["native"]
+
+
+def test_copy_codec_of_mne_bids_holds_for_threads_that_leave_out_of_order(tmp_path: Path) -> None:
+    """The patch of MNE-BIDS's module is one for the whole process. Thread A enters, then B; A leaves first.
+    Before, A's exit took the patch away while B still wrote (B's copy would read ANSI as the system's code
+    page again, LookupError on Linux), and B's exit put A's replacement back for good."""
+    from mne_bids import copyfiles
+
+    from neurogrid.convert import _copy_codec_for_mne_bids
+
+    _ansi_brainvision(tmp_path / "raw")
+    vhdr = tmp_path / "raw" / "rec.vhdr"
+    original = copyfiles._get_brainvision_encoding
+    assert original(vhdr) == "ANSI"
+    inside = leave_out_of_order(_copy_codec_for_mne_bids, lambda: copyfiles._get_brainvision_encoding(vhdr))
+    assert inside == "latin-1", "B copies without the patch"
+    assert copyfiles._get_brainvision_encoding is original, "the patch outlived the last block"
 
 
 def test_strip_cuts_comment_lines_as_the_header_parser_counts_them(tmp_path: Path) -> None:

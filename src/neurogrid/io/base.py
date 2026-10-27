@@ -15,8 +15,11 @@ Only listed header facts leave an adapter (A-51): patient and recording fields a
 
 from __future__ import annotations
 
+import importlib
+import threading
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -71,3 +74,71 @@ def mne_read_check(reader: Callable[..., Any], path: Path, **kwargs: Any) -> str
     except Exception as exc:  # any failure means "not readable"; only the class name is kept
         return type(exc).__name__
     return None
+
+
+class ModulePatch:
+    """Globals of a library module replaced while at least one block holds the patch (A-77, TECH-05).
+
+    ``added`` names globals the module does not define (a built-in it uses, such as ``open``), each with the
+    object that hides the built-in; ``wrapped`` names functions it defines, each with a factory that makes
+    the replacement from the original. The first holder, in any thread, installs the replacements and the
+    last one to leave restores the module, so blocks may nest, overlap in several threads and end in any
+    order: no block runs without the patch, and none outlives the last block. While the patch is held, other
+    callers of the module see the replacements as well. A module that no longer looks as expected (a wrapped
+    name missing, an added name defined) raises RuntimeError, so that a library update is reviewed.
+    """
+
+    def __init__(
+        self,
+        module: str,
+        *,
+        added: Mapping[str, Any] | None = None,
+        wrapped: Mapping[str, Callable[[Any], Any]] | None = None,
+    ) -> None:
+        self.module = module
+        self._added = dict(added or {})
+        self._wrapped = dict(wrapped or {})
+        self._lock = threading.Lock()
+        self._holders = 0
+        self._originals: dict[str, Any] = {}
+
+    @property
+    def holders(self) -> int:
+        """The number of blocks holding the patch now."""
+        with self._lock:
+            return self._holders
+
+    def _install(self) -> None:
+        names = vars(importlib.import_module(self.module))
+        for name in self._added:
+            if name in names:
+                raise RuntimeError(f"{self.module} defines {name}: review NeuroGrid's patch of it")
+        for name in self._wrapped:
+            if not callable(names.get(name)):
+                raise RuntimeError(f"{self.module} has no function {name}: review NeuroGrid's patch of it")
+        originals = {name: names[name] for name in self._wrapped}
+        replacements = {name: make(originals[name]) for name, make in self._wrapped.items()}
+        names.update(self._added)
+        names.update(replacements)
+        self._originals = originals
+
+    def _restore(self) -> None:
+        names = vars(importlib.import_module(self.module))
+        for name in self._added:
+            names.pop(name, None)
+        names.update(self._originals)
+        self._originals = {}
+
+    @contextmanager
+    def held(self) -> Iterator[None]:
+        with self._lock:
+            if self._holders == 0:
+                self._install()
+            self._holders += 1
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._holders -= 1
+                if self._holders == 0:
+                    self._restore()

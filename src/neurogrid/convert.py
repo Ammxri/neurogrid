@@ -12,10 +12,11 @@
   - MNE-BIDS copies EDF, BDF, BrainVision and EEGLAB files; EDF+D keeps its time structure. MNE-BIDS finds the
     files to copy by editing the data file path as text (".eeg", ".fdt" and ".dat" anywhere in the path,
     ".ds" in a folder name, the name split at its first dot) and reads a BrainVision header with its declared
-    code page. Where that would fail, an EDF/BDF file is first linked or copied under a plain name into the
-    run's work folder (A-54); BrainVision and EEGLAB recordings (also EEGLAB MAT v7.3, which MNE-BIDS cannot
-    copy) are written as BrainVision from the loaded data, like FIF, EEGLAB with embedded data and EEGLAB with
-    ``--strip-identifying-headers``.
+    code page (``Codepage=ANSI`` as Latin-1 on every system, so the copy keeps the bytes on Linux as on
+    Windows, TECH-05). Where that would fail, an EDF/BDF file is first linked or copied under a plain name
+    into the run's work folder (A-54); BrainVision and EEGLAB recordings (also EEGLAB MAT v7.3, which
+    MNE-BIDS cannot copy) are written as BrainVision from the loaded data, like FIF, EEGLAB with embedded
+    data and EEGLAB with ``--strip-identifying-headers``.
   - FIF keeps its EEG and auxiliary channels only (MEG has no place in EEG-BIDS). A recording without an EEG
     channel is not converted.
   - Electrode positions of EEGLAB (``chanlocs``) and BrainVision (``[Coordinates]`` of a cap file) may be
@@ -45,8 +46,8 @@ import re
 import shutil
 import tempfile
 import warnings
-from collections.abc import Callable, Iterable
-from contextlib import ExitStack
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -54,7 +55,8 @@ from typing import Any
 import neurogrid
 from neurogrid.config import Config
 from neurogrid.io import ADAPTERS, ORPHAN_SUFFIXES
-from neurogrid.io.base import FormatAdapter
+from neurogrid.io.base import FormatAdapter, ModulePatch
+from neurogrid.io.brainvision import mne_read_raw_brainvision, mne_reading_without_locale
 from neurogrid.io.discover import FoundFile, scan
 from neurogrid.io.eeglab import epoched as eeglab_epoched
 from neurogrid.kernel import canonical
@@ -97,6 +99,11 @@ _SEGMENT_DATE = re.compile(
     rb"(?<![0-9A-Za-z])(Mk\d+=New Segment,[^,\r\n]*,[^,\r\n]*,[^,\r\n]*,[^,\r\n]*,[ \t]*)(\d+)"
 )
 _HEADER_CODECS = ("utf-8", "gbk", "latin-1")  # the codecs brainvision._decode chooses from (A-77)
+# MNE-BIDS reads and writes a copied BrainVision header and marker file with the header's Codepage as Python
+# codec name. Python knows "ANSI" only on Windows, as the system's ANSI code page (the mbcs codec: cp1252 on a
+# Western, cp936 on a Chinese system); on Linux the name is unknown. Latin-1 maps every byte to one character
+# and back, so a Codepage=ANSI recording is copied with its bytes, whatever its code page, on every system.
+_ANSI_COPY_CODEC = "latin-1"
 
 
 @dataclass
@@ -128,7 +135,7 @@ def _reader(suffix: str) -> Any:
     return {
         ".edf": mne.io.read_raw_edf,
         ".bdf": mne.io.read_raw_bdf,
-        ".vhdr": mne.io.read_raw_brainvision,
+        ".vhdr": mne_read_raw_brainvision,
         ".set": mne.io.read_raw_eeglab,
         ".fif": mne.io.read_raw_fif,
     }[suffix]
@@ -546,6 +553,8 @@ def _write(
             raw.info["experimenter"] = None
             raw.info["description"] = None
         inputs = _input_files(root, source, item, raw)
+        stack.enter_context(mne_reading_without_locale())  # MNE-BIDS reads a recording it copies again
+        stack.enter_context(_copy_codec_for_mne_bids())
         written = write_raw_bids(
             raw,
             _bids_path(output, entities),
@@ -617,16 +626,48 @@ def _copyable(raw: Any, header: Path, suffix: str) -> bool:
     return True
 
 
+def _copy_codec(declared: str) -> str:
+    """The codec MNE-BIDS copies a BrainVision header and its marker file with: the declared Codepage, and
+    ``_ANSI_COPY_CODEC`` for ANSI (in any case, as Python looks codec names up), on every system."""
+    return _ANSI_COPY_CODEC if declared.upper() == "ANSI" else declared
+
+
+def _copy_encoding(original: Callable[[Any], Any]) -> Callable[[Any], str]:
+    """``mne_bids.copyfiles._get_brainvision_encoding`` that passes the Codepage it reads through
+    ``_copy_codec``."""
+
+    def encoding(vhdr_file: Any) -> str:
+        return _copy_codec(str(original(vhdr_file)))
+
+    return encoding
+
+
+_MNE_BIDS_COPY_PATCH = ModulePatch(
+    "mne_bids.copyfiles", wrapped={"_get_brainvision_encoding": _copy_encoding}
+)
+
+
+@contextmanager
+def _copy_codec_for_mne_bids() -> Iterator[None]:
+    """While MNE-BIDS writes a recording, the Codepage it reads from a BrainVision header
+    (``mne_bids.copyfiles._get_brainvision_encoding``, used for the header and the marker file) goes through
+    ``_copy_codec``, so that the copy does not depend on the system (TECH-05, A-77). Blocks may nest and
+    overlap in several threads (``ModulePatch``)."""
+    with _MNE_BIDS_COPY_PATCH.held():
+        yield
+
+
 def _brainvision_copyable(vhdr: Path, stem: str) -> bool:
-    """MNE-BIDS reads the header with the code page it declares (UTF-8 without one), takes the first
-    ``DataFile=``/``MarkerFile=`` entry and rewrites only lines that are exactly ``DataFile=<stem>.eeg`` and
-    ``MarkerFile=<stem>.vmrk`` (mne_bids.copyfiles.copyfile_brainvision)."""
+    """MNE-BIDS reads the header with the code page it declares (UTF-8 without one, ANSI through
+    ``_copy_codec``), takes the first ``DataFile=``/``MarkerFile=`` entry and rewrites only lines that are
+    exactly ``DataFile=<stem>.eeg`` and ``MarkerFile=<stem>.vmrk``
+    (mne_bids.copyfiles.copyfile_brainvision)."""
     from neurogrid.io.brainvision import MAX_HEADER_BYTES, MAX_MARKER_BYTES
 
     try:
         data = read_limited(vhdr, MAX_HEADER_BYTES)
         start = data.find(b"Codepage=")
-        codec = data[start + 9 :].split()[0].decode() if start != -1 else "UTF-8"
+        codec = _copy_codec(data[start + 9 :].split()[0].decode()) if start != -1 else "UTF-8"
         codecs.lookup(codec)
         lines = io.StringIO(data.decode(codec), newline=None).readlines()
         read_limited(vhdr.with_name(f"{stem}.vmrk"), MAX_MARKER_BYTES).decode(codec)
