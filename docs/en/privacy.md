@@ -27,6 +27,12 @@ synchronised if that matters to you.
 - In raw folders recordings get pseudonymous IDs (`rec-<8 hex digits>` or the mapping of `neurogrid.toml`); the
   dataset root appears as `<dataset>`, the home folder as `~`. `--show-paths` shows real names – only use it where
   real names may appear.
+- One exception: the fields `document` (a relative path), `reviewer`, `comment` and `justification` of
+  `evidence.yaml` appear as written in `results.json` and in section 5 of the report, also in raw folders without
+  `--show-paths`; the report needs a readable reference to each document. The console never prints them. Write a
+  role or initials as `reviewer`, never a full name; give evidence documents neutral file names and name no person
+  in `comment` and `justification`. An info notice in the report counts the entries whose reviewer or document
+  name could identify a person.
 - The console writes the computer's paths with the home folder as `~` and the login name and the computer name
   as `<user>` and `<host>`, also outside the home folder (an output on a USB stick: `/media/<user>/…`).
 - NeuroGrid does not pseudonymize data: IDs and file names come from the input. `convert

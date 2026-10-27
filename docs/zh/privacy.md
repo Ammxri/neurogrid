@@ -24,6 +24,10 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
   EEGLAB 注释），只报告字段名，从不报告字段值。
 - 在原始数据文件夹中，记录获得假名 ID（`rec-<8 位十六进制数>` 或 `neurogrid.toml` 中的映射）；数据集根目录显示为
   `<dataset>`，用户主文件夹显示为 `~`。`--show-paths` 显示真实名称——只在允许出现真实名称的场合使用。
+- 唯一的例外：`evidence.yaml` 中的 `document`（相对路径）、`reviewer`、`comment` 和 `justification` 字段按原样出现在
+  `results.json` 和报告第 5 部分中，在原始数据文件夹中不使用 `--show-paths` 时也是如此；报告需要每份文件的可读引用。
+  控制台从不输出这些字段。`reviewer` 请填写角色或姓名缩写，从不填写全名；证明材料文件请使用中性的文件名，`comment`
+  和 `justification` 中不要写人名。报告中的一条信息提示会统计审核人或文件名可能识别个人身份的条目。
 - 控制台显示本机路径时，用户主文件夹显示为 `~`，登录名和计算机名显示为 `<user>` 和 `<host>`，在用户主文件夹之外也是如此
   （例如 U 盘上的输出：`/media/<user>/…`）。
 - NeuroGrid 不对数据做假名化处理：ID 和文件名来自输入。`convert --strip-identifying-headers` 会在转换后的副本中把

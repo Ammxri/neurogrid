@@ -574,6 +574,108 @@ def test_privacy_pages_state_the_strace_rule_of_the_offline_gate(tmp_path: Path)
     assert len(attempts) == 1  # what the page names as the exception, the gate rejects
 
 
+EVIDENCE_IN_CLEAR = {
+    "en": {
+        "privacy.md#outputs": (
+            "appear as written in `results.json` and in section 5 of the report, also in raw folders without"
+            " `--show-paths`",
+            "The console never prints them.",
+            "Write a role or initials as `reviewer`, never a full name",
+        ),
+        "report.md#evidence": (
+            "appear as written in `evidence.yaml`, also in raw folders without `--show-paths`",
+            "use a role or initials as reviewer, never a full name",
+        ),
+        "report.md#pseudonymity": ("are the one exception: they appear as written",),
+        "configuration.md#files": (
+            "`reviewer`: a role or initials, never a full name",
+            "These four fields appear as written in `results.json` and in the report, also in raw folders"
+            " without `--show-paths`",
+        ),
+    },
+    "zh": {
+        "privacy.md#outputs": (
+            "按原样出现在 `results.json` 和报告第 5 部分中，"
+            "在原始数据文件夹中不使用 `--show-paths` 时也是如此",
+            "控制台从不输出这些字段。",
+            "`reviewer` 请填写角色或姓名缩写，从不填写全名",
+        ),
+        "report.md#evidence": (
+            "按 `evidence.yaml` 中的原样显示，在原始数据文件夹中不使用 `--show-paths` 时也是如此",
+            "审核人请填写角色或姓名缩写，从不填写全名",
+        ),
+        "report.md#pseudonymity": ("字段，它们按原样显示",),
+        "configuration.md#files": (
+            "`reviewer`：角色或姓名缩写，从不填写全名",
+            "这四个字段按原样出现在 `results.json` 和报告中，"
+            "在原始数据文件夹中不使用 `--show-paths` 时也是如此",
+        ),
+    },
+}
+# The evidence.yaml fields that are not free text of the user: they never name a person.
+EVIDENCE_FIXED_FIELDS = {"status", "sha256", "date"}
+
+
+def test_pages_state_that_evidence_free_text_appears_in_clear(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A-83 (display), A-15, review R08: document (relative path), reviewer, comment and justification of
+    evidence.yaml appear as written in results.json and in report section 5, also in raw folders without
+    --show-paths; the console never prints them; reviewer is a role or initials. The pages said only that raw
+    folders get pseudonymous IDs. The test checks the behaviour the pages now state, and the pages."""
+    from neurogrid.cli import main
+    from neurogrid.kernel.evidence import EvidenceItem
+
+    free_text = set(EvidenceItem.model_fields) - EVIDENCE_FIXED_FIELDS
+    assert free_text == {"document", "reviewer", "comment", "justification"}  # the four the pages name
+    dataset = tmp_path / "raw"
+    shutil.copytree(FIXTURES / "synthetic" / "edf_ok", dataset)
+    (dataset / ".neurogrid" / "evidence").mkdir(parents=True)
+    document = ".neurogrid/evidence/Zhang_San_SOP.txt"
+    (dataset / document).write_bytes(b"IT security SOP (synthetic test document)\n")
+    values = {
+        "document": document,
+        "reviewer": "Zhang San",
+        "comment": "checked with Li Si",
+        "justification": "Wang Wu keeps the key",
+    }
+    (dataset / ".neurogrid" / "evidence.yaml").write_text(
+        "format_version: 1\nevidence:\n  GXDSL008-ACC-001:\n    status: provided\n"
+        + "".join(f"    {name}: {text}\n" for name, text in values.items()),
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    written = str(out / "r.json")
+    console = []
+    for args in (
+        ["check", str(dataset), "--rulepack", "gxdsl008", "--as-of", "2026-10-11", "--out", written],
+        ["report", written, "--lang", "zh,en", "--format", "html", "--out", str(out / "rep")],
+    ):
+        with pytest.raises(SystemExit) as info:
+            main(args)
+        stdout, stderr = capsys.readouterr()
+        assert info.value.code in (0, 1, None), (args[0], stdout, stderr)
+        console.append(stdout + stderr)
+    results = json.loads((out / "r.json").read_text(encoding="utf-8"))
+    assert not results["dataset"]["is_bids"]  # a raw folder, checked without --show-paths
+    (record,) = results["evidence"]
+    assert {name: record[name] for name in values} == values  # in clear in results.json
+    for lang in LANGUAGES:
+        html = (out / "rep" / f"report.{lang}.html").read_text(encoding="utf-8")
+        section = html[html.index('<section id="evidence">') :]
+        section = section[: section.index("</section>")]
+        assert all(text in section for text in values.values()), lang  # and in report section 5
+    assert not [text for text in values.values() for line in console if text in line]  # never on the console
+    assert "notice.evidence_looks_identifying" in {notice["message_key"] for notice in results["notices"]}
+    for lang, pages in EVIDENCE_IN_CLEAR.items():
+        for where, sentences in pages.items():
+            name, anchor = where.split("#")
+            flat = " ".join(_anchored(_page(lang, name))[anchor].split())
+            assert all(f"`{field}`" in flat for field in free_text) or anchor == "evidence", (lang, where)
+            for sentence in sentences:
+                assert sentence in flat, (lang, where, sentence)
+
+
 DEAD_PROXY = {
     "en": "except calls to port 9 on loopback",
     "zh": "回环地址的端口 9 除外",

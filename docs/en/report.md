@@ -55,9 +55,12 @@ splits and the number of duplicate groups.
 
 ## 5 Manual evidence {#evidence}
 
-Every rule evaluated from `evidence.yaml`, with kind, status, document, document check, reviewer, date and
-comment. "Evidence filed" is the user's statement and is not assessed by NeuroGrid; NeuroGrid only checks that the
-document exists, is not a link and matches its recorded hash.
+Every rule evaluated from `evidence.yaml`, with kind, status, document, document check, the SHA-256 NeuroGrid
+computed, reviewer, date and comment (with the justification). "Evidence filed" is the user's statement and is not
+assessed by NeuroGrid; NeuroGrid only checks that the document exists, is not a link and matches its recorded hash.
+Document (a relative path), reviewer, comment and justification appear as written in `evidence.yaml`, also in raw
+folders without `--show-paths`; use a role or initials as reviewer, never a full name
+([Privacy](privacy.md#outputs)).
 
 ## 6 Appendix {#appendix}
 
@@ -68,6 +71,7 @@ of the run, the environment (Python, platform, libraries) and the fixed sentence
 ## Pseudonymity {#pseudonymity}
 
 In raw folders recordings are shown under pseudonymous IDs (`rec-<8 hex digits>` or the mapping in
-`neurogrid.toml`); `check --show-paths` shows real names. NeuroGrid does not pseudonymize data: IDs and file
-names come from the input. The report contains no raw signals, no signal hashes, no raw ages and no values of
-identifying header fields.
+`neurogrid.toml`); `check --show-paths` shows real names. The `evidence.yaml` fields `document`, `reviewer`,
+`comment` and `justification` in section 5 are the one exception: they appear as written
+([Manual evidence](#evidence)). NeuroGrid does not pseudonymize data: IDs and file names come from the input.
+The report contains no raw signals, no signal hashes, no raw ages and no values of identifying header fields.

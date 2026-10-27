@@ -46,8 +46,10 @@
 
 ## 5 人工证明材料 {#evidence}
 
-依据 `evidence.yaml` 评价的每条规则，包括类型、状态、文件、文件检查、审核人、日期和备注。“证明材料已提交”是用户的
-陈述，NeuroGrid 不对其作评价；NeuroGrid 只检查文件存在、不是链接且与记录的哈希值一致。
+依据 `evidence.yaml` 评价的每条规则，包括类型、状态、文件、文件检查、NeuroGrid 计算的 SHA-256、审核人、日期和备注
+（含理由）。“证明材料已提交”是用户的陈述，NeuroGrid 不对其作评价；NeuroGrid 只检查文件存在、不是链接且与记录的哈希值
+一致。文件（相对路径）、审核人、备注和理由按 `evidence.yaml` 中的原样显示，在原始数据文件夹中不使用 `--show-paths`
+时也是如此；审核人请填写角色或姓名缩写，从不填写全名（[隐私](privacy.md#outputs)）。
 
 ## 6 附录 {#appendix}
 
@@ -57,5 +59,6 @@
 ## 假名 {#pseudonymity}
 
 在原始数据文件夹中，记录以假名 ID 显示（`rec-<8 位十六进制数>` 或 `neurogrid.toml` 中的映射）；`check --show-paths`
-显示真实名称。NeuroGrid 不对数据做假名化处理：ID 和文件名来自输入。报告中不含原始信号、信号哈希值、原始年龄，
-也不含可识别身份的文件头字段的取值。
+显示真实名称。唯一的例外是第 5 部分中 `evidence.yaml` 的 `document`、`reviewer`、`comment` 和 `justification`
+字段，它们按原样显示（[人工证明材料](#evidence)）。NeuroGrid 不对数据做假名化处理：ID 和文件名来自输入。报告中不含
+原始信号、信号哈希值、原始年龄，也不含可识别身份的文件头字段的取值。

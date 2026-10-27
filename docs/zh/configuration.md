@@ -151,7 +151,7 @@ splits = ".neurogrid/splits.tsv"
 
 | 文件 | 内容 |
 |---|---|
-| `evidence.yaml` | 人工和半自动规则的证明材料：`format_version: 1`，`evidence: {规则 ID: {status, document, sha256, reviewer, date, comment, justification}}`；status 为 `open`、`provided`、`partial` 或 `not_applicable`（须写明理由）。NeuroGrid 计算每份文件的 SHA-256，并与记录的值比较。 |
+| `evidence.yaml` | 人工和半自动规则的证明材料：`format_version: 1`，`evidence: {规则 ID: {status, document, sha256, reviewer, date, comment, justification}}`；status 为 `open`、`provided`、`partial` 或 `not_applicable`（须写明理由）。NeuroGrid 计算每份文件的 SHA-256，并与记录的值比较。`reviewer`：角色或姓名缩写，从不填写全名；`document` 请使用中性的文件名，`comment` 和 `justification` 中不要写人名。这四个字段按原样出现在 `results.json` 和报告中，在原始数据文件夹中不使用 `--show-paths` 时也是如此（[隐私](privacy.md#outputs)）。 |
 | `splits.tsv` | 列 `recording`（相对路径或假名 ID）和 `split`（train、val、test）。 |
 | `provenance.yaml` | `processing_steps` 和 `software`（CORE-M13-03）；`processing_steps: []` 表示“未经处理”。 |
 | `manifest.json` | 由 `manifest` 写入（[输出文件](reference/outputs.md#manifest)）。 |
