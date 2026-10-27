@@ -56,7 +56,7 @@ def avoid_wmi() -> None:
     and closes it at its end). The thread then closes whatever handle value it reads there: any handle of
     the process, for example the semaphore of a worker's call queue (WinError 6 at ``call_queue.get``,
     the G1 finding). On the computer of the G1 run every WMI query missed these waits (WinError 258 after
-    about 0.3 s). CPython's main branch copies the data into the thread; 3.12 receives security fixes only.
+    about 0.3 s). CPython 3.13 copies the data into the thread; 3.12 receives security fixes only.
     """
     if sys.platform != "win32":
         return
