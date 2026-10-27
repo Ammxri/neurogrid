@@ -1,6 +1,10 @@
 # Text files are stored with LF everywhere so hashes, golden files and manifests match across platforms.
 * text=auto eol=lf
 
+# Third-party licence texts are kept byte for byte (D-15, D-17); the LICENSE of @jspm/core 2.1.0 has CRLF line
+# endings in its npm tarball, so git must not convert it.
+license-gate/third_party/bids-validator-3.0.2/npm/@jspm/core@2.1.0/LICENSE -text
+
 # Binary test data must never be touched by line-ending conversion.
 tests/fixtures/** -text
 *.edf binary

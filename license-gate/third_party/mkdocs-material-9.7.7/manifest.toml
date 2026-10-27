@@ -1,7 +1,9 @@
 # Licence review of the documentation site (TECH-06, TECH-10, NG-N07, D-05, A-86): every third-party part of
 # the site that tools/build_docs.py builds with mkdocs-material 9.7.7 (docs group of uv.lock) and that the
 # offline bundle (docs/) and the release ship. Read on 2026-10-26 from the installed wheel
-# mkdocs_material-9.7.7 (minified files, their source maps and licence files); nothing was downloaded.
+# mkdocs_material-9.7.7 (minified files, their source maps and licence files); nothing was downloaded then.
+# D-17 (2026-10-27): the licence texts of focus-visible and material-design-color, which the shipped files do
+# not state, were downloaded once from raw.githubusercontent.com (url, retrieved and decision of each text).
 #
 # [[package]]: a part of the site with its reviewed licence (spdx), its stored texts ([[package.text]]: file
 # below this folder, or repository_file of this repository) and, while a text or the licence itself could
@@ -120,11 +122,31 @@ sha256 = "0b48f2cc7f618fce9e2bf4b3f582fad5a484d1149c3cfac14199021c63006b99"
 [[package]]
 registry = "npm"
 name = "focus-visible"
-version = ""
+version = "5.2.1"
 found = "in mkdocs-material@9.7.7"
-spdx = ""
-note = "The :focus-visible polyfill of the WICG in the script bundle. Its bundled dist file states neither a licence nor a copyright line; the upstream project names the W3C Software and Document License, which is to be confirmed with the text."
-pending = "docs-site:focus-visible"
+spdx = "W3C-20150513"
+note = "The :focus-visible polyfill of the WICG in the script bundle. Its bundled dist file states neither a licence nor a copyright line. D-17: the version 5.2.1 is the one the package-lock.json of mkdocs-material at the tag 9.7.7 names (licence W3C), and node_modules/focus-visible/dist/focus-visible.js in the sourcesContent of the bundle's source map is byte-equal to that file of 5.2.1. The project's LICENSE.md (at the npm gitHead 1d6162c, byte-equal to the one of the npm package) only refers to the W3C Software and Document License; its full text is attached from SPDX license-list-data v3.27.0. Neither the package nor its repository names a copyright line, and none is made up here: the origin is the repository https://github.com/WICG/focus-visible."
+pending = ""
+
+[[package.text]]
+file = "npm/focus-visible@5.2.1/LICENSE"
+origin = "LICENSE.md (refers to the W3C Software and Document License)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/WICG/focus-visible/1d6162c59832c610878eb93089f10c54ce4a3125/LICENSE.md"
+size = 296
+sha256 = "7aeb3acf108717fd0f68ada2eebeaaec46dcdd239b4c5e7b4b8e6ea8861acfdd"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/focus-visible@5.2.1/LICENSE.W3C-20150513.txt"
+origin = "W3C Software and Document License (2015-05-13), the licence LICENSE.md names"
+kind = "standard text"
+url = "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/W3C-20150513.txt"
+size = 1807
+sha256 = "38b688e653a972897f6a875c53abbf867b261cbeba7ded0bdf100ae9907a6c19"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "npm"
@@ -152,11 +174,21 @@ sha256 = "0b48f2cc7f618fce9e2bf4b3f582fad5a484d1149c3cfac14199021c63006b99"
 [[package]]
 registry = "npm"
 name = "material-design-color"
-version = ""
+version = "2.3.2"
 found = "in mkdocs-material@9.7.7"
-spdx = ""
-note = "The colour palette compiled into the main style sheet (its source map names node_modules/material-design-color/material-color.scss, without content). The shipped files state no licence."
-pending = "docs-site:material-design-color"
+spdx = "MIT"
+note = "The colour palette compiled into the main style sheet (its source map names node_modules/material-design-color/material-color.scss, without content). The shipped files state no licence. D-17: the version 2.3.2 is only the one the package-lock.json of mkdocs-material at the tag 9.7.7 names (a development dependency); it cannot be checked against the content, which the source map does not carry. Its npm metadata state MIT and the gitHead ca1514a of mrmlnc/material-color, whose LICENSE (Copyright (c) Denis Malinochkin) is byte-equal to the one of the npm package. The colour values go back to Google's Material Design palette, for which the package names no further licence."
+pending = ""
+
+[[package.text]]
+file = "npm/material-design-color@2.3.2/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/mrmlnc/material-color/ca1514ad4b7ac61694c7a00f224880e17ed6d0ec/LICENSE"
+size = 1079
+sha256 = "9363d160bf41d46d83901a5d24fc3fe2094c2afc17b4a2378914b273977ee2de"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "icons"

@@ -1,20 +1,25 @@
 # Licence texts of the npm and jsr packages compiled into the BIDS validator bundle (TECH-10, NG-N07, D-15).
-# Package list: bids_validator_deno/bids-validator.js.map of bids_validator_deno-3.0.2-py3-none-any.whl;
-# each package at exactly that version from registry.npmjs.org (version document + tarball, sha512 integrity
-# checked) or jsr.io (<version>_meta.json + file, sha256 checksum checked), retrieved 2026-10-26. Only the
-# licence files (and licence headers of compiled sources) are kept, byte for byte for licence files; header
-# extracts are UTF-8 with LF. tools/notices.py checks every SHA-256 and that the packages equal the source map,
-# and copies the texts into THIRD_PARTY_NOTICES.txt. found: how the source map names the version.
-# pending: the known_missing.toml entry for texts that are still missing. owner_decision: the
-# known_missing.toml entry (with a decision) of a licence outside BUNDLED_ALLOWED (tools/notices.py).
-# downloads: what was transferred to get the texts.
+# Package list: bids_validator_deno/bids-validator.js.map of bids_validator_deno-3.0.2-py3-none-any.whl; each
+# package at exactly that version from registry.npmjs.org (version document + tarball, sha512 integrity
+# checked) or jsr.io (<version>_meta.json + file, sha256 checksum checked), retrieved 2026-10-26. D-17
+# (2026-10-27): a package whose version the source map does not name (nested in the prebuilt dist of
+# hed-validator 4.2.0, the polyfills of @jspm/core) has the version its lockfile names, see its note, and its
+# texts come from the package's repository at the npm gitHead of that version (raw.githubusercontent.com,
+# byte-equal to the npm package's file where it has one) or, for @jspm/core, from its npm tarball; those texts
+# carry retrieved and decision. kind 'page excerpt': the licence section of a web page as plain text (UTF-8,
+# LF), with the size and SHA-256 of the page as retrieved. Only the licence files (and licence headers of
+# compiled sources) are kept, byte for byte for licence files; header extracts are UTF-8 with LF.
+# tools/notices.py checks every SHA-256 and that the packages equal the source map, and copies the texts into
+# THIRD_PARTY_NOTICES.txt. found: how the source map names the version. pending: the known_missing.toml entry
+# for texts that are still missing. owner_decision: the known_missing.toml entry (with a decision) of a
+# licence outside BUNDLED_ALLOWED (tools/notices.py). downloads: what was transferred to get the texts.
 version = 1
 validator = "bids-validator-deno"
 validator_version = "3.0.2"
 source_map = "bids_validator_deno/bids-validator.js.map"
 decision = "D-15"
 retrieved = "2026-10-26"
-downloads = "registry.npmjs.org serves no single files: for each npm package the whole tarball (archive_url; about 8.4 MB in all, among them hed-validator 5.4 MB and isomorphic-git 1.2 MB; hash-wasm-4.12.0.tgz was fetched twice, with the same SHA-256) was downloaded only to extract its licence files and licence headers. Only those files are stored here; no tarball is kept. jsr.io served the single files."
+downloads = "registry.npmjs.org serves no single files: for each npm package the whole tarball (archive_url; about 8.4 MB in all, among them hed-validator 5.4 MB and isomorphic-git 1.2 MB; hash-wasm-4.12.0.tgz was fetched twice, with the same SHA-256) was downloaded only to extract its licence files and licence headers. Only those files are stored here; no tarball is kept. jsr.io served the single files. D-17 (2026-10-27): 45 single files, each fetched once: 43 from raw.githubusercontent.com (among them the LF LICENSE of @jspm/core at c0a60d6, fetched only to compare it with the one of the tarball and not kept), the Unicode License V3 from www.unicode.org and the page create.stephan-brumme.com/disclaimer.html (only its excerpt is kept); and the tarball of @jspm/core 2.1.0 (1521183 bytes), from which only its LICENSE was extracted; no tarball is kept."
 
 [[package]]
 registry = "jsr"
@@ -159,16 +164,356 @@ sha256 = "1f4989357acfacf95ed9daf1b67fe1167fae6db7239b57a5ca3a4efd217e637e"
 [[package]]
 registry = "npm"
 name = "@jspm/core"
-version = ""
+version = "2.1.0"
 found = "in node-modules-polyfills"
 declared = ""
-spdx = ""
+spdx = "Apache-2.0 AND MIT AND BSD-3-Clause AND ISC AND Unlicense"
 metadata_url = ""
-archive_url = ""
-archive_sha256 = ""
-archive_integrity = ""
-note = "The source-map entries node-modules-polyfills:node:fs/promises and node-modules-polyfills:node:path are Node polyfills that esbuild inlined from @jspm/core/nodelibs/browser (buffer.js, fs.js, fs/promises.js, path.js, punycode.js, url.js and their chunks, among them the process shim); the bundle's 'Bundled license information' trailer lists these chunks under hed-validator/dist/esm/index.js. Inside are the buffer module of Feross Aboukhadijeh (@license MIT), ieee754 (BSD-3-Clause, Feross Aboukhadijeh), base64 code, punycode (its code names the versions 2.1.0 and 2.3.1), url and the process shim. Neither the map nor the trailer names a version of @jspm/core, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:node-modules-polyfills/@jspm/core"
+archive_url = "https://registry.npmjs.org/@jspm/core/-/core-2.1.0.tgz"
+archive_sha256 = "03f58f124bc351a4d965291ab4d961794508b612ec116ad215700a28e3b43b44"
+archive_integrity = "sha512-3sRl+pkyFY/kLmHl0cgHiFp2xEqErA8N3ECjMs7serSUBmoJ70lBa0PG5t0IM6WJgdZNyyI0R8YFfi5wM8+mzg=="
+note = "The source-map entries node-modules-polyfills:node:fs/promises and node-modules-polyfills:node:path are Node polyfills that esbuild inlined from @jspm/core/nodelibs/browser (buffer.js, fs.js, fs/promises.js, path.js, punycode.js, url.js and their chunks, among them the process shim); the bundle's 'Bundled license information' trailer lists these chunks under hed-validator/dist/esm/index.js. Inside are the buffer module of Feross Aboukhadijeh (@license MIT), ieee754 (BSD-3-Clause, Feross Aboukhadijeh), base64 code, punycode (its code names the versions 2.1.0 and 2.3.1), url and the process shim. D-17: the version 2.1.0 is named neither by the map nor by the trailer; it follows from the deno.lock of bids-validator at the tag 3.0.2 (esbuild-plugins-node-modules-polyfill 1.7.1 with @jspm/core 2.1.0), from the lockfile of hed-validator 4.2.0 (esbuild-plugins-node-modules-polyfill 1.8.1 with the same @jspm/core and integrity) and from the 19 content-hashed chunk names under node_modules/@jspm/core/nodelibs/browser in the map, all of which 2.1.0 has (ten are missing in 2.0.1). The sha512 integrity of the downloaded tarball starts as the one of the lockfiles (3sRl+pky). Its LICENSE (Apache-2.0 for @jspm/core, Copyright 2018-2021 Guy Bedford, and MIT sections for the Node libraries it ports) is kept byte for byte as the npm tarball carries it, with CRLF line endings; the GitHub file at the gitHead c0a60d6 has the same text with LF. That LICENSE does not cover every package inside the chunks, so the licence files of 33 further packages are attached (LICENSE.<package>@<version>.txt, each from its GitHub repository at the npm gitHead of the version, byte-equal to the file of the npm package): ieee754 and qs (BSD-3-Clause), memfs and fs-monkey (Unlicense, a public-domain dedication), inherits (ISC) and 28 under MIT. Their versions are only proven by the lockfile of jspm-core at the gitHead c0a60d6 of 2.1.0 (D-17: 'nur über Lockfile belegt'): they are the runtime closure there of buffer, memfs, url, util, readable-stream, events, string_decoder, process, path-browserify and punycode, an upper bound, as rollup rewrote the bundled code and no file can be compared byte for byte. Code features in the bundle show ieee754 (its @license comment in the trailer), base64-js (byteLength, toByteArray, fromByteArray), memfs (Volume, pathToFilename), qs (allowPrototypes, arrayLimit), side-channel with get-intrinsic and call-bind (GetIntrinsic, $gOPD, callBind), object-inspect (inspect_) and readable-stream (ReadableState, WritableState); the other helpers are part of the closure only."
+pending = ""
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE"
+origin = "LICENSE (CRLF line endings, as in the npm tarball)"
+kind = "licence file"
+url = "https://registry.npmjs.org/@jspm/core/-/core-2.1.0.tgz#package/LICENSE"
+size = 42179
+sha256 = "b8bc5e4bbcf9023a91eccc0ee982bdfb92099adff03775bb6552925753ff1c89"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.ieee754@1.2.1.txt"
+origin = "LICENSE of ieee754 1.2.1, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/feross/ieee754/b60d148be9cad718f9ff007c211c2427cdc180a4/LICENSE"
+size = 1465
+sha256 = "18d45466ba3253deae04667e267a91ea8de8548f18c1125264d1c9db28194cc1"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.base64-js@1.5.1.txt"
+origin = "LICENSE of base64-js 1.5.1, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/beatgammit/base64-js/88957c9943c7e2a0f03cdf73e71d579e433627d3/LICENSE"
+size = 1081
+sha256 = "5b37224c080cdcc97c871ada971c224e9926370fe74f11b539aa1cf9f3b1aca1"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.memfs@3.5.3.txt"
+origin = "LICENSE of memfs 3.5.3, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/streamich/memfs/a4bc268a962107856270e3acc3e5e32564396c0d/LICENSE"
+size = 1211
+sha256 = "6b0382b16279f26ff69014300541967a356a666eb0b91b422f6862f6b7dad17e"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.fs-monkey@1.0.6.txt"
+origin = "LICENSE of fs-monkey 1.0.6, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/streamich/fs-monkey/273b215b61f23161216f665aa638b353417cd639/LICENSE"
+size = 1211
+sha256 = "6b0382b16279f26ff69014300541967a356a666eb0b91b422f6862f6b7dad17e"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.qs@6.13.0.txt"
+origin = "LICENSE.md of qs 6.13.0, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/qs/5cf516c0dd557d85d5f18d4a916c96cd9cfc2305/LICENSE.md"
+size = 1600
+sha256 = "e7dc37bf662d7f786efcb46c545615e70c1daf458a38385521c63cf6607cdfe1"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.object-inspect@1.13.2.txt"
+origin = "LICENSE of object-inspect 1.13.2, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/object-inspect/6a565ed4ce7181fe6c263b7893652e7a7dd9ae91/LICENSE"
+size = 1071
+sha256 = "bd40cc437e28a3ad7bef2ad34e6b72e757b182e67bda1acadbab4ef0476f8232"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.side-channel@1.0.6.txt"
+origin = "LICENSE of side-channel 1.0.6, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/side-channel/c9ac2b5ce66d0024d4590392ac4651db790dd0dc/LICENSE"
+size = 1071
+sha256 = "cfc3f455254c0af0655cc3ff46a41ed644b67599f6043346169d285bf2b3cf3b"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.readable-stream@4.5.2.txt"
+origin = "LICENSE of readable-stream 4.5.2, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/nodejs/readable-stream/a2e9aedf4aeee4a5e4d8efcb175edb67e2817eaa/LICENSE"
+size = 2337
+sha256 = "ec62dc96da0099b87f4511736c87309335527fb7031639493e06c95728dc8c54"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.abort-controller@3.0.0.txt"
+origin = "LICENSE of abort-controller 3.0.0, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/mysticatea/abort-controller/a935d38e09eb95d6b633a8c42fcceec9969e7b05/LICENSE"
+size = 1071
+sha256 = "dbbf03317f0101fed5643cd87ca80fb769e358fa4f428445bf2315deeb23a154"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.available-typed-arrays@1.0.7.txt"
+origin = "LICENSE of available-typed-arrays 1.0.7, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/available-typed-arrays/d72cd6154ce39482ca83bed2200ff3b56c76e8d8/LICENSE"
+size = 1067
+sha256 = "6d0917530cf3b3dca12c1ab7798e4d38ad0a6798ecc1bd27849a3048ba91d265"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.call-bind@1.0.7.txt"
+origin = "LICENSE of call-bind 1.0.7, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/call-bind/25c006c68abcc362748a09503533b0b46ef2f857/LICENSE"
+size = 1071
+sha256 = "39c5ec504cf6bd5cd782a7c695828e09189df79f5d94840e4f08feb97b9fd416"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.define-data-property@1.1.4.txt"
+origin = "LICENSE of define-data-property 1.1.4, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/define-data-property/e313da59d1f65e1549ac59539a7a8ac17632df60/LICENSE"
+size = 1071
+sha256 = "b41d08bc3624d8c436fc80237d73ebb361985a67f4504bbcd703e5ca2b27254c"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.es-define-property@1.0.0.txt"
+origin = "LICENSE of es-define-property 1.0.0, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/es-define-property/0bf3fdce5a39949109f9ffcc81cb60d16317129a/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.es-errors@1.3.0.txt"
+origin = "LICENSE of es-errors 1.3.0, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/es-errors/5599cf0ebe75cc3685445f83ca80207a357fdb12/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.event-target-shim@5.0.1.txt"
+origin = "LICENSE of event-target-shim 5.0.1, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/mysticatea/event-target-shim/410bad2ce333e7eeaafbc6acae0679aa685281c9/LICENSE"
+size = 1082
+sha256 = "97d87142793695cd73243de7258694abe85b3b6060fca7f247b0a2afa8219678"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.for-each@0.3.3.txt"
+origin = "LICENSE of for-each 0.3.3, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/Raynos/for-each/7adaf8162a12d55f6ea3fb0bf5e999035dfd303a/LICENSE"
+size = 1075
+sha256 = "d07913d776eef217a95d7ee3ee83577fc3c365b9c870f5a3411f785b81090614"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.function-bind@1.1.2.txt"
+origin = "LICENSE of function-bind 1.1.2, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/Raynos/function-bind/40197beb5f4cf89dd005f0b268256c1e4716ea81/LICENSE"
+size = 1052
+sha256 = "773e131a7684726005a7e4688a80b4620033bc08499bc1404dd1a1eb3bca725e"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.get-intrinsic@1.2.4.txt"
+origin = "LICENSE of get-intrinsic 1.2.4, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/get-intrinsic/3ce1c8e1d677ae3b828f84add6e0e399d3c94a66/LICENSE"
+size = 1071
+sha256 = "39c5ec504cf6bd5cd782a7c695828e09189df79f5d94840e4f08feb97b9fd416"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.gopd@1.0.1.txt"
+origin = "LICENSE of gopd 1.0.1, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/gopd/e3236ba6cdee15eef18be63dcc46045c035d4429/LICENSE"
+size = 1071
+sha256 = "d90bf0a089da4cf43d644ed240a0b3825dcdb705e64e38371d56995a4cc9e4c5"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.has-property-descriptors@1.0.2.txt"
+origin = "LICENSE of has-property-descriptors 1.0.2, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/has-property-descriptors/69037fc06a4ec7a5a14e66ea029f2769e243c454/LICENSE"
+size = 1067
+sha256 = "0f0ca96f50793990031ebc488a38f7292ff70bce8ab6a8e5eeda674abc32ccdf"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.has-proto@1.0.3.txt"
+origin = "LICENSE of has-proto 1.0.3, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/has-proto/8aac68e1d81222fd03804abf958557d89d1764cf/LICENSE"
+size = 1067
+sha256 = "0f0ca96f50793990031ebc488a38f7292ff70bce8ab6a8e5eeda674abc32ccdf"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.has-symbols@1.0.3.txt"
+origin = "LICENSE of has-symbols 1.0.3, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/has-symbols/444dc14d035df9891743a28cbc5d6ecdb0cb3b01/LICENSE"
+size = 1071
+sha256 = "206c1adcf206dc0031b11232f5b054ec5f1662407ab1ca415247921cab2068ab"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.has-tostringtag@1.0.2.txt"
+origin = "LICENSE of has-tostringtag 1.0.2, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/has-tostringtag/690da6a3afbddcf018aa162c42869dcf4f8375f1/LICENSE"
+size = 1067
+sha256 = "e2560e002e13281578c75c850061d9255c33d16d732939e8c2db64c2506642fa"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.hasown@2.0.2.txt"
+origin = "LICENSE of hasown 2.0.2, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/hasOwn/d00d35005baf16a33d691a13f8ad627f35040742/LICENSE"
+size = 1083
+sha256 = "bf9b0d665be2a689851eea667ca9f42066ea1d903b38349c51e6a44b2577680a"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.inherits@2.0.4.txt"
+origin = "LICENSE of inherits 2.0.4, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/isaacs/inherits/9a2c29400c6d491e0b7beefe0c32efa3b462545d/LICENSE"
+size = 749
+sha256 = "5ffe28e7ade7d8f10d85d5337a73fd793dac5c462fb9a28fbf8c5046c7fbca3b"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.is-arguments@1.1.1.txt"
+origin = "LICENSE of is-arguments 1.1.1, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/is-arguments/b8f58f56199693f6649ab8f080f2af77dc2cad4d/LICENSE"
+size = 1081
+sha256 = "dc0fe5a22d9336f345ee984f9bf56f11f22877a3aa5fd16a1db9a8ca0e23a5d1"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.is-callable@1.2.7.txt"
+origin = "LICENSE of is-callable 1.2.7, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/is-callable/f23584dd25c26473e702e80a5e8e7e79e2a89aee/LICENSE"
+size = 1082
+sha256 = "c61652db3d2808f667b48af0a358f0d85fd07ad4a0d0b1a50882dec3b764c522"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.is-generator-function@1.0.10.txt"
+origin = "LICENSE of is-generator-function 1.0.10, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/is-generator-function/9e6b7a26a4f97582333d807aa1c8c165097f3226/LICENSE"
+size = 1081
+sha256 = "dc0fe5a22d9336f345ee984f9bf56f11f22877a3aa5fd16a1db9a8ca0e23a5d1"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.is-typed-array@1.1.13.txt"
+origin = "LICENSE of is-typed-array 1.1.13, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/is-typed-array/5784fd3ecfa7377c900c6956185825eb651ae0a7/LICENSE"
+size = 1082
+sha256 = "c61652db3d2808f667b48af0a358f0d85fd07ad4a0d0b1a50882dec3b764c522"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.possible-typed-array-names@1.0.0.txt"
+origin = "LICENSE of possible-typed-array-names 1.0.0, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/possible-typed-array-names/38d28dd7ec26af8da42034a6e02d14b8101a1f3d/LICENSE"
+size = 1071
+sha256 = "5e325595b4ea8cfec3802f545b1def5d7b73e4a5b8e9ba63e32a320f67732292"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.safe-buffer@5.2.1.txt"
+origin = "LICENSE of safe-buffer 5.2.1, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/feross/safe-buffer/89d3d5b4abd6308c6008499520373d204ada694b/LICENSE"
+size = 1081
+sha256 = "c7cc929b57080f4b9d0c6cf57669f0463fc5b39906344dfc8d3bc43426b30eac"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.set-function-length@1.2.2.txt"
+origin = "LICENSE of set-function-length 1.2.2, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/ljharb/set-function-length/85f4b57ec0560b9fd3ad75eb7b13c05c6af9f42d/LICENSE"
+size = 1083
+sha256 = "bf9b0d665be2a689851eea667ca9f42066ea1d903b38349c51e6a44b2577680a"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/@jspm/core@2.1.0/LICENSE.which-typed-array@1.1.15.txt"
+origin = "LICENSE of which-typed-array 1.1.15, bundled in @jspm/core 2.1.0 (version only proven by the jspm-core lockfile)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/inspect-js/which-typed-array/bf446c8e6a748e1a6f5847fffa5350f6c51190b5/LICENSE"
+size = 1082
+sha256 = "c61652db3d2808f667b48af0a358f0d85fd07ad4a0d0b1a50882dec3b764c522"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "jsr"
@@ -195,16 +540,26 @@ sha256 = "d1086e5680ca42ba99596f6ccaf071468c637e404348b49d0870114198c0097e"
 [[package]]
 registry = "npm"
 name = "@nodable/entities"
-version = ""
+version = "2.1.0"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "MIT"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 2 of 2 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The npm package carries no licence file, only 'license: MIT' in its package.json; the text is the LICENSE of its repository nodable/val-parsers (a monorepo, folder Entity, package.json @nodable/entities 2.1.0) at the npm gitHead f1c61a6 ('Copyright (c) 2026 Nodable')."
+pending = ""
+
+[[package.text]]
+file = "npm/@nodable/entities@2.1.0/LICENSE"
+origin = "LICENSE of the repository nodable/val-parsers at f1c61a6 (the npm package has none)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/nodable/val-parsers/f1c61a65e7b967c17b13822ef71e91bd25f17ce2/LICENSE"
+size = 1064
+sha256 = "750cb3fb6362804957ef52caaf9b5c824015be44d494637330d7cd8834d31d40"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "jsr"
@@ -877,16 +1232,26 @@ sha256 = "185ef4f377743572c2bf0931f741fae52401268cbe70c880b74063799814083e"
 [[package]]
 registry = "npm"
 name = "fast-xml-parser"
-version = ""
+version = "5.8.0"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "MIT"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 6 of 6 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The LICENSE is taken from its GitHub repository at the npm gitHead of that version, byte-equal to the LICENSE of the npm package."
+pending = ""
+
+[[package.text]]
+file = "npm/fast-xml-parser@5.8.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/NaturalIntelligence/fast-xml-parser/4bcee44a034ec99706b68b16e31f4072505b13e9/LICENSE"
+size = 1073
+sha256 = "7883225d5e84a6bbb9b170c3d891b4bf6d6259cee869c86bd86381a927071745"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "npm"
@@ -1092,14 +1457,13 @@ name = "hash-wasm"
 version = "4.12.0"
 found = "4.12.0"
 declared = "MIT"
-spdx = "MIT AND 0BSD AND Zlib AND BSD-2-Clause AND Apache-2.0 AND (CC0-1.0 OR OpenSSL OR Apache-2.0) AND (CC0-1.0 OR Apache-2.0) AND LicenseRef-Public-Domain AND LicenseRef-Brumme-Disclaimer AND LicenseRef-Not-Stated"
+spdx = "MIT AND 0BSD AND Zlib AND BSD-2-Clause AND BSD-3-Clause AND Apache-2.0 AND (CC0-1.0 OR OpenSSL OR Apache-2.0) AND (CC0-1.0 OR Apache-2.0) AND LicenseRef-Public-Domain AND LicenseRef-Brumme-Disclaimer"
 metadata_url = "https://registry.npmjs.org/hash-wasm/4.12.0"
 archive_url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz"
 archive_sha256 = "1db32a125fb46177932ec8ac438d3cd8214ebdfaccb5d6611b657d88eb586f92"
 archive_integrity = "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
-note = "The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. spdx is the expression of all stored texts: MIT (LICENSE, sm3, whirlpool), 0BSD (tslib helpers; sha256, sha3, sha512 by Aleksey Kravchenko), Zlib (adler32), BSD-2-Clause (scrypt, xxhash3, xxhash128), Apache-2.0 (ripemd160, mbed TLS), CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), CC0-1.0 OR Apache-2.0 (blake3), LicenseRef-Public-Domain (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid), LicenseRef-Brumme-Disclaimer (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme: 'All rights reserved', terms only on http://create.stephan-brumme.com/disclaimer.html) and LicenseRef-Not-Stated (argon2, based on Go's implementation, states no licence). D-16: the public-domain dedications count as permissive, and of both choices NeuroGrid uses Apache-2.0 (LICENSES/Apache-2.0.txt is attached). The texts of the Brumme and argon2 parts are missing; their licences wait with that gap (known_missing.toml)."
-pending = "bids-validator-deno:hash-wasm@4.12.0/src"
-pending_licences = ["LicenseRef-Brumme-Disclaimer", "LicenseRef-Not-Stated"]
+note = "The LICENSE says that the embedded C implementations may use other permissive licences; their headers (src/*.c of the npm package) and the 0BSD header of the bundled tslib helpers are kept. spdx is the expression of all stored texts: MIT (LICENSE, sm3, whirlpool), 0BSD (tslib helpers; sha256, sha3, sha512 by Aleksey Kravchenko), Zlib (adler32), BSD-2-Clause (scrypt, xxhash3, xxhash128), Apache-2.0 (ripemd160, mbed TLS), CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s), CC0-1.0 OR Apache-2.0 (blake3), LicenseRef-Public-Domain (md4, md5 and bcrypt by Solar Designer, sha1 by Steve Reid), LicenseRef-Brumme-Disclaimer (crc32, crc64, xxhash32, xxhash64 by Stephan Brumme: 'All rights reserved', terms only on http://create.stephan-brumme.com/disclaimer.html) and BSD-3-Clause (argon2, 'Based on Golang's Argon2 implementation from crypto package', whose header states no licence). D-16: the public-domain dedications count as permissive, and of both choices NeuroGrid uses Apache-2.0 (LICENSES/Apache-2.0.txt is attached). D-17: the Brumme terms are the License section of that page, kept as an excerpt in plain text (tags removed, links as 'text (URL)', the list numbered, the wording unchanged; page retrieved on 2026-10-27, 23966 bytes, SHA-256 5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1): the zlib licence without its clause 'This notice may not be removed or altered', so permissive; the page has no licence file and no SPDX identifier. argon2: hash-wasm names no version of the Go code (src/argon2.c came in with commit 5dd1a224 of 2020-07-26); the LICENSE of golang/crypto was unchanged from 2012-03-17 (a1a18262) to 2024-07-16 (80fd9720), so it is taken at 948cd5f3, the last commit before the port (2020-07-09), from the GitHub mirror of go.googlesource.com/crypto ('Copyright (c) 2009 The Go Authors')."
+pending = ""
 
 [[package.choice]]
 expression = "CC0-1.0 OR OpenSSL OR Apache-2.0"
@@ -1294,6 +1658,28 @@ kind = "source header"
 url = "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz#package/src/xxhash64.c"
 size = 338
 sha256 = "2f3890091a9bee75b01c6fba91e79807df5d5b53ef710b5a6749db9ed5c9e7df"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.brumme-disclaimer.html-license.txt"
+origin = "the License section of http://create.stephan-brumme.com/disclaimer.html (crc32, crc64, xxhash32, xxhash64), as plain text, page retrieved on 2026-10-27, SHA-256 5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1"
+kind = "page excerpt"
+url = "https://create.stephan-brumme.com/disclaimer.html"
+size = 1037
+sha256 = "87ae5539efe0c3c7e109f34f11ec43f0624f6fcfc0535a72525e2f694f4a990d"
+retrieved = "2026-10-27"
+decision = "D-17"
+page_size = 23966
+page_sha256 = "5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1"
+
+[[package.text]]
+file = "npm/hash-wasm@4.12.0/LICENSE.argon2-golang-crypto.txt"
+origin = "LICENSE of golang.org/x/crypto at 948cd5f3 (argon2, based on Go's implementation)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/golang/crypto/948cd5f35899cbf089c620b3caeac9b60fa08704/LICENSE"
+size = 1479
+sha256 = "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package.text]]
 file = "npm/hash-wasm@4.12.0/LICENSE.dist-index.esm.js-tslib.txt"
@@ -1566,16 +1952,26 @@ sha256 = "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
 [[package]]
 registry = "npm"
 name = "lodash"
-version = ""
+version = "4.18.1"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "MIT"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 6 of 6 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The LICENSE is taken from its GitHub repository at the npm gitHead of that version, byte-equal to the LICENSE of the npm package. The text also waives copyright for the sample code in lodash's documentation (CC0), which is not shipped."
+pending = ""
+
+[[package.text]]
+file = "npm/lodash@4.18.1/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/lodash/lodash/4f0b76e2eca13de1c1fe8b4305abc1f7d63f4b86/LICENSE"
+size = 1952
+sha256 = "f71e8ed126b46346494aad5486874cd8f0aafe95092ed67d2e3cb6110f939abc"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "npm"
@@ -1676,16 +2072,26 @@ sha256 = "170d7d544d380b38d5f76ab5eda29475b44ef537f4564163d6d9bece85c51c13"
 [[package]]
 registry = "npm"
 name = "path-expression-matcher"
-version = ""
+version = "1.5.0"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "MIT"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 3 of 3 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The LICENSE is taken from its GitHub repository at the npm gitHead of that version, byte-equal to the LICENSE of the npm package. Its copyright line names only the year ('Copyright (c) 2024')."
+pending = ""
+
+[[package.text]]
+file = "npm/path-expression-matcher@1.5.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/NaturalIntelligence/path-expression-matcher/543e5b3718897aa7da9dfc9ea6f433d1b551720d/LICENSE"
+size = 1056
+sha256 = "75486ea0af9309140ca6e2c401d7e67bea8f4892344e5707f6394dc5e83dfc44"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "npm"
@@ -1778,16 +2184,26 @@ sha256 = "c7cc929b57080f4b9d0c6cf57669f0463fc5b39906344dfc8d3bc43426b30eac"
 [[package]]
 registry = "npm"
 name = "semver"
-version = ""
+version = "7.8.0"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "ISC"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 6 of 6 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The LICENSE is taken from its GitHub repository at the npm gitHead of that version, byte-equal to the LICENSE of the npm package."
+pending = ""
+
+[[package.text]]
+file = "npm/semver@7.8.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/npm/node-semver/efa4be6096c1f9b77d9d27d6132f6220c43b4e31/LICENSE"
+size = 765
+sha256 = "4ec3d4c66cd87f5c8d8ad911b10f99bf27cb00cdfcff82621956e379186b016b"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "npm"
@@ -1836,16 +2252,26 @@ sha256 = "58dcf38be1438f739412b87eb70d64bf00e9976d529bb119f700d8b3167924f0"
 [[package]]
 registry = "npm"
 name = "strnum"
-version = ""
+version = "2.3.0"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "MIT"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 1 of 1 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The LICENSE is taken from its GitHub repository at the npm gitHead of that version, byte-equal to the LICENSE of the npm package."
+pending = ""
+
+[[package.text]]
+file = "npm/strnum@2.3.0/LICENSE"
+origin = "LICENSE"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/NaturalIntelligence/strnum/398418366875b41abd1642ae8c2184e04ab11cb5/LICENSE"
+size = 1077
+sha256 = "2aa16be0f4fad003a352a955a43314e9d1d8deef7034060a82ac9c49f32b81e2"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "npm"
@@ -1938,16 +2364,36 @@ sha256 = "b41d08bc3624d8c436fc80237d73ebb361985a67f4504bbcd703e5ca2b27254c"
 [[package]]
 registry = "npm"
 name = "unicode-name"
-version = ""
+version = "1.1.0"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "MIT AND Unicode-3.0"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 4 of 4 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The LICENSE (MIT-LICENSE.txt) is taken from its GitHub repository at the npm gitHead of that version, byte-equal to the file of the npm package. Its name data derive from the Unicode Character Database (its README: 'Unicode version: 17.0.0', with a reference to the Unicode licence, unicode.org/copyright.html#Exhibit1); D-17 attaches the Unicode License V3 as published at https://www.unicode.org/license.txt, which the package does not ship."
+pending = ""
+
+[[package.text]]
+file = "npm/unicode-name@1.1.0/LICENSE"
+origin = "MIT-LICENSE.txt"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/janlelis/unicode-name.js/e6a9828a30ca84738206c3b84b9a7c71214ada27/MIT-LICENSE.txt"
+size = 1075
+sha256 = "1c3aed0c4c1888081184583d1e52e2107137d0818efe72ceb049c7b0937aca5b"
+retrieved = "2026-10-27"
+decision = "D-17"
+
+[[package.text]]
+file = "npm/unicode-name@1.1.0/LICENSE.Unicode-3.0.txt"
+origin = "Unicode License V3 (the Unicode Character Database 17.0.0 its name data derive from; unicode.org/license.txt, D-17)"
+kind = "standard text"
+url = "https://www.unicode.org/license.txt"
+size = 1995
+sha256 = "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96"
+retrieved = "2026-10-27"
+decision = "D-17"
 
 [[package]]
 registry = "npm"
@@ -1974,13 +2420,23 @@ sha256 = "c61652db3d2808f667b48af0a358f0d85fd07ad4a0d0b1a50882dec3b764c522"
 [[package]]
 registry = "npm"
 name = "xml-naming"
-version = ""
+version = "0.1.0"
 found = "in hed-validator@4.2.0"
 declared = ""
-spdx = ""
+spdx = "MIT"
 metadata_url = ""
 archive_url = ""
 archive_sha256 = ""
 archive_integrity = ""
-note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version, so its licence file was not downloaded (D-15 covers exact versions only)."
-pending = "bids-validator-deno:hed-validator@4.2.0/node_modules"
+note = "Bundled through the prebuilt dist of hed-validator 4.2.0; the source map names no version. D-17: the version is the one the package-lock.json of hed-validator names at the gitHead of its npm version 4.2.0 (hed-standard/hed-javascript 7b665ff); 1 of 1 bundled files from the sourcesContent of the source map are byte-equal to the files of that version. The npm package carries no licence file and its metadata name no gitHead, and the repository has no tags: the commit c0afc39 (2026-05-08) is derived as the first one whose package.json has version 0.1.0; its LICENSE comes unchanged from the initial commit beb8c524 ('Copyright (c) 2026 Natural Intelligence')."
+pending = ""
+
+[[package.text]]
+file = "npm/xml-naming@0.1.0/LICENSE"
+origin = "LICENSE of the repository NaturalIntelligence/xml-naming at c0afc39 (the npm package has none)"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/NaturalIntelligence/xml-naming/c0afc395948730bed124859d7fc7cccabe0aac8a/LICENSE"
+size = 1077
+sha256 = "8e75fc0e776c62ccadb8178ece8d3daa9ba7601fb0a49b2dfb0ea9a7a5c0aa07"
+retrieved = "2026-10-27"
+decision = "D-17"

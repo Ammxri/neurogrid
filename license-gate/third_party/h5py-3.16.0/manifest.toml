@@ -1,0 +1,29 @@
+# Licence texts of native libraries in the h5py 3.16.0 wheels that the wheels do not carry (TECH-10, NG-N07,
+# D-08, D-17). license-gate/components.toml names each text as the notice of its component, and
+# tools/notices.py copies it into THIRD_PARTY_NOTICES.txt and checks its SHA-256 and size. Licence files are
+# kept byte for byte as downloaded.
+version = 1
+component = "h5py"
+component_version = "3.16.0"
+decision = "D-17"
+retrieved = "2026-10-27"
+downloads = "One single file from raw.githubusercontent.com (the GitHub mirror of libaec at the tag v1.1.4). The official source, gitlab.dkrz.de/k202009/libaec, answered with HTTP 429 (Too Many Requests) when the URL list was drawn up."
+
+[[package]]
+registry = "native"
+name = "libaec"
+version = "1.1.4"
+platform = "linux_x86_64"
+spdx = "BSD-2-Clause"
+note = "h5py.libs/libaec-*.so* (SONAME libaec.so.0.1.4) and h5py.libs/libsz-*.so* (the SZIP-compatible library of the same source tree) of h5py-3.16.0-cp312-cp312-manylinux_2_28_x86_64.whl; both binaries carry the build path 'libaec-v1.1.4/src/vector.c'. The tag v1.1.4 is commit 7204505a on GitLab DKRZ and on its GitHub mirror (github.com/MathisRosenhauer/libaec redirects to Deutsches-Klimarechenzentrum/libaec). Copyright 2025 Mathis Rosenhauer, Moritz Hanke, Joerg Behrens, Luis Kornblueh. doc/patent.txt of the project, a note on the patent situation of the CCSDS standard, is no licence and not kept."
+pending = ""
+
+[[package.text]]
+file = "libaec@1.1.4/LICENSE"
+origin = "LICENSE.txt"
+kind = "licence file"
+url = "https://raw.githubusercontent.com/Deutsches-Klimarechenzentrum/libaec/v1.1.4/LICENSE.txt"
+size = 1346
+sha256 = "66924e663d6e156dc45fe5aba993f5dcb131a8a5400b5580d956877c2c77c717"
+retrieved = "2026-10-27"
+decision = "D-17"

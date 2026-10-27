@@ -59,9 +59,12 @@ def test_notices_were_generated_from_the_current_lock() -> None:
 def test_notices_name_every_known_gap_and_the_validator_packages() -> None:
     text = _committed()
     gaps = text.split("5. Known gaps", 1)[1].split("\n6. ", 1)[0]
-    for item in notices.load_known_missing():
+    known = notices.load_known_missing()
+    for item in known:
         assert f"- {item['component']}: " in gaps, item["component"]
-    assert "Packages compiled into the BIDS validator bundle" in text and notices.PENDING in text
+    assert "Packages compiled into the BIDS validator bundle" in text
+    # D-17 closed the gaps of STOPP G1: section 5 says so instead of listing pending texts
+    assert (notices.PENDING in gaps) is bool(known) and (notices.NO_GAPS in gaps) is not bool(known)
     assert "Chrome Headless Shell" in text and "not_distributed" in text  # D-08: named, never shipped
     texts = list(notices.iter_texts(text))
     assert len(texts) == len(set(texts)) > 50  # every licence text once
@@ -164,12 +167,110 @@ def test_committed_notices_list_exactly_the_pinned_bundle_parts() -> None:
     if not pins:
         assert BUNDLE_HEADING not in committed and "removed from the bundle" not in committed
         return
-    section = committed.split(BUNDLE_HEADING, 1)[1].split("\n5. ", 1)[0]
+    section = committed.split(BUNDLE_HEADING, 1)[1].split("\n5. ", 1)[0].split("\nLibraries that ", 1)[0]
     rows = {tuple(line.split()[:4]) for line in section.strip().splitlines()[2:] if not line.startswith("- ")}
     assert rows == {(p.target, p.name, p.version, p.filename) for p in pins}
     for target, items in removed.items():
         for path, reason in items:
             assert f"- removed from the bundle ({target}): {path} - {reason}" in section
+
+
+def test_committed_notices_list_the_libraries_of_the_bundled_python() -> None:
+    """D-17: the libraries python-build-standalone builds into the pinned Python are reviewed with their texts
+    (license-gate/third_party/python-build-standalone-<version>/manifest.toml) and listed in section 4, each
+    text in section 6; the texts are python-build-standalone's own licence files at the release tag plus the
+    project files for what that set lacks."""
+    pins, _removed = notices.bundle_pins()
+    versions = {p.version for p in pins if p.name == notices.PBS}
+    if not versions:
+        pytest.skip("no packaging/bundle_lock.json")
+    (version,) = versions
+    review = notices.load_library_review(notices.PBS, version)
+    assert review is not None
+    assert notices.check_library_review(notices.PBS, version, review, []) == []
+    names = {p.name for p in review.packages}
+    assert {"OpenSSL", "libffi", "SQLite", "XZ Utils (liblzma)", "zlib", "Tcl/Tk", "itcl", "HACL*"} <= names
+    tag = "python-build-standalone@" + version.split("+", 1)[1] + "/"
+    for package in review.packages:
+        for text in package.texts:
+            assert text.url.startswith("https://raw.githubusercontent.com/"), text.label
+            if text.label.startswith(tag):  # the PBS files at the tag, not the upstream alternatives
+                assert text.url.endswith(
+                    f"/astral-sh/python-build-standalone/{tag.split('@')[1]}{text.path.name}"
+                )
+    committed = _committed()
+    heading = notices.LIBRARIES_HEADING.format(name=notices.PBS, version=version)
+    section = committed.split(heading, 1)[1].split("\n5. ", 1)[0]
+    rows = [line for line in section.splitlines() if line.startswith(notices.LIBRARY_PLATFORMS)]
+    assert len(rows) == len(review.packages)
+    users = [
+        line for line in committed.splitlines() if line.startswith(f"Used by: {notices.PBS} {version}: ")
+    ]
+    assert len(users) == sum(len(p.texts) for p in review.packages)
+    missing = notices.check_library_review(notices.PBS, version, None, [])
+    assert missing and "no licence texts of the libraries" in missing[0]
+    assert (
+        notices.check_library_review(notices.PBS, version, None, [{"component": f"{notices.PBS}:{version}"}])
+        == []
+    )
+
+
+def test_kept_texts_and_library_reviews_are_checked(tmp_path: Path) -> None:
+    """Every folder of license-gate/third_party holds exactly the texts its manifest lists, with their SHA-256
+    and size; a library of a bundle part needs a text and a permissive licence (D-17)."""
+    base = notices.library_review_folder(notices.PBS, "1.0+1", tmp_path)
+    (base / "lib@1").mkdir(parents=True)
+    data = b"MIT licence of lib\n"
+    (base / "lib@1" / "LICENSE").write_bytes(data)
+    digest = hashlib.sha256(data).hexdigest()
+
+    def manifest(spdx: str, sha256: str = digest, platform: str = "any") -> None:
+        lines = [
+            "version = 1",
+            f'component = "{notices.PBS}"',
+            'component_version = "1.0+1"',
+            "[[package]]",
+            'registry = "library"',
+            'name = "lib"',
+            'version = "1"',
+            f'platform = "{platform}"',
+            f'spdx = "{spdx}"',
+            "[[package.text]]",
+            'file = "lib@1/LICENSE"',
+            'origin = "LICENSE"',
+            'kind = "licence file"',
+            f"size = {len(data)}",
+            f'sha256 = "{sha256}"',
+        ]
+        (base / "manifest.toml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def problems() -> list[str]:
+        review = notices.load_library_review(notices.PBS, "1.0+1", tmp_path)
+        return notices.check_library_review(notices.PBS, "1.0+1", review, [])
+
+    manifest("MIT")
+    assert problems() == [] and notices.check_kept_texts(tmp_path) == []
+    manifest("MIT AND LGPL-2.1-or-later")
+    assert problems() == [
+        "bundle part python-build-standalone 1.0+1: lib 1: licence MIT AND LGPL-2.1-or-later is not "
+        "permissive"
+    ]
+    manifest("TCL", platform="macos")
+    assert problems() == ["bundle part python-build-standalone 1.0+1: lib 1: unknown platform macos"]
+    manifest("MIT", sha256="0" * 64)
+    found = [*problems(), *notices.check_kept_texts(tmp_path)]
+    assert len(found) == 2 and all("SHA-256 or size of lib@1/LICENSE differs" in p for p in found)
+    manifest("MIT")
+    (base / "lib@1" / "LICENSE.extra.txt").write_text("not listed\n", encoding="utf-8")
+    assert notices.check_kept_texts(tmp_path) == [
+        "python-build-standalone-1.0+1: file not listed in manifest.toml: lib@1/LICENSE.extra.txt"
+    ]
+    assert notices.load_library_review(notices.PBS, "9", tmp_path) is None
+    other = notices.library_review_folder(notices.PBS, "2.0+2", tmp_path / "other")
+    other.mkdir(parents=True)
+    shutil.copy(base / "manifest.toml", other / "manifest.toml")  # names version 1.0+1
+    with pytest.raises(notices.NoticeError):
+        notices.load_library_review(notices.PBS, "2.0+2", tmp_path / "other")
 
 
 def _wheel_folders() -> list[Path]:
@@ -842,11 +943,18 @@ def _policy_problems(tmp_path: Path, package: dict[str, Any], known: list[dict[s
 
 
 def test_public_domain_counts_as_permissive(tmp_path: Path) -> None:
-    """D-16: a public-domain dedication (LicenseRef-Public-Domain) is permissive, another LicenseRef not."""
+    """D-16: a public-domain dedication (LicenseRef-Public-Domain) is permissive, another LicenseRef only once
+    reviewed (D-17: the zlib-like terms of Stephan Brumme's code)."""
     assert "LicenseRef-Public-Domain" in notices.BUNDLED_ALLOWED
     assert _policy_problems(tmp_path, _mit("a", spdx="MIT AND LicenseRef-Public-Domain"), []) == []
-    other = _policy_problems(tmp_path, _mit("a", spdx="MIT AND LicenseRef-Brumme-Disclaimer"), [])
+    other = _policy_problems(tmp_path, _mit("a", spdx="MIT AND LicenseRef-Not-Stated"), [])
     assert len(other) == 1 and "is not permissive" in other[0]
+    d17 = {"LicenseRef-Brumme-Disclaimer", "Unicode-3.0", "Unlicense", "W3C-20150513"}
+    assert d17 <= notices.BUNDLED_ALLOWED and d17 <= notices.SITE_ALLOWED
+    assert _policy_problems(tmp_path, _mit("a", spdx="MIT AND LicenseRef-Brumme-Disclaimer"), []) == []
+    # the libraries of the bundled Python add the Tcl, X11 and bzip2 terms, never a copyleft licence
+    assert {"TCL", "X11", "bzip2-1.0.6", "LicenseRef-itcl"} <= notices.LIBRARY_ALLOWED
+    assert not {unit for unit in notices.LIBRARY_ALLOWED if "GPL" in unit or "MPL" in unit}
 
 
 def test_a_choice_with_a_permissive_option_is_permissive(tmp_path: Path) -> None:
@@ -880,17 +988,17 @@ def test_a_choice_with_a_permissive_option_is_permissive(tmp_path: Path) -> None
 def test_licences_of_parts_without_texts_wait_with_their_gap(tmp_path: Path) -> None:
     """A licence of parts whose texts are missing (pending_licences) passes only together with the text
     gap (pending), which keeps --check failing; it is no decision of its own."""
-    spdx = "MIT AND LicenseRef-Brumme-Disclaimer"
-    waiting = _mit("a", spdx=spdx, pending="gap:a", pending_licences=["LicenseRef-Brumme-Disclaimer"])
-    known = [{"component": "gap:a", "what": "texts of LicenseRef-Brumme-Disclaimer"}]
+    spdx = "MIT AND LicenseRef-Not-Stated"
+    waiting = _mit("a", spdx=spdx, pending="gap:a", pending_licences=["LicenseRef-Not-Stated"])
+    known = [{"component": "gap:a", "what": "texts of LicenseRef-Not-Stated"}]
     assert _policy_problems(tmp_path, waiting, known) == []
-    without_gap = _mit("a", spdx=spdx, pending_licences=["LicenseRef-Brumme-Disclaimer"])
+    without_gap = _mit("a", spdx=spdx, pending_licences=["LicenseRef-Not-Stated"])
     found = _policy_problems(tmp_path, without_gap, [])
     assert any("pending_licences without a gap" in p for p in found)
     assert any("is not permissive" in p for p in found)
-    stale = _mit("a", pending="gap:a", pending_licences=["LicenseRef-Brumme-Disclaimer"])
+    stale = _mit("a", pending="gap:a", pending_licences=["LicenseRef-Not-Stated"])
     assert any(
-        "pending licence LicenseRef-Brumme-Disclaimer is not part" in p
+        "pending licence LicenseRef-Not-Stated is not part" in p
         for p in _policy_problems(tmp_path, stale, known)
     )
     # a pending licence never excuses one that is outside the policy and not listed as pending
@@ -898,7 +1006,7 @@ def test_licences_of_parts_without_texts_wait_with_their_gap(tmp_path: Path) -> 
         "a",
         spdx=spdx + " AND GPL-3.0-only",
         pending="gap:a",
-        pending_licences=["LicenseRef-Brumme-Disclaimer"],
+        pending_licences=["LicenseRef-Not-Stated"],
     )
     assert any("is not permissive" in p for p in _policy_problems(tmp_path, other, known))
 
@@ -916,8 +1024,10 @@ def test_the_notices_name_the_chosen_option(tmp_path: Path) -> None:
 
 
 def test_committed_hash_wasm_follows_the_licence_policy() -> None:
-    """D-16 applied to hash-wasm 4.12.0: no owner decision is pending any more, both choices name Apache-2.0
-    (whose text is attached), and only the licences of the parts without texts wait with the text gap."""
+    """D-16 applied to hash-wasm 4.12.0: no owner decision is pending any more and both choices name
+    Apache-2.0 (whose text is attached). D-17 closed its text gap: the Brumme parts carry the excerpt of the
+    licence section of Stephan Brumme's page (with the page's SHA-256), argon2 the BSD-3-Clause LICENSE of
+    the Go code it is based on."""
     locked = next(
         p for p in notices.runtime_packages("linux_x86_64") if canonicalize_name(p.name) == notices.VALIDATOR
     )
@@ -929,12 +1039,20 @@ def test_committed_hash_wasm_follows_the_licence_policy() -> None:
         ("CC0-1.0 OR Apache-2.0", "Apache-2.0"),
     }
     assert "LICENSES/Apache-2.0.txt" in {t.label for t in hash_wasm.texts}
-    assert set(hash_wasm.pending_licences) == {"LicenseRef-Brumme-Disclaimer", "LicenseRef-Not-Stated"}
+    assert not hash_wasm.pending_licences and not hash_wasm.pending
+    units = notices.spdx_units(hash_wasm.spdx)
+    assert {"LicenseRef-Brumme-Disclaimer", "BSD-3-Clause"} <= units and "LicenseRef-Not-Stated" not in units
+    by_kind = {t.kind: t for t in hash_wasm.texts if "brumme" in t.label or "argon2-golang" in t.label}
+    assert set(by_kind) == {"page excerpt", "licence file"}
+    excerpt = by_kind["page excerpt"]
+    assert excerpt.url == "https://create.stephan-brumme.com/disclaimer.html"
+    assert "5f715c9dbeb48101fe36b28ceeb7af56325d20534bfdd791eebad8a622189ef1" in excerpt.origin
+    assert excerpt.path.read_text(encoding="utf-8").startswith("License\n\nUnless otherwise noted,")
+    assert by_kind["licence file"].url.startswith("https://raw.githubusercontent.com/golang/crypto/948cd5f3")
     outside, problems = notices.licence_policy(hash_wasm, notices.BUNDLED_ALLOWED)
     assert outside == set() and problems == []
     gaps = {item["component"]: item for item in notices.load_known_missing()}
-    assert hash_wasm.pending in gaps and not gaps[hash_wasm.pending].get("decision")
-    assert not [c for c, item in gaps.items() if "hash-wasm" in c and item.get("decision")]
+    assert not [c for c in gaps if "hash-wasm" in c]
     committed = _committed()
     assert (
         "- npm hash-wasm 4.12.0: CC0-1.0 OR OpenSSL OR Apache-2.0 (blake2b, blake2s) - chosen: Apache-2.0"
@@ -982,6 +1100,7 @@ def test_committed_validator_texts_match_their_manifest() -> None:
     known = {item["component"] for item in gaps}
     decisions = {item["component"]: item for item in gaps if item.get("decision")}
     listed = set()
+    crlf = []
     excepted = {
         (e.registry, e.package, e.version): notices.spdx_units(e.spdx)
         for e in notices.load_bundled_exceptions()
@@ -1005,13 +1124,24 @@ def test_committed_validator_texts_match_their_manifest() -> None:
         for text in package.texts:
             data = text.path.read_bytes()
             assert hashlib.sha256(data).hexdigest() == text.sha256 and len(data) == text.size, text.label
-            assert b"\r" not in data, text.label  # LF only: git (eol=lf) keeps the bytes and the hash
-            assert text.kind in {"licence file", "source header", "standard text"}, text.label
-            if text.kind == "licence file":
-                assert text.url.startswith(("https://registry.npmjs.org/", "https://jsr.io/")), text.label
+            if b"\r" in data:
+                crlf.append(text.label)
+            assert text.kind in {"licence file", "source header", "standard text", "page excerpt"}, text.label
+            if text.kind == "licence file":  # D-15: npm and jsr; D-17: the repositories on GitHub
+                assert text.url.startswith(
+                    ("https://registry.npmjs.org/", "https://jsr.io/", "https://raw.githubusercontent.com/")
+                ), text.label
             listed.add(text.path.resolve())
     stored = {p.resolve() for p in base.rglob("*") if p.is_file() and p.name != "manifest.toml"}
     assert stored <= listed, sorted(str(p) for p in stored - listed)
+    # LF only, so that git (eol=lf) keeps the bytes and the hash; the one exception is the LICENSE of
+    # @jspm/core 2.1.0, kept with the CRLF endings of its npm tarball (D-17), which .gitattributes marks -text
+    assert crlf == ["npm/@jspm/core@2.1.0/LICENSE"], crlf
+    path = (base / crlf[0]).relative_to(ROOT).as_posix()
+    attributes = subprocess.run(
+        ["git", "check-attr", "text", "--", path], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout
+    assert attributes.strip() == f"{path}: text: unset", attributes
     assert len({p.key for p in packages}) == len(packages) > 70
     schema = next(p for p in packages if p.name == "@bids/schema")
     assert schema.spdx == "CC-BY-4.0" and schema.texts[0].label.endswith("@bids/schema@1.2.7/LICENSE")
@@ -1023,6 +1153,15 @@ def test_committed_validator_texts_match_their_manifest() -> None:
     # hash-wasm: the expression of all its stored headers, not only the MIT of its LICENSE
     hash_wasm = notices.spdx_units(by_name["hash-wasm"].spdx)
     assert {"MIT", "0BSD", "Zlib", "BSD-2-Clause", "Apache-2.0", "CC0-1.0", "OpenSSL"} <= hash_wasm
+    # D-17: a package without a version in the source map has the version of its lockfile, openly marked
+    # where only the lockfile proves it (the 33 packages inside @jspm/core)
+    jspm = by_name["@jspm/core"]
+    assert jspm.version == "2.1.0" and len(jspm.texts) == 34 and "nur über Lockfile belegt" in jspm.note
+    inside = [t for t in jspm.texts if t.label != "npm/@jspm/core@2.1.0/LICENSE"]
+    assert all("version only proven by the jspm-core lockfile" in t.origin for t in inside)
+    nested = [p for p in packages if p.found == "in hed-validator@4.2.0"]
+    assert len(nested) == 9 and all(p.version and p.texts and p.spdx for p in nested)
+    assert "Unicode-3.0" in notices.spdx_units(by_name["unicode-name"].spdx)
     manifest = tomllib.loads((base / "manifest.toml").read_text(encoding="utf-8"))
     assert "only to extract" in manifest["downloads"] and "no tarball is kept" in manifest["downloads"]
 
@@ -1321,7 +1460,19 @@ def test_the_documentation_site_is_reviewed_and_listed_in_the_notices() -> None:
         assert name in section, name
     assert "assets/javascripts/lunr/**, **/*.map" in section
     gaps = text.split("\n5. ", 1)[1].split("\n6. ", 1)[0]
-    assert "docs-site:focus-visible" in gaps and "docs-site:material-design-color" in gaps
+    assert "docs-site:" not in gaps  # D-17: focus-visible and material-design-color have their texts
+    by_name = {p.name: p for p in review.packages}
+    focus, colours = by_name["focus-visible"], by_name["material-design-color"]
+    assert (focus.version, focus.spdx, colours.version, colours.spdx) == (
+        "5.2.1",
+        "W3C-20150513",
+        "2.3.2",
+        "MIT",
+    )
+    assert {t.kind for t in focus.texts} == {"licence file", "standard text"} and not focus.pending
+    # D-17: the project names no copyright line, and the notices invent none; they name the repository
+    assert "none is made up" in focus.note and "https://github.com/WICG/focus-visible" in focus.note
+    assert "only the one the package-lock.json" in colours.note
     users = [line for line in text.splitlines() if line.startswith("Used by: documentation site")]
     for part in (
         "pypi mkdocs-material 9.7.7",
@@ -1333,6 +1484,8 @@ def test_the_documentation_site_is_reviewed_and_listed_in_the_notices() -> None:
     texts = list(notices.iter_texts(text))
     assert any("Licensed MIT © Zeno Rocha" in t for t in texts)
     assert any(t.startswith("Pictogrammers Free License") for t in texts)
+    assert any("W3C Software and Document" in t for t in texts)
+    assert any(t.startswith("The MIT License (MIT)\n\nCopyright (c) Denis Malinochkin") for t in texts)
 
 
 def test_a_documentation_site_review_names_each_gap(tmp_path: Path) -> None:
