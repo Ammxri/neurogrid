@@ -49,5 +49,11 @@ results.json and manifest writes .neurogrid/manifest.json inside the dataset. No
 
 文档 / Documentation: docs/index.html (中文: docs/zh/index.html)
 许可 / Licences: LICENSE, NOTICE, THIRD_PARTY_NOTICES.txt - 源代码 / source code: src/neurogrid-{{version}}.tar.gz
-未经验证 / Not verified: Windows 10; Linux distributions other than Debian 12 and Ubuntu 22.04+.
+平台 / Platforms: Windows 11 已在本地验证。离线安装包已在 CI 中于 Windows Server（Windows PowerShell 5.1 和
+PowerShell 7）、Debian 12、Ubuntu 22.04 和 Ubuntu 24.04 上验证；Linux 和 Windows 运行器上的测试套件尚未验证。
+Windows 10、Windows 11 上的 PowerShell 7 以及 24.04 之后的 Ubuntu 版本未验证；其他 Linux 发行版和 ARM64 不受支持。
+Windows 11 is verified locally. In the CI the offline bundle is verified on Windows Server (Windows PowerShell 5.1
+and PowerShell 7), Debian 12, Ubuntu 22.04 and Ubuntu 24.04; the test suite on Linux and on the Windows runner is
+not yet verified. Windows 10, PowerShell 7 on Windows 11 and Ubuntu releases after 24.04 are not verified; other
+Linux distributions and ARM64 are not supported.
 签名者身份 / Signer identity: {{identity}}
