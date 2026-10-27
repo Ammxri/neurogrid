@@ -18,11 +18,15 @@ installed once; HTML reports work without it.
 | Linux ARM64, macOS | not supported |
 
 "Verified locally" means: the test suite and every command run on this system. "Offline bundle verified in CI"
-means: in the CI (GitHub Actions) the offline bundle was installed in a clean room – a fresh folder or container
-without network and without a preinstalled Python, on Linux as an unprivileged user – and every command of version
-0.1 ran from the installation, PDF reports on Windows and on Debian 12 included; no program of the bundle opened a
-network connection ([Privacy](privacy.md#check-yourself)). "Test suite not yet verified" means: the CI runs of the
-test suite on these systems do not pass yet. "Not verified" means: NeuroGrid is built for these systems, but no
+means: in the CI (GitHub Actions) the offline bundle was installed in a clean room and every command of version 0.1
+ran from the installation, PDF reports on Windows and on Debian 12 included. On Linux the clean room is a fresh
+container without network (`--network none`) and without a preinstalled Python, run as an unprivileged user. On
+Windows it is a fresh folder on the runner, whose network stays on: no Python or uv is reachable on `PATH` (the
+runner's preinstalled Python stays installed, only its folders are removed from `PATH`), an outbound firewall rule
+blocks every program of the bundle, the installation and the PDF browser, and the Windows Filtering Platform audits
+every connection; a connection or attempt of these programs to an address other than loopback fails the run
+([Privacy](privacy.md#check-yourself)). "Test suite not yet verified" means: the CI runs of the test suite on these
+systems do not pass yet. "Not verified" means: NeuroGrid is built for these systems, but no
 test run on them has been recorded yet.
 Python 3.11–3.13 is supported; the offline bundle brings its own Python 3.12.
 

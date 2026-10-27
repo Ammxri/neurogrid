@@ -755,6 +755,69 @@ def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
         assert any(AUDIT_HOOK_PENDING[lang] in status for status in statuses), lang
 
 
+CLEANROOM_LINUX = ROOT / "packaging" / "ci" / "cleanroom_linux.sh"
+CLEANROOM_INSIDE = ROOT / "packaging" / "ci" / "cleanroom_inside.sh"
+# What "offline bundle verified in CI" means, per platform, as the clean-room scripts do it.
+CLEAN_ROOM = {
+    "en": {
+        "linux": (
+            "On Linux the clean room is a fresh container without network (`--network none`) and without a "
+            "preinstalled Python, run as an unprivileged user."
+        ),
+        "windows": (
+            "On Windows it is a fresh folder on the runner, whose network stays on: no Python or uv is"
+            " reachable on `PATH` (the runner's preinstalled Python stays installed, only its folders are"
+            " removed from `PATH`), an outbound firewall rule blocks every program of the bundle, the"
+            " installation and the PDF browser, and the Windows Filtering Platform audits every connection;"
+            " a connection or attempt of these programs to an address other than loopback fails the run"
+        ),
+    },
+    "zh": {
+        "linux": (
+            "在 Linux 上，洁净环境是一个全新的容器，没有网络（`--network none`），没有预装的 Python，以无特"
+            "权用户身份运行。"
+        ),
+        "windows": (
+            "在 Windows 上，它是运行器上的一个全新文件夹，运行器的网络保持开启：`PATH` 上找不到任何 Python "
+            "或 uv（运行器预装的 Python 仍然安装着，只是其文件夹已从 `PATH` 中移除），一条出站防火墙规则阻"
+            "止安装包、安装位置和 PDF 浏览器的每个程序，Windows 筛选平台审计每次连接；这些程序向回环地址以"
+            "外的地址发起的任何连接或连接尝试都会使运行失败"
+        ),
+    },
+}
+NO_NETWORK_FOR_BOTH = {
+    "en": "a fresh folder or container without network",
+    "zh": "全新的文件夹或容器，没有网络",
+}
+
+
+def test_clean_room_definition_matches_each_platforms_clean_room() -> None:
+    """V-06, NG-N01, TECH-06: installation.md defined "offline bundle verified in CI" as a clean room that is
+    "a fresh folder or container without network and without a preinstalled Python" for both platforms. Only
+    the Linux room is that (cleanroom_linux.sh: --network none, an image without Python, uid 1000). The
+    Windows room keeps the runner's network: it takes Python and uv off PATH (the runner's Python stays
+    installed), blocks every .exe of the bundle, the installation and the PDF browser with an outbound
+    firewall rule and audits every connection with the Windows Filtering Platform. The definition now says
+    so per platform; the facts are read from the scripts."""
+    linux = " ".join(CLEANROOM_LINUX.read_text(encoding="utf-8").split())
+    assert "docker run --rm --network none --user 1000:1000" in linux
+    inside = CLEANROOM_INSIDE.read_text(encoding="utf-8")
+    assert "the image has a Python interpreter: not a clean room" in inside
+    windows = " ".join(CLEANROOM_WINDOWS.read_text(encoding="utf-8-sig").split())
+    assert "-Direction Outbound -Action Block -Program $_.FullName" in windows
+    assert "auditpol /set /subcategory:$wfpConnection" in windows  # Filtering Platform Connection audit
+    assert r'$env:PATH = "$env:SystemRoot\System32;$env:SystemRoot;' in windows
+    assert "python or uv is reachable on PATH: not a clean room" in windows
+    # the Windows room never takes the runner off the network: nothing disables an adapter or isolates it
+    assert not [word for word in ("Disable-NetAdapter", "--network none", "-Isolation") if word in windows]
+    for lang in LANGUAGES:
+        platforms = _anchored(_page(lang, "installation.md"))["platforms"]
+        flat = re.sub(r"\s+", "", platforms)
+        assert re.sub(r"\s+", "", NO_NETWORK_FOR_BOTH[lang]) not in flat, lang
+        for room, sentence in CLEAN_ROOM[lang].items():
+            assert re.sub(r"\s+", "", sentence) in flat, (lang, room)
+
+
 def test_firewall_check_blocks_what_the_ci_blocks() -> None:
     """NG-N01, A-49: 'Check it yourself' on Windows blocks every .exe of the installation and of the PDF
     browser folder with the rule the Windows clean room adds (cleanroom_windows.ps1 Block-Executables),
