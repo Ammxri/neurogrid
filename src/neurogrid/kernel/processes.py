@@ -11,14 +11,21 @@ layers keep every such line off the console:
   it starts the child; fork, spawn and the forkserver (with its children) inherit them. Its pending output
   is written to the console before. From its first instruction on, nothing a worker writes reaches the
   console: interpreter start, unpickling of its start data, the bootstrap of multiprocessing and its
-  error output.
+  error output. With spawn and forkserver ``pool_context`` also starts multiprocessing's resource tracker
+  that way, before a pool's first semaphore would start it with the console.
 - **Initializer:** ``to_null_device`` is the first step of every initializer (pool and loky workers). It
   points descriptors 0-2 and the sys streams at the null device again, so that the processes such a worker
   starts itself (loky's workers and resource tracker) inherit the null device as well.
 
 What the parent needs from a worker reaches it through the pool: values, exceptions as data and the death
-of a worker (BrokenProcessPool). ``--debug`` changes nothing here; its cleaned traceback is that of
-NeuroGrid's own process (A-51).
+of a worker (BrokenProcessPool), which ``check`` names in a translated note (``quality.compute_all``,
+``on_recompute``). ``--debug`` changes nothing here; its cleaned traceback is that of NeuroGrid's own
+process (A-51).
+
+Not covered: output that a library writes to the console device itself (Windows ``CONOUT$`` or
+``msvcrt.putwch``, POSIX ``/dev/tty``). The workers stay attached to the console (no CREATE_NO_WINDOW,
+DETACHED_PROCESS or setsid) because Ctrl+C has to end them too; detached, the run would wait for their
+running tasks after Ctrl+C. No code a worker runs was found to write there (A-89).
 
 The worker deaths of the G1 finding (WinError 6 at ``call_queue.get``) came from CPython's WMI query, see
 ``avoid_wmi``; NeuroGrid's processes call it before any library can ask ``platform``.
@@ -280,6 +287,23 @@ else:
 
         _QUIET["forkserver"] = QuietForkServerContext
 
+    def _quiet_resource_tracker(method: str) -> None:
+        """spawn and forkserver: multiprocessing's resource tracker runs on the null device.
+
+        With these methods a pool's semaphores are named (fork unlinks them at once) and registered with
+        the tracker, which the first of them starts in ``ProcessPoolExecutor.__init__``, before any process
+        of the pool and so outside ``null_descriptors``: the tracker inherits descriptors 0-2 and gets
+        ``sys.stderr.fileno()``. If this process ends without its finalizers (SIGTERM, SIGKILL, the OOM
+        killer), the tracker would print ``resource_tracker: There appear to be N leaked semaphore objects``
+        with its install path. Started here, inside ``null_descriptors``, it writes to the null device; a
+        running tracker is only probed, one that died is started again here."""
+        if method == "fork":
+            return
+        from multiprocessing import resource_tracker
+
+        with null_descriptors():
+            resource_tracker.ensure_running()
+
 
 def default_start_method() -> str:
     """The start method a pool would use: the one set for this process, otherwise the platform's default
@@ -289,12 +313,15 @@ def default_start_method() -> str:
 
 def pool_context(method: str | None = None) -> mp_context.BaseContext:
     """The multiprocessing context for NeuroGrid's process pools (``mp_context=``): ``method`` or the
-    default start method, with processes that start on the null device."""
+    default start method, with processes that start on the null device. On POSIX with spawn or forkserver
+    multiprocessing's resource tracker, which a new pool uses at once, is started on the null device too."""
     name = method or default_start_method()
     if name not in _CONTEXTS:
         if name not in _QUIET:
             raise ValueError(f"unsupported start method: {name}")
         _CONTEXTS[name] = _QUIET[name]()
+    if sys.platform != "win32":
+        _quiet_resource_tracker(name)
     return _CONTEXTS[name]
 
 

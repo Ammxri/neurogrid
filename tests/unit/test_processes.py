@@ -169,3 +169,52 @@ def test_avoid_wmi_keeps_platform_answering_without_a_wmi_query() -> None:
         [sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8", check=True
     )
     assert done.stdout.strip() == "0"
+
+
+NAMED = [method for method in METHODS if method != "fork"]  # their semaphores are named (POSIX)
+_KILLED_WITH_A_POOL = """
+import multiprocessing, os, signal, sys
+from concurrent.futures import ProcessPoolExecutor
+method, quiet = sys.argv[1], sys.argv[2] == "quiet"
+multiprocessing.set_start_method(method)
+if quiet:
+    from neurogrid import quality
+    pool = quality._pool(2)  # as compute_all creates it
+else:
+    pool = ProcessPoolExecutor(max_workers=2, mp_context=multiprocessing.get_context(method))
+print(pool._call_queue._sem._semlock.name, flush=True)
+os.kill(os.getpid(), signal.SIGKILL)  # no finalizer runs: the semaphores are left to the tracker
+"""
+
+
+def _killed_with_a_pool(method: str, how: str) -> subprocess.CompletedProcess[bytes]:
+    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONWARNDEFAULTENCODING", "PYTHONWARNINGS")}
+    return subprocess.run(
+        [sys.executable, "-c", _KILLED_WITH_A_POOL, method, how],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        env=env,
+        timeout=180,
+        check=False,
+    )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX: multiprocessing's resource tracker")
+@pytest.mark.parametrize("method", NAMED)
+def test_the_resource_tracker_of_a_pool_has_no_console(method: str) -> None:
+    """spawn and forkserver: a pool's semaphores register with multiprocessing's resource tracker, which
+    ProcessPoolExecutor.__init__ would start with the console. NeuroGrid's process is killed while the pool
+    exists (SIGKILL: no finalizer): the tracker still cleans up, but its 'leaked semaphore objects' warning
+    with its install path goes to the null device. Counter-check: a plain pool's tracker prints it."""
+    import signal
+
+    plain = _killed_with_a_pool(method, "plain")
+    assert plain.returncode == -signal.SIGKILL
+    assert b"leaked semaphore" in plain.stderr, plain.stderr.decode("utf-8", "replace")
+    done = _killed_with_a_pool(method, "quiet")
+    assert done.returncode == -signal.SIGKILL, done.stderr.decode("utf-8", "replace")
+    assert done.stderr == b"", done.stderr.decode("utf-8", "replace")
+    name = done.stdout.decode("ascii").strip()
+    assert name.startswith("/")
+    if Path("/dev/shm").is_dir():  # Linux: the tracker did unlink the semaphore
+        assert not Path("/dev/shm", "sem." + name[1:]).exists()
