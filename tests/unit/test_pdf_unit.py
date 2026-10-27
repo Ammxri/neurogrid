@@ -23,6 +23,7 @@ from pypdf.generic import (
     DecodedStreamObject,
     DictionaryObject,
     NameObject,
+    NumberObject,
 )
 
 from conftest import holding_process, short_folder, wait_released  # type: ignore[import-not-found]
@@ -407,6 +408,17 @@ def test_linux_package_table_matches_playwright_driver() -> None:
             linux_pdf_packages.parse_deps(code)
 
 
+def test_text_is_laid_out_at_the_fonts_advances(tmp_path: Path) -> None:
+    """CI run of 55335ca (ubuntu-24.04): the zh report printed there held rule IDs on no line of its text.
+    The headless shell's default font render hinting 'full' puts every glyph at a hinted whole-pixel
+    position on Linux (Chromium 153.0.8010.12, see pdf.TEXT_LAYOUT_FLAG); every launch passes 'none', once,
+    as a fixed flag (tests/integration/test_report_pdf.py: test_font_render_hinting_is_read_by_the_shell)."""
+    assert pdf.TEXT_LAYOUT_FLAG == "--font-render-hinting=none"
+    assert pdf.TEXT_LAYOUT_FLAG in CHROMIUM_FLAGS
+    hinting = [a for a in pdf.launch_arguments(tmp_path) if a.startswith("--font-render-hinting")]
+    assert hinting == ["--font-render-hinting=none"]
+
+
 def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The browser is always the located shell (executable_path), never a channel; the flags are fixed."""
     assert CHROMIUM_FLAGS == (
@@ -418,6 +430,7 @@ def test_launch_arguments_fixed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         "--disable-sync",
         "--proxy-server=direct://",
         "--host-resolver-rules=MAP * ~NOTFOUND",
+        "--font-render-hinting=none",
     )
     launched: dict[str, Any] = {}
     environment_at_start: dict[str, str | None] = {}
@@ -1013,7 +1026,11 @@ def _pdf(
     form_fonts: dict[str, DictionaryObject] | None = None,
     xmp: bool = False,
     pages: int = 1,
+    content: bytes = b"",
+    form_content: bytes = b"",
 ) -> bytes:
+    """``content``: the page's content stream; ``form_content``: that of the form /X1 (with
+    ``form_fonts``), which ``content`` draws with '/X1 Do'."""
     writer = pypdf.PdfWriter()
     for _ in range(pages):
         page = writer.add_blank_page(595, 842)
@@ -1024,10 +1041,12 @@ def _pdf(
             )
         if form_fonts:
             form = DecodedStreamObject()
+            form.set_data(form_content)
             form.update(
                 {
                     NameObject("/Type"): NameObject("/XObject"),
                     NameObject("/Subtype"): NameObject("/Form"),
+                    NameObject("/BBox"): ArrayObject([NumberObject(v) for v in (0, 0, 595, 842)]),
                     NameObject("/Resources"): DictionaryObject(
                         {
                             NameObject("/Font"): DictionaryObject(
@@ -1041,6 +1060,10 @@ def _pdf(
                 {NameObject("/X1"): writer._add_object(form)}
             )
         page[NameObject("/Resources")] = resources
+        if content:
+            stream = DecodedStreamObject()
+            stream.set_data(content)
+            page[NameObject("/Contents")] = writer._add_object(stream)
     metadata = (
         info
         if info is not None
@@ -1066,16 +1089,27 @@ def _type0(
     cid: str = "/CIDFontType2",
     file: str = "/FontFile2",
     tounicode: bool = True,
+    encoding: str = "/Identity-H",
+    cid_to_gid: bytes | None = None,
 ) -> DictionaryObject:
+    """A Type0 font as Chromium (Skia) embeds a TrueType subset: Identity-H encoding, CIDFontType2 with
+    FontFile2 and, unless ``cid_to_gid`` gives a map stream, CIDToGIDMap /Identity."""
     descriptor = DictionaryObject({NameObject(file): DecodedStreamObject()})
     descendant = DictionaryObject(
         {NameObject("/Subtype"): NameObject(cid), NameObject("/FontDescriptor"): descriptor}
     )
+    if cid_to_gid is None:
+        descendant[NameObject("/CIDToGIDMap")] = NameObject("/Identity")
+    else:
+        mapping = DecodedStreamObject()
+        mapping.set_data(cid_to_gid)
+        descendant[NameObject("/CIDToGIDMap")] = mapping
     font = DictionaryObject(
         {
             NameObject("/Type"): NameObject("/Font"),
             NameObject("/Subtype"): NameObject("/Type0"),
             NameObject("/BaseFont"): NameObject(base),
+            NameObject("/Encoding"): NameObject(encoding),
             NameObject("/DescendantFonts"): ArrayObject([descendant]),
         }
     )
@@ -1112,6 +1146,18 @@ def test_qa_gate_on_built_pdfs() -> None:
         assert code in pdf.qa_gate(_pdf(fonts=used), EXPECT), code
     assert pdf.qa_gate(_pdf(fonts={"/F1": _type0(cid="/CIDFontType0")}), EXPECT) == ["font_not_cid_truetype"]
     assert pdf.qa_gate(_pdf(fonts={"/F1": _type0(file="/FontFile3")}), EXPECT) == ["font_not_cid_truetype"]
+    # glyph codes the gate cannot read as CIDs (a CMap other than Identity): never written by Chromium
+    assert pdf.qa_gate(_pdf(fonts={"/F1": _type0(encoding="/UniGB-UCS2-H")}), EXPECT) == [
+        "font_not_cid_truetype"
+    ]
+    # an embedded CMap is a stream: no Identity encoding either, and the gate does not stop on it (a stream
+    # is a dictionary, which the lookup of the encoding names could not hash: TypeError before)
+    embedded = _type0()
+    embedded[NameObject("/Encoding")] = DecodedStreamObject()
+    for content in (b"", _shows("0000")):
+        assert pdf.qa_gate(_pdf(fonts={"/F1": embedded}, content=content), EXPECT) == [
+            "font_not_cid_truetype"
+        ], content
     assert pdf.qa_gate(_pdf(form_fonts={"/F9": _simple("/Type3")}), EXPECT) == ["font_type3"]  # inside a form
     assert pdf.qa_gate(_pdf(fonts={"/F1": _type0("/SegoeUISymbol")}), EXPECT) == ["font_not_report_font"]
     assert pdf.qa_gate(_pdf(fonts={"/F1": _type0("/NotoSansSC-Regular")}), EXPECT) == ["font_not_report_font"]
@@ -1151,6 +1197,57 @@ def test_qa_gate_metadata_phrases_and_requests() -> None:
     ]
     assert pdf.qa_gate(b"not a pdf", EXPECT) == ["unreadable"]
     assert pdf.pdf_text(_pdf(pages=2)) == ["", ""]
+
+
+def _shows(codes: str, font: str = "/F1") -> bytes:
+    """A text object that shows the hex string ``codes`` in ``font``."""
+    return f"BT {font} 12 Tf 72 720 Td <{codes}> Tj ET".encode()
+
+
+def test_qa_gate_finds_a_shown_glyph_zero() -> None:
+    """CI run of 55335ca (ubuntu-24.04): with no system font for a character, Chromium draws the .notdef
+    glyph (glyph 0, an empty box) of the report font, so a PDF that embeds only report fonts and whose text
+    holds nothing wrong passed the gate. Glyph 0 shown in a report font fails it (glyph_missing): with
+    Tj, TJ, ' and ", on the page and inside a form, through a CIDToGIDMap stream; two zero bytes across two
+    codes (0x0100 0x0012) and code 0 of a Type3 font (1-byte codes, failed by the font check) are not."""
+    report = {"/F1": _type0(), "/F2": _type0("/BAAAAA+NotoSansSC-Bold")}
+    assert pdf.qa_gate(_pdf(fonts=report, content=_shows("00120013")), EXPECT) == []
+    assert pdf.qa_gate(_pdf(fonts=report, content=_shows("01000012")), EXPECT) == []  # 0x0100, 0x0012
+    for content in (
+        _shows("00120000"),
+        _shows("0000", "/F2"),
+        b"BT /F1 12 Tf 72 720 Td [<0012> -120 <0000>] TJ ET",
+        b"BT /F1 12 Tf 72 720 Td 14 TL <0000> ' ET",
+        b'BT /F1 12 Tf 72 720 Td 14 TL 0 0 <0000> " ET',
+        b"q BT /F2 12 Tf ET Q BT /F1 12 Tf ET q BT <0000> Tj ET Q",  # the font survives q/Q
+    ):
+        assert pdf.qa_gate(_pdf(fonts=report, content=content), EXPECT) == ["glyph_missing"], content
+    # the font of a Tf before the form is not the form's: /F1 of the form is its own resource
+    shown_in_form = _pdf(
+        fonts={"/F1": _type0(cid_to_gid=b"\x00\x05\x00\x00")},  # the page's /F1 maps CID 1 to glyph 0
+        form_fonts={"/F1": _type0()},
+        content=b"BT /F1 12 Tf ET /X1 Do",
+        form_content=_shows("0001"),
+    )
+    assert pdf.qa_gate(shown_in_form, EXPECT) == []
+    for form_content in (_shows("0000"), b"BT /F1 12 Tf 72 720 Td [<0000>] TJ ET"):
+        inside = _pdf(
+            fonts=report, form_fonts={"/F1": _type0()}, content=b"/X1 Do", form_content=form_content
+        )
+        assert pdf.qa_gate(inside, EXPECT) == ["glyph_missing"], form_content
+    after_form = _pdf(  # the page's font is back after the form
+        fonts={"/F1": _type0()},
+        form_fonts={"/F7": _type0(cid_to_gid=b"\x00\x05")},
+        content=b"BT /F1 12 Tf ET /X1 Do BT <0000> Tj ET",
+        form_content=b"BT /F7 12 Tf <0000> Tj ET",
+    )
+    assert pdf.qa_gate(after_form, EXPECT) == ["glyph_missing"]
+    mapped = {"/F1": _type0(cid_to_gid=b"\x00\x05\x00\x00\x00\x07")}  # CID 0 -> 5, 1 -> 0, 2 -> 7
+    assert pdf.qa_gate(_pdf(fonts=mapped, content=_shows("00000002")), EXPECT) == []
+    assert pdf.qa_gate(_pdf(fonts=mapped, content=_shows("0001")), EXPECT) == ["glyph_missing"]
+    assert pdf.qa_gate(_pdf(fonts=mapped, content=_shows("0003")), EXPECT) == ["glyph_missing"]  # beyond
+    type3 = _pdf(fonts={"/F1": _simple("/Type3")}, content=_shows("0000"))
+    assert pdf.qa_gate(type3, EXPECT) == ["font_type3"]
 
 
 def test_qa_gate_finds_radicals_and_reads_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

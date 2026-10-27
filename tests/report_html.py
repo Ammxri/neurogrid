@@ -63,4 +63,11 @@ def visible_text(markup: str) -> str:
     return re.sub(r"\s+", " ", html_lib.unescape(without_tags)).strip()
 
 
-__all__ = ["FINDING_CELLS", "finding_rows", "section", "visible_text"]
+def inline_text(markup: str) -> str:
+    """The text of ``markup`` (no style element in it) with its tags removed and nothing put in their place,
+    entities resolved: inline markup such as the span that keeps a rule ID on one line joins its
+    neighbours, as on the page."""
+    return html_lib.unescape(re.sub(r"<[^>]*>", "", markup))
+
+
+__all__ = ["FINDING_CELLS", "finding_rows", "inline_text", "section", "visible_text"]

@@ -183,11 +183,13 @@ def test_report_html_scales_to_1000_recordings_x_64_channels(
         assert html == (tmp_path / "b" / f"report.{lang}.html").read_text(encoding="utf-8")  # NG-N03
         sizes[lang] = len(html.encode("utf-8"))
         tr = translator(lang).t
+        # as the reader sees it: the rule ID in the remainder sentence stands in a span that never wraps
+        text = html_lib.unescape(re.sub(r"<[^>]*>", "", html))
         for rule, total in totals.items():
             shown = len(re.findall(rf'<tr data-key="[0-9a-f]+"><td class="c-rule mono">{rule}</td>', html))
             assert shown == min(total, MAX_ROWS_PER_RULE), rule
             if total > shown:
-                assert tr("report.text.rule_more", count=total - shown, rule=rule) in html_lib.unescape(html)
+                assert tr("report.text.rule_more", count=total - shown, rule=rule) in text
         assert html.count('<tr data-recording="') == RECORDINGS
     _record(f"report-html-{case}", {**first, "html_bytes": sizes, "rules": totals})
     _within(case, "html_wall_s", first["wall_s"])

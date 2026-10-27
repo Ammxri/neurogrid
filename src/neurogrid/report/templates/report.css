@@ -50,7 +50,10 @@ tr.total th, tr.total td { font-weight: 700; background: #f4f4f4; }
    EEGChannelCount, written as they are) fits its column in both report languages, so it never breaks
    mid-word (review R04); a rule ID and a date never break either: their columns hold the longest rule ID of
    the shipped packs and an ISO date (measured in the report font on the landscape page, A-84). Only dataset
-   values (file names, identifiers) can be longer than their column and break. */
+   values (file names, identifiers) can be longer than their column and break.
+   Every rule ID stands in a cell or span of its own that never wraps (td.c-rule, .nowrap), also in running
+   text (group headings, cross references in the title cells, chart captions, notices): there a line would
+   break after one of its hyphens like after any word, whatever the platform's glyph metrics. */
 table.findings, table.rules, table.metrics, table.evidence, table.sample { table-layout: fixed; }
 th, td.own { white-space: nowrap; }
 table.findings th, table.rules th, table.metrics th, table.evidence th, table.sample th, th.value {

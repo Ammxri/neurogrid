@@ -16,7 +16,7 @@
   {% if section.groups %}
   {% for group in section.groups %}
   <div class="rule-group" data-rule="{{ group.rule }}">
-    <h4>{{ group.heading }}</h4>
+    <h4><span class="nowrap">{{ group.rule }}</span>{% if group.title %} – {{ group.title }}{% endif %}</h4>
     <p class="aggregate">{{ group.aggregate }}</p>
     {{ finding_table(group) }}
     {% if group.more %}<p class="more">{{ group.more }}</p>{% endif %}
@@ -31,7 +31,7 @@
     <h3>{{ t('report.label.placeholder_findings') }} ({{ placeholder_count }})</h3>
     {% for group in placeholder_groups %}
     <div class="rule-group" data-rule="{{ group.rule }}">
-      <h4>{{ group.heading }}</h4>
+      <h4><span class="nowrap">{{ group.rule }}</span>{% if group.title %} – {{ group.title }}{% endif %}</h4>
       <p class="aggregate">{{ group.aggregate }}</p>
       {{ finding_table(group) }}
       {% if group.more %}<p class="more">{{ group.more }}</p>{% endif %}

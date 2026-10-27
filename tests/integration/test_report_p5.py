@@ -42,7 +42,7 @@ from neurogrid.report.render import (
     render_report,
 )
 from neurogrid.report.texts import disclaimer, translator
-from report_html import finding_rows, section, visible_text  # type: ignore[import-not-found]
+from report_html import finding_rows, inline_text, section, visible_text  # type: ignore[import-not-found]
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 ROOT = Path(__file__).parent.parent.parent
@@ -358,12 +358,22 @@ def test_rows_per_rule_capped_at_50_with_total(scaled: Results, lang: str) -> No
     for finding in scaled.findings:
         totals[finding.rule_id] = totals.get(finding.rule_id, 0) + 1
     assert max(totals.values()) > MAX_ROWS_PER_RULE  # the limit is reached
-    findings_text = visible_text(section(html, "findings"))
+    findings = section(html, "findings")
+    findings_text = inline_text(findings)
     for rule, total in totals.items():
         shown = sum(1 for row in rows if row["rule"] == rule)
         assert shown == min(total, MAX_ROWS_PER_RULE)
         more = tr("report.text.rule_more", count=total - shown, rule=rule)
         assert (more in findings_text) is (total > shown)
+        # P5: the rule ID in the sentence never breaks inside (a span of its own, every time it is named)
+        group = re.search(rf'<div class="rule-group" data-rule="{rule}">.*?</div>', findings, re.S)
+        paragraph = re.search(r'<p class="more">(.*?)</p>', group.group(0) if group else "", re.S)
+        if total > shown:
+            assert paragraph is not None and inline_text(paragraph.group(1)) == more
+            spans = paragraph.group(1).count(f'<span class="nowrap">{rule}</span>')
+            assert spans == more.count(rule) == 2, (lang, rule, spans)
+        else:
+            assert paragraph is None
     assert len(rows) + sum(t - min(t, MAX_ROWS_PER_RULE) for t in totals.values()) == len(scaled.findings)
     assert {row["key"] for row in rows} <= {f.key for f in scaled.findings}
 
@@ -719,7 +729,7 @@ def test_charts_one_value_per_recording_with_thresholds(quality: Results, scaled
             r'<rect class="bar" x="[\d.]+" y="[\d.]+" width="[\d.]+" height="([\d.]+)"/>', figure
         )
         assert 1 <= len(rects) <= 20
-        caption = visible_text(figure.split("<figcaption>")[1])
+        caption = inline_text(figure.split("<figcaption>")[1])  # the rule ID in its span (P5)
         assert tr("report.chart.caption", n=30, unit=tr("report.chart.unit_recordings"), missing=0) in caption
         (param,) = params[rule_of[key]].values()
         threshold = tr(
@@ -728,7 +738,7 @@ def test_charts_one_value_per_recording_with_thresholds(quality: Results, scaled
             value=render._Formatter(lang).value(param.value),
             origin=tr("report.text.origin_rulepack"),
         )
-        assert threshold in caption
+        assert threshold in caption and f'<span class="nowrap">{rule_of[key]}</span>' in figure
     m07 = dict(figures)["m07"]
     assert tr("report.chart.failed", failed=30) in visible_text(m07)  # every recording fails M07
     assert "0.407669" in visible_text(m07) and 'class="thr"' in m07
@@ -781,7 +791,7 @@ def test_kappa_chart_when_kappa_was_measured(annotated: Results, lang: str) -> N
         and rec.metrics["annotation"]["kappa"].get("mean") is not None
     ]
     assert means
-    caption = visible_text(figure.group(1).split("<figcaption>")[1])
+    caption = inline_text(figure.group(1).split("<figcaption>")[1])  # the rule ID in its span (P5)
     missing = len(annotated.recordings) - len(means)
     unit = tr("report.chart.unit_recordings")
     assert tr("report.chart.caption", n=len(means), unit=unit, missing=missing) in caption
@@ -889,7 +899,7 @@ def test_appendix_settings_equal_results_config(rich: Results, lang: str) -> Non
     params = re.findall(r'<table class="params">(.*?)</table>', appendix, flags=re.S)[0]
     for rule_id, entries in config.effective_params.items():
         for name in entries:
-            assert f'<td class="mono">{rule_id}</td><td>{name}</td>' in params
+            assert f'<td class="mono nowrap">{rule_id}</td><td>{name}</td>' in params  # never breaks
 
 
 @pytest.mark.parametrize("lang", REPORT_LANGS)
@@ -1235,6 +1245,13 @@ def test_rule_ids_and_dates_fit_their_landscape_columns() -> None:
         ("w-edate", date, 0.0),
     ):
         assert width_mm(text, spacing) <= shares[column] / 100 * content_mm, (column, text)
+    # a rule ID never wraps (nowrap); its columns keep a margin for other glyph metrics: they also hold it
+    # with half a CSS pixel more per glyph (what whole-pixel positions can add, as the Linux shell's default
+    # 'full' hinting printed in the CI run of 55335ca)
+    half_pixel_mm = 0.5 * 25.4 / 96
+    for column in ("w-rule", "w-erule"):
+        needed = width_mm(longest, 0.03) + half_pixel_mm * len(longest)
+        assert needed <= shares[column] / 100 * content_mm, (column, longest)
 
 
 # the fixed-layout tables and their font size in pt (report.css)
