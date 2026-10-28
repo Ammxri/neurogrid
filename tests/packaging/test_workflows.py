@@ -466,7 +466,13 @@ def test_the_check_reads_positional_choices_and_tools_without_argparse() -> None
 
 def test_ci_matrix_and_gates() -> None:
     ci = _load("ci")
-    assert set(ci["on"]) == {"push", "pull_request"} and ci["on"]["push"]["branches"] == ["dev", "main"]
+    assert set(ci["on"]) == {"push", "pull_request", "workflow_call"}
+    assert ci["on"]["push"]["branches"] == ["dev", "main"] and ci["on"]["workflow_call"] is None
+    # release.yml is the only caller: the tagged commit runs this whole workflow before a draft release
+    assert [name for name in NAMES if "./.github/workflows/ci.yml" in _text(name)] == ["release"]
+    # the comparison takes only the samples of the test job, not the bundles and evidence of a release run
+    (download,) = [s for s in _steps(ci["jobs"]["compare"]) if "download-artifact" in str(s.get("uses", ""))]
+    assert download["with"]["pattern"] == "results-*" and download["with"]["merge-multiple"] is True
     assert ci["concurrency"]["cancel-in-progress"] is True
     assert ci["env"]["NEUROGRID_REQUIRE_PDF"] == "1"
     matrix = ci["jobs"]["test"]["strategy"]["matrix"]
@@ -650,7 +656,13 @@ def test_release_is_started_only_by_a_tag_and_creates_a_draft() -> None:
     assert release["jobs"]["test"]["with"] == {"artifact": "release-dist"}
     draft = _runs(release["jobs"]["draft"])
     assert "gh release create" in draft and "--draft" in draft and "--verify-tag" in draft
-    assert release["jobs"]["draft"]["needs"] == ["build", "test"]
+    # The documentation and both delivery texts say the test suite is verified in CI (tests/docs/
+    # test_docs_sync.py). That was true of an earlier commit while a later one failed the suite; so the
+    # tagged commit runs ci.yml itself, under the build's tag condition, and no draft exists while it fails.
+    suite = release["jobs"]["suite"]
+    assert suite["uses"] == "./.github/workflows/ci.yml" and suite["if"] == build["if"]
+    assert "with" not in suite and "secrets" not in suite
+    assert release["jobs"]["draft"]["needs"] == ["build", "suite", "test"]
 
 
 def test_pypi_upload_is_manual_trusted_publishing_of_the_signed_release() -> None:

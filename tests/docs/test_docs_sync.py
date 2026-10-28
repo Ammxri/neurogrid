@@ -684,20 +684,69 @@ DEAD_PROXY = {
 
 
 OFFLINE_WORKFLOW = ROOT / ".github" / "workflows" / "offline.yml"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 CLEANROOM_WINDOWS = ROOT / "packaging" / "ci" / "cleanroom_windows.ps1"
 BEFORE_CI = ("until the first CI run", "首次 CI 运行前", "首次 CI")
 BUNDLE_IN_CI = {"en": "offline bundle verified in CI", "zh": "离线安装包已在 CI 中验证"}
-SUITE_PENDING = {"en": "test suite not yet verified", "zh": "测试套件尚未验证"}
+# The test jobs of ci.yml passed on both runners with every Python of the matrix for dcec9bd and failed again
+# for 18da12f, so the pages cannot rest on a past run: release.yml runs ci.yml on the tagged commit and
+# creates no draft release while it fails. Debian 12 and Ubuntu 22.04 get the offline jobs only (offline.yml),
+# never the test suite. {} is the Python range.
+SUITE_IN_CI = {"en": "test suite verified in CI (Python {})", "zh": "测试套件已在 CI 中验证（Python {}）"}
+SUITE_NOT_IN_CI = {"en": "test suite not run in CI", "zh": "测试套件未在 CI 中运行"}
+# {runners}: the runners of ci.yml in backticks; {each}: every Python of its matrix.
+SUITE_DEFINITION = {
+    "en": (
+        '"Test suite verified in CI" means: in the CI the test suite ran on GitHub\'s {runners} runners with'
+        ' Python {each} each and passed. "Test suite not run in CI" means: the CI installs the offline'
+        " bundle on these systems and runs its commands, but does not run the test suite there."
+    ),
+    "zh": (
+        "“测试套件已在 CI 中验证”表示：在 CI 中，测试套件在 GitHub 的 {runners} 运行器上分别用"
+        " Python {each} 运行，全部通过。“测试套件未在 CI 中运行”表示：CI 在这些系统上安装离线安装包"
+        "并运行其命令，但不在其上运行测试套件。"
+    ),
+}
+# The status cell of the audit hook and network ban (tests) on the privacy page.
+AUDIT_HOOK_IN_CI = {
+    "en": "verified locally and in CI on GitHub's {runners} runners with Python {range}",
+    "zh": "已在本地验证，并已在 CI 中于 GitHub 的 {runners} 运行器上用 Python {range} 验证",
+}
+# The test suite in the platform paragraph of limitations.md (and so of the delivery texts).
+SUITE_LIMITS = {
+    "en": (
+        "and the test suite with Python {range} on Windows Server and Ubuntu 24.04; the CI does not run the"
+        " test suite on Debian 12 and Ubuntu 22.04."
+    ),
+    "zh": (
+        "测试套件已在 CI 中用 Python {range} 于 Windows Server 和 Ubuntu 24.04 上验证；CI 不在 Debian 12 和"
+        " Ubuntu 22.04 上运行测试套件。"
+    ),
+}
+# The wording up to 18da12f, written while the test jobs failed: no page and no delivery text may say it. Only
+# the sentences about the test suite, so that other text may still say that something did not pass yet.
+SUITE_PENDING = (
+    "test suite not yet verified",
+    "测试套件尚未验证",
+    "on Linux and on the Windows runner not yet verified",
+    "on Linux and on the Windows runner is not yet verified",
+    "在 Linux 和 Windows 运行器上尚未验证",
+    "Linux 和 Windows 运行器上的测试套件尚未验证",
+    "the CI runs of the test suite on these systems do not pass yet",
+    "测试套件在这些系统上的 CI 运行尚未通过",
+    "the CI test runs there do not pass yet",
+    "那里的 CI 测试运行尚未通过",
+)
+NOT_VERIFIED = {"en": "not verified", "zh": "未验证"}
 REFUSED = {
     "en": "the installer stops with exit code 2 (verified in CI)",
     "zh": "安装程序以退出码 2 结束（已在 CI 中验证）",
 }
-AUDIT_HOOK_PENDING = {
-    "en": "on Linux and on the Windows runner not yet verified",
-    "zh": "在 Linux 和 Windows 运行器上尚未验证",
-}
 DISTRIBUTION = {"debian:12-slim": "Debian 12", "ubuntu:18.04": "Ubuntu 18.04"}
 SHELLS = {"powershell": "Windows PowerShell 5.1", "pwsh": "PowerShell 7"}
+# The test runners of ci.yml and the system each one stands for in the platform table.
+RUNNERS = {"windows-latest": "Windows Server", "ubuntu-24.04": "Ubuntu 24.04"}
 EVIDENCE_IN_CI = {
     "en": (
         "verified in CI: installer and every v0.1 command",
@@ -718,13 +767,36 @@ def _table_rows(text: str) -> list[list[str]]:
     return [[cell.strip() for cell in line.strip("|").split("|")] for line in lines]
 
 
+def _flat(text: str) -> str:
+    """Without whitespace and in lower case, so a sentence is found wherever a page wraps it."""
+    return re.sub(r"\s+", "", text).lower()
+
+
+def _suite_matrix() -> tuple[list[str], list[str]]:
+    """(runners, Python versions) of the test job of ci.yml."""
+    matrix = load_yaml(CI_WORKFLOW.read_text(encoding="utf-8"))["jobs"]["test"]["strategy"]["matrix"]
+    return [str(runner) for runner in matrix["os"]], [str(version) for version in matrix["python"]]
+
+
+def _suite_wording(lang: str, runners: list[str], pythons: list[str]) -> tuple[str, str]:
+    """(the runners in backticks, every Python version) as the pages of a language list them."""
+    separator, last = {"en": (", ", " and "), "zh": ("、", " 和 ")}[lang]
+    return last.join(f"`{runner}`" for runner in runners), separator.join(pythons[:-1]) + last + pythons[-1]
+
+
 def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
-    """V-06, NG-N01, TECH-06: the offline workflow ran green (both bundles, clean rooms of every image and
-    both Windows shells with WFP audit and PDF, glibc 2.27 refused, every command under strace without
+    """V-06, NG-N01, NG-N04, TECH-06: the offline workflow ran green (both bundles, clean rooms of every image
+    and both Windows shells with WFP audit and PDF, glibc 2.27 refused, every command under strace without
     network). The pages said 'not verified until the first CI run'. Each status now names what the workflow
-    verifies, read from offline.yml; the test suite on Linux and on the Windows runner stays 'not yet
-    verified' while the ci jobs of the test suite fail (CI run of 55335ca: 6 failures on ubuntu-24.04, 5-6 on
-    windows-latest). When they pass, the 'not yet verified' cells and SUITE_PENDING change by hand."""
+    verifies, read from offline.yml. The test suite stayed 'not yet verified' while the test jobs of ci.yml
+    failed (CI run of 55335ca). They passed on windows-latest and ubuntu-24.04 with Python 3.11-3.13 for
+    dcec9bd and failed again for 18da12f: a run of an earlier commit says nothing about the commit that ships.
+    So the claim rests on the release itself: release.yml runs ci.yml on the tagged commit and its draft needs
+    that run, and this test fails when the gate is gone. Debian 12 and Ubuntu 22.04 get the offline jobs only.
+    The row that named Debian 12, Ubuntu 22.04 and 24.04 together could not say both, so it is split: exactly
+    the systems of the ci.yml runners say 'test suite verified in CI', the other Linux row says 'not run in
+    CI', Windows 10 stays 'not verified', and the old wording is gone from every page and both delivery
+    texts."""
     jobs = load_yaml(OFFLINE_WORKFLOW.read_text(encoding="utf-8"))["jobs"]
     images = [entry["image"] for entry in jobs["cleanroom-linux"]["strategy"]["matrix"]["include"]]
     shells = [entry["shell"] for entry in jobs["cleanroom-windows"]["strategy"]["matrix"]["include"]]
@@ -733,26 +805,57 @@ def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
     assert refused_image and jobs["cleanroom-windows"]["runs-on"] == "windows-latest"
     names = [DISTRIBUTION.get(image, image.replace("ubuntu:", "Ubuntu ")) for image in images]
     assert names == ["Debian 12", "Ubuntu 22.04", "Ubuntu 24.04"] and shells == ["powershell", "pwsh"]
-    for path in sorted((DOCS / "en").rglob("*.md")) + sorted((DOCS / "zh").rglob("*.md")):
-        text = path.read_text(encoding="utf-8")
-        assert not [phrase for phrase in BEFORE_CI if phrase in text], path.relative_to(DOCS).as_posix()
+    runners, pythons = _suite_matrix()
+    assert runners == list(RUNNERS) and pythons == ["3.11", "3.12", "3.13"], (runners, pythons)
+    release = load_yaml(RELEASE_WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    gates = [job_id for job_id, job in release.items() if job.get("uses") == "./.github/workflows/ci.yml"]
+    # 'verified in CI' holds for a version only when its own commit passed ci.yml before the draft release
+    assert gates and set(gates) <= set(release["draft"]["needs"]), (gates, release["draft"]["needs"])
+    python_range = f"{pythons[0]}–{pythons[-1]}"
+    without_suite = [name for name in names if name not in RUNNERS.values()]
+    stale = [_flat(phrase) for phrase in (*SUITE_PENDING, *BEFORE_CI)]
+    # only the test-suite sentences are banned, not every sentence about something that did not pass yet
+    other = _flat("Datasets that do not pass yet stay in the report. 尚未通过检查的数据集留在报告中。")
+    assert not [phrase for phrase in stale if phrase in other], other
+    texts = [*sorted((DOCS / "en").rglob("*.md")), *sorted((DOCS / "zh").rglob("*.md"))]
+    for path in [*texts, ROOT / "packaging" / "README.bundle.txt", ROOT / "packaging" / "release-notes.md"]:
+        flat = _flat(path.read_text(encoding="utf-8"))
+        assert not [phrase for phrase in stale if phrase in flat], path.relative_to(ROOT).as_posix()
     for lang in LANGUAGES:
-        rows = _table_rows(_anchored(_page(lang, "installation.md"))["platforms"])
+        suite = SUITE_IN_CI[lang].format(python_range)
+        page = _anchored(_page(lang, "installation.md"))["platforms"]
+        rows = _table_rows(page)
         verified = [(platform, status) for platform, status in rows if BUNDLE_IN_CI[lang] in status]
-        assert len(verified) == 2, (lang, rows)
-        (windows, _), (linux, _) = verified
-        assert "`windows-latest`" in windows and all(SHELLS[shell] in windows for shell in shells), lang
-        assert all(name in linux for name in names), lang
-        # the ci workflow's test jobs failed for 55335ca: no row may claim the test suite on these systems
-        assert all(SUITE_PENDING[lang] in status for _, status in verified), (lang, verified)
+        assert len(verified) == 3, (lang, rows)
+        windows = [platform for platform, _ in verified if "`windows-latest`" in platform]
+        assert len(windows) == 1 and all(SHELLS[shell] in windows[0] for shell in shells), lang
+        linux = [platform for platform, _ in verified if platform not in windows]
+        # every distribution of the clean rooms in exactly one Linux row
+        assert sorted(name for name in names for platform in linux if name in platform) == sorted(names), lang
+        with_suite = [platform for platform, status in verified if suite in status]
+        # the test suite exactly on the systems of the ci.yml runners, each row naming its runner
+        assert len(with_suite) == len(runners), (lang, verified)
+        for runner, system in RUNNERS.items():
+            (row,) = [platform for platform in with_suite if f"`{runner}`" in platform]
+            assert system in row, (lang, row)
+            assert not [name for name in without_suite if name in row], (lang, row)
+        for platform, status in verified:
+            if platform not in with_suite:
+                assert SUITE_NOT_IN_CI[lang] in status, (lang, platform, status)
+                assert all(name in platform for name in without_suite), (lang, platform)
+        assert [status for platform, status in rows if "Windows 10" in platform] == [NOT_VERIFIED[lang]], lang
+        both, each = _suite_wording(lang, runners, pythons)
+        assert _flat(SUITE_DEFINITION[lang].format(runners=both, each=each)) in _flat(page), lang
         refused = [platform for platform, status in rows if REFUSED[lang] in status]
         assert len(refused) == 1 and DISTRIBUTION[refused_image.group(1)] in refused[0], (lang, rows)
+        limits = _anchored(_page(lang, "limitations.md"))["platforms"]
+        assert _flat(SUITE_LIMITS[lang].format(range=python_range)) in _flat(limits), lang
         privacy = _anchored(_page(lang, "privacy.md"))["check-yourself"]
         statuses = [status for _evidence, status in _table_rows(privacy)[2:]]
         linux_run, firewall = EVIDENCE_IN_CI[lang]
         assert any(status.startswith(linux_run) and "`debian:12-slim`" in status for status in statuses), lang
         assert any(status.startswith(firewall) for status in statuses), lang
-        assert any(AUDIT_HOOK_PENDING[lang] in status for status in statuses), lang
+        assert AUDIT_HOOK_IN_CI[lang].format(runners=both, range=python_range) in statuses, (lang, statuses)
 
 
 CLEANROOM_LINUX = ROOT / "packaging" / "ci" / "cleanroom_linux.sh"
