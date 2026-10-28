@@ -1,9 +1,12 @@
 # Release of a version (V-01, TECH-05, D-07, D-10 g). Runs only for a tag v* that the project owner pushes (or
 # starts by hand on such a tag); never on branches. Builds wheel, sdist, documentation, notices and both offline
 # bundles reproducibly, signs them keyless with Sigstore (no stored key), tests exactly the signed bundles in the
-# clean rooms (offline.yml) and creates a DRAFT GitHub Release. Publishing the draft, PyPI (publish-pypi.yml) and
-# the Gitee mirror with the files of the Gitee release (mirror-gitee.yml, D-15) stay with the owner. The gate fails
-# while placeholders or missing licence texts remain.
+# clean rooms (offline.yml), runs ci.yml on the tagged commit (lint, types, the test suite on windows-latest and
+# ubuntu-24.04 with Python 3.11-3.13, both PowerShell command lines, licence and traceability gates) and creates
+# a DRAFT GitHub Release only when both passed: the documentation and both delivery texts say the test suite is
+# verified in CI, so a version whose own commit fails it is never released. Publishing the draft, PyPI
+# (publish-pypi.yml) and the Gitee mirror with the files of the Gitee release (mirror-gitee.yml, D-15) stay with
+# the owner. The gate fails while placeholders or missing licence texts remain.
 name: release
 
 on:
@@ -94,9 +97,14 @@ jobs:
     with:
       artifact: release-dist
 
+  suite:
+    name: ci.yml on the tagged commit (the test suite the documentation calls verified in CI)
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/ci.yml
+
   draft:
     name: draft GitHub Release (the owner reviews and publishes it)
-    needs: [build, test]
+    needs: [build, suite, test]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: release

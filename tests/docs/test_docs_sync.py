@@ -685,11 +685,14 @@ DEAD_PROXY = {
 
 OFFLINE_WORKFLOW = ROOT / ".github" / "workflows" / "offline.yml"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 CLEANROOM_WINDOWS = ROOT / "packaging" / "ci" / "cleanroom_windows.ps1"
 BEFORE_CI = ("until the first CI run", "首次 CI 运行前", "首次 CI")
 BUNDLE_IN_CI = {"en": "offline bundle verified in CI", "zh": "离线安装包已在 CI 中验证"}
-# The test jobs of ci.yml pass on both runners with every Python of the matrix since dcec9bd; Debian 12 and
-# Ubuntu 22.04 get the offline jobs only (offline.yml), never the test suite. {} is the Python range.
+# The test jobs of ci.yml passed on both runners with every Python of the matrix for dcec9bd and failed again
+# for 18da12f, so the pages cannot rest on a past run: release.yml runs ci.yml on the tagged commit and
+# creates no draft release while it fails. Debian 12 and Ubuntu 22.04 get the offline jobs only (offline.yml),
+# never the test suite. {} is the Python range.
 SUITE_IN_CI = {"en": "test suite verified in CI (Python {})", "zh": "测试套件已在 CI 中验证（Python {}）"}
 SUITE_NOT_IN_CI = {"en": "test suite not run in CI", "zh": "测试套件未在 CI 中运行"}
 # {runners}: the runners of ci.yml in backticks; {each}: every Python of its matrix.
@@ -783,11 +786,14 @@ def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
     and both Windows shells with WFP audit and PDF, glibc 2.27 refused, every command under strace without
     network). The pages said 'not verified until the first CI run'. Each status now names what the workflow
     verifies, read from offline.yml. The test suite stayed 'not yet verified' while the test jobs of ci.yml
-    failed (CI run of 55335ca); since dcec9bd they pass on windows-latest and ubuntu-24.04 with Python
-    3.11-3.13, while Debian 12 and Ubuntu 22.04 get the offline jobs only. The row that named Debian 12,
-    Ubuntu 22.04 and 24.04 together could not say both, so it is split: exactly the systems of the ci.yml
-    runners say 'test suite verified in CI', the other Linux row says 'not run in CI', Windows 10 stays 'not
-    verified', and the old wording is gone from every page and both delivery texts."""
+    failed (CI run of 55335ca). They passed on windows-latest and ubuntu-24.04 with Python 3.11-3.13 for
+    dcec9bd and failed again for 18da12f: a run of an earlier commit says nothing about the commit that ships.
+    So the claim rests on the release itself: release.yml runs ci.yml on the tagged commit and its draft needs
+    that run, and this test fails when the gate is gone. Debian 12 and Ubuntu 22.04 get the offline jobs only.
+    The row that named Debian 12, Ubuntu 22.04 and 24.04 together could not say both, so it is split: exactly
+    the systems of the ci.yml runners say 'test suite verified in CI', the other Linux row says 'not run in
+    CI', Windows 10 stays 'not verified', and the old wording is gone from every page and both delivery
+    texts."""
     jobs = load_yaml(OFFLINE_WORKFLOW.read_text(encoding="utf-8"))["jobs"]
     images = [entry["image"] for entry in jobs["cleanroom-linux"]["strategy"]["matrix"]["include"]]
     shells = [entry["shell"] for entry in jobs["cleanroom-windows"]["strategy"]["matrix"]["include"]]
@@ -798,6 +804,10 @@ def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
     assert names == ["Debian 12", "Ubuntu 22.04", "Ubuntu 24.04"] and shells == ["powershell", "pwsh"]
     runners, pythons = _suite_matrix()
     assert runners == list(RUNNERS) and pythons == ["3.11", "3.12", "3.13"], (runners, pythons)
+    release = load_yaml(RELEASE_WORKFLOW.read_text(encoding="utf-8"))["jobs"]
+    gates = [job_id for job_id, job in release.items() if job.get("uses") == "./.github/workflows/ci.yml"]
+    # 'verified in CI' holds for a version only when its own commit passed ci.yml before the draft release
+    assert gates and set(gates) <= set(release["draft"]["needs"]), (gates, release["draft"]["needs"])
     python_range = f"{pythons[0]}–{pythons[-1]}"
     without_suite = [name for name in names if name not in RUNNERS.values()]
     stale = [_flat(phrase) for phrase in (*SUITE_PENDING, *BEFORE_CI)]
