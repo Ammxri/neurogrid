@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import multiprocessing
 import os
+import select
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing.context import BaseContext
@@ -175,6 +177,7 @@ NAMED = [method for method in METHODS if method != "fork"]  # their semaphores a
 _KILLED_WITH_A_POOL = """
 import multiprocessing, os, signal, sys
 from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import resource_tracker
 method, quiet = sys.argv[1], sys.argv[2] == "quiet"
 multiprocessing.set_start_method(method)
 if quiet:
@@ -182,9 +185,33 @@ if quiet:
     pool = quality._pool(2)  # as compute_all creates it
 else:
     pool = ProcessPoolExecutor(max_workers=2, mp_context=multiprocessing.get_context(method))
-print(pool._call_queue._sem._semlock.name, flush=True)
+print(pool._call_queue._sem._semlock.name, resource_tracker._resource_tracker._pid, flush=True)
 os.kill(os.getpid(), signal.SIGKILL)  # no finalizer runs: the semaphores are left to the tracker
 """
+
+
+def _wait_for_end(pid: int, timeout: float) -> tuple[bool, float]:
+    """Waits up to ``timeout`` s for process ``pid``, which is no child of this one, to end; whether it
+    ended and the seconds waited. Linux: a pidfd turns readable when the process has ended."""
+    start = time.monotonic()
+    pidfd_open = getattr(os, "pidfd_open", None)
+    if pidfd_open is not None:
+        try:
+            fd = pidfd_open(pid)
+        except ProcessLookupError:
+            return True, time.monotonic() - start
+        try:
+            ready, _, _ = select.select([fd], [], [], timeout)
+        finally:
+            os.close(fd)
+        return bool(ready), time.monotonic() - start
+    while time.monotonic() - start < timeout:  # other POSIX systems: no pidfd
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True, time.monotonic() - start
+        time.sleep(0.05)
+    return False, time.monotonic() - start
 
 
 def _killed_with_a_pool(method: str, how: str) -> subprocess.CompletedProcess[bytes]:
@@ -205,7 +232,11 @@ def test_the_resource_tracker_of_a_pool_has_no_console(method: str) -> None:
     """spawn and forkserver: a pool's semaphores register with multiprocessing's resource tracker, which
     ProcessPoolExecutor.__init__ would start with the console. NeuroGrid's process is killed while the pool
     exists (SIGKILL: no finalizer): the tracker still cleans up, but its 'leaked semaphore objects' warning
-    with its install path goes to the null device. Counter-check: a plain pool's tracker prints it."""
+    with its install path goes to the null device. Counter-check: a plain pool's tracker prints it.
+
+    The plain run returns only when its tracker has cleaned up: the tracker holds the stderr pipe until it
+    exits. The quiet tracker holds no pipe, so the run returns at the kill, while the tracker may still be
+    starting; the test waits for its end before it looks for the semaphore."""
     import signal
 
     plain = _killed_with_a_pool(method, "plain")
@@ -214,7 +245,10 @@ def test_the_resource_tracker_of_a_pool_has_no_console(method: str) -> None:
     done = _killed_with_a_pool(method, "quiet")
     assert done.returncode == -signal.SIGKILL, done.stderr.decode("utf-8", "replace")
     assert done.stderr == b"", done.stderr.decode("utf-8", "replace")
-    name = done.stdout.decode("ascii").strip()
+    name, tracker = done.stdout.decode("ascii").split()
     assert name.startswith("/")
+    ended, waited = _wait_for_end(int(tracker), timeout=60)
+    assert ended, f"the resource tracker (pid {tracker}) still runs {waited:.1f} s after the kill"
     if Path("/dev/shm").is_dir():  # Linux: the tracker did unlink the semaphore
-        assert not Path("/dev/shm", "sem." + name[1:]).exists()
+        left = Path("/dev/shm", "sem." + name[1:]).exists()
+        assert not left, f"{name} still in /dev/shm after its tracker (pid {tracker}) ended ({waited:.2f} s)"
