@@ -6,65 +6,153 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P5 abgeschlossen (`dev` 18da12f: zweite CI-Fix-Runde, D-17 und die Behebung des G1-Befunds gemergt); es fehlen die Endzahlen auf 18da12f, die Plattformzellen der Nutzerdoku und das zh-Prüfpaket (P5-Eintrag), danach STOPP G1.**
+**Phase P5 abgeschlossen (`dev` 27c3e90: zweite und dritte CI-Fix-Runde, D-17 und die Behebung des G1-Befunds gemergt, CI ganz grün); nächster Schritt STOPP G1.**
 Freigabemodus A bis STOPP G1. Git: `main` (Doku-Commit), Arbeitszweig `dev`, gepusht nach `https://github.com/Ammxri/neurogrid`
-(D-15; nur `dev`, D-09; zuletzt gepusht: 18da12f). Version 0.1.0rc1; 0.1.0 und Tag erst nach G1.
-CI auf dcec9bd ganz grün (`ci` 40476578603, `offline` 40476578452); auf 18da12f: <CI 18da12f>. Volle lokale Suite
-auf 18da12f: <SUITE 18da12f>; voller G1-Lauf auf 18da12f: <G1 18da12f> (Einzelheiten im P5-Eintrag).
+(D-15; nur `dev`, D-09; zuletzt gepusht: 27c3e90). Version 0.1.0rc1; 0.1.0 und Tag erst nach G1.
+CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176); auf 18da12f waren die sechs Testjobs rot (`ci`
+40609866806), behoben in der dritten CI-Fix-Runde. Die volle Testsuite läuft nur in der CI (Prüfvorgehen ab dem Ende von
+P5, ENTSCHEIDUNGEN A-87): je Testjob 0 Fehler, windows-latest 3681–3682 von 3697 bestanden, ubuntu-24.04 3605 von 3702;
+Abdeckung Kern 93,3–93,5 %, Prüfer 97,3 %. G1-Lauf auf 18da12f: 6 von 6 Datensätzen bestanden, alle Kriterien erfüllt
+(151 min); Endlauf auf 27c3e90: <G1 27c3e90> (Einzelheiten in den Einträgen unten).
 Offen beim Nutzer: die Liste „Für STOPP G1 vorgemerkt“, GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
 ISO-TS vor P10, Docker Desktop bei Gelegenheit.
 
 ## Für STOPP G1 vorgemerkt
 
-Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den Projektverantwortlichen.
-- **Muttersprachliche zh-Prüfung** (A-07, D-15, D-17): Das Paket erzeugt `tools/zh_review_package.py` nach dem letzten
-  G1-Lauf (mit dessen Beispiel-PDFs); die Prüfperson stellt der Projektverantwortliche. Seit dem ersten Paket (Stand
-  Abnahme: 2530 Texte aus 34 Dateien) neu oder geändert: die Überschriften der Schweregrade (`report.text.severity_heading`,
-  `report.text.severity_heading_none`, `report.text.severity_heading_info`), der Installationshinweis
-  `errors.pdf.install.command_windows` (neu) und `errors.pdf.install.docs` (geändert), die Meldungen zum Arbeitsordner
-  des Browsers (`errors.pdf.work_path_too_long`, `errors.pdf.temp_hint`, `errors.pdf.temp_unusable`,
-  `errors.pdf.temp_unusable_hint`), die geänderten Installer-Meldungen, die Sätze in docs/zh (installation.md,
-  limitations.md, privacy.md, configuration.md, report.md, license.md) und im Plattformabsatz von README.bundle.txt und
-  release-notes.md, gitee-release.md, der feste Satz und die neue Zeile `cli.check.recomputed` (A-89). Von P6 nach D-17 nur
-  die Kernbegriffe (die fünf Nutzungsarten, Einwilligung und Widerruf, Zugriffsprotokoll, Hash-Kette,
-  Platzhalter-Regelpaket, der Grenzsatz und die V-06-Aussage).
-- **Sichtprüfung der PDFs** zh/en (KONZEPT 4; REP-00, UF-01).
+Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
+Projektverantwortlichen.
+- **Muttersprachliche zh-Prüfung** (A-07, A-86, D-15, D-17): Das Paket erzeugt `tools/zh_review_package.py` nach dem
+  letzten G1-Lauf (27c3e90, mit dessen Beispiel-PDFs); die Prüfperson stellt der Projektverantwortliche. Seit dem ersten
+  Paket (Stand Abnahme: 2530 Texte aus 34 Dateien) neu oder geändert:
+  - die Überschriften der Schweregrade (`report.text.severity_heading`, `report.text.severity_heading_none`,
+    `report.text.severity_heading_info`), der feste Satz und die Zeile `cli.check.recomputed` (A-89);
+  - der Installationshinweis `errors.pdf.install.command_windows` (neu) und `errors.pdf.install.docs` (geändert), die
+    Meldungen zum Arbeitsordner des Browsers (`errors.pdf.work_path_too_long`, `errors.pdf.temp_hint`,
+    `errors.pdf.temp_unusable`, `errors.pdf.temp_unusable_hint`) und die geänderten Meldungen von `install.ps1` und
+    `install.sh`;
+  - die Sätze der Fix-Runden in docs/zh (installation.md, limitations.md, privacy.md, configuration.md, report.md), der
+    seit D-17 geänderte Satz in `docs/zh/license.md`, der Plattformabsatz von README.bundle.txt und release-notes.md
+    sowie gitee-release.md;
+  - darunter neu aus der dritten CI-Fix-Runde (U1, 17e0d3f): in `docs/zh/installation.md` die Zelle der
+    Windows-Server-Zeile, die neuen Zeilen für Debian 12 und Ubuntu 22.04 und für Ubuntu 24.04 und die Definitionen
+    „测试套件已在 CI 中验证“ und „测试套件未在 CI 中运行“; der Plattformsatz in `docs/zh/limitations.md` (wörtlich auch in
+    README.bundle.txt und release-notes.md); die Zelle der Audit-Hook-Tests in `docs/zh/privacy.md`;
+  - von P6 nach D-17 nur die Kernbegriffe (die fünf Nutzungsarten, Einwilligung und Widerruf, Zugriffsprotokoll,
+    Hash-Kette, Platzhalter-Regelpaket, der Grenzsatz und die V-06-Aussage).
+- **Sichtprüfung der PDFs** zh/en (KONZEPT 4; NG-F13, REP-00, UF-01). Bis dahin bleiben NG-F13, REP-00 und UF-01
+  `nicht verifiziert`, auch nach bestandenem G1-Lauf.
 - **Annahmen A-78 bis A-89 zur Freigabe**, darunter:
   - A-84: höchstens 50 Befundzeilen je Regel plus Sammelzeile als Lesart von „jeder Befund“ (NG-F13); Abschnitt 4
     mit den datensatzweiten Werten von M11/M12, Anhang 6.1 (geprüfte Regeln) und 6.6 (Umgebung) als Lesart von
     REP-04/REP-06; Wortlaut der Überschriften in Abschnitt 3 (R05); eigenes SVG statt matplotlib.
   - A-85 (PDF-Weg, Schrift, QA-Gate mit `glyph_missing`, Startflags, Kernel-Importe fontTools/Playwright/pypdf), A-86
-    (eigener Notices-Leser statt pip-licenses, Seitensatz der Doku, Offline-Suche), A-87 (Bündel, Pfadgrenzen, Signatur,
-    Workflows), A-88 (G1-Werkzeug, Skalierungsgrenzen), A-89 (Hilfsprozesse ohne Konsole, `platform` ohne WMI, eine
-    Zeile auf stdout bei einem toten Prozess, Bibliothekswarnungen der Worker nicht gezeigt).
+    (eigener Notices-Leser statt pip-licenses, Seitensatz der Doku, Offline-Suche, Plattformstand der Nutzerdoku nach
+    U1), A-87 (Bündel, Pfadgrenzen, Signatur, Workflows, Release-Entwurf nur mit grüner Testsuite am Tag-Commit,
+    Prüfvorgehen ab dem Ende von P5), A-88 (G1-Werkzeug, Skalierungsgrenzen), A-89 (Hilfsprozesse ohne Konsole,
+    `platform` ohne WMI, eine Zeile auf stdout bei einem toten Prozess, Bibliothekswarnungen der Worker nicht gezeigt;
+    aus der dritten CI-Fix-Runde `quiet_pool`, `on_null_device` und das Umbinden der Ströme im fork-Kind).
   - Aus P4: Alterspalten mit anderen Einheiten als Monate, Wochen, Tage gelten als Jahre; `report --out` nennt seinen
     Pfad auf der Konsole nicht pseudonym. Aus früheren Phasen: Restpunkte A-78, Zeitangaben ab 27,8 h nur auf 1 s
-    genau (A-61, A-79), loky „resource tracker“ ohne Netzwerkschutz (A-79).
+    genau (A-61, A-79), loky „resource tracker“ ohne Netzwerkschutz (A-79), Herkunft und Lizenz der ICLabel-Gewichte
+    (A-56).
 - **Signatur, Lesart von D-10 g nach D-15 bestätigen** (Installer-Hinweis R16): Mit cosign (auf PATH oder
   `-Cosign`/`--cosign`) wird die Signatur immer geprüft, `-SkipSignatureCheck`/`--skip-signature-check` übergeht keine
   Ablehnung und lässt nur eine Installation ohne cosign weiterlaufen; die Meldung nennt für einen Rechner ohne
   Sigstore-Vertrauensanker den Weg „nach der Prüfung auf einem vernetzten Rechner ohne cosign auf PATH und mit dem
   Schalter“. R12: Die Prüfung im Archiv belegt nur Integrität (dokumentierte Grenze); die Installer nennen die geprüfte
   Identität zum Vergleich mit den Release-Notes.
+- **Lesart von D-15 bei core-js-pure 3.49.0 bestätigen:** Die Version stammt aus dem Quelltext der Source-Map, nicht aus
+  einem Pfad (NACHBAU 8).
 - **Bekannte Grenzen zur Kenntnis:**
   - Die Ausgabe von `convert` ist zwischen den Betriebssystemen nicht bytegleich: MNE-BIDS und pybv schreiben Textdateien
     mit `os.linesep` („Übergreifend“, BrainVision unter Linux).
   - Die Codepage-Werte `mbcs`, `dbcs` und `oem` bleiben plattformabhängig (unter Linux LookupError).
-  - `avoid_wmi()` ersetzt eine private Funktion von CPython (`platform._wmi_query`, A-89).
+  - `avoid_wmi()` ersetzt eine private Funktion von CPython (`platform._wmi_query`); `quiet_pool` stützt sich auf private
+    Teile von `concurrent.futures` und `multiprocessing` (`_SafeQueue`, `_CallItem`, `_on_queue_feeder_error`,
+    `_call_queue`, `Queue._buffer`; gleich in 3.11.17, 3.12.15 und 3.13.7). Eine neue CPython-Version ist erneut zu
+    prüfen (A-89).
   - Was eine Bibliothek direkt auf das Konsolengerät schreibt, bleibt ein Restrisiko; die Hilfsprozesse bleiben an der
-    Konsole, damit Strg+C sie beendet (A-89).
+    Konsole, damit Strg+C sie beendet (A-89). Hinter `on_null_device` (onnxruntime in ICLabel) verhielte sich eine
+    Bibliothek falsch, die den alten Std-Handle-Wert zwischenspeichert oder im Block einen `logging.StreamHandler`
+    anlegt; in onnxruntime, mne_icalabel und picard gibt es keines (A-89).
+  - Ein forkserver oder resource tracker, den anderer Code desselben Prozesses vor NeuroGrids erstem Pool startete,
+    behält seine Konsolen-Deskriptoren; in der CLI unter Linux kommt das nicht vor (A-89).
   - Mit `--jobs` > 1 erscheinen Bibliothekswarnungen der Worker nicht; die Konsole unterscheidet sich darin von
-    `--jobs 1`, results.json nicht (A-89).
+    `--jobs 1`, results.json nicht (A-89). Die Zeile `cli.check.recomputed` erscheint auch, wenn ein Teil nicht
+    zustellbar war oder nicht gesendet werden konnte; ihr Text spricht von einem unerwartet beendeten Hilfsprozess.
+  - Nur in der CI belegt (D-09): alle POSIX-Teile von A-89 und die Behebung unter Python 3.11 auf windows-latest (CI auf
+    27c3e90 grün); der Aufruf von `ci.yml` aus `release.yml` läuft erst am ersten Release-Tag (A-87). Windows 10 ist
+    nicht verifiziert (NG-N04 `teilweise`).
 - **Anfrage an die Entwickler des BIDS-Validators** (D-16): den Entwurf
   (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) prüft und sendet der Projektverantwortliche.
 - **Merge und Veröffentlichung** (je Schritt durch den Projektverantwortlichen): Merge von `dev` nach `main` und Push;
   Version 0.1.0, Tag `v0.1.0` und `release.yml` (vorher die Platzhalter `<REPO_URL>` und `<PYPI_RELEASE>` in docs/en und
-  docs/zh mit der freigegebenen Adresse füllen; `tools/release_check.py` sperrt das Release, solange sie stehen); PyPI über
-  `publish-pypi.yml` (Trusted Publishing bei TestPyPI und PyPI eintragen, erst TestPyPI); Gitee-Spiegel
-  (`mirror-gitee.yml`, Secret `GITEE_SSH_KEY`, Variable `GITEE_MIRROR`) und das Gitee-Release von Hand am gespiegelten
-  Tag (R15).
+  docs/zh mit der freigegebenen Adresse füllen; `tools/release_check.py` sperrt das Release, solange sie stehen, und der
+  Release-Entwurf entsteht nur, wenn `ci.yml` auf dem getaggten Commit besteht); PyPI über `publish-pypi.yml` (Trusted
+  Publishing bei TestPyPI und PyPI eintragen, erst TestPyPI); Gitee-Spiegel (`mirror-gitee.yml`, Secret
+  `GITEE_SSH_KEY`, Variable `GITEE_MIRROR`) und das Gitee-Release von Hand am gespiegelten Tag (R15).
 
 ## Verlauf
+
+### 2026-10-28 – Dritte CI-Fix-Runde (p5-ci3; NG-N05, NG-N03, TECH-05, NG-F07, NG-N04, TECH-06, V-06, NG-N08)
+- **Anlass:** CI auf 18da12f (`.local/ci_18da12f.txt`): `offline` (40609866836) grün, `ci` (40609866806) rot in allen
+  sechs Testjobs: windows-latest mit Python 3.12 und 3.13 je 1 Fehler, mit Python 3.11 3 Fehler, ubuntu-24.04 mit Python
+  3.11/3.12/3.13 je 5 Fehler. Überall `test_env_example.py` (`__PYVENV_LAUNCHER__`), unter Linux dazu der tracker-Test
+  mit spawn und forkserver, der fork-Starttest und der CLI-Konsolentest (`AssertionError: 1`), auf windows-latest mit
+  Python 3.11 derselbe CLI-Test (`AssertionError: 2`) und der Semaphor-Test (Traceback aus `queues.py`). Ursachen und
+  Behebungen in ENTSCHEIDUNGEN A-89 „Dritte CI-Fix-Runde“.
+- **Vorgehen:** drei Bereiche parallel auf eigenen Zweigen, je mit Nachprüfung und Reparaturrunde; gemergt in ce87432
+  (posix), f3fe478 (win311) und 1dd0eac (docs).
+  - posix (p5-ci3-posix): Der tracker-Test war ein Wettlauf im Test, er wartet jetzt auf das Ende des stillen trackers
+    (919bd11). Ein geforktes Kind erreichte über Ströme auf einem Deskriptor über 2 die Konsole: `null_descriptors` deckt
+    auch die Deskriptoren hinter den sys-Strömen, ein im Fenster geforktes Kind bindet seine Ströme vor dem Bootstrap an
+    das Nullgerät (3d212b5). Mit `--jobs 1` schrieb onnxruntime unter Linux eigene Zeilen auf Deskriptor 2: neu
+    `kernel/processes.on_null_device()` für ICLabel (223206b), unter Windows mit Deskriptoren 1 und 2 und den sys-Strömen
+    auf einer Senke (7f5b3b0, berichtigt die Annahme von 223206b über den Windows-Build). Ein Fenster ohne freie
+    Deskriptoren ändert nichts mehr (1ebe89b). `USER` und `LOGNAME` sind im Scan geprüft (9b9a98b); die Docstrings
+    nennen die Grenze fremder forkserver und tracker (5aa8749).
+  - win311 (p5-ci3-win311): Der Traceback kam vom Feeder-Thread der Aufrufwarteschlange im eigenen Prozess (CPython 3.11
+    legt nach dem Tod eines Workers noch Stoppsignale in die geschlossene Warteschlange). Neu `kernel/processes.quiet_pool`
+    in `quality._pool` (9b355bd, a25fc54, 2c82a5f); eine Aufgabe, die nicht gesendet werden konnte, scheitert an ihrer
+    eigenen Future und wird allein nachgerechnet (95f6c50); die genaue Bedingung unter 3.11 steht in 25ead0d; die
+    Meldungen der Konsolentests nennen, was sie gemessen haben (aa03735).
+  - docs (p5-ci3-docs): `__PYVENV_LAUNCHER__` in `THIRD_PARTY` des Scans (29ff4af). Plattformzellen der Nutzerdoku
+    (U1, 17e0d3f): Windows Server und Ubuntu 24.04 „Testsuite in der CI verifiziert (Python 3.11–3.13)“, Debian 12 und
+    Ubuntu 22.04 „Testsuite nicht in der CI ausgeführt“, Windows 10 „nicht verifiziert“; dasselbe in limitations.md,
+    privacy.md (Audit-Hook-Tests), README.bundle.txt und den Release-Notes, en und zh; die alten Sätze sind als ganze
+    Sätze verboten (341beb1). `release.yml` ruft `ci.yml` auf dem getaggten Commit auf, ohne grüne Testsuite kein
+    Release-Entwurf (dd9ab93). Der Kommentar über `V01_ITEMS` sagt, dass nur NG-F13 auf G1 wartet (d269cb9).
+  - Danach: Ein grüner Testjob schreibt Testzahlen und Abdeckung als Hinweis-Annotation, ohne Anmeldung lesbar
+    (2a49a0c, 27c3e90).
+- **Prüfvorgehen ab dem Ende von P5** (ENTSCHEIDUNGEN A-87; nach der Kritik des Projektverantwortlichen vom
+  28.10.2026): Die volle Testsuite läuft nur in der CI (sechs Testjobs); lokal laufen nur die betroffenen Tests;
+  Testzahlen und Abdeckung kommen aus den Hinweis-Annotationen der CI; die Umsetzungsdoku wird je Phase einmal nach
+  grüner CI geschrieben; lange Läufe (G1-Abnahme, Korpustests) laufen nur einmal auf dem Endstand. Die lokalen vollen
+  Läufe früherer Runden (zuletzt dcec9bd: 3647 bestanden, 21 übersprungen, 127 abgewählt, 1 fehlgeschlagen) bleiben als
+  Verlauf im P5-Eintrag.
+- **Ergebnisse:**
+  - CI auf 27c3e90 (`.local/ci_27c3e90.txt`) ganz grün: `ci` (Lauf 40680346160) mit allen sechs Testjobs ohne Fehler,
+    Abdeckungs-Gates, Lizenz-Gate mit Paketscan, Windows PowerShell 5.1, PowerShell 7, Anforderungs-IDs und
+    Plattformvergleich (berichtet, nicht erzwungen); `offline` (Lauf 40680346176) mit allen neun Jobs.
+
+    | Testjob | bestanden | übersprungen | Tests | Kern | Prüfer |
+    |---|---|---|---|---|---|
+    | windows-latest, Python 3.11 | 3681 | 16 | 3697 | 93,4 % | 97,3 % |
+    | windows-latest, Python 3.12 | 3682 | 15 | 3697 | 93,5 % | 97,3 % |
+    | windows-latest, Python 3.13 | 3682 | 15 | 3697 | 93,5 % | 97,3 % |
+    | ubuntu-24.04, Python 3.11 | 3605 | 97 | 3702 | 93,3 % | 97,3 % |
+    | ubuntu-24.04, Python 3.12 | 3605 | 97 | 3702 | 93,3 % | 97,3 % |
+    | ubuntu-24.04, Python 3.13 | 3605 | 97 | 3702 | 93,3 % | 97,3 % |
+
+  - Lokal auf 27c3e90 (Windows 11, nur die von der Runde betroffenen Tests; keine volle lokale Suite): Python 3.12 184
+    bestanden, 5 übersprungen, 52 abgewählt in 41 min; Python 3.11 18 bestanden, 4 übersprungen.
+  - G1-Lauf auf 18da12f (vor der Runde, `.local/p5/ci3/g1_summary_18da12f.md`): 6 von 6 Datensätzen in 5 Formaten
+    bestanden, alle Kriterien des Laufs erfüllt, beide Läufe bytegleich, `--jobs 1` = `--jobs 4`, Korpus unverändert,
+    V-01-Checkliste des Laufs erfüllt, V-06 ja, 151 min. Weil die Runde den Windows-Weg von `check --jobs` änderte
+    (`quiet_pool`, `on_null_device`), läuft die Abnahme einmal auf dem Endstand 27c3e90: <G1 27c3e90>.
+- **Nicht verifiziert:** Die genaue Zeile von onnxruntime unter Linux hat die CI nie gezeigt (die Ursache stützt sich
+  auf die Zeichenketten des Wheels; seit 27c3e90 besteht der Test). Der Aufruf von `ci.yml` aus `release.yml` lief noch
+  nie (erst am ersten Release-Tag). Grenzen der Runde: ENTSCHEIDUNGEN A-89 und die Liste „Für STOPP G1 vorgemerkt“.
 
 ### 2026-10-27 – G1-Befund: Worker auf der Konsole (p5-g1-console; NG-N05, NG-N03, TECH-05, NG-F07)
 - **Befund** (G1-Lauf auf dcec9bd, ds004504-1.0.9, `check --jobs 4`, Lauf 1): Konsole mit Laufwerkspfad, Traceback, Benutzerordner, Benutzername und Nicht-UTF-8 (NG-N05, A-51), Laufzeit 935,6 s statt 299,4 s. Ein Pool-Prozess starb in `call_queue.get` an `self._sem.release()` mit `OSError: [WinError 6]`; derselbe Traceback im vollen Testlauf (`test_one_recording_with_jobs_4_equals_jobs_1`).
@@ -73,12 +161,12 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge. Jed
 - **Ergebnisse (Windows 11, Python 3.12.15, `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`):** Neue Tests: `tests/unit/test_processes.py` 6 bestanden, 1 übersprungen (POSIX); `tests/integration/test_worker_console.py` 3 bestanden, auf dcec9bd 3 gescheitert. Nachbarn: `test_quality_review_p3.py` 26 bestanden (u. a. `--jobs 1` = `--jobs 4`, sterbender Worker, loky-Rückfall); `test_quality_pipeline.py` und `test_quality_sample.py` 76 bestanden (NG-N03 über Jobs und BLAS-Threads); `test_architecture.py` und `test_validator.py` bestanden; `test_processes.py`, `test_worker_console.py`, `test_pdf_unit.py`, `test_cli.py`, `test_report_pdf_cli.py`, `test_docs_browser.py` und `test_console_sentence.py` zusammen 116 bestanden, 1 übersprungen (POSIX). `test_report_pdf.py` 49 bestanden; danach `tools/install_pdf_browser.py --check`: PDF-Browser vollständig (Revision 1243, 290 Dateien). ruff, `mypy src/neurogrid tools` und `mypy --strict src/neurogrid/kernel` (auch `--platform linux`) sauber. Korpus ds004504-1.0.9 (`check --jobs 4` wie `tools/acceptance_g1.py`): auf dcec9bd 0 von 3 Läufen mit Konsolenproblem (398,3 / 320,9 / 313,0 s; die Rate ohne Monitor ist niedrig), mit der Behebung 0 von 3 (327,5 / 317,7 / 319,6 s), results.json in allen sechs Läufen bytegleich. `tools/acceptance_g1.py --datasets ds004504-1.0.9` auf der Behebung: 1 von 1 Datensätzen bestanden, keine Probleme (Konsole, Datenschutz, Dateien, Berichte), beide Läufe bytegleich, Korpus unverändert, `check` 314,8 / 319,2 s statt 935,6 / 299,4 s; results.json und die vier Berichte bytegleich zum G1-Lauf auf dcec9bd (Minimum und Gesamtkriterien sind mit nur einem Datensatz nicht erfüllt).
 - **Nachprüfung, drei Punkte behoben** (A-89): (1) POSIX mit spawn oder forkserver: Der resource tracker von multiprocessing startete beim ersten Semaphor eines Pools mit der Konsole; endete der CLI-Prozess ohne Finalizer (SIGKILL, OOM-Killer), schrieb er `resource_tracker: … leaked semaphore objects` mit Installationspfad. `pool_context()` startet ihn jetzt auf dem Nullgerät (Test: Prozess mit NeuroGrid-Pool, SIGKILL, stderr leer, Semaphor trotzdem entfernt; Gegenprobe mit einfachem Pool zeigt die Warnung). (2) Direktes Schreiben auf das Konsolengerät (`CONOUT$`, `msvcrt.putwch`, `/dev/tty`) umgeht beide Schichten; die Prozesse bleiben an der Konsole, damit Strg+C sie beendet (A-77); als Grenze in A-89 mit dem Suchergebnis über die Umgebung. (3) Ein toter Pool- oder loky-Prozess (oder ein nicht zustellbarer Teil) erscheint jetzt einmal als übersetzte Zeile `cli.check.recomputed` (zh/en/de) auf stdout, bevor die Wiederholungen beginnen; results.json bleibt unberührt.
 - **Ergebnisse der Nachprüfung (Windows 11, Python 3.12.15, `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`):** `test_quality_review_p3.py` und `test_worker_console.py` 30 bestanden (u. a. `--jobs 1` = `--jobs 4`, sterbender Worker, loky-Rückfall, die Zeile genau einmal bei `--jobs 2`); `test_quality_pipeline.py`, `test_quality_sample.py`, `test_language_and_wording.py` und `test_processes.py` 128 bestanden, 2 übersprungen (POSIX, darunter der tracker-Test); `test_cli.py`, `test_architecture.py`, `test_console_sentence.py`, `test_g1_checks.py`, `test_zh_review_package.py`, `test_provenance_pipeline.py` und `test_packaging_texts.py` 182 bestanden. ruff, `mypy src/neurogrid tools` und `mypy --strict src/neurogrid/kernel` (auch `--platform linux`) sauber. Korpus ds004504-1.0.9 (`check --jobs 4` wie `tools/acceptance_g1.py`): Exit 0 in 311,4 s, stderr leer, Konsolen- und Datenschutzprüfung ohne Befund, keine Zeile `cli.check.recomputed` (kein Worker starb), results.json bytegleich zum G1-Lauf auf dcec9bd, Korpus unverändert.
-- **Gemergt:** 18da12f (gepusht). CI auf 18da12f: <CI 18da12f>; volle Suite auf 18da12f: <SUITE 18da12f>; voller G1-Lauf auf 18da12f: <G1 18da12f>.
-- **Nicht verifiziert:** die POSIX-Zweige (fork, spawn, forkserver, resource tracker) nur in der CI (lokal kein Linux; <CI 18da12f>).
+- **Gemergt:** 18da12f (gepusht). CI auf 18da12f: `offline` (40609866836) grün, `ci` (40609866806) rot in allen sechs Testjobs, behoben in der dritten CI-Fix-Runde (Eintrag oben); CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176). Keine volle lokale Suite auf dem Endstand (Prüfvorgehen ab dem Ende von P5, A-87). Voller G1-Lauf auf 18da12f: 6 von 6 Datensätzen bestanden, alle Kriterien erfüllt (151 min); Endlauf auf 27c3e90: <G1 27c3e90>.
+- **Nur in der CI verifiziert:** die POSIX-Zweige (fork, spawn, forkserver, resource tracker; lokal kein Linux): auf 18da12f rot, auf 27c3e90 grün.
 
 ### 2026-10-27 – P5 Bericht, PDF, Dokumentation, Bündel, Abnahme
-- **Abgeschlossen:** NG-F14, NG-F18, CLI-05, REP-01, REP-02, REP-03, REP-04, REP-05, REP-06, REP-07, POS-01, ARC-05, ARC-06, TECH-06, TECH-10, NG-N01, NG-N03, NG-N05, NG-N06, CON-01, CON-04, V-06, UF-07, UF-08; aus P1 nachgetragen: TECH-11 (CI aktiv); nach der zweiten CI-Fix-Runde (CI auf dcec9bd grün): TECH-05, TECH-07, NG-N08; nach D-17: NG-N07.
-- **Umgesetzt, Nachweis offen (`nicht verifiziert`):** NG-F13, REP-00, UF-01 (Sichtprüfung der PDFs und voller G1-Lauf auf dem Endstand bei G1; NG-F13 dazu die Lesart von „jeder Befund“).
+- **Abgeschlossen:** NG-F14, NG-F18, CLI-05, REP-01, REP-02, REP-03, REP-04, REP-05, REP-06, REP-07, POS-01, ARC-05, ARC-06, TECH-06, TECH-10, NG-N01, NG-N03, NG-N05, NG-N06, CON-01, CON-04, V-06, UF-07, UF-08; aus P1 nachgetragen: TECH-11 (CI aktiv); nach der zweiten CI-Fix-Runde (CI auf dcec9bd grün): TECH-05, TECH-07, NG-N08; nach D-17: NG-N07; TECH-05 und NG-N08 nach dem roten Lauf auf 18da12f mit der dritten CI-Fix-Runde auf 27c3e90 erneut grün.
+- **Umgesetzt, Nachweis offen (`nicht verifiziert`):** NG-F13, REP-00, UF-01 (G1-Lauf auf 18da12f bestanden, Endlauf auf 27c3e90: <G1 27c3e90>; offen bis G1 die Sichtprüfung der PDFs, für NG-F13 dazu die Freigabe der Lesart von „jeder Befund“).
 - **Teilweise:** V-01 (G1-Lauf, Release nach G1), NG-N04 (Windows 10 nicht verifiziert), POS-02 und CON-05 (Platzhalter `<REPO_URL>`, Release nach G1). **Blockiert (extern):** TECH-08 (Gitee-Konto und Secret).
 - **Beigetragen zu:** UF-02, CON-02, TECH-01, RP-07.
 - **Gebaut** (vier Bereiche parallel nach den verbindlichen Vorgaben B1–B6, ENTSCHEIDUNGEN A-84 bis A-87):
@@ -106,12 +194,13 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge. Jed
   - Doku der Runde mit dcec9bd; ein Querabgleich berichtigte u. a. die Python-Version der Suite auf 55335ca (3.12, nicht 3.13) und die Reihenfolge der ersten CI-Läufe (NACHBAU).
 - **D-17 Lizenztexte** (9d8afcb): 70 Downloads aus der freigegebenen URL-Liste, 70 abgelegte Texte (bids-validator 3.0.2: 45, h5py 3.16.0: 1, mkdocs-material 9.7.7: 3, python-build-standalone 3.12.15+20261009: 21), alle freizügig; `known_missing.toml` leer, `tools/notices.py --check` endet mit 0; neue Prüfungen für abgelegte Texte, Auszüge und die Bibliotheken von python-build-standalone (`notices.py --sources` gegen lokale Kopien: 4 Texte, 0 Probleme). Unabhängig nachgeprüft: jede Datei mit Größe und SHA-256 der Liste, die ganzen Texte bytegleich zu einem zweiten Download, die vier Auszüge gegen ihre Quelle.
 - **G1-Befund auf dcec9bd** (eigener Eintrag oben, A-89): ein sterbender Pool-Prozess schrieb auf die Konsole; behoben mit `avoid_wmi()` und Hilfsprozessen auf dem Nullgerät, gemergt in 18da12f.
+- **Dritte CI-Fix-Runde** (eigener Eintrag oben, A-89): die roten Testjobs von 18da12f behoben (`quiet_pool`, `on_null_device`, Ströme im fork-Kind, Variablen des Scans, Plattformzellen der Nutzerdoku, Release nur mit grüner Testsuite am Tag-Commit), gemergt bis 1dd0eac, CI auf 27c3e90 ganz grün; dazu das Prüfvorgehen ab dem Ende von P5 (A-87).
 - **Ergebnisse (lokal, Windows 11):**
   - Volle Suiten der Fix-Runde: report c9a536a 3502 bestanden, 23 übersprungen; linux 191a62a 3510 bestanden, 25 übersprungen (mit `PYTHONWARNDEFAULTENCODING=1`); bundle d42bbf4 3498 bestanden, 23 übersprungen.
   - Gemergter Stand 55335ca (Python 3.12, `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`): 3597 bestanden, 24 übersprungen, 127 abgewählt, 1 fehlgeschlagen (strace-Test der Doku, behoben in 181654e).
-  - Nach der zweiten CI-Fix-Runde auf dcec9bd (gleiche Umgebung): 3647 bestanden, 21 übersprungen, 127 abgewählt, 1 fehlgeschlagen, nur an seiner Zeitgrenze (`test_quality_review_p3.py::test_one_recording_with_jobs_4_equals_jobs_1`, 122,5 s statt höchstens 120 s; die Suite lief auf dem ausgelasteten Rechner 4 h 07 min statt etwa 30 min; im mitgeschnittenen stderr derselbe tote Pool-Prozess wie im G1-Befund, `SpawnProcess-18`, A-89; allein bestanden, in der CI grün). Endstand 18da12f: <SUITE 18da12f>.
+  - Nach der zweiten CI-Fix-Runde auf dcec9bd (gleiche Umgebung): 3647 bestanden, 21 übersprungen, 127 abgewählt, 1 fehlgeschlagen, nur an seiner Zeitgrenze (`test_quality_review_p3.py::test_one_recording_with_jobs_4_equals_jobs_1`, 122,5 s statt höchstens 120 s; die Suite lief auf dem ausgelasteten Rechner 4 h 07 min statt etwa 30 min; im mitgeschnittenen stderr derselbe tote Pool-Prozess wie im G1-Befund, `SpawnProcess-18`, A-89; allein bestanden, in der CI grün). Auf dem Endstand 27c3e90 lief keine volle lokale Suite (Prüfvorgehen ab dem Ende von P5, A-87); die volle Suite belegt die CI (`ci` 40680346160, alle sechs Testjobs ohne Fehler; Zahlen im Eintrag der dritten CI-Fix-Runde), lokal liefen nur die betroffenen Tests (Python 3.12: 184 bestanden, 5 übersprungen, 52 abgewählt; Python 3.11: 18 bestanden, 4 übersprungen).
   - G1-Lauf (`tools/acceptance_g1.py`, 4587546): 6 von 6 Datensätzen in 5 Formaten (BDF, BrainVision, EDF, EEGLAB, FIF), alle Kriterien des Laufs erfüllt, zwei Läufe byte-gleich, `--jobs 1` = `--jobs 4`, Korpus unverändert, V-01-Checkliste des Laufs erfüllt (nur die Kriterien dieses Laufs; Matrix V-01 teilweise), V-06 ok; unabhängig nachgeprüft (alle 42 Ausgabedateien byte-gleich). Nach den Korrekturen R20–R24 mit verschärften Prüfungen auf 3 Datensätzen erneut bestanden.
-  - G1-Lauf auf dcec9bd (alle sechs Datensätze): 5 von 6 bestanden (BDF, BrainVision, EDF, FIF), Minimum erfüllt, beide Läufe bytegleich, `--jobs 1` = `--jobs 4`, Korpus unverändert, V-06 ja; ds004504-1.0.9 (EEGLAB) nur am Konsolenbefund von Lauf 1 gescheitert (A-89), Befundzeilen, Berichte und Dateien aller sechs ohne Problem; damit „alle Kriterien dieses Laufs“ und V-01 des Laufs nicht erfüllt. Voller Lauf auf 18da12f: <G1 18da12f>.
+  - G1-Lauf auf dcec9bd (alle sechs Datensätze): 5 von 6 bestanden (BDF, BrainVision, EDF, FIF), Minimum erfüllt, beide Läufe bytegleich, `--jobs 1` = `--jobs 4`, Korpus unverändert, V-06 ja; ds004504-1.0.9 (EEGLAB) nur am Konsolenbefund von Lauf 1 gescheitert (A-89), Befundzeilen, Berichte und Dateien aller sechs ohne Problem; damit „alle Kriterien dieses Laufs“ und V-01 des Laufs nicht erfüllt. Voller Lauf auf 18da12f: 6 von 6 Datensätzen in 5 Formaten (BDF, BrainVision, EDF, EEGLAB, FIF) bestanden, Minimum erfüllt, alle Kriterien des Laufs erfüllt, beide Läufe bytegleich, `--jobs 1` = `--jobs 4`, Korpus unverändert, V-01-Checkliste des Laufs erfüllt, V-06 ja, keine Probleme, 151 min; ds004504-1.0.9 `check` 333,0 / 324,6 s. Endlauf auf 27c3e90: <G1 27c3e90>.
   - Skalierung (A-88, 1000 Aufnahmen × 64 Kanäle):
 
     | Fall | Befunde | `report` HTML | `report` HTML+PDF | PDF-Seiten zh/en |
@@ -125,11 +214,12 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge. Jed
 - **CI (GitHub Actions, 55335ca):**
   - `offline` (Lauf 40403791782) ganz grün: beide Offline-Bündel aus `uv.lock` (unsignierte Entwicklungsbündel), PDF in debian:12-slim mit der dokumentierten Paketliste (`--network none`, strace), glibc 2.27 mit Exit 2 abgelehnt (ubuntu:18.04), Reinraum Windows (powershell 5.1 und pwsh, WFP-Audit, PDF), Reinräume debian:12-slim, ubuntu:24.04, ubuntu:22.04 (`--network none`, ohne Python, uid 1000), jeder v0.1-Befehl unter strace mit `--network none`.
   - `ci` (Lauf 40403791901): grün Lizenz-Gate mit Paketscan, Kommandozeile unter Windows PowerShell 5.1 und PowerShell 7, Anforderungs-IDs; rot die Testjobs: ubuntu-24.04 Python 3.11/3.12/3.13 je 6 Fehler (`test_review_p2_formats.py::test_mne_alone_follows_the_differently_decoded_reference`, zwei Codepage-Umwandlungen in `test_review_p2_convert.py`, `test_report_pdf.py::test_qa_gate_negative_controls`, `::test_rule_ids_do_not_break_inside_in_the_pdf`, der strace-Test der Doku), windows-latest je 5–6 Fehler (drei Tests in `test_install_ps1.py` auf dem Runner, `test_pdf_tests_pass_with_a_long_basetemp`, der strace-Test der Doku, einmal eine Zeitüberschreitung der Suche in `test_docs_browser.py`).
-- **CI (GitHub Actions, dcec9bd, nach der zweiten CI-Fix-Runde):** alles grün. `ci` (Lauf 40476578603): Testjobs ubuntu-24.04 und windows-latest × Python 3.11/3.12/3.13 mit Abdeckungs-Gates (Zahlen nur im Protokoll des Laufs: <COVERAGE>), Lizenz-Gate mit Paketscan, Kommandozeile unter Windows PowerShell 5.1 und PowerShell 7, Anforderungs-IDs, Plattformvergleich (berichtet, nicht erzwungen). `offline` (Lauf 40476578452): dieselben neun Jobs wie auf 55335ca. 18da12f: <CI 18da12f>.
+- **CI (GitHub Actions, dcec9bd, nach der zweiten CI-Fix-Runde):** alles grün. `ci` (Lauf 40476578603): Testjobs ubuntu-24.04 und windows-latest × Python 3.11/3.12/3.13 mit Abdeckungs-Gates (die Abdeckungswerte standen damals nur im Protokoll des Laufs; seit 2a49a0c und 27c3e90 als Hinweis-Annotation, Werte des Endstands im Eintrag der dritten CI-Fix-Runde: Kern 93,3–93,5 %, Prüfer 97,3 %), Lizenz-Gate mit Paketscan, Kommandozeile unter Windows PowerShell 5.1 und PowerShell 7, Anforderungs-IDs, Plattformvergleich (berichtet, nicht erzwungen). `offline` (Lauf 40476578452): dieselben neun Jobs wie auf 55335ca.
+- **CI (18da12f und 27c3e90):** auf 18da12f `offline` (40609866836) grün, `ci` (40609866806) rot in allen sechs Testjobs; nach der dritten CI-Fix-Runde auf 27c3e90 alles grün, `ci` (40680346160) und `offline` (40680346176); Zahlen und Abdeckung je Testjob im Eintrag der dritten CI-Fix-Runde.
 - **Annahmen:** A-84 (Bericht), A-85 (PDF), A-86 (Doku, Meldungen, Notices, Lizenzen), A-87 (Bündel, Signatur, Installation, Workflows), A-88 (Abnahme), A-89 (Hilfsprozesse, G1-Befund); für STOPP G1 vorgemerkt. Der Entwurf der P6-Vorgaben hatte A-89 bis A-91 vorläufig vergeben; P6 beginnt jetzt bei A-90.
-- **Nachzuziehen vor G1:** Die Nutzerdoku nennt für den Windows-Runner und Linux noch „Testsuite noch nicht verifiziert“ (installation.md, limitations.md, die Zeile der Audit-Hook-Tests in privacy.md, nach der die CI-Testläufe dort noch nicht bestehen, en und zh, dazu README.bundle.txt und die Release-Notes; `SUITE_PENDING`/`AUDIT_HOOK_PENDING` in `tests/docs/test_docs_sync.py`); seit dcec9bd ist die Testsuite auf ubuntu-24.04 und windows-latest grün, Debian 12 und Ubuntu 22.04 prüft die CI nur mit dem Offline-Bündel. Die Sätze sind von Hand nachzuziehen. Das zh-Prüfpaket entsteht nach dem letzten G1-Lauf (A-88).
+- **Nutzerdoku nachgezogen** (dritte CI-Fix-Runde, U1, 17e0d3f und 341beb1): Die Zellen „Testsuite noch nicht verifiziert“ sind ersetzt; Windows Server und Ubuntu 24.04 „Testsuite in der CI verifiziert (Python 3.11–3.13)“, Debian 12 und Ubuntu 22.04 „Testsuite nicht in der CI ausgeführt“ (die CI prüft dort nur das Offline-Bündel), auch in der Zeile der Audit-Hook-Tests in privacy.md, en und zh, in README.bundle.txt und den Release-Notes; `SUITE_PENDING`/`AUDIT_HOOK_PENDING` in `tests/docs/test_docs_sync.py` sind durch Prüfungen gegen die Matrix von `ci.yml` ersetzt (A-86). Belegt durch die grüne CI auf 27c3e90, für jedes Release durch `ci.yml` am Tag-Commit (dd9ab93, A-87). Das zh-Prüfpaket entsteht nach dem letzten G1-Lauf, dem auf 27c3e90 (A-88).
 - **Nicht verifiziert:**
-  - Auf dem Endstand 18da12f: CI (<CI 18da12f>, darunter die POSIX-Zweige von A-89), volle Suite (<SUITE 18da12f>), voller G1-Lauf (<G1 18da12f>); Korpustests (`-m corpus`) und `bundle.py sizes`.
+  - Auf dem Endstand 27c3e90: Korpustests (`-m corpus`) und `bundle.py sizes` (nach dem Prüfvorgehen einmal auf dem Endstand, A-87); keine volle lokale Suite (die volle Suite belegt die grüne CI).
   - Windows 10; NG-N02 auf einem Runner mit 4 vCPU/16 GB; Signaturprüfung an einem echten Release; Sichtprüfung der PDFs.
   - Der Windows-Nachweis auf OS-Ebene ordnet DNS-Anfragen über den DNS-Client-Dienst nicht zu (A-87); Container-Images per Tag, nicht per Digest gepinnt.
 
@@ -387,9 +477,8 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge. Jed
 
 ## Nächster Schritt
 
-Die Endzahlen auf 18da12f nachtragen (<CI 18da12f>, <SUITE 18da12f>, <G1 18da12f>, <COVERAGE>), die Zellen „Testsuite
-noch nicht verifiziert“ der Nutzerdoku nachziehen (P5-Eintrag), das zh-Prüfpaket nach dem letzten G1-Lauf erzeugen,
-dann **STOPP G1** mit der Liste „Für STOPP G1 vorgemerkt“ (KONZEPT 6: zh-Prüfung,
-Freigabe der Annahmen, Merge nach `main` und Veröffentlichung). Nach der Freigabe: Version 0.1.0, Tag `v0.1.0`,
-`release.yml`, PyPI und Gitee; danach P6 nach dem Entwurf der P6-Vorgaben und D-17 (M14 Option B, zh-Texte Option C),
-mit Annahmen ab A-90.
+Nach dem G1-Endlauf auf 27c3e90 (<G1 27c3e90>) das zh-Prüfpaket mit dessen Beispiel-PDFs erzeugen, dann **STOPP G1**
+mit der Liste „Für STOPP G1 vorgemerkt“ (KONZEPT 6: zh-Prüfung, Sichtprüfung der PDFs, Freigabe der Annahmen A-78 bis
+A-89, Merge nach `main` und Veröffentlichung). Nach der Freigabe: Version 0.1.0, Tag `v0.1.0`, `release.yml`, PyPI und
+Gitee; danach P6 nach dem Entwurf der P6-Vorgaben und D-17 (M14 Option B, zh-Texte Option C), mit Annahmen ab A-90 und
+nach dem Prüfvorgehen ab dem Ende von P5 (A-87).
