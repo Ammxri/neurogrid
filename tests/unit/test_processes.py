@@ -200,6 +200,25 @@ def test_null_descriptors_cover_a_stream_on_another_descriptor_and_a_forked_chil
     assert done.stdout == "after 0 True\n", (done.stdout, done.stderr)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX: native log lines of onnxruntime's Linux build")
+def test_on_null_device_keeps_native_output_of_library_code_off_the_console(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    """In NeuroGrid's own process (--jobs 1): what library code writes to descriptors 1 and 2 inside
+    on_null_device (onnxruntime's Linux build logs this line when it creates its environment) and through
+    the sys streams (here capfd's, on other descriptors) reaches nothing; afterwards the console is back."""
+    line = b"[W:onnxruntime:Default, device_discovery.cc] GPU device discovery failed: Failed to open file\n"
+    capfd.readouterr()
+    with processes.on_null_device():
+        os.write(2, line)
+        os.write(1, line)
+        print(NOISE, flush=True)
+        print(NOISE, file=sys.stderr, flush=True)
+    os.write(2, b"after\n")
+    print("after", flush=True)
+    assert capfd.readouterr() == ("after\n", "after\n")
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="CPython's _wmi exists on Windows only")
 def test_avoid_wmi_keeps_platform_answering_without_a_wmi_query() -> None:
     """After avoid_wmi, platform.uname() and platform.machine() answer (from ver and the environment, as

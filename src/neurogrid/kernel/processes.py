@@ -19,6 +19,9 @@ layers keep every such line off the console:
   points descriptors 0-2 and the sys streams at the null device again, so that the processes such a worker
   starts itself (loky's workers and resource tracker) inherit the null device as well.
 
+Library code whose native output NeuroGrid never shows runs in ``on_null_device``, in a worker and in
+NeuroGrid's own process (``--jobs 1``): onnxruntime behind ICLabel (``quality.sample``).
+
 What the parent needs from a worker reaches it through the pool: values, exceptions as data and the death
 of a worker (BrokenProcessPool), which ``check`` names in a translated note (``quality.compute_all``,
 ``on_recompute``). ``--debug`` changes nothing here; its cleaned traceback is that of NeuroGrid's own
@@ -343,6 +346,21 @@ else:
             resource_tracker.ensure_running()
 
 
+@contextmanager
+def on_null_device() -> Iterator[None]:
+    """Library code in the block does not reach the console through the descriptors either: on POSIX it runs
+    inside ``null_descriptors``, also in NeuroGrid's own process (``--jobs 1``). For native output that
+    NeuroGrid never shows and cannot translate: the Linux build of onnxruntime writes its own log lines to
+    descriptor 2, e.g. ``GPU device discovery failed`` when it creates its environment
+    (``core/platform/linux/device_discovery.cc``). Windows: the block runs as it is; the Windows build has no
+    such discovery, and no output of the block was found there."""
+    if sys.platform != "win32":
+        with null_descriptors():
+            yield
+    else:
+        yield
+
+
 def default_start_method() -> str:
     """The start method a pool would use: the one set for this process, otherwise the platform's default
     (the first of ``get_all_start_methods``)."""
@@ -363,4 +381,4 @@ def pool_context(method: str | None = None) -> mp_context.BaseContext:
     return _CONTEXTS[name]
 
 
-__all__ = ["STDIO", "avoid_wmi", "default_start_method", "pool_context", "to_null_device"]
+__all__ = ["STDIO", "avoid_wmi", "default_start_method", "on_null_device", "pool_context", "to_null_device"]

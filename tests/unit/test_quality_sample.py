@@ -9,7 +9,8 @@ method raise.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -622,3 +623,47 @@ def test_onnxruntime_telemetry_is_switched_off_before_iclabel(
     result = _measure(small["external"], sidecar_reason="frame_unsupported")
     assert result.m09b == baseline.m09b and result.m09b.state == "measured"
     assert events == ["disable", "label"]
+
+
+def test_onnxruntime_runs_inside_on_null_device(
+    small: dict[str, Path], baseline: SampleResult, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A-51, A-07: the Linux build of onnxruntime writes its own log lines to descriptor 2 ("GPU device
+    discovery failed" when it creates its environment), which with --jobs 1 is the console of NeuroGrid's
+    process (test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die on Linux, 18da12f).
+    Every onnxruntime call of ICLabel, from the telemetry switch to the session, runs inside
+    processes.on_null_device; the value is unchanged."""
+    import mne_icalabel
+    import onnxruntime
+
+    from neurogrid.kernel import processes
+
+    seen: list[tuple[str, bool]] = []
+    active: list[bool] = []
+    window = processes.on_null_device
+
+    @contextmanager
+    def spy_window() -> Iterator[None]:
+        with window():
+            active.append(True)
+            try:
+                yield
+            finally:
+                active.pop()
+
+    def spy(name: str, call: Callable[..., Any]) -> Callable[..., Any]:
+        def recorded(*args: Any, **kwargs: Any) -> Any:
+            seen.append((name, bool(active)))
+            return call(*args, **kwargs)
+
+        return recorded
+
+    monkeypatch.setattr(processes, "on_null_device", spy_window)
+    monkeypatch.setattr(
+        onnxruntime, "disable_telemetry_events", spy("telemetry", onnxruntime.disable_telemetry_events)
+    )
+    monkeypatch.setattr(onnxruntime, "InferenceSession", spy("session", onnxruntime.InferenceSession))
+    monkeypatch.setattr(mne_icalabel, "label_components", spy("label", mne_icalabel.label_components))
+    result = _measure(small["external"], sidecar_reason="frame_unsupported")
+    assert result.m09b == baseline.m09b and result.m09b.state == "measured"
+    assert seen == [("telemetry", True), ("label", True), ("session", True)]
