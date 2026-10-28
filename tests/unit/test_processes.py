@@ -151,6 +151,55 @@ def test_null_descriptors_restore_open_and_closed_descriptors(tmp_path: Path) ->
     assert closed.stdout.strip() == "closed"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX descriptors and fork")
+def test_null_descriptors_cover_a_stream_on_another_descriptor_and_a_forked_child(tmp_path: Path) -> None:
+    """sys.stdout on a copy of the console (descriptor above 2, as under pytest's capfd or in an embedding
+    program): while a child starts, writes through it reach the null device, in this process and in a
+    child forked meanwhile. That child writes through sys streams on the null device, holds no descriptor
+    of the console, and the copy keeps its inheritance flag. Before, the forked pool worker's traceback
+    reached capfd (test_pool_processes_start_on_the_null_device[fork] on Linux, 18da12f)."""
+    script = tmp_path / "probe.py"
+    script.write_text(
+        "import os, sys\n"
+        "from neurogrid.kernel import processes\n"
+        "console = os.fstat(1)\n"
+        "copy = os.dup(1)\n"
+        "flag = os.get_inheritable(copy)\n"
+        "old = sys.stdout = open(copy, 'w', encoding='utf-8')\n"
+        "with processes.null_descriptors():\n"
+        "    print('parent inside', flush=True)\n"
+        "    pid = os.fork()\n"
+        "    if pid == 0:\n"
+        "        old.write('child through the old stream\\n')\n"
+        "        old.flush()\n"
+        "        print('child through sys.stdout', flush=True)\n"
+        "        held = []\n"
+        "        for fd in range(1024):\n"
+        "            try:\n"
+        "                st = os.fstat(fd)\n"
+        "            except OSError:\n"
+        "                continue\n"
+        "            if (st.st_dev, st.st_ino) == (console.st_dev, console.st_ino):\n"
+        "                held.append(fd)\n"
+        "        rebound = sys.stdout is not old and sys.stdout.fileno() == 1\n"
+        "        os._exit(2 * len(held) + (0 if rebound else 1))\n"
+        "    _, status = os.waitpid(pid, 0)\n"
+        "print('after', os.waitstatus_to_exitcode(status), os.get_inheritable(copy) == flag, flush=True)\n",
+        encoding="utf-8",
+    )
+    done = subprocess.run(
+        [sys.executable, str(script)],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+        check=True,
+    )
+    # child exit 0: no console descriptor held (2 per descriptor) and sys.stdout rebound (1 if not)
+    assert done.stdout == "after 0 True\n", (done.stdout, done.stderr)
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="CPython's _wmi exists on Windows only")
 def test_avoid_wmi_keeps_platform_answering_without_a_wmi_query() -> None:
     """After avoid_wmi, platform.uname() and platform.machine() answer (from ver and the environment, as

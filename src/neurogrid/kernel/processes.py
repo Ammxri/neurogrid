@@ -7,12 +7,14 @@ layers keep every such line off the console:
 
 - **Start:** the processes of NeuroGrid's pools (``pool_context``) start with the null device as stdin,
   stdout and stderr. On Windows the process is created with these three handles (STARTUPINFO; this handle
-  is the only one it inherits). On POSIX this process points its descriptors 0-2 at the null device while
-  it starts the child; fork, spawn and the forkserver (with its children) inherit them. Its pending output
-  is written to the console before. From its first instruction on, nothing a worker writes reaches the
-  console: interpreter start, unpickling of its start data, the bootstrap of multiprocessing and its
-  error output. With spawn and forkserver ``pool_context`` also starts multiprocessing's resource tracker
-  that way, before a pool's first semaphore would start it with the console.
+  is the only one it inherits). On POSIX this process points its descriptors 0-2, and those its sys streams
+  write to, at the null device while it starts the child; fork, spawn and the forkserver (with its
+  children) inherit them. A forked child also replaces the sys streams it inherited by streams on the null
+  device before multiprocessing's bootstrap and keeps no copy of the console descriptors. This process
+  writes its pending output to the console before. From its first instruction on, nothing a worker writes
+  reaches the console: interpreter start, unpickling of its start data, the bootstrap of multiprocessing
+  and its error output. With spawn and forkserver ``pool_context`` also starts multiprocessing's resource
+  tracker that way, before a pool's first semaphore would start it with the console.
 - **Initializer:** ``to_null_device`` is the first step of every initializer (pool and loky workers). It
   points descriptors 0-2 and the sys streams at the null device again, so that the processes such a worker
   starts itself (loky's workers and resource tracker) inherit the null device as well.
@@ -44,7 +46,7 @@ from multiprocessing.process import BaseProcess
 from typing import Any
 
 STDIO = (0, 1, 2)
-_START_LOCK = threading.Lock()  # POSIX: one start at a time changes the descriptors 0-2 of this process
+_START_LOCK = threading.RLock()  # POSIX: one start at a time changes the descriptors 0-2 of this process
 _CONTEXTS: dict[str, mp_context.BaseContext] = {}
 
 
@@ -200,39 +202,75 @@ else:
     import fcntl
     from multiprocessing import popen_fork, popen_spawn_posix
 
-    def _new_start_lock() -> None:
-        """A forked child gets the lock in the state of the forking thread: a fresh one."""
-        global _START_LOCK
-        _START_LOCK = threading.Lock()
+    _SAVED: list[int] = []  # the copies of the console descriptors while null_descriptors is active
 
-    os.register_at_fork(after_in_child=_new_start_lock)
+    def _after_fork_in_child() -> None:
+        """A forked child gets the lock in the state of the forking thread: a fresh one. A child forked
+        while null_descriptors is active (a pool process that starts) keeps no copy of the console and gets
+        sys.stdin, sys.stdout and sys.stderr on the null device before multiprocessing's bootstrap: it does
+        not write through the parent's stream objects (on another descriptor, or with a buffer lock that
+        a thread of the parent held at the fork)."""
+        global _START_LOCK
+        _START_LOCK = threading.RLock()
+        if not _SAVED:
+            return
+        for fd in _SAVED:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        _SAVED.clear()
+        sys.stdin = open(0, encoding="utf-8", errors="replace", closefd=False)
+        sys.stdout = open(1, "w", encoding="utf-8", errors="replace", closefd=False)
+        sys.stderr = open(2, "w", encoding="utf-8", errors="replace", closefd=False)
+
+    os.register_at_fork(after_in_child=_after_fork_in_child)
+
+    def _stream_descriptors() -> list[int]:
+        """The descriptors above 0-2 that sys.stdout and sys.stderr write to: a stream on a copy of the
+        console (an embedding program, pytest's capture) reaches it from a forked child as well."""
+        found: list[int] = []
+        for stream in (sys.stdout, sys.stderr, sys.__stdout__, sys.__stderr__):
+            try:
+                fd = stream.fileno() if stream is not None else -1
+            except (AttributeError, OSError, ValueError):  # no descriptor: e.g. an in-memory stream
+                continue
+            if fd > 2 and fd not in found:
+                found.append(fd)
+        return found
 
     @contextmanager
     def null_descriptors() -> Iterator[None]:
-        """Descriptors 0-2 of this process on the null device while a child process is started (it
-        inherits them); restored afterwards, a descriptor that was closed is closed again."""
+        """Descriptors 0-2 of this process, and those its sys streams write to, on the null device while a
+        child process is started (it inherits them); restored afterwards with their inheritance flag, a
+        descriptor that was closed is closed again."""
         _flush_console()
         with _START_LOCK:
-            saved: dict[int, int | None] = {}
-            for fd in STDIO:
+            targets = (*STDIO, *_stream_descriptors())
+            saved: dict[int, tuple[int, bool] | None] = {}
+            for fd in targets:
                 try:  # the copies lie above 0-2 even if one of them is closed
-                    saved[fd] = fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3)
+                    saved[fd] = (fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3), os.get_inheritable(fd))
                 except OSError:
                     saved[fd] = None
+            depth = len(_SAVED)
+            _SAVED.extend(entry[0] for entry in saved.values() if entry is not None)
             null = os.open(os.devnull, os.O_RDWR)  # takes a closed one of 0-2 if there is one
             try:
-                for fd in STDIO:
+                for fd in targets:
                     if fd != null:
                         os.dup2(null, fd)
                 yield
             finally:
-                if null not in STDIO:
+                del _SAVED[depth:]
+                if null not in saved:  # otherwise it took a closed target, which is closed again below
                     os.close(null)
-                for fd, copy in saved.items():
-                    if copy is None:
+                for fd, entry in saved.items():
+                    if entry is None:
                         os.close(fd)
                     else:
-                        os.dup2(copy, fd)
+                        copy, inheritable = entry
+                        os.dup2(copy, fd, inheritable=inheritable)
                         os.close(copy)
 
     class NullStdioForkPopen(popen_fork.Popen):
