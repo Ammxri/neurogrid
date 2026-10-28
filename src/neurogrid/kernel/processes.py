@@ -19,7 +19,8 @@ layers keep every such line off the console:
 
 What the parent needs from a worker reaches it through the pool: values, exceptions as data and the death
 of a worker (BrokenProcessPool), which ``check`` names in a translated note (``quality.compute_all``,
-``on_recompute``). ``--debug`` changes nothing here; its cleaned traceback is that of NeuroGrid's own
+``on_recompute``). The pool's own thread in NeuroGrid's process that feeds the workers prints nothing
+either (``quiet_pool``). ``--debug`` changes nothing here; its cleaned traceback is that of NeuroGrid's own
 process (A-51).
 
 Not covered: output that a library writes to the console device itself (Windows ``CONOUT$`` or
@@ -37,13 +38,15 @@ import multiprocessing
 import os
 import sys
 import threading
+import weakref
 from collections.abc import Iterator
 from contextlib import contextmanager
 from multiprocessing import context as mp_context
 from multiprocessing.process import BaseProcess
-from typing import Any
+from typing import Any, TypeVar
 
 STDIO = (0, 1, 2)
+_P = TypeVar("_P")
 _START_LOCK = threading.Lock()  # POSIX: one start at a time changes the descriptors 0-2 of this process
 _CONTEXTS: dict[str, mp_context.BaseContext] = {}
 
@@ -325,4 +328,36 @@ def pool_context(method: str | None = None) -> mp_context.BaseContext:
     return _CONTEXTS[name]
 
 
-__all__ = ["STDIO", "avoid_wmi", "default_start_method", "pool_context", "to_null_device"]
+def quiet_pool(pool: _P) -> _P:
+    """``pool`` (a ``ProcessPoolExecutor``) whose thread in this process that feeds its call queue prints
+    nothing; anything else (a stand-in of the tests) is returned unchanged.
+
+    That thread (multiprocessing's queue feeder) writes the pickled tasks into the pipe the workers read. A
+    send that fails goes to ``_on_queue_feeder_error``, which concurrent.futures hands to
+    ``traceback.print_exc()`` unless the object is a task that could not be pickled: a traceback with the
+    install path of Python on NeuroGrid's console. That happens after a worker died: CPython closes the
+    pipe (gh-107219, Windows) and 3.11 then still puts a stop signal into it for every worker that has not
+    exited yet (``terminate_broken``, ``shutdown_workers``; 3.12 and later skip that for a broken pool), whose
+    send fails with ``OSError: handle is closed``. The pool reports the death itself (BrokenProcessPool), so
+    such a failure only goes to multiprocessing's debug log; a task that cannot be pickled still fails its
+    own future."""
+    from concurrent.futures import process as futures_process
+    from multiprocessing import util
+
+    call_queue = getattr(pool, "_call_queue", None)
+    if not isinstance(call_queue, futures_process._SafeQueue):
+        return pool
+    report = weakref.WeakMethod(call_queue._on_queue_feeder_error)  # no cycle through the queue
+
+    def on_feeder_error(error: Exception, obj: object) -> None:
+        method = report()
+        if isinstance(obj, futures_process._CallItem) and method is not None:
+            method(error, obj)  # its future gets the error, as in CPython
+        else:  # pickled bytes or a stop signal: the pipe was closed after a worker died
+            util.debug("queue feeder of a pool: send failed: %r", error)
+
+    call_queue.__dict__["_on_queue_feeder_error"] = on_feeder_error  # the feeder thread takes it at its start
+    return pool
+
+
+__all__ = ["STDIO", "avoid_wmi", "default_start_method", "pool_context", "quiet_pool", "to_null_device"]

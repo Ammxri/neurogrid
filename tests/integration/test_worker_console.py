@@ -13,6 +13,9 @@ handle value it read there: the semaphore of the worker's call queue. The tests:
   whose release fails the same way). The worker dies exactly as in the G1 run; the console stays clean and
   the results equal one process;
 - no pool worker asks WMI (audit event ``_wmi.exec_query``) when a library asks ``platform``;
+- NeuroGrid's own process: the pool's thread that feeds the workers prints no failed send (CPython 3.11
+  sends stop signals into the closed pipe of a broken pool), and a task that cannot be pickled still fails
+  its own future;
 - through the real CLI with ``--jobs 2``: workers that write at interpreter start (spawn) or right after
   the fork, at their bootstrap and at shutdown, and one that dies at ``call_queue.get``, leave stdout and
   stderr as the G1 acceptance demands (strict UTF-8, only translated lines, no traceback, no path, home
@@ -30,6 +33,7 @@ import platform
 import re
 import subprocess
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -52,7 +56,17 @@ CLOSE_ONCE = "NEUROGRID_TEST_CLOSE_QUEUE_SEMAPHORE"  # marker file: the first wo
 WMI_SEEN = "NEUROGRID_TEST_WMI_SEEN"  # marker file: written when a worker calls _wmi.exec_query
 HAS_WMI = importlib.util.find_spec("_wmi") is not None
 CONSOLE_TRACES = ("Traceback", "SpawnProcess", "ForkProcess", "WinError", "Errno", 'File "', "queues.py")
+FRAME = re.compile(r'File "(?:[^"]*[\\/])?([^"\\/]+)", line (\d+), in (\S+)')
+RAISED = re.compile(r"^(\w+(?:Error|Exception|Exit))\b", re.MULTILINE)
 _kept: list[int] = []  # handles that keep a closed value taken (Windows)
+
+
+def _traces(text: str) -> list[str]:
+    """What console text shows of tracebacks, without a path or a message (either may hold the user name):
+    file, line and function of every frame and the type of every exception. The assertion messages print
+    it, so that a CI annotation names the code that wrote."""
+    frames = [f"{name}:{line} {function}" for name, line, function in FRAME.findall(text)]
+    return frames + RAISED.findall(text)
 
 
 class _ClosedSemaphore:
@@ -113,7 +127,9 @@ def test_a_worker_whose_call_queue_semaphore_is_closed_leaves_the_console_clean(
 ) -> None:
     """The G1 failure, deterministic: the worker dies at call_queue.get (WinError 6); before the fix its
     traceback with install paths reached the console (the full-suite log of dcec9bd shows it under
-    'Captured stderr'). Now nothing does, and the jobs it took down give the values of one process."""
+    'Captured stderr'). Now nothing does, and the jobs it took down give the values of one process. Nor
+    does the failed send of the pool's queue thread in this process that follows on CPython 3.11 (CI
+    windows-latest py3.11 on 18da12f: 'queues.py', line 246, in _feed ... OSError: handle is closed)."""
     jobs = _cheap_jobs(tmp_path)
     expected = [quality.compute(job) for job in jobs]
     marker = tmp_path / "closed"
@@ -124,7 +140,8 @@ def test_a_worker_whose_call_queue_semaphore_is_closed_leaves_the_console_clean(
     out, err = capfd.readouterr()
     assert marker.exists()  # one worker really lost its semaphore
     assert results == expected
-    assert (out, err) == ("", ""), [trace for trace in CONSOLE_TRACES if trace in out + err]
+    traces = [trace for trace in CONSOLE_TRACES if trace in out + err]
+    assert (out, err) == ("", ""), (traces, _traces(out + err))
 
 
 @pytest.mark.skipif(not HAS_WMI, reason="CPython's _wmi module (Windows, Python 3.12+)")
@@ -137,6 +154,36 @@ def test_no_pool_worker_asks_wmi(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     jobs = _cheap_jobs(tmp_path)
     assert quality.compute_all(jobs, workers=2) == [quality.compute(job) for job in jobs]
     assert not marker.exists()
+
+
+def test_the_queue_thread_of_a_pool_prints_no_failed_send(capfd: pytest.CaptureFixture[str]) -> None:
+    """NeuroGrid's own process (kernel/processes.py, quiet_pool): after a worker died, CPython 3.11 closes
+    the pipe of the pool's call queue (gh-107219, Windows) and then still puts a stop signal into it for
+    every worker that has not exited yet; the queue's feeder thread fails to send it and concurrent.futures
+    printed that with a traceback (install path of Python). These steps on a pool without workers, the same
+    on every version and platform; nothing reaches the console."""
+    pool = quality._pool(1)
+    call_queue = pool._call_queue  # type: ignore[attr-defined]
+    try:
+        call_queue._writer.close()  # terminate_broken
+        call_queue.put_nowait(None)  # shutdown_workers: the feeder thread starts, its send fails
+        call_queue.close()
+        call_queue.join_thread()  # join_executor_internals: the thread has ended
+    finally:
+        pool.shutdown()
+    out, err = capfd.readouterr()
+    assert (out, err) == ("", ""), _traces(out + err)
+
+
+def test_a_task_that_cannot_be_pickled_still_fails_its_future(capfd: pytest.CaptureFixture[str]) -> None:
+    """quiet_pool leaves CPython's handling of a task the feeder thread cannot pickle: its future gets the
+    error, the pool goes on, and nothing reaches the console."""
+    with quality._pool(1) as pool:
+        unpicklable = pool.submit(abs, threading.Lock())
+        assert isinstance(unpicklable.exception(timeout=120), TypeError)
+        assert pool.submit(abs, -3).result(timeout=120) == 3
+    out, err = capfd.readouterr()
+    assert (out, err) == ("", ""), _traces(out + err)
 
 
 # --- through the real CLI -----------------------------------------------------------------------------------
