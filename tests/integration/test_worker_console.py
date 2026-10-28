@@ -305,8 +305,12 @@ def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_
     forbidden = g1.forbidden_values(dataset, tmp_path)
     for jobs, run in runs.items():
         assert run.code in (0, 1), (jobs, run.stderr.decode("utf-8", "replace"))
-        assert g1.check_console(run.stdout, run.stderr, "en", run.code, allowed_paths=(tmp_path,)) == [], jobs
-        assert g1.check_privacy([g1.console_output("check", run, tmp_path)], forbidden, None) == [], jobs
+        # the messages name the run, the problems (never a value) and the frames shown (no path)
+        shown = _traces((run.stdout + run.stderr).decode("utf-8", "replace"))
+        console = g1.check_console(run.stdout, run.stderr, "en", run.code, allowed_paths=(tmp_path,))
+        assert console == [], (jobs, console, shown)
+        privacy = g1.check_privacy([g1.console_output("check", run, tmp_path)], forbidden, None)
+        assert privacy == [], (jobs, privacy, shown)
     assert runs[1].code == runs[2].code
     assert out[2].read_bytes() == out[1].read_bytes()  # NG-N03, also after the worker died
     marker = "\x00"
