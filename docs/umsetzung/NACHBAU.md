@@ -11,7 +11,7 @@ der dritten CI-Fix-Runde (Zweige `p5-ci3-*`, Merges `ce87432`, `f3fe478`, `1dd0e
 alle sechs Testjobs von `ci` rot (Lauf 40609866806; `offline` 40609866836 grün) [G, CI 18da12f]; auf `27c3e90` sind
 beide Workflows ganz grün (`ci` 40680346160, `offline` 40680346176; 4.7.19) [G, CI 27c3e90]. Die volle Testsuite läuft
 seit dem 28.10.2026 nur in der CI, lokal nur die betroffenen Tests (4.0). G1 auf `18da12f`: 6 von 6 Datensätzen
-bestanden, alle Kriterien erfüllt (151 min); G1 auf dem Endstand `27c3e90`: `<G1 27c3e90>` (4.7.20). **STOPP G1** ist
+bestanden, alle Kriterien erfüllt (151 min); G1 auf dem Endstand `27c3e90`: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`) (4.7.20). **STOPP G1** ist
 offen (4.7.21).
 
 ---
@@ -70,7 +70,6 @@ nachstellen (1.6 Punkt 20–22).
 | `<Ziel>` | ein beliebiger, leerer Ausgabeordner |
 | `<REPO_URL>`, `<owner>/<repo>` | öffentliches Repository; für dieses Projekt `https://github.com/Ammxri/neurogrid` bzw. `Ammxri/neurogrid` (D-15). In der Nutzerdoku bleibt `<REPO_URL>` bis zum Release stehen (`tools/release_check.py` sperrt es außerhalb von `docs/umsetzung`) |
 | `<v>` | Paketversion, heute `0.1.0rc1` |
-| `<G1 27c3e90>` | **vom Lead auszufüllen:** Ergebnis des einmaligen G1-Laufs (`tools/acceptance_g1.py`) auf dem Endstand `27c3e90` als ganzer Satzteil (Datensätze bestanden, Kriterien, Dauer); er läuft, weil die dritte CI-Fix-Runde den Windows-Pfad geändert hat (`quiet_pool`, `on_null_device`; 4.7.18, 4.7.20) |
 
 Alle Befehle laufen im `<Projektordner>`, wenn nichts anderes dasteht.
 
@@ -954,7 +953,7 @@ Python 3.11 (4.7.18); nach der dritten CI-Fix-Runde sind auf `27c3e90` alle Jobs
 | 28.10. bis 04:08 | – | G1-Lauf auf `18da12f`: 6 von 6 Datensätzen bestanden, alle Kriterien erfüllt, 151 min (4.7.20) [R: Dateizeit und Dauer in `.local/logs/g1_18da12f.log`] |
 | 28.10. 04:19 – 12:20 | Zweige `p5-ci3-posix` (`919bd11`, `3d212b5`, `223206b`, `5aa8749`, `9b9a98b`, `1ebe89b`, `7f5b3b0`), `p5-ci3-win311` (`9b355bd`, `aa03735`, `a25fc54`, `2c82a5f`, `25ead0d`, `95f6c50`), `p5-ci3-docs` (`29ff4af`, `d269cb9`, `17e0d3f`, `dd9ab93`, `341beb1`); Merges `ce87432`, `f3fe478`, `1dd0eac` | dritte CI-Fix-Runde: die roten Testjobs von `18da12f`, Release-Gate (4.7.18) |
 | 28.10. 12:20 – 12:29 | `2a49a0c`, `27c3e90`, Push 12:29 | Testzahlen und Abdeckung grüner Testjobs als Notice-Annotationen; CI-Läufe 40680346160 (`ci`) und 40680346176 (`offline`) ganz grün (4.7.19) |
-| 28.10. | Zweig `p5-final-docs` | Schlussfassung der Doku auf `27c3e90`; lokal nur die betroffenen Tests unter Python 3.12 und 3.11, keine lokale volle Suite; G1-Lauf auf `27c3e90`: `<G1 27c3e90>` (4.7.20) |
+| 28.10. | Zweig `p5-final-docs` | Schlussfassung der Doku auf `27c3e90`; lokal nur die betroffenen Tests unter Python 3.12 und 3.11, keine lokale volle Suite; G1-Lauf auf `27c3e90`: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`) (4.7.20) |
 
 Gemeinsame Merge-Konfliktstellen [D]: Pytest-Marker und `addopts` in `pyproject.toml` (Vereinigung: `pdf`,
 `browser`, `bundle`), `REUSE.toml`, `uv.lock` (neu erzeugen), `report/render.py` und Vorlage (Bericht-Bereich gewinnt),
@@ -1360,7 +1359,7 @@ $PY = ".\.venv\Scripts\python.exe"
   auf ds002778) und ein `read.failed` auf, beides aus dem Arbeitsspeicher des Rechners: auf einem Rechner mit genug
   freiem RAM laufen lassen oder je Datensatz einzeln. Der volle Lauf auf `dcec9bd` ergab 5/6 und den Befund an der
   Konsole (4.7.17); auf `18da12f` „G1: 6/6 data sets passed, formats BDF, BrainVision, EDF, EEGLAB, FIF; minimum
-  met; all criteria of this run met“, Exit 0, 151 min (4.7.20); auf dem Endstand `27c3e90`: `<G1 27c3e90>`.
+  met; all criteria of this run met“, Exit 0, 151 min (4.7.20); auf dem Endstand `27c3e90`: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`).
 
 **Skalierung** (A-59, A-88) [G: `tests/perf/test_report_scaling.py`; Messwerte D]:
 ```powershell
@@ -2132,15 +2131,15 @@ passed, formats BDF, BrainVision, EDF, EEGLAB, FIF; minimum met; all criteria of
 (`real 151m40.587s`): je Datensatz beide Läufe byte-gleich, 0 Probleme; `--jobs 1` = `--jobs 4` auf ds004148-1.0.1;
 Korpus unverändert; V-01-Checkliste erfüllt; V-06-Zeile „ja“. Weil die dritte Runde den Windows-Pfad geändert hat
 (`quiet_pool` in jedem Pool, `on_null_device` um ICLabel), läuft G1 einmal auf dem Endstand `27c3e90`:
-`<G1 27c3e90>`.
+6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`).
 
-Noch offen vor G1: `<G1 27c3e90>`; Korpustests (`-m corpus`, 114) auf dem Endstand [NV]; `bundle.py sizes` [NV];
-zh-Prüfpaket nach dem letzten G1-Lauf erzeugen (4.7.8); Phasenbericht an den Projektverantwortlichen. Erledigt seit
+Noch offen vor G1: Korpustests (`-m corpus`, 114) auf dem Endstand [NV]; `bundle.py sizes` [NV];
+Phasenbericht an den Projektverantwortlichen. Erzeugt nach dem letzten G1-Lauf: das zh-Prüfpaket (`zh_review_package.py --g1 .local/acceptance/g1 --since 6a4f737 --out .local/acceptance/zh_review.md`: 2626 zh-Texte aus 35 Dateien, 145 neu und 1 geändert gegenüber dem ersten Paket auf `6a4f737`, zwei Beispiel-PDFs; 4.7.8). Erledigt seit
 `18da12f`: CI grün auf ubuntu-24.04 und windows-latest (4.7.19), die Plattformzellen der Nutzerdoku (`17e0d3f`).
 
 #### 4.7.21 STOPP G1 (offen)
 
-STOPP G1 ist **offen**; er folgt, sobald `<G1 27c3e90>` vorliegt und der Lead den Phasenbericht vorgelegt hat (CI auf
+STOPP G1 ist **offen**; er folgt mit dem Phasenbericht des Leads (G1 auf `27c3e90`: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`); CI auf
 `27c3e90` grün, 4.7.19; G1 auf `18da12f` bestanden, 4.7.20). Die vollständige Liste führt FORTSCHRITT („Für STOPP G1
 vorgemerkt“). STOPP G1 enthält, jeweils durch den Projektverantwortlichen:
 - muttersprachliche zh-Prüfung mit dem Paket aus `tools/zh_review_package.py`, erzeugt nach dem letzten G1-Lauf
@@ -2433,8 +2432,8 @@ Cache entfernt).
 **P5 (Stand 27c3e90):** Bau, Integration, Lizenztexte (D-15, D-16, D-17), G1-Abnahme, Skalierungsgrenzen (A-88),
 Review, Fix-Runde, zweite CI-Fix-Runde, die Behebung des G1-Befunds und die dritte CI-Fix-Runde sind gemacht
 (4.7.6–4.7.18); auf `27c3e90` sind alle CI-Jobs grün, Abdeckung je Testjob Kern 93,3–93,5 %, Prüfer 97,3 % (4.7.19);
-G1 auf `18da12f` 6 von 6 Datensätzen bestanden (4.7.20). Offen: G1 auf `27c3e90` (`<G1 27c3e90>`), Korpustests und
-`bundle.py sizes` auf dem Endstand, das zh-Prüfpaket (4.7.20), dann STOPP G1 (4.7.21). Eine lokale volle Suite auf dem
+G1 auf `18da12f` 6 von 6 Datensätzen bestanden (4.7.20). G1 auf `27c3e90`: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`); das zh-Prüfpaket ist erzeugt (4.7.20). Offen: Korpustests und
+`bundle.py sizes` auf dem Endstand, dann STOPP G1 (4.7.21). Eine lokale volle Suite auf dem
 Endstand gibt es nicht; die volle Suite läuft nur in der CI (4.0). Die Bündel-Tests laufen seit Review R10 wie in D-15
 verlangt bei jedem Push auf `dev` und `main`; grün auf `dev` mit `55335ca` [G, CI 55335ca], `dcec9bd` [G, CI dcec9bd],
 `18da12f` [G, CI 18da12f] und `27c3e90` [G, CI 27c3e90].
@@ -2524,7 +2523,7 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
 - [ ] G1: `acceptance_g1.py --corpus .local/corpus --out .local/acceptance/g1` → Exit 0, „6/6 data sets passed …
       all criteria of this run met“; `summary.md` mit V-01-Checkliste und V-06-Zeile (4.7.8); auf `dcec9bd` 5/6 wegen
       des Konsolenbefunds (4.7.17), auf `18da12f` 6/6, alle Kriterien erfüllt (151 min), auf dem Endstand `27c3e90`
-      `<G1 27c3e90>` (4.7.20)
+      6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`) (4.7.20)
 - [ ] zh-Prüfpaket: `zh_review_package.py --g1 <letzter G1-Lauf>` → Exit 0, Markdown plus zwei Beispiel-PDFs (4.7.8),
       erzeugt nach dem letzten G1-Lauf
 
