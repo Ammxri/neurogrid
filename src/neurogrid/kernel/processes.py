@@ -347,7 +347,8 @@ def quiet_pool(pool: _P) -> _P:
     call_queue = getattr(pool, "_call_queue", None)
     if not isinstance(call_queue, futures_process._SafeQueue):
         return pool
-    report = weakref.WeakMethod(call_queue._on_queue_feeder_error)  # no cycle through the queue
+    # weak: the feeder thread must not keep the queue alive (collected, its finalizer stops the thread)
+    report = weakref.WeakMethod(call_queue._on_queue_feeder_error)
 
     def on_feeder_error(error: Exception, obj: object) -> None:
         method = report()
