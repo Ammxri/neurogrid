@@ -22,7 +22,7 @@ from pypdf.generic import ArrayObject, DictionaryObject, NameObject
 import acceptance_g1 as g1  # type: ignore[import-not-found]
 from gen_fixtures import scale_results, write_edf  # type: ignore[import-not-found]
 from neurogrid import pipeline
-from neurogrid.kernel import canonical
+from neurogrid.kernel import canonical, safety
 from neurogrid.model.results import Results
 from neurogrid.report.output import write_reports
 from neurogrid.report.render import EXPLAINED_EMPTY, FINDING_CELLS, MAX_ROWS_PER_RULE, render_report
@@ -916,6 +916,31 @@ def test_output_paths_on_the_console_are_no_raw_name_leak(results: Results, tmp_
     forbidden = g1.forbidden_values(raw, out)
     assert g1.Forbidden(g1.RAW_NAME, "PSG", "word") in forbidden
     written = out / "run1" / "psg-ipa-1.0.0" / "results.json"
+    sentence = disclaimer("en")
+    clean = g1.CommandRun("check", 1, f"Results written to {written}\n{sentence}\n".encode(), b"", 0.0)
+    assert g1.check_privacy([g1.console_output("check", clean, out)], forbidden, results) == []
+    leak = g1.CommandRun("check", 1, f"Results written to {written}\nread PSG/SN1.edf\n".encode(), b"", 0.0)
+    assert g1.check_privacy([g1.console_output("check", leak, out)], forbidden, results) == [
+        f"check console: contains a {g1.RAW_NAME}"
+    ]
+
+
+def test_a_redacted_output_path_on_the_console_is_no_raw_name_leak(
+    results: Results, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The console prints an --out folder with the login written '<user>' (A-51), e.g. below pytest's
+    pytest-of-<user>: that form names the operator's folder too (the corpus test of psg-ipa-1.0.0 failed on
+    it on 27c3e90, while the G1 run below .local passed). The raw name 'PSG' elsewhere stays a leak."""
+    monkeypatch.setattr(safety, "identity_names", lambda: {"<user>": ("zhangsan",), "<host>": ()})
+    raw = tmp_path / "corpus" / "psg-ipa-1.0.0"
+    (raw / "Sleep_stages" / "PSG").mkdir(parents=True)
+    write_edf(raw / "Sleep_stages" / "PSG" / "SN1.edf")
+    out = tmp_path / "pytest-of-zhangsan" / "g1"
+    forbidden = g1.forbidden_values(raw, out)
+    roots = {"~": safety.home_folder()}
+    target = out / "run1" / "psg-ipa-1.0.0" / "results.json"
+    written = safety.redact_paths(str(target), roots, safety.identity_names())
+    assert "pytest-of-<user>" in written and "zhangsan" not in written
     sentence = disclaimer("en")
     clean = g1.CommandRun("check", 1, f"Results written to {written}\n{sentence}\n".encode(), b"", 0.0)
     assert g1.check_privacy([g1.console_output("check", clean, out)], forbidden, results) == []

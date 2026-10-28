@@ -86,7 +86,7 @@ import pypdf
 from pypdf.generic import ArrayObject, DictionaryObject
 
 import neurogrid
-from neurogrid.kernel import canonical
+from neurogrid.kernel import canonical, safety
 from neurogrid.kernel.findings import Finding, SourceStatus
 from neurogrid.kernel.pdf import PLAYWRIGHT_VERSION, SHELL_REVISION, qa_gate
 from neurogrid.model.results import Results
@@ -899,14 +899,18 @@ class Forbidden:
 
 
 def _path_forms(path: Path) -> set[str]:
-    """``path`` absolute, resolved (through links and junctions), with the home folder written '~' as the
-    console does, each with both separators and JSON-escaped."""
+    """``path`` absolute, resolved (through links and junctions), with the home folder written '~' and, as
+    the console prints it, also with the login and computer names written '<user>' and '<host>' (A-51: e.g.
+    a --out folder below pytest-of-<user>), each with both separators and JSON-escaped."""
     home = str(Path.home())
+    names = safety.identity_names()
     forms: set[str] = set()
     for base in {str(path.absolute()), str(path.resolve())}:
         candidates = {base}
         if len(home) > 1 and base.lower().startswith(home.lower()):
             candidates.add("~" + base[len(home) :])
+        roots = {"~": safety.home_folder()}
+        candidates |= {safety.redact_paths(item, roots, names) for item in list(candidates)}
         for item in candidates:
             for spelled in (item, item.replace("\\", "/"), item.replace("/", "\\")):
                 forms.add(spelled)
