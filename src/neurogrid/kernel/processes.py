@@ -249,6 +249,41 @@ if sys.platform == "win32":
 
     _QUIET: dict[str, type[mp_context.BaseContext]] = {"spawn": QuietSpawnContext}
 
+    def _copy_above_stdio(fd: int) -> int:
+        """A copy of ``fd`` above 0-2 that no child inherits (os.dup takes the lowest free descriptor,
+        which may be a closed one of 0-2)."""
+        taken: list[int] = []
+        try:
+            copy = os.dup(fd)
+            while copy in STDIO:
+                taken.append(copy)
+                copy = os.dup(fd)
+            return copy
+        finally:
+            for low in taken:
+                os.close(low)
+
+    @contextmanager
+    def _console_on_null() -> Iterator[None]:
+        """Descriptors 1 and 2, sys.stdout and sys.stderr of this process on the null device for the block.
+
+        Native code writes through the C runtime that it shares with Python (ucrtbase): onnxruntime's
+        logger writes to descriptor 2 (std::wclog), and in a console program the C runtime points the
+        standard handles at the null device too (SetStdHandle). The sys streams write to a stream of their
+        own on descriptor 1 meanwhile: on a console they are console streams, whose write raises OSError
+        on the null device (WriteConsoleW, ERROR_INVALID_FUNCTION)."""
+        _flush_console()
+        streams = sys.stdout, sys.stderr
+        with (
+            _on_null((1, 2), [], _copy_above_stdio),
+            open(1, "w", encoding="utf-8", errors="replace", closefd=False) as sink,
+        ):
+            sys.stdout = sys.stderr = sink
+            try:
+                yield
+            finally:  # the sink is flushed to the null device before descriptor 1 is restored
+                sys.stdout, sys.stderr = streams
+
 else:
     import fcntl
     from multiprocessing import popen_fork, popen_spawn_posix
@@ -380,17 +415,20 @@ else:
 
 @contextmanager
 def on_null_device() -> Iterator[None]:
-    """Library code in the block does not reach the console through the descriptors either: on POSIX it runs
-    inside ``null_descriptors``, also in NeuroGrid's own process (``--jobs 1``). For native output that
-    NeuroGrid never shows and cannot translate: the Linux build of onnxruntime writes its own log lines to
-    descriptor 2, e.g. ``GPU device discovery failed`` when it creates its environment
-    (``core/platform/linux/device_discovery.cc``). Windows: the block runs as it is; the Windows build has no
-    such discovery, and no output of the block was found there."""
-    if sys.platform != "win32":
-        with null_descriptors():
+    """Library code in the block does not reach the console through the descriptors either, in a worker and
+    in NeuroGrid's own process (``--jobs 1``). For native output that NeuroGrid never shows and cannot
+    translate: onnxruntime's default logger writes its lines to descriptor 2, and both builds discover the
+    devices when they create their environment and log what fails there (Linux ``GPU device discovery
+    failed``, ``core/platform/linux/device_discovery.cc``; Windows e.g. ``Failed to load dxcore.dll`` or
+    ``Failed to create DXGI factory``, ``core/platform/windows/device_discovery.cc``). POSIX: the block runs
+    inside ``null_descriptors``. Windows: descriptors 1 and 2 and the sys streams are on the null device
+    (``_console_on_null``). If the window cannot open a descriptor (EMFILE), it raises before the block."""
+    if sys.platform == "win32":
+        with _console_on_null():
             yield
     else:
-        yield
+        with null_descriptors():
+            yield
 
 
 def default_start_method() -> str:

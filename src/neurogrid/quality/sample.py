@@ -457,8 +457,9 @@ def _iclabel(raw: Any, positions: bool, seed: int, min_channels: int) -> MethodR
         )
     import mne
 
-    # onnxruntime writes its own log lines to descriptor 2 (Linux: "GPU device discovery failed" when it
-    # creates its environment); with --jobs 1 that is the console of NeuroGrid's process (A-51, A-07)
+    # onnxruntime writes its own log lines to descriptor 2 (a failed device discovery when it creates its
+    # environment, Linux and Windows builds); with --jobs 1 that is the console of NeuroGrid's process
+    # (A-51, A-07)
     with processes.on_null_device():
         import onnxruntime
         from mne_icalabel import label_components

@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import multiprocessing
 import os
@@ -153,11 +154,11 @@ def test_null_descriptors_restore_open_and_closed_descriptors(tmp_path: Path) ->
 
 
 FAILING_WINDOW = """
-import errno, fcntl, json, os, sys
+import errno, json, os, sys
 from neurogrid.kernel import processes
 
 scenario, report = sys.argv[1], sys.argv[2]
-real_fcntl, real_open = fcntl.fcntl, os.open
+real_open = os.open
 copies = []
 
 
@@ -172,13 +173,11 @@ def files():
     return found
 
 
-def failing_fcntl(fd, command, argument=0):
-    if command == fcntl.F_DUPFD_CLOEXEC:
-        if scenario == "copy" and copies:  # the second copy finds no free descriptor
-            raise OSError(errno.EMFILE, os.strerror(errno.EMFILE))
-        copies.append(real_fcntl(fd, command, argument))
-        return copies[-1]
-    return real_fcntl(fd, command, argument)
+def copied(*args):  # the copy of a console descriptor: F_DUPFD_CLOEXEC (POSIX) or os.dup (Windows)
+    if scenario == "copy" and copies:  # the second copy finds no free descriptor
+        raise OSError(errno.EMFILE, os.strerror(errno.EMFILE))
+    copies.append(real_copy(*args))
+    return copies[-1]
 
 
 def failing_open(path, flags, *args, **kwargs):
@@ -187,30 +186,51 @@ def failing_open(path, flags, *args, **kwargs):
     return real_open(path, flags, *args, **kwargs)
 
 
+if sys.platform == "win32":
+    real_copy = real_dup = os.dup
+else:
+    import fcntl
+
+    real_copy = real_fcntl = fcntl.fcntl
+
+    def failing_fcntl(fd, command, argument=0):
+        if command == fcntl.F_DUPFD_CLOEXEC:
+            return copied(fd, command, argument)
+        return real_fcntl(fd, command, argument)
+
 before = files()
-fcntl.fcntl, os.open = failing_fcntl, failing_open
+os.open = failing_open
+if sys.platform == "win32":
+    os.dup = copied
+else:
+    fcntl.fcntl = failing_fcntl
 ran, raised = False, None
 try:
-    with processes.null_descriptors():
+    with processes.on_null_device():
         ran = True
 except OSError as error:
     raised = errno.errorcode.get(error.errno)
-fcntl.fcntl, os.open = real_fcntl, real_open
-result = {"raised": raised, "ran": ran, "listed": processes._SAVED, "copies": len(copies)}
+os.open = real_open
+if sys.platform == "win32":
+    os.dup = real_dup
+else:
+    fcntl.fcntl = real_fcntl
+listed = getattr(processes, "_SAVED", [])
+result = {"raised": raised, "ran": ran, "listed": listed, "copies": len(copies)}
 result["unchanged"] = files() == before
 with open(report, "w", encoding="utf-8") as out:
     json.dump(result, out)
 """
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX descriptors (null_descriptors)")
 @pytest.mark.parametrize("scenario", ["copy", "null"])
 def test_a_window_that_runs_out_of_descriptors_changes_nothing(scenario: str, tmp_path: Path) -> None:
-    """EMFILE while the window saves a console descriptor ("copy") or opens the null device ("null"): it
-    raises before the block, every copy is closed and none stays listed, and descriptors 0-2 are the same
-    files with the same flags. Before, "null" left the copies open and listed in _SAVED, so that every
-    later fork of the process closed those numbers in the child and rebound its sys streams; "copy" took
-    the open descriptor for a closed one, ran the block and closed the console descriptor afterwards."""
+    """EMFILE while on_null_device (POSIX: null_descriptors) saves a console descriptor ("copy") or opens
+    the null device ("null"): it raises before the block, every copy is closed and none stays listed, and
+    every descriptor is the same file with the same flag. Before, on POSIX "null" left the copies open and
+    listed in _SAVED, so that every later fork of the process closed those numbers in the child and rebound
+    its sys streams, and "copy" took the open descriptor for a closed one, ran the block and closed the
+    console descriptor afterwards; on Windows the block ran as it was."""
     script, report = tmp_path / "probe.py", tmp_path / "report.json"
     script.write_text(FAILING_WINDOW, encoding="utf-8")
     subprocess.run(
@@ -274,13 +294,13 @@ def test_null_descriptors_cover_a_stream_on_another_descriptor_and_a_forked_chil
     assert done.stdout == "after 0 True\n", (done.stdout, done.stderr)
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="POSIX: native log lines of onnxruntime's Linux build")
 def test_on_null_device_keeps_native_output_of_library_code_off_the_console(
     capfd: pytest.CaptureFixture[str],
 ) -> None:
     """In NeuroGrid's own process (--jobs 1): what library code writes to descriptors 1 and 2 inside
     on_null_device (onnxruntime's Linux build logs this line when it creates its environment) and through
-    the sys streams (here capfd's, on other descriptors) reaches nothing; afterwards the console is back."""
+    the sys streams (here capfd's, on other descriptors) reaches nothing; afterwards the console is back.
+    Before, on Windows the block ran as it was and all of it reached capfd."""
     line = b"[W:onnxruntime:Default, device_discovery.cc] GPU device discovery failed: Failed to open file\n"
     capfd.readouterr()
     with processes.on_null_device():
@@ -291,6 +311,124 @@ def test_on_null_device_keeps_native_output_of_library_code_off_the_console(
     os.write(2, b"after\n")
     print("after", flush=True)
     assert capfd.readouterr() == ("after\n", "after\n")
+
+
+ONNXRUNTIME_LOG = """
+import os, sys
+import onnxruntime
+from neurogrid.kernel import processes
+
+
+def session():
+    options = onnxruntime.SessionOptions()
+    options.log_severity_level = 0
+    onnxruntime.InferenceSession(sys.argv[1], options, providers=["CPUExecutionProvider"])
+
+
+os.write(2, b"<inside>")
+with processes.on_null_device():
+    onnxruntime.set_default_logger_severity(0)  # every line from now on, also of the environment
+    session()
+os.write(2, b"<outside>")
+session()
+"""
+
+
+def test_onnxruntime_logs_nothing_to_the_console_inside_on_null_device(tmp_path: Path) -> None:
+    """onnxruntime's own logger, made to log every line (severity VERBOSE), writes them to stderr when it
+    creates a session outside on_null_device and nothing inside it: the real native path of ICLabel's
+    log lines, which on Windows goes through the C runtime that onnxruntime shares with Python (ucrtbase).
+    Before, on Windows the session inside wrote its lines to stderr as well."""
+    spec = importlib.util.find_spec("mne_icalabel")
+    assert spec is not None and spec.origin is not None
+    model = Path(spec.origin).parent / "iclabel" / "network" / "assets" / "ICLabelNet.onnx"
+    script = tmp_path / "probe.py"
+    script.write_text(ONNXRUNTIME_LOG, encoding="utf-8")
+    done = subprocess.run(
+        [sys.executable, str(script), str(model)],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=300,
+        check=True,
+    )
+    err = done.stderr.replace(b"\x00", b"")  # the Windows build writes UTF-16 (std::wclog)
+    inside = err.partition(b"<inside>")[2].partition(b"<outside>")[0]
+    outside = err.partition(b"<outside>")[2]
+    assert (inside, b"inference_session" in outside) == (b"", True), (inside[:300], outside[:300])
+
+
+CONSOLE_PROBE = """
+import ctypes, json, msvcrt, os, sys
+from ctypes import wintypes
+from neurogrid.kernel import processes
+
+
+class Info(ctypes.Structure):
+    _fields_ = [
+        ("size", wintypes._COORD),
+        ("cursor", wintypes._COORD),
+        ("attributes", wintypes.WORD),
+        ("window", wintypes.SMALL_RECT),
+        ("maximum", wintypes._COORD),
+    ]
+
+
+def screen():
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetConsoleScreenBufferInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(Info)]
+    kernel32.ReadConsoleOutputCharacterW.argtypes = [
+        wintypes.HANDLE, wintypes.LPWSTR, wintypes.DWORD, wintypes._COORD, ctypes.POINTER(wintypes.DWORD)
+    ]
+    handle, info, read = msvcrt.get_osfhandle(1), Info(), wintypes.DWORD()
+    if not kernel32.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
+        return f"no screen buffer: {ctypes.get_last_error()}"
+    count = info.size.X * (info.cursor.Y + 1)
+    text = ctypes.create_unicode_buffer(count + 1)
+    kernel32.ReadConsoleOutputCharacterW(handle, text, count, wintypes._COORD(0, 0), ctypes.byref(read))
+    return text.value[: read.value]
+
+
+result = {"stream": type(getattr(sys.stdout, "buffer", sys.stdout).raw).__name__, "errors": []}
+with processes.on_null_device():
+    for write in (
+        lambda: print("inside-out", flush=True),
+        lambda: print("inside-err", file=sys.stderr, flush=True),
+        lambda: os.write(1, b"inside-fd1 "),
+        lambda: os.write(2, b"inside-fd2 "),
+    ):
+        try:
+            write()
+        except OSError as error:
+            result["errors"].append(repr(error))
+print("after-out", flush=True)
+print("after-err", file=sys.stderr, flush=True)
+text = screen()
+result["inside"] = "inside" in text
+result["after"] = "after-out" in text and "after-err" in text
+with open(sys.argv[1], "w", encoding="utf-8") as out:
+    json.dump(result, out)
+"""
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows console streams (_WindowsConsoleIO)")
+def test_on_null_device_on_a_windows_console_writes_nothing_there_and_raises_nothing(tmp_path: Path) -> None:
+    """NeuroGrid run in a console window (--jobs 1): sys.stdout and sys.stderr are console streams, which
+    raise OSError when their descriptor is on the null device. Inside on_null_device neither a print nor a
+    write to descriptors 1 and 2 reaches the console or raises (an exception there would end ICLabel as
+    failed: a value that depends on the console); afterwards both streams write to the console again. The
+    console is a new one without a window (CREATE_NO_WINDOW); the probe reads its screen buffer. Before,
+    all four writes inside reached the console."""
+    script, report = tmp_path / "probe.py", tmp_path / "report.json"
+    script.write_text(CONSOLE_PROBE, encoding="utf-8")
+    subprocess.run(
+        [sys.executable, str(script), str(report)],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        timeout=120,
+        check=True,
+    )
+    result = json.loads(report.read_text(encoding="utf-8"))
+    expected = {"stream": "_WindowsConsoleIO", "errors": [], "inside": False, "after": True}
+    assert result == expected, result
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="CPython's _wmi exists on Windows only")

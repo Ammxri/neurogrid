@@ -628,9 +628,10 @@ def test_onnxruntime_telemetry_is_switched_off_before_iclabel(
 def test_onnxruntime_runs_inside_on_null_device(
     small: dict[str, Path], baseline: SampleResult, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A-51, A-07: the Linux build of onnxruntime writes its own log lines to descriptor 2 ("GPU device
-    discovery failed" when it creates its environment), which with --jobs 1 is the console of NeuroGrid's
-    process (test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die on Linux, 18da12f).
+    """A-51, A-07: onnxruntime writes its own log lines to descriptor 2 (the Linux build "GPU device
+    discovery failed" when it creates its environment; the Windows build has such a discovery too), which
+    with --jobs 1 is the console of NeuroGrid's process
+    (test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die on Linux, 18da12f).
     Every onnxruntime call of ICLabel, from the telemetry switch to the session, runs inside
     processes.on_null_device; the value is unchanged."""
     import mne_icalabel
