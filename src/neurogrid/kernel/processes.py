@@ -336,11 +336,14 @@ def quiet_pool(pool: _P) -> _P:
     send that fails goes to ``_on_queue_feeder_error``, which concurrent.futures hands to
     ``traceback.print_exc()`` unless the object is a task that could not be pickled: a traceback with the
     install path of Python on NeuroGrid's console. That happens after a worker died: CPython closes the
-    pipe (gh-107219, Windows) and 3.11 then still puts a stop signal into it for every worker that has not
-    exited yet (``terminate_broken``, ``shutdown_workers``; 3.12 and later skip that for a broken pool), whose
-    send fails with ``OSError: handle is closed``. The pool reports the death itself (BrokenProcessPool), so
-    such a failure only goes to multiprocessing's debug log; a task that cannot be pickled still fails its
-    own future."""
+    pipe (gh-107219, Windows), and 3.11 then still puts a stop signal into it for each worker that counts as
+    alive (its termination has not completed) while the call queue has a free slot (``terminate_broken``,
+    ``shutdown_workers``, which gives up at ``queue.Full``; 3.12 and later skip that for a broken pool); its
+    send fails with ``OSError: handle is closed``. Whether a run gets there depends on timing: a worker that
+    dies in ``call_queue.get`` has taken its task without freeing its slot, so a full queue stays full unless
+    another worker took a task before the pool saw the death. The pool reports the death itself
+    (BrokenProcessPool), so such a failure only goes to multiprocessing's debug log; a task that cannot be
+    pickled still fails its own future."""
     from concurrent.futures import process as futures_process
     from multiprocessing import util
 

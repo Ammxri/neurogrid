@@ -14,8 +14,9 @@ handle value it read there: the semaphore of the worker's call queue. The tests:
   the results equal one process;
 - no pool worker asks WMI (audit event ``_wmi.exec_query``) when a library asks ``platform``;
 - NeuroGrid's own process: the pool's thread that feeds the workers prints no failed send (CPython 3.11
-  sends stop signals into the closed pipe of a broken pool), and a task that cannot be pickled still fails
-  its own future;
+  sends stop signals into the closed pipe of a broken pool while its call queue has a free slot, which
+  depends on timing; the test takes these steps itself), and a task that cannot be pickled still fails its
+  own future;
 - through the real CLI with ``--jobs 2``: workers that write at interpreter start (spawn) or right after
   the fork, at their bootstrap and at shutdown, and one that dies at ``call_queue.get``, leave stdout and
   stderr as the G1 acceptance demands (strict UTF-8, only translated lines, no traceback, no path, home
@@ -128,8 +129,10 @@ def test_a_worker_whose_call_queue_semaphore_is_closed_leaves_the_console_clean(
     """The G1 failure, deterministic: the worker dies at call_queue.get (WinError 6); before the fix its
     traceback with install paths reached the console (the full-suite log of dcec9bd shows it under
     'Captured stderr'). Now nothing does, and the jobs it took down give the values of one process. Nor
-    does the failed send of the pool's queue thread in this process that follows on CPython 3.11 (CI
-    windows-latest py3.11 on 18da12f: 'queues.py', line 246, in _feed ... OSError: handle is closed)."""
+    does the failed send of the pool's queue thread in this process that can follow on CPython 3.11 (CI
+    windows-latest py3.11 on 18da12f: 'queues.py', line 246, in _feed ... OSError: handle is closed): the
+    two tasks leave the call queue (three slots) a free slot, so it follows whenever the other worker still
+    counts as alive (locally on 3.11 without quiet_pool: 3 of 3 runs, one worker alive, two slots free)."""
     jobs = _cheap_jobs(tmp_path)
     expected = [quality.compute(job) for job in jobs]
     marker = tmp_path / "closed"
@@ -159,9 +162,12 @@ def test_no_pool_worker_asks_wmi(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_the_queue_thread_of_a_pool_prints_no_failed_send(capfd: pytest.CaptureFixture[str]) -> None:
     """NeuroGrid's own process (kernel/processes.py, quiet_pool): after a worker died, CPython 3.11 closes
     the pipe of the pool's call queue (gh-107219, Windows) and then still puts a stop signal into it for
-    every worker that has not exited yet; the queue's feeder thread fails to send it and concurrent.futures
-    printed that with a traceback (install path of Python). These steps on a pool without workers, the same
-    on every version and platform; nothing reaches the console."""
+    each worker that counts as alive while the queue has a free slot (shutdown_workers gives up at
+    queue.Full); the queue's feeder thread fails to send it and concurrent.futures printed that with a
+    traceback (install path of Python). Whether a run gets there depends on timing and on how full the
+    queue is: the CLI test below found it full locally and passed on 18da12f, in CI windows-latest py3.11
+    it failed. So this test takes these steps itself, on a pool without workers, the same on every version
+    and platform: the deterministic check. Nothing reaches the console."""
     pool = quality._pool(1)
     call_queue = pool._call_queue  # type: ignore[attr-defined]
     try:
@@ -280,7 +286,11 @@ def _run(arguments: list[str], cwd: Path, hook: Path, marks: Path) -> g1.Command
 def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_path: Path) -> None:
     """G1 console and privacy checks on check --jobs 2 whose workers write at start, bootstrap and shutdown
     and one of which dies at call_queue.get; results.json equals --jobs 1 (which computes in the CLI
-    process); no process asks WMI. The death shows only as NeuroGrid's note on stdout (A-89)."""
+    process); no process asks WMI. The death shows only as NeuroGrid's note on stdout (A-89). Whether the
+    CLI process meets CPython 3.11's failed send (quiet_pool) depends on timing: its first tasks fill the
+    call queue, which has a free slot only if the other worker took a task before the pool saw the death
+    (CI windows-latest py3.11 on 18da12f failed for --jobs 2 without naming the problem; locally the queue
+    was full and the test passed on 18da12f). The messages print the frames shown, so CI names the cause."""
     dataset = tmp_path / "data"
     write_edf(dataset / "rest_a.edf", CAP_19, eeg_like(CAP_19, 64, 250, 71), 250)  # sample-capable
     write_edf(dataset / "rest_b.edf", CAP_8, eeg_like(CAP_8, 20, 256, 72), 256)
