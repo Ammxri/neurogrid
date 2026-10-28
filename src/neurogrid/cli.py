@@ -24,7 +24,7 @@ from typer.exceptions import TyperException
 
 from neurogrid import pipeline
 from neurogrid.io.provenance import inside, shown_target
-from neurogrid.kernel import canonical, netguard
+from neurogrid.kernel import canonical, netguard, processes
 from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError, PdfError
 from neurogrid.kernel.findings import Severity
 from neurogrid.kernel.i18n import DEFAULT_LANGUAGE, detect_language, normalize_language
@@ -519,6 +519,8 @@ def check(
         allow_draft_rulepacks=allow_draft_rulepacks,
         show_paths=show_paths,
         jobs=jobs,
+        # a dead process of --jobs: only the time is lost, its output never reaches the console (A-89)
+        on_recompute=lambda count: _say("cli.check.recomputed", count=count),
         work_base=target.absolute().parent,  # work folder next to the results file (A-54)
         evidence_path=_given_path(evidence),
         manifest_path=_given_path(manifest_file),
@@ -739,6 +741,7 @@ def _configure_output() -> None:
 
 def main(argv: list[str] | None = None) -> None:
     netguard.install()
+    processes.avoid_wmi()  # before any library asks platform (A-51: see kernel/processes.py)
     _configure_output()
     # no state from an earlier call in-process; help and usage errors already speak the chosen language
     language, command_given = _argv_language(sys.argv[1:] if argv is None else argv)

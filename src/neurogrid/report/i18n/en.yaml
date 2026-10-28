@@ -26,6 +26,7 @@ cli:
     written: "Results written to {path}"
     placeholder: "Placeholder rule packs are loaded. Their findings are not based on a norm text and do not count."
     open_evidence: "{count} open evidence item(s), counted in the errors and warnings above."
+    recomputed: "Note: at least one helper process of --jobs stopped unexpectedly (for example out of memory); the work for {count} recording(s) is done without it."
   report:
     written: "Report written to {path}"
   convert:

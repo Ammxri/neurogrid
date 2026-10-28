@@ -26,6 +26,7 @@ cli:
     written: "Ergebnis geschrieben nach {path}"
     placeholder: "Platzhalter-Regelpakete sind geladen. Ihre Befunde beruhen nicht auf einem Normtext und zählen nicht."
     open_evidence: "{count} offene(r) Nachweis(e), in den Fehlern und Warnungen oben enthalten."
+    recomputed: "Hinweis: Mindestens ein Hilfsprozess von --jobs brach unerwartet ab (z. B. zu wenig Speicher); die Arbeit für {count} Aufnahme(n) wird ohne ihn erledigt."
   report:
     written: "Bericht geschrieben nach {path}"
   convert:

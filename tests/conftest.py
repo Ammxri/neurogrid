@@ -15,7 +15,7 @@ from typing import Any
 
 import pytest
 
-from neurogrid.kernel import netguard
+from neurogrid.kernel import netguard, processes
 
 FIXTURES = Path(__file__).parent / "fixtures" / "synthetic"
 TOOLS = Path(__file__).parent.parent / "tools"
@@ -42,8 +42,11 @@ def documented_config(folder: Path, extra: str = "", name: str = "documented.tom
 
 @pytest.fixture(scope="session", autouse=True)
 def _offline() -> None:
-    """Every test runs with the network guard that NeuroGrid installs at start-up (A-49)."""
+    """Every test runs with the network guard that NeuroGrid installs at start-up (A-49), and, like
+    NeuroGrid, with platform kept away from WMI: a timed-out WMI query of CPython 3.12 closes a foreign handle
+    of the process (kernel/processes.py, A-89)."""
     netguard.install()
+    processes.avoid_wmi()
 
 
 @pytest.fixture

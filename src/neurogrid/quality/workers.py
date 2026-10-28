@@ -1,9 +1,11 @@
-"""Start-up of the processes that compute signal metrics (A-11, A-49, NG-N01).
+"""Start-up of the processes that compute signal metrics (A-11, A-49, A-51, NG-N01, NG-N05).
 
-Every process installs the network guard and computes with one BLAS thread, so that the values depend
-neither on the number of processes nor on the BLAS threads of the environment. autoreject spreads its
-threshold search over loky processes (joblib); they start the same way, keep library warnings off the
-console, and get the data by pickling: joblib's memory maps would write signal data to a temporary folder.
+Every process first puts its console on the null device and keeps ``platform`` away from WMI
+(``neurogrid.kernel.processes``), then installs the network guard and computes with one BLAS thread, so
+that the values depend neither on the number of processes nor on the BLAS threads of the environment.
+autoreject spreads its threshold search over loky processes (joblib); they start the same way, keep
+library warnings off the console, and get the data by pickling: joblib's memory maps would write signal
+data to a temporary folder.
 """
 
 from __future__ import annotations
@@ -17,6 +19,11 @@ LOKY_IDLE_S = 1  # loky keeps idle workers 300 s by default, which would delay t
 
 def worker_start() -> None:
     """Initializer of the process pool behind ``--jobs``."""
+    from neurogrid.kernel import processes
+
+    processes.to_null_device()  # before anything else: nothing of this worker reaches the console
+    processes.avoid_wmi()
+
     from threadpoolctl import threadpool_limits
 
     from neurogrid.kernel import netguard
@@ -27,9 +34,9 @@ def worker_start() -> None:
 
 def loky_worker_start() -> None:
     """Initializer of autoreject's loky workers."""
+    worker_start()  # first: the console on the null device, before mne is imported
     import mne
 
-    worker_start()
     warnings.simplefilter("ignore")
     mne.set_log_level("ERROR")
 

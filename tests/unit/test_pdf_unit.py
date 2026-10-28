@@ -587,6 +587,20 @@ def test_driver_environment_is_restored_and_cleaned(tmp_path: Path, monkeypatch:
     assert os.environ["PW_TEST_SCREENSHOT_NO_FONTS_READY"] == "1" and os.environ["DEBUGP"] == "1"
 
 
+def test_the_driver_starts_with_the_null_device_as_stderr(tmp_path: Path) -> None:
+    """A-51, NG-N05: Playwright starts its driver (node) with sys.stderr.fileno(); while it starts, that is
+    the null device, so nothing the driver or the browser writes reaches the console. Restored afterwards,
+    also after an error."""
+    from playwright._impl._transport import _get_stderr_fileno
+
+    console = sys.stderr
+    with pytest.raises(ValueError), pdf.driver_environment(tmp_path):
+        assert sys.stderr is not console and sys.stderr.name == os.devnull
+        assert _get_stderr_fileno() == sys.stderr.fileno()
+        raise ValueError
+    assert sys.stderr is console
+
+
 def test_driver_runs_in_the_work_folder_and_the_caller_folder_comes_back(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
