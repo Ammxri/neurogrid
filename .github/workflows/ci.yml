@@ -81,6 +81,10 @@ jobs:
         run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary --limit 40
       - name: Coverage gates (Kern >= 90 %, Prüfer >= 80 %)
         run: uv run --no-sync python tools/coverage_gates.py coverage.json
+      # On success: the counts as a notice annotation, so a green run's numbers are readable without a login.
+      - name: Test counts of a green run as an annotation
+        if: success()
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary --limit 40
       - name: Determinism sample for cross-platform comparison
         run: uv run --no-sync neurogrid check tests/fixtures/synthetic/edf_mixed --config tests/fixtures/documented.toml --as-of 2026-10-11 --out results-${{ matrix.os }}-${{ matrix.python }}.json
         shell: bash
