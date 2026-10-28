@@ -22,7 +22,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = ROOT / ".env.example"
 # Set by the operating system, the shell, Python or GitHub Actions: read (or passed on), never set for
-# NeuroGrid. PRETTY_NAME comes from /etc/os-release, read by the Linux clean room.
+# NeuroGrid. PRETTY_NAME comes from /etc/os-release, read by the Linux clean room; USER and LOGNAME name the
+# user on POSIX as USERNAME does on Windows.
 PROVIDED = {
     "ACTIONS_ID_TOKEN_REQUEST_URL",
     "BASH_SOURCE",
@@ -37,6 +38,7 @@ PROVIDED = {
     "HOMEDRIVE",
     "HOMEPATH",
     "LOCALAPPDATA",
+    "LOGNAME",
     "PATH",
     "PRETTY_NAME",
     "RUNNER_TEMP",
@@ -45,6 +47,7 @@ PROVIDED = {
     "TEMP",
     "TMP",
     "TMPDIR",
+    "USER",
     "USERNAME",
     "USERPROFILE",
     "WINDIR",

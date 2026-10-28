@@ -28,6 +28,7 @@ import multiprocessing
 import os
 import platform
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -230,10 +231,56 @@ def _run(arguments: list[str], cwd: Path, hook: Path, marks: Path) -> g1.Command
     return g1.CommandRun(arguments[0], done.returncode, done.stdout, done.stderr, time.perf_counter() - start)
 
 
+def _measured(jobs: int, run: g1.CommandRun, problems: list[str], tmp_path: Path) -> str:
+    """The assertion message on one line (CI annotates the first line of a failure): the problems and the
+    console lines behind them, i.e. every stderr line that is no translated library warning and every stdout
+    line with a trace, the home folder, the user or the host name; those three and the test folder are
+    replaced by placeholders, each line is cut."""
+    names = {os.environ.get(key, "") for key in ("USERNAME", "USER", "LOGNAME")}
+    replacements = [(str(tmp_path), "<tmp>"), (str(Path.home()), "<home>")]
+    replacements += [(name, "<user>") for name in sorted(names) if len(name) >= 3]
+    host = socket.gethostname()
+    replacements += [(host, "<host>")] if len(host) >= 3 else []
+    warning = g1._library_warning("en")
+
+    def clean(line: str) -> str:
+        for value, mark in replacements:
+            line = re.sub(re.escape(value), mark, line, flags=re.IGNORECASE)
+        return line[:140]
+
+    shown = []
+    for stream, data in (("stderr", run.stderr), ("stdout", run.stdout)):
+        for line in data.decode("utf-8", "replace").splitlines():
+            line = clean(line.strip())
+            if not line:
+                continue
+            if stream == "stderr" and not warning.fullmatch(line):
+                shown.append(f"stderr: {line}")
+            elif stream == "stdout" and any(
+                mark in line for mark in (*CONSOLE_TRACES, "<home>", "<user>", "<host>")
+            ):
+                shown.append(f"stdout: {line}")
+    return f"--jobs {jobs}, exit {run.code}: {problems} {shown[:4]!r}"
+
+
+def test_the_failure_message_shows_the_offending_console_lines(tmp_path: Path) -> None:
+    """The message of the console assertions below names what was measured, without the home folder."""
+    warning = translator("en").t("cli.warning.library", type="RuntimeWarning").encode("utf-8")
+    trace = f'Traceback (most recent call last):\n  File "{Path.home() / "x.py"}", line 1'.encode()
+    run = g1.CommandRun("check", 1, b"done\n" + trace + b"\n", warning + b"\n[W:onnxruntime] GPU\n", 0.0)
+    message = _measured(1, run, ["stderr holds a line that is no translated NeuroGrid message"], tmp_path)
+    assert message.startswith("--jobs 1, exit 1: ['stderr holds a line")
+    assert "'stderr: [W:onnxruntime] GPU'" in message and "stdout: Traceback" in message
+    assert f'stdout: File "<home>{os.sep}x.py"'.replace("\\", "\\\\") in message
+    assert "\n" not in message and str(Path.home()) not in message and "cli.warning" not in message
+
+
 def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_path: Path) -> None:
     """G1 console and privacy checks on check --jobs 2 whose workers write at start, bootstrap and shutdown
     and one of which dies at call_queue.get; results.json equals --jobs 1 (which computes in the CLI
-    process); no process asks WMI. The death shows only as NeuroGrid's note on stdout (A-89)."""
+    process); no process asks WMI. The death shows only as NeuroGrid's note on stdout (A-89). The console
+    checks hold for --jobs 1 too: on Linux (18da12f) its run failed them, the message showed only "1";
+    onnxruntime's Linux build logs its device discovery to descriptor 2 (quality.sample, on_null_device)."""
     dataset = tmp_path / "data"
     write_edf(dataset / "rest_a.edf", CAP_19, eeg_like(CAP_19, 64, 250, 71), 250)  # sample-capable
     write_edf(dataset / "rest_b.edf", CAP_8, eeg_like(CAP_8, 20, 256, 72), 256)
@@ -258,8 +305,10 @@ def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_
     forbidden = g1.forbidden_values(dataset, tmp_path)
     for jobs, run in runs.items():
         assert run.code in (0, 1), (jobs, run.stderr.decode("utf-8", "replace"))
-        assert g1.check_console(run.stdout, run.stderr, "en", run.code, allowed_paths=(tmp_path,)) == [], jobs
-        assert g1.check_privacy([g1.console_output("check", run, tmp_path)], forbidden, None) == [], jobs
+        problems = g1.check_console(run.stdout, run.stderr, "en", run.code, allowed_paths=(tmp_path,))
+        assert problems == [], _measured(jobs, run, problems, tmp_path)
+        leaks = g1.check_privacy([g1.console_output("check", run, tmp_path)], forbidden, None)
+        assert leaks == [], _measured(jobs, run, leaks, tmp_path)
     assert runs[1].code == runs[2].code
     assert out[2].read_bytes() == out[1].read_bytes()  # NG-N03, also after the worker died
     marker = "\x00"
