@@ -1280,8 +1280,9 @@ def matrix_status(text: str) -> dict[str, str]:
 METRIC_ROWS = tuple(f"M{n:02d}" for n in range(1, 14))
 GX_ROWS = tuple(f"GX-0{n}" for n in range(6))
 # (item, matrix rows, evidence: tests and run criteria). Items 1-5 rest on the matrix rows and, where the run
-# shows them, on the run; items 6-7 rest on the run (the lead sets NG-F13/NG-F14 after G1). The run has no
-# criterion for items 2 and 4: it never converts, and the metrics are checked by the tests of their rules.
+# shows them, on the run; items 6-7 rest on the run, their rows are shown but not required (NG-F14 is
+# "erfüllt" since P5; NG-F13 waits for G1, the lead sets it after G1). The run has no criterion for items 2
+# and 4: it never converts, and the metrics are checked by the tests of their rules.
 V01_ITEMS: tuple[tuple[str, str, tuple[str, ...], str], ...] = (
     (
         "five_formats",
