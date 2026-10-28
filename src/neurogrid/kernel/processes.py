@@ -354,7 +354,7 @@ def quiet_pool(pool: _P) -> _P:
         method = report()
         if isinstance(obj, futures_process._CallItem) and method is not None:
             method(error, obj)  # its future gets the error, as in CPython
-        else:  # pickled bytes or a stop signal: the pipe was closed after a worker died
+        else:  # a send failed (task or stop signal, pickled by then): the pipe closed after a worker died
             util.debug("queue feeder of a pool: send failed: %r", error)
 
     call_queue.__dict__["_on_queue_feeder_error"] = on_feeder_error  # the feeder thread takes it at its start
