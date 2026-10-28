@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import gc
 import importlib.util
 import json
 import multiprocessing
@@ -20,6 +21,7 @@ import select
 import subprocess
 import sys
 import time
+import weakref
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing.context import BaseContext
@@ -112,6 +114,21 @@ def test_pool_context_follows_the_start_method() -> None:
         assert context is processes.pool_context(method)
     with pytest.raises(ValueError, match="unsupported start method"):
         processes.pool_context("teleport")
+
+
+def test_quiet_pool_leaves_the_call_queue_collectable() -> None:
+    """The feeder error handler that quiet_pool installs refers to the call queue weakly: a dropped queue is
+    collected and its finalizer stops the feeder thread (a strong reference from that thread kept both)."""
+    pool = processes.quiet_pool(ProcessPoolExecutor(max_workers=1, mp_context=processes.pool_context()))
+    call_queue = pool._call_queue  # type: ignore[attr-defined]
+    call_queue.put(None)  # starts the feeder thread; the pipe takes it, no worker reads
+    feeder, queue_ref = call_queue._thread, weakref.ref(call_queue)
+    pool.shutdown()
+    del pool, call_queue
+    gc.collect()
+    feeder.join(timeout=60)
+    assert queue_ref() is None
+    assert not feeder.is_alive()
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX descriptors")

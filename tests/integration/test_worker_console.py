@@ -13,6 +13,10 @@ handle value it read there: the semaphore of the worker's call queue. The tests:
   whose release fails the same way). The worker dies exactly as in the G1 run; the console stays clean and
   the results equal one process;
 - no pool worker asks WMI (audit event ``_wmi.exec_query``) when a library asks ``platform``;
+- NeuroGrid's own process: the pool's thread that feeds the workers prints no failed send (CPython 3.11
+  sends stop signals into the closed pipe of a broken pool while its call queue has a free slot, which
+  depends on timing; the test takes these steps itself), and a task that cannot be pickled still fails its
+  own future;
 - through the real CLI with ``--jobs 2``: workers that write at interpreter start (spawn) or right after
   the fork, at their bootstrap and at shutdown, and one that dies at ``call_queue.get``, leave stdout and
   stderr as the G1 acceptance demands (strict UTF-8, only translated lines, no traceback, no path, home
@@ -31,8 +35,9 @@ import re
 import socket
 import subprocess
 import sys
+import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
@@ -53,7 +58,17 @@ CLOSE_ONCE = "NEUROGRID_TEST_CLOSE_QUEUE_SEMAPHORE"  # marker file: the first wo
 WMI_SEEN = "NEUROGRID_TEST_WMI_SEEN"  # marker file: written when a worker calls _wmi.exec_query
 HAS_WMI = importlib.util.find_spec("_wmi") is not None
 CONSOLE_TRACES = ("Traceback", "SpawnProcess", "ForkProcess", "WinError", "Errno", 'File "', "queues.py")
+FRAME = re.compile(r'File "(?:[^"]*[\\/])?([^"\\/]+)", line (\d+), in (\S+)')
+RAISED = re.compile(r"^(\w+(?:Error|Exception|Exit))\b", re.MULTILINE)
 _kept: list[int] = []  # handles that keep a closed value taken (Windows)
+
+
+def _traces(text: str) -> list[str]:
+    """What console text shows of tracebacks, without a path or a message (either may hold the user name):
+    file, line and function of every frame and the type of every exception. The assertion messages print
+    it, so that a CI annotation names the code that wrote."""
+    frames = [f"{name}:{line} {function}" for name, line, function in FRAME.findall(text)]
+    return frames + RAISED.findall(text)
 
 
 class _ClosedSemaphore:
@@ -114,7 +129,11 @@ def test_a_worker_whose_call_queue_semaphore_is_closed_leaves_the_console_clean(
 ) -> None:
     """The G1 failure, deterministic: the worker dies at call_queue.get (WinError 6); before the fix its
     traceback with install paths reached the console (the full-suite log of dcec9bd shows it under
-    'Captured stderr'). Now nothing does, and the jobs it took down give the values of one process."""
+    'Captured stderr'). Now nothing does, and the jobs it took down give the values of one process. Nor
+    does the failed send of the pool's queue thread in this process that can follow on CPython 3.11 (CI
+    windows-latest py3.11 on 18da12f: 'queues.py', line 246, in _feed ... OSError: handle is closed): the
+    two tasks leave the call queue (three slots) a free slot, so it follows whenever the other worker still
+    counts as alive (locally on 3.11 without quiet_pool: 3 of 3 runs, one worker alive, two slots free)."""
     jobs = _cheap_jobs(tmp_path)
     expected = [quality.compute(job) for job in jobs]
     marker = tmp_path / "closed"
@@ -125,7 +144,8 @@ def test_a_worker_whose_call_queue_semaphore_is_closed_leaves_the_console_clean(
     out, err = capfd.readouterr()
     assert marker.exists()  # one worker really lost its semaphore
     assert results == expected
-    assert (out, err) == ("", ""), [trace for trace in CONSOLE_TRACES if trace in out + err]
+    traces = [trace for trace in CONSOLE_TRACES if trace in out + err]
+    assert (out, err) == ("", ""), (traces, _traces(out + err))
 
 
 @pytest.mark.skipif(not HAS_WMI, reason="CPython's _wmi module (Windows, Python 3.12+)")
@@ -138,6 +158,71 @@ def test_no_pool_worker_asks_wmi(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     jobs = _cheap_jobs(tmp_path)
     assert quality.compute_all(jobs, workers=2) == [quality.compute(job) for job in jobs]
     assert not marker.exists()
+
+
+def test_the_queue_thread_of_a_pool_prints_no_failed_send(capfd: pytest.CaptureFixture[str]) -> None:
+    """NeuroGrid's own process (kernel/processes.py, quiet_pool): after a worker died, CPython 3.11 closes
+    the pipe of the pool's call queue (gh-107219, Windows) and then still puts a stop signal into it for
+    each worker that counts as alive while the queue has a free slot (shutdown_workers gives up at
+    queue.Full); the queue's feeder thread fails to send it and concurrent.futures printed that with a
+    traceback (install path of Python). Whether a run gets there depends on timing and on how full the
+    queue is: the CLI test below found it full locally and passed on 18da12f, in CI windows-latest py3.11
+    it failed. So this test takes these steps itself, on a pool without workers, the same on every version
+    and platform: the deterministic check. Nothing reaches the console."""
+    pool = quality._pool(1)
+    call_queue = pool._call_queue  # type: ignore[attr-defined]
+    try:
+        call_queue._writer.close()  # terminate_broken
+        call_queue.put_nowait(None)  # shutdown_workers: the feeder thread starts, its send fails
+        call_queue.close()
+        call_queue.join_thread()  # join_executor_internals: the thread has ended
+    finally:
+        pool.shutdown()
+    out, err = capfd.readouterr()
+    assert (out, err) == ("", ""), _traces(out + err)
+
+
+def test_a_task_that_cannot_be_pickled_still_fails_its_future(capfd: pytest.CaptureFixture[str]) -> None:
+    """quiet_pool leaves CPython's handling of a task the feeder thread cannot pickle: its future gets the
+    error, the pool goes on, and nothing reaches the console."""
+    with quality._pool(1) as pool:
+        unpicklable = pool.submit(abs, threading.Lock())
+        assert isinstance(unpicklable.exception(timeout=120), TypeError)
+        assert pool.submit(abs, -3).result(timeout=120) == 3
+    out, err = capfd.readouterr()
+    assert (out, err) == ("", ""), _traces(out + err)
+
+
+def test_a_task_that_could_not_be_sent_fails_its_future(capfd: pytest.CaptureFixture[str]) -> None:
+    """quiet_pool: a task that the feeder thread pickled but could not send fails its own future with that
+    error, as one that cannot be pickled does (compute_all then runs its recording again on its own, see
+    test_a_task_whose_result_cannot_be_delivered_runs_its_job_alone). Before, the feeder handed over only
+    the pickled bytes, the future stayed pending without any sign and the run waited for it forever
+    (CPython printed a traceback first). No trigger is known while a pool works; here the pipe's send fails
+    once. The pool goes on and nothing reaches the console."""
+    pool = quality._pool(1)
+    call_queue = pool._call_queue  # type: ignore[attr-defined]
+    send = call_queue._send_bytes
+    failure = OSError(errno.EIO, os.strerror(errno.EIO))
+    failures = [failure]
+
+    def send_or_fail(data: Any) -> None:
+        if failures:
+            raise failures.pop()
+        send(data)
+
+    call_queue._send_bytes = send_or_fail  # the feeder thread takes it at its start, with the first task
+    try:
+        lost = pool.submit(abs, -2)
+        if not wait([lost], timeout=60).done:  # it would hold the pool's shutdown forever: break the pool
+            for process in list(pool._processes.values()):  # type: ignore[attr-defined]
+                process.terminate()
+        assert lost.exception(timeout=60) is failure
+        assert pool.submit(abs, -3).result(timeout=120) == 3
+    finally:
+        pool.shutdown()
+    out, err = capfd.readouterr()
+    assert (out, err) == ("", ""), _traces(out + err)
 
 
 # --- through the real CLI -----------------------------------------------------------------------------------
@@ -280,7 +365,12 @@ def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_
     and one of which dies at call_queue.get; results.json equals --jobs 1 (which computes in the CLI
     process); no process asks WMI. The death shows only as NeuroGrid's note on stdout (A-89). The console
     checks hold for --jobs 1 too: on Linux (18da12f) its run failed them, the message showed only "1";
-    onnxruntime's Linux build logs its device discovery to descriptor 2 (quality.sample, on_null_device)."""
+    onnxruntime's Linux build logs its device discovery to descriptor 2 (quality.sample, on_null_device).
+    Whether the CLI process meets CPython 3.11's failed send (quiet_pool) depends on timing: its first tasks
+    fill the call queue, which has a free slot only if the other worker took a task before the pool saw the
+    death (CI windows-latest py3.11 on 18da12f failed for --jobs 2 without naming the problem; locally the
+    queue was full and the test passed on 18da12f). The messages print the console lines and frames shown,
+    so CI names the cause."""
     dataset = tmp_path / "data"
     write_edf(dataset / "rest_a.edf", CAP_19, eeg_like(CAP_19, 64, 250, 71), 250)  # sample-capable
     write_edf(dataset / "rest_b.edf", CAP_8, eeg_like(CAP_8, 20, 256, 72), 256)
@@ -305,10 +395,13 @@ def test_check_with_jobs_keeps_the_console_clean_when_workers_write_and_die(tmp_
     forbidden = g1.forbidden_values(dataset, tmp_path)
     for jobs, run in runs.items():
         assert run.code in (0, 1), (jobs, run.stderr.decode("utf-8", "replace"))
+        # the messages name the run, the problems (never a value), the console lines behind them (home,
+        # user, host and test folder replaced) and the frames shown (no path)
+        shown = _traces((run.stdout + run.stderr).decode("utf-8", "replace"))
         problems = g1.check_console(run.stdout, run.stderr, "en", run.code, allowed_paths=(tmp_path,))
-        assert problems == [], _measured(jobs, run, problems, tmp_path)
+        assert problems == [], f"{_measured(jobs, run, problems, tmp_path)} frames {shown}"
         leaks = g1.check_privacy([g1.console_output("check", run, tmp_path)], forbidden, None)
-        assert leaks == [], _measured(jobs, run, leaks, tmp_path)
+        assert leaks == [], f"{_measured(jobs, run, leaks, tmp_path)} frames {shown}"
     assert runs[1].code == runs[2].code
     assert out[2].read_bytes() == out[1].read_bytes()  # NG-N03, also after the worker died
     marker = "\x00"
