@@ -38,11 +38,12 @@ The worker deaths of the G1 finding (WinError 6 at ``call_queue.get``) came from
 
 from __future__ import annotations
 
+import errno
 import multiprocessing
 import os
 import sys
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from multiprocessing import context as mp_context
 from multiprocessing.process import BaseProcess
@@ -112,6 +113,53 @@ def _flush_console() -> None:
                 stream.flush()
         except (OSError, ValueError):
             pass
+
+
+@contextmanager
+def _on_null(targets: tuple[int, ...], copies: list[int], duplicate: Callable[[int], int]) -> Iterator[None]:
+    """The descriptors ``targets`` of this process on the null device for the block; afterwards each is
+    restored with its inheritance flag, one that was closed is closed again. ``duplicate`` makes the copies
+    that keep the originals, above 0-2 and not inherited; they stand in ``copies`` while the block runs (a
+    stack: a window inside a window). If a copy or the null device cannot be opened (EMFILE, ENFILE), this
+    raises before the block with the copies closed and nothing changed: an open descriptor is never taken
+    for a closed one."""
+    saved: dict[int, tuple[int, bool] | None] = {}
+    depth = len(copies)
+    try:
+        for fd in targets:
+            try:
+                inheritable = os.get_inheritable(fd)
+            except OSError as error:
+                if error.errno != errno.EBADF:
+                    raise
+                saved[fd] = None  # closed
+                continue
+            copy = duplicate(fd)
+            saved[fd] = (copy, inheritable)
+            copies.append(copy)
+        null = os.open(os.devnull, os.O_RDWR)  # takes a closed one of 0-2 if there is one
+    except BaseException:
+        del copies[depth:]
+        for entry in saved.values():
+            if entry is not None:
+                os.close(entry[0])
+        raise
+    try:
+        for fd in targets:
+            if fd != null:
+                os.dup2(null, fd)
+        yield
+    finally:
+        del copies[depth:]
+        if null not in saved:  # otherwise it took a closed target, which is closed again below
+            os.close(null)
+        for fd, entry in saved.items():
+            if entry is None:
+                os.close(fd)
+            else:
+                copy, inheritable = entry
+                os.dup2(copy, fd, inheritable=inheritable)
+                os.close(copy)
 
 
 if sys.platform == "win32":
@@ -242,39 +290,18 @@ else:
                 found.append(fd)
         return found
 
+    def _copy_above_stdio(fd: int) -> int:
+        """A copy of ``fd`` above 0-2 (also when one of them is closed) that no child inherits."""
+        return fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3)
+
     @contextmanager
     def null_descriptors() -> Iterator[None]:
         """Descriptors 0-2 of this process, and those its sys streams write to, on the null device while a
         child process is started (it inherits them); restored afterwards with their inheritance flag, a
-        descriptor that was closed is closed again."""
+        descriptor that was closed is closed again. A child forked meanwhile finds the copies in _SAVED."""
         _flush_console()
-        with _START_LOCK:
-            targets = (*STDIO, *_stream_descriptors())
-            saved: dict[int, tuple[int, bool] | None] = {}
-            for fd in targets:
-                try:  # the copies lie above 0-2 even if one of them is closed
-                    saved[fd] = (fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3), os.get_inheritable(fd))
-                except OSError:
-                    saved[fd] = None
-            depth = len(_SAVED)
-            _SAVED.extend(entry[0] for entry in saved.values() if entry is not None)
-            null = os.open(os.devnull, os.O_RDWR)  # takes a closed one of 0-2 if there is one
-            try:
-                for fd in targets:
-                    if fd != null:
-                        os.dup2(null, fd)
-                yield
-            finally:
-                del _SAVED[depth:]
-                if null not in saved:  # otherwise it took a closed target, which is closed again below
-                    os.close(null)
-                for fd, entry in saved.items():
-                    if entry is None:
-                        os.close(fd)
-                    else:
-                        copy, inheritable = entry
-                        os.dup2(copy, fd, inheritable=inheritable)
-                        os.close(copy)
+        with _START_LOCK, _on_null((*STDIO, *_stream_descriptors()), _SAVED, _copy_above_stdio):
+            yield
 
     class NullStdioForkPopen(popen_fork.Popen):
         def __init__(self, process_obj: BaseProcess) -> None:

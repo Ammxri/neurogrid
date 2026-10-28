@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 import multiprocessing
 import os
 import select
@@ -149,6 +150,79 @@ def test_null_descriptors_restore_open_and_closed_descriptors(tmp_path: Path) ->
         check=True,
     )
     assert closed.stdout.strip() == "closed"
+
+
+FAILING_WINDOW = """
+import errno, fcntl, json, os, sys
+from neurogrid.kernel import processes
+
+scenario, report = sys.argv[1], sys.argv[2]
+real_fcntl, real_open = fcntl.fcntl, os.open
+copies = []
+
+
+def files():
+    found = {}
+    for fd in range(256):
+        try:
+            st = os.fstat(fd)
+        except OSError:
+            continue
+        found[fd] = (st.st_dev, st.st_ino, os.get_inheritable(fd))
+    return found
+
+
+def failing_fcntl(fd, command, argument=0):
+    if command == fcntl.F_DUPFD_CLOEXEC:
+        if scenario == "copy" and copies:  # the second copy finds no free descriptor
+            raise OSError(errno.EMFILE, os.strerror(errno.EMFILE))
+        copies.append(real_fcntl(fd, command, argument))
+        return copies[-1]
+    return real_fcntl(fd, command, argument)
+
+
+def failing_open(path, flags, *args, **kwargs):
+    if scenario == "null" and path == os.devnull:
+        raise OSError(errno.EMFILE, os.strerror(errno.EMFILE))
+    return real_open(path, flags, *args, **kwargs)
+
+
+before = files()
+fcntl.fcntl, os.open = failing_fcntl, failing_open
+ran, raised = False, None
+try:
+    with processes.null_descriptors():
+        ran = True
+except OSError as error:
+    raised = errno.errorcode.get(error.errno)
+fcntl.fcntl, os.open = real_fcntl, real_open
+result = {"raised": raised, "ran": ran, "listed": processes._SAVED, "copies": len(copies)}
+result["unchanged"] = files() == before
+with open(report, "w", encoding="utf-8") as out:
+    json.dump(result, out)
+"""
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX descriptors (null_descriptors)")
+@pytest.mark.parametrize("scenario", ["copy", "null"])
+def test_a_window_that_runs_out_of_descriptors_changes_nothing(scenario: str, tmp_path: Path) -> None:
+    """EMFILE while the window saves a console descriptor ("copy") or opens the null device ("null"): it
+    raises before the block, every copy is closed and none stays listed, and descriptors 0-2 are the same
+    files with the same flags. Before, "null" left the copies open and listed in _SAVED, so that every
+    later fork of the process closed those numbers in the child and rebound its sys streams; "copy" took
+    the open descriptor for a closed one, ran the block and closed the console descriptor afterwards."""
+    script, report = tmp_path / "probe.py", tmp_path / "report.json"
+    script.write_text(FAILING_WINDOW, encoding="utf-8")
+    subprocess.run(
+        [sys.executable, str(script), scenario, str(report)],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=120,
+        check=True,
+    )
+    result = json.loads(report.read_text(encoding="utf-8"))
+    expected = {"raised": "EMFILE", "ran": False, "listed": [], "unchanged": True}
+    assert {key: result[key] for key in expected} == expected and result["copies"] >= 1, result
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX descriptors and fork")
