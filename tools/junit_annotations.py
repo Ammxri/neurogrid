@@ -117,7 +117,9 @@ def summary_command(counts: Counts, shown: int, report: str) -> str:
         f" ({counts.tests} tests); {shown} of {counts.failed + counts.errors} annotated, the full list is in"
         f" the job log and in {report}"
     )
-    return f"::error title={escape_property('pytest summary')}::{escape_data(text)}"
+    # a green run's counts are a notice: the public API serves them without a login as well (TECH-05)
+    level = "error" if counts.failed + counts.errors else "notice"
+    return f"::{level} title={escape_property('pytest summary')}::{escape_data(text)}"
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -3,13 +3,16 @@
 # under Windows PowerShell 5.1 and PowerShell 7, coverage, licence and traceability gates. Runs on every push to dev
 # and main and on pull requests; never uploads datasets (CON-02). The offline bundles, the clean rooms and the
 # OS-level offline evidence run in offline.yml (every push to dev and main, D-15; manual start; for a tag through
-# release.yml).
+# release.yml). release.yml also calls this workflow on the tagged commit and creates no draft release while any
+# job here fails: the documentation and both delivery texts say the test suite is verified in CI on these runners
+# with these Pythons, and a version only ships when that is true of its own commit.
 name: ci
 
 on:
   push:
     branches: [dev, main]
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -81,6 +84,10 @@ jobs:
         run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary --limit 40
       - name: Coverage gates (Kern >= 90 %, Prüfer >= 80 %)
         run: uv run --no-sync python tools/coverage_gates.py coverage.json
+      # On success: the counts as a notice annotation, so a green run's numbers are readable without a login.
+      - name: Test counts of a green run as an annotation
+        if: success()
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary --limit 40
       - name: Determinism sample for cross-platform comparison
         run: uv run --no-sync neurogrid check tests/fixtures/synthetic/edf_mixed --config tests/fixtures/documented.toml --as-of 2026-10-11 --out results-${{ matrix.os }}-${{ matrix.python }}.json
         shell: bash
@@ -99,6 +106,8 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: results
+          # only the samples of the test job: a release run holds the bundles and the evidence as well
+          pattern: results-*
           merge-multiple: true
       - name: Compare results without the environment block
         run: |

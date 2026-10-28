@@ -145,7 +145,7 @@ def test_a_passing_run_gives_no_test_annotation(tmp_path: Path) -> None:
     )
     assert _run("pytest-junit.xml", cwd=tmp_path) == []
     assert _run("pytest-junit.xml", "--summary", cwd=tmp_path) == [
-        "::error title=pytest summary::0 failed, 0 errors, 1 passed, 0 skipped (1 tests); 0 of 0 annotated,"
+        "::notice title=pytest summary::0 failed, 0 errors, 1 passed, 0 skipped (1 tests); 0 of 0 annotated,"
         " the full list is in the job log and in pytest-junit.xml"
     ]
 

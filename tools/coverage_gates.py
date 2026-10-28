@@ -70,12 +70,17 @@ def main() -> int:
         totals[group][0] += summary["covered_lines"] + summary.get("covered_branches", 0)
         totals[group][1] += summary["num_statements"] + summary.get("num_branches", 0)
     failed = False
+    lines = []
     for name, (covered, total) in totals.items():
         limit = GROUPS[name][0]
         percent = 100.0 * covered / total if total else 100.0
         status = "ok" if percent >= limit else "FAIL"
         failed |= percent < limit
-        print(f"{name}: {percent:.1f} % (limit {limit:.0f} %) {status}")
+        lines.append(f"{name}: {percent:.1f} % (limit {limit:.0f} %) {status}")
+    for line in lines:
+        print(line)
+    # the values as one annotation, which the public API serves without a login (TECH-05)
+    print(f"::{'error' if failed else 'notice'} title=coverage::{'; '.join(lines)}")
     for path in unassigned:
         print(f"note: not in a coverage group: {path}")
     return 1 if failed else 0

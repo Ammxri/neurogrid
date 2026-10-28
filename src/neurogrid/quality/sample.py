@@ -34,6 +34,7 @@ from typing import Any
 
 import numpy as np
 
+from neurogrid.kernel import processes
 from neurogrid.quality.positions import Position, choose, template_positions
 from neurogrid.quality.source import SignalSource
 
@@ -455,23 +456,29 @@ def _iclabel(raw: Any, positions: bool, seed: int, min_channels: int) -> MethodR
             "quality.too_few_channels", channels=len(raw.ch_names), min_channels=min_channels
         )
     import mne
-    import onnxruntime
-    from mne_icalabel import label_components
 
-    onnxruntime.disable_telemetry_events()  # ICLabel runs through onnxruntime; no telemetry (NG-N01, CON-04)
-    try:
-        components = min(ICA_COMPONENTS, len(raw.ch_names) - 1)
-        ica = mne.preprocessing.ICA(
-            n_components=components,
-            method="picard",
-            fit_params={"ortho": False, "extended": True},
-            random_state=seed,
-            max_iter="auto",
-        )
-        ica.fit(raw, decim=ICA_DECIM, verbose="error")
-        labels = list(label_components(raw, ica, method="iclabel")["labels"])
-    except Exception as exc:  # picard/ICLabel raise many types on degenerate data; the outcome counts
-        return _failed(exc)
+    # onnxruntime writes its own log lines to descriptor 2 (a failed device discovery when it creates its
+    # environment, Linux and Windows builds); with --jobs 1 that is the console of NeuroGrid's process
+    # (A-51, A-07)
+    with processes.on_null_device():
+        import onnxruntime
+        from mne_icalabel import label_components
+
+        # ICLabel runs through onnxruntime; no telemetry (NG-N01, CON-04)
+        onnxruntime.disable_telemetry_events()
+        try:
+            components = min(ICA_COMPONENTS, len(raw.ch_names) - 1)
+            ica = mne.preprocessing.ICA(
+                n_components=components,
+                method="picard",
+                fit_params={"ortho": False, "extended": True},
+                random_state=seed,
+                max_iter="auto",
+            )
+            ica.fit(raw, decim=ICA_DECIM, verbose="error")
+            labels = list(label_components(raw, ica, method="iclabel")["labels"])
+        except Exception as exc:  # picard/ICLabel raise many types on degenerate data; the outcome counts
+            return _failed(exc)
     count = len(labels)
     non_brain = sum(1 for label in labels if label != "brain")
     without_other = sum(1 for label in labels if label not in ("brain", "other"))

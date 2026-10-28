@@ -91,6 +91,6 @@ on your own computer.
 
 | Evidence | Status |
 |---|---|
-| audit hook and network ban in the source code (tests) | verified locally; on Linux and on the Windows runner not yet verified (the CI test runs there do not pass yet) |
+| audit hook and network ban in the source code (tests) | verified locally and in CI on GitHub's `windows-latest` and `ubuntu-24.04` runners with Python 3.11–3.13 |
 | Linux run without network and under `strace` | verified in CI: installer and every v0.1 command of the offline bundle in `debian:12-slim` with `--network none` under `strace`, PDF reports included, no call to an address other than loopback; the clean rooms without network on Debian 12, Ubuntu 22.04 and Ubuntu 24.04 passed as well |
 | Windows firewall test | verified in CI on GitHub's Windows Server runner, with Windows PowerShell 5.1 and with PowerShell 7: an outbound block rule for every program of the bundle, the installation and the PDF browser, and an audit of every connection (Windows Filtering Platform); no connection or attempt to an address other than loopback, PDF reports included. Not run on Windows 11 (it changes security settings of the computer) |

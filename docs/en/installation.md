@@ -10,9 +10,10 @@ installed once; HTML reports work without it.
 |---|---|
 | Windows 11 x64, Windows PowerShell 5.1 | verified locally |
 | Windows 11 x64, PowerShell 7 | not verified on Windows 11 |
-| Windows Server x64 (GitHub's `windows-latest` runner), Windows PowerShell 5.1 and PowerShell 7 | offline bundle verified in CI; test suite not yet verified |
+| Windows Server x64 (GitHub's `windows-latest` runner), Windows PowerShell 5.1 and PowerShell 7 | offline bundle verified in CI; test suite verified in CI (Python 3.11–3.13) |
 | Windows 10 x64 | not verified |
-| Linux x86_64 with glibc 2.28 or newer: Debian 12, Ubuntu 22.04, Ubuntu 24.04 | offline bundle verified in CI; test suite not yet verified |
+| Linux x86_64 with glibc 2.28 or newer: Debian 12, Ubuntu 22.04 | offline bundle verified in CI; test suite not run in CI |
+| Linux x86_64: Ubuntu 24.04 (the `ubuntu:24.04` clean room and GitHub's `ubuntu-24.04` runner) | offline bundle verified in CI; test suite verified in CI (Python 3.11–3.13) |
 | Linux x86_64: Ubuntu releases after 24.04 | not verified |
 | Linux with glibc older than 2.28, for example Ubuntu 18.04 | refused: the installer stops with exit code 2 (verified in CI) |
 | Linux ARM64, macOS | not supported |
@@ -25,9 +26,11 @@ Windows it is a fresh folder on the runner, whose network stays on: no Python or
 runner's preinstalled Python stays installed, only its folders are removed from `PATH`), an outbound firewall rule
 blocks every program of the bundle, the installation and the PDF browser, and the Windows Filtering Platform audits
 every connection; a connection or attempt of these programs to an address other than loopback fails the run
-([Privacy](privacy.md#check-yourself)). "Test suite not yet verified" means: the CI runs of the test suite on these
-systems do not pass yet. "Not verified" means: NeuroGrid is built for these systems, but no
-test run on them has been recorded yet.
+([Privacy](privacy.md#check-yourself)). "Test suite verified in CI" means: in the CI the test suite ran on GitHub's
+`windows-latest` and `ubuntu-24.04` runners with Python 3.11, 3.12 and 3.13 each and passed. "Test suite not run in
+CI" means: the CI installs the offline bundle on these systems and runs its commands, but does not run the test
+suite there. "Not verified" means: NeuroGrid is built for these systems, but no test run on them has been recorded
+yet.
 Python 3.11–3.13 is supported; the offline bundle brings its own Python 3.12.
 
 ## Offline bundle {#offline-bundle}

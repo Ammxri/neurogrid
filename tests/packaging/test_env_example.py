@@ -22,7 +22,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE = ROOT / ".env.example"
 # Set by the operating system, the shell, Python or GitHub Actions: read (or passed on), never set for
-# NeuroGrid. PRETTY_NAME comes from /etc/os-release, read by the Linux clean room.
+# NeuroGrid. PRETTY_NAME comes from /etc/os-release, read by the Linux clean room; USER and LOGNAME name the
+# user on POSIX as USERNAME does on Windows.
 PROVIDED = {
     "ACTIONS_ID_TOKEN_REQUEST_URL",
     "BASH_SOURCE",
@@ -37,6 +38,7 @@ PROVIDED = {
     "HOMEDRIVE",
     "HOMEPATH",
     "LOCALAPPDATA",
+    "LOGNAME",
     "PATH",
     "PRETTY_NAME",
     "RUNNER_TEMP",
@@ -45,6 +47,7 @@ PROVIDED = {
     "TEMP",
     "TMP",
     "TMPDIR",
+    "USER",
     "USERNAME",
     "USERPROFILE",
     "WINDIR",
@@ -53,7 +56,9 @@ PROVIDED = {
 # Variables of other programs that NeuroGrid, its scripts or its workflows set, clear or pass on for them:
 # dead proxies of the clean rooms; the Node.js and Playwright debug switches removed from the PDF driver's
 # environment; the environment of the validator (Deno) and of the PDF browser; bash's field separator for one
-# read (install.sh); gh, git, MNE, Python and uv.
+# read (install.sh); gh, git, MNE, Python and uv. __PYVENV_LAUNCHER__ is CPython's own: the pool of --jobs
+# hands it to a spawned worker on Windows, as popen_spawn_win32 does, so that a virtual environment's worker
+# starts from the base interpreter as the venv's (bpo-35797; kernel/processes.py).
 THIRD_PARTY = {
     "ALL_PROXY",
     "DEBUG",
@@ -84,6 +89,7 @@ THIRD_PARTY = {
     "UV_PYTHON_DOWNLOADS",
     "XDG_CACHE_HOME",
     "XDG_CONFIG_HOME",
+    "__PYVENV_LAUNCHER__",
 }
 # Defined inside one workflow for its own steps, or by one of the project's scripts for another
 # (cleanroom_linux.sh -> cleanroom_inside.sh, the docker build argument of pdf_debian12.sh); never set from

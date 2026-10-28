@@ -7,20 +7,26 @@ layers keep every such line off the console:
 
 - **Start:** the processes of NeuroGrid's pools (``pool_context``) start with the null device as stdin,
   stdout and stderr. On Windows the process is created with these three handles (STARTUPINFO; this handle
-  is the only one it inherits). On POSIX this process points its descriptors 0-2 at the null device while
-  it starts the child; fork, spawn and the forkserver (with its children) inherit them. Its pending output
-  is written to the console before. From its first instruction on, nothing a worker writes reaches the
-  console: interpreter start, unpickling of its start data, the bootstrap of multiprocessing and its
-  error output. With spawn and forkserver ``pool_context`` also starts multiprocessing's resource tracker
-  that way, before a pool's first semaphore would start it with the console.
+  is the only one it inherits). On POSIX this process points its descriptors 0-2, and those its sys streams
+  write to, at the null device while it starts the child; fork, spawn and the forkserver (with its
+  children) inherit them. A forked child also replaces the sys streams it inherited by streams on the null
+  device before multiprocessing's bootstrap and keeps no copy of the console descriptors. This process
+  writes its pending output to the console before. From its first instruction on, nothing a worker writes
+  reaches the console: interpreter start, unpickling of its start data, the bootstrap of multiprocessing
+  and its error output. With spawn and forkserver ``pool_context`` also starts multiprocessing's resource
+  tracker that way, before a pool's first semaphore would start it with the console.
 - **Initializer:** ``to_null_device`` is the first step of every initializer (pool and loky workers). It
   points descriptors 0-2 and the sys streams at the null device again, so that the processes such a worker
   starts itself (loky's workers and resource tracker) inherit the null device as well.
 
+Library code whose native output NeuroGrid never shows runs in ``on_null_device``, in a worker and in
+NeuroGrid's own process (``--jobs 1``): onnxruntime behind ICLabel (``quality.sample``).
+
 What the parent needs from a worker reaches it through the pool: values, exceptions as data and the death
 of a worker (BrokenProcessPool), which ``check`` names in a translated note (``quality.compute_all``,
-``on_recompute``). ``--debug`` changes nothing here; its cleaned traceback is that of NeuroGrid's own
-process (A-51).
+``on_recompute``). The pool's own thread in NeuroGrid's process that feeds the workers prints nothing
+either, and a task it could not send fails its own future (``quiet_pool``). ``--debug`` changes nothing
+here; its cleaned traceback is that of NeuroGrid's own process (A-51).
 
 Not covered: output that a library writes to the console device itself (Windows ``CONOUT$`` or
 ``msvcrt.putwch``, POSIX ``/dev/tty``). The workers stay attached to the console (no CREATE_NO_WINDOW,
@@ -33,18 +39,22 @@ The worker deaths of the G1 finding (WinError 6 at ``call_queue.get``) came from
 
 from __future__ import annotations
 
+import collections
+import errno
 import multiprocessing
 import os
 import sys
 import threading
-from collections.abc import Iterator
+import weakref
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from multiprocessing import context as mp_context
 from multiprocessing.process import BaseProcess
-from typing import Any
+from typing import Any, TypeVar
 
 STDIO = (0, 1, 2)
-_START_LOCK = threading.Lock()  # POSIX: one start at a time changes the descriptors 0-2 of this process
+_P = TypeVar("_P")
+_START_LOCK = threading.RLock()  # POSIX: one start at a time changes the descriptors 0-2 of this process
 _CONTEXTS: dict[str, mp_context.BaseContext] = {}
 
 
@@ -107,6 +117,53 @@ def _flush_console() -> None:
                 stream.flush()
         except (OSError, ValueError):
             pass
+
+
+@contextmanager
+def _on_null(targets: tuple[int, ...], copies: list[int], duplicate: Callable[[int], int]) -> Iterator[None]:
+    """The descriptors ``targets`` of this process on the null device for the block; afterwards each is
+    restored with its inheritance flag, one that was closed is closed again. ``duplicate`` makes the copies
+    that keep the originals, above 0-2 and not inherited; they stand in ``copies`` while the block runs (a
+    stack: a window inside a window). If a copy or the null device cannot be opened (EMFILE, ENFILE), this
+    raises before the block with the copies closed and nothing changed: an open descriptor is never taken
+    for a closed one."""
+    saved: dict[int, tuple[int, bool] | None] = {}
+    depth = len(copies)
+    try:
+        for fd in targets:
+            try:
+                inheritable = os.get_inheritable(fd)
+            except OSError as error:
+                if error.errno != errno.EBADF:
+                    raise
+                saved[fd] = None  # closed
+                continue
+            copy = duplicate(fd)
+            saved[fd] = (copy, inheritable)
+            copies.append(copy)
+        null = os.open(os.devnull, os.O_RDWR)  # takes a closed one of 0-2 if there is one
+    except BaseException:
+        del copies[depth:]
+        for entry in saved.values():
+            if entry is not None:
+                os.close(entry[0])
+        raise
+    try:
+        for fd in targets:
+            if fd != null:
+                os.dup2(null, fd)
+        yield
+    finally:
+        del copies[depth:]
+        if null not in saved:  # otherwise it took a closed target, which is closed again below
+            os.close(null)
+        for fd, entry in saved.items():
+            if entry is None:
+                os.close(fd)
+            else:
+                copy, inheritable = entry
+                os.dup2(copy, fd, inheritable=inheritable)
+                os.close(copy)
 
 
 if sys.platform == "win32":
@@ -196,44 +253,94 @@ if sys.platform == "win32":
 
     _QUIET: dict[str, type[mp_context.BaseContext]] = {"spawn": QuietSpawnContext}
 
+    def _copy_above_stdio(fd: int) -> int:
+        """A copy of ``fd`` above 0-2 that no child inherits (os.dup takes the lowest free descriptor,
+        which may be a closed one of 0-2)."""
+        taken: list[int] = []
+        try:
+            copy = os.dup(fd)
+            while copy in STDIO:
+                taken.append(copy)
+                copy = os.dup(fd)
+            return copy
+        finally:
+            for low in taken:
+                os.close(low)
+
+    @contextmanager
+    def _console_on_null() -> Iterator[None]:
+        """Descriptors 1 and 2, sys.stdout and sys.stderr of this process on the null device for the block.
+
+        Native code writes through the C runtime that it shares with Python (ucrtbase): onnxruntime's
+        logger writes to descriptor 2 (std::wclog), and in a console program the C runtime points the
+        standard handles at the null device too (SetStdHandle). The sys streams write to a stream of their
+        own on descriptor 1 meanwhile: on a console they are console streams, whose write raises OSError
+        on the null device (WriteConsoleW, ERROR_INVALID_FUNCTION)."""
+        _flush_console()
+        streams = sys.stdout, sys.stderr
+        with (
+            _on_null((1, 2), [], _copy_above_stdio),
+            open(1, "w", encoding="utf-8", errors="replace", closefd=False) as sink,
+        ):
+            sys.stdout = sys.stderr = sink
+            try:
+                yield
+            finally:  # the sink is flushed to the null device before descriptor 1 is restored
+                sys.stdout, sys.stderr = streams
+
 else:
     import fcntl
     from multiprocessing import popen_fork, popen_spawn_posix
 
-    def _new_start_lock() -> None:
-        """A forked child gets the lock in the state of the forking thread: a fresh one."""
-        global _START_LOCK
-        _START_LOCK = threading.Lock()
+    _SAVED: list[int] = []  # the copies of the console descriptors while null_descriptors is active
 
-    os.register_at_fork(after_in_child=_new_start_lock)
+    def _after_fork_in_child() -> None:
+        """A forked child gets the lock in the state of the forking thread: a fresh one. A child forked
+        while null_descriptors is active (a pool process that starts) keeps no copy of the console and gets
+        sys.stdin, sys.stdout and sys.stderr on the null device before multiprocessing's bootstrap: it does
+        not write through the parent's stream objects (on another descriptor, or with a buffer lock that
+        a thread of the parent held at the fork)."""
+        global _START_LOCK
+        _START_LOCK = threading.RLock()
+        if not _SAVED:
+            return
+        for fd in _SAVED:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        _SAVED.clear()
+        sys.stdin = open(0, encoding="utf-8", errors="replace", closefd=False)
+        sys.stdout = open(1, "w", encoding="utf-8", errors="replace", closefd=False)
+        sys.stderr = open(2, "w", encoding="utf-8", errors="replace", closefd=False)
+
+    os.register_at_fork(after_in_child=_after_fork_in_child)
+
+    def _stream_descriptors() -> list[int]:
+        """The descriptors above 0-2 that sys.stdout and sys.stderr write to: a stream on a copy of the
+        console (an embedding program, pytest's capture) reaches it from a forked child as well."""
+        found: list[int] = []
+        for stream in (sys.stdout, sys.stderr, sys.__stdout__, sys.__stderr__):
+            try:
+                fd = stream.fileno() if stream is not None else -1
+            except (AttributeError, OSError, ValueError):  # no descriptor: e.g. an in-memory stream
+                continue
+            if fd > 2 and fd not in found:
+                found.append(fd)
+        return found
+
+    def _copy_above_stdio(fd: int) -> int:
+        """A copy of ``fd`` above 0-2 (also when one of them is closed) that no child inherits."""
+        return fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3)
 
     @contextmanager
     def null_descriptors() -> Iterator[None]:
-        """Descriptors 0-2 of this process on the null device while a child process is started (it
-        inherits them); restored afterwards, a descriptor that was closed is closed again."""
+        """Descriptors 0-2 of this process, and those its sys streams write to, on the null device while a
+        child process is started (it inherits them); restored afterwards with their inheritance flag, a
+        descriptor that was closed is closed again. A child forked meanwhile finds the copies in _SAVED."""
         _flush_console()
-        with _START_LOCK:
-            saved: dict[int, int | None] = {}
-            for fd in STDIO:
-                try:  # the copies lie above 0-2 even if one of them is closed
-                    saved[fd] = fcntl.fcntl(fd, fcntl.F_DUPFD_CLOEXEC, 3)
-                except OSError:
-                    saved[fd] = None
-            null = os.open(os.devnull, os.O_RDWR)  # takes a closed one of 0-2 if there is one
-            try:
-                for fd in STDIO:
-                    if fd != null:
-                        os.dup2(null, fd)
-                yield
-            finally:
-                if null not in STDIO:
-                    os.close(null)
-                for fd, copy in saved.items():
-                    if copy is None:
-                        os.close(fd)
-                    else:
-                        os.dup2(copy, fd)
-                        os.close(copy)
+        with _START_LOCK, _on_null((*STDIO, *_stream_descriptors()), _SAVED, _copy_above_stdio):
+            yield
 
     class NullStdioForkPopen(popen_fork.Popen):
         def __init__(self, process_obj: BaseProcess) -> None:
@@ -271,7 +378,9 @@ else:
 
         class NullStdioForkServerPopen(popen_forkserver.Popen):
             """The forkserver itself is started by the first such start, so it and all its children
-            have the null device."""
+            have the null device. A forkserver that other code of this process started before keeps the
+            descriptors it got; the CLI starts none (it never selects forkserver, the default up to
+            CPython 3.13 is fork on Linux)."""
 
             def __init__(self, process_obj: BaseProcess) -> None:
                 with null_descriptors():
@@ -296,13 +405,34 @@ else:
         ``sys.stderr.fileno()``. If this process ends without its finalizers (SIGTERM, SIGKILL, the OOM
         killer), the tracker would print ``resource_tracker: There appear to be N leaked semaphore objects``
         with its install path. Started here, inside ``null_descriptors``, it writes to the null device; a
-        running tracker is only probed, one that died is started again here."""
+        running tracker is only probed, one that died is started again here. A tracker that other code of
+        this process started before keeps its descriptors (stopping it would unlink that code's resources);
+        in the CLI on Linux nothing does: with fork, the default there, no semaphore registers, and the CLI
+        process uses no shared memory."""
         if method == "fork":
             return
         from multiprocessing import resource_tracker
 
         with null_descriptors():
             resource_tracker.ensure_running()
+
+
+@contextmanager
+def on_null_device() -> Iterator[None]:
+    """Library code in the block does not reach the console through the descriptors either, in a worker and
+    in NeuroGrid's own process (``--jobs 1``). For native output that NeuroGrid never shows and cannot
+    translate: onnxruntime's default logger writes its lines to descriptor 2, and both builds discover the
+    devices when they create their environment and log what fails there (Linux ``GPU device discovery
+    failed``, ``core/platform/linux/device_discovery.cc``; Windows e.g. ``Failed to load dxcore.dll`` or
+    ``Failed to create DXGI factory``, ``core/platform/windows/device_discovery.cc``). POSIX: the block runs
+    inside ``null_descriptors``. Windows: descriptors 1 and 2 and the sys streams are on the null device
+    (``_console_on_null``). If the window cannot open a descriptor (EMFILE), it raises before the block."""
+    if sys.platform == "win32":
+        with _console_on_null():
+            yield
+    else:
+        with null_descriptors():
+            yield
 
 
 def default_start_method() -> str:
@@ -325,4 +455,76 @@ def pool_context(method: str | None = None) -> mp_context.BaseContext:
     return _CONTEXTS[name]
 
 
-__all__ = ["STDIO", "avoid_wmi", "default_start_method", "pool_context", "to_null_device"]
+class _FeedBuffer(collections.deque[object]):
+    """The buffer of a pool's call queue. It keeps the object its feeder thread took last until the thread
+    takes the next one or finds the buffer empty, i.e. while that object is pickled and sent."""
+
+    last: object = None
+
+    def popleft(self) -> object:
+        try:
+            self.last = super().popleft()
+        except IndexError:
+            self.last = None
+            raise
+        return self.last
+
+
+def quiet_pool(pool: _P) -> _P:
+    """``pool`` (a new ``ProcessPoolExecutor``) whose thread in this process that feeds its call queue prints
+    nothing and fails the future of every task it could not send; anything else (a stand-in of the tests)
+    is returned unchanged.
+
+    That thread (multiprocessing's queue feeder) pickles each task and writes it into the pipe the workers
+    read. A failure goes to ``_on_queue_feeder_error``: with the task if it could not be pickled, and
+    concurrent.futures fails its future; with the pickled bytes if the send failed, and concurrent.futures
+    calls ``traceback.print_exc()`` (the install path of Python on NeuroGrid's console) and leaves the
+    future pending, so the run would wait for it forever. Here the call queue's buffer (``_FeedBuffer``)
+    names the object whose send failed: a task fails its future with the error, as one that cannot be
+    pickled does (``compute_all`` runs its recording again on its own and names it in its note); a stop
+    signal only goes to multiprocessing's debug log.
+
+    Sends fail after a worker died: CPython closes the pipe (gh-107219, Windows), and 3.11 then still puts
+    a stop signal into it for each worker that counts as alive (its termination has not completed) while
+    the call queue has a free slot (``terminate_broken``, ``shutdown_workers``, which gives up at
+    ``queue.Full``; 3.12 and later skip that for a broken pool); its send fails with ``OSError: handle is
+    closed``. Whether a run gets there depends on timing: a worker that dies in ``call_queue.get`` has taken
+    its task without freeing its slot, so a full queue stays full unless another worker took a task before
+    the pool saw the death. The pool reports the death itself (BrokenProcessPool) and has failed every
+    pending future by then. While a pool works no failing send is known: this process holds a reader of the
+    pipe, so no send meets a closed pipe before a worker died. A stop signal lost in a working pool would
+    leave the run waiting for its worker at the end, as CPython does after its traceback."""
+    from concurrent.futures import process as futures_process
+    from multiprocessing import util
+
+    call_queue = getattr(pool, "_call_queue", None)
+    if not isinstance(call_queue, futures_process._SafeQueue):
+        return pool
+    buffer = _FeedBuffer()
+    # weak: the feeder thread must not keep the queue alive (collected, its finalizer stops the thread)
+    report = weakref.WeakMethod(call_queue._on_queue_feeder_error)
+
+    def on_feeder_error(error: Exception, obj: object) -> None:
+        method = report()
+        # obj is the task only if it could not be pickled; after a failed send it is the pickled bytes
+        item = obj if isinstance(obj, futures_process._CallItem) else buffer.last
+        if isinstance(item, futures_process._CallItem) and method is not None:
+            method(error, item)  # its future gets the error (after a worker died it has failed already)
+        else:  # a stop signal (the pipe closed after a worker died), or the queue is gone
+            util.debug("queue feeder of a pool: send failed: %r", error)
+
+    # the feeder thread takes both at its start, with the first task
+    call_queue.__dict__["_buffer"] = buffer
+    call_queue.__dict__["_on_queue_feeder_error"] = on_feeder_error
+    return pool
+
+
+__all__ = [
+    "STDIO",
+    "avoid_wmi",
+    "default_start_method",
+    "on_null_device",
+    "pool_context",
+    "quiet_pool",
+    "to_null_device",
+]

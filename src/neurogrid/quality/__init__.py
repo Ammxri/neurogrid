@@ -23,7 +23,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from neurogrid.kernel.processes import pool_context
+from neurogrid.kernel.processes import pool_context, quiet_pool
 from neurogrid.model.dataset import Recording
 from neurogrid.quality.positions import Position
 from neurogrid.quality.sample import (
@@ -205,8 +205,10 @@ def _worker_start() -> None:
 
 
 def _pool(size: int) -> ProcessPoolExecutor:
-    """A pool of ``size`` processes that start on the null device and run ``_worker_start`` first."""
-    return ProcessPoolExecutor(max_workers=size, initializer=_worker_start, mp_context=pool_context())
+    """A pool of ``size`` processes that start on the null device and run ``_worker_start`` first; its
+    thread in this process that feeds them prints nothing either."""
+    pool = ProcessPoolExecutor(max_workers=size, initializer=_worker_start, mp_context=pool_context())
+    return quiet_pool(pool)
 
 
 def _isolated(job: QualityJob) -> QualityResult:
