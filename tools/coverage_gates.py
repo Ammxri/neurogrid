@@ -77,8 +77,8 @@ def main() -> int:
         status = "ok" if percent >= limit else "FAIL"
         failed |= percent < limit
         lines.append(f"{name}: {percent:.1f} % (limit {limit:.0f} %) {status}")
-    print("
-".join(lines))
+    for line in lines:
+        print(line)
     # the values as one annotation, which the public API serves without a login (TECH-05)
     print(f"::{'error' if failed else 'notice'} title=coverage::{'; '.join(lines)}")
     for path in unassigned:
