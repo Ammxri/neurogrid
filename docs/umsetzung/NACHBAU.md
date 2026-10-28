@@ -2133,7 +2133,7 @@ Korpus unverändert; V-01-Checkliste erfüllt; V-06-Zeile „ja“. Weil die dri
 (`quiet_pool` in jedem Pool, `on_null_device` um ICLabel), läuft G1 einmal auf dem Endstand `27c3e90`:
 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`).
 
-Noch offen vor G1: Korpustests (`-m corpus`, 114) auf dem Endstand [NV]; `bundle.py sizes` [NV];
+Korpustests (`-m corpus`, 114) auf dem Endstand [G]: `tests/corpus/test_corpus.py` 62 von 62 bestanden (12 im ersten Lauf, dessen 3-h-Grenze im Test `…converts_without_validator_errors[keep-headers-BrainVision]` ablief – allein 242 s, bestanden –, die übrigen 50 in 74 min; `.local/logs/corpus_27c3e90.log`, `.local/logs/corpus_27c3e90_rest.log`); `tests/acceptance/test_g1_corpus.py` (52 Tests, ruft die Abnahme selbst auf, ≈ 2 h): auf 27c3e90 48 bestanden, 4 gescheitert – `test_no_host_path_or_header_data_in_outputs[psg-ipa-1.0.0]` und die drei Tests über den ganzen Lauf, die daraus folgen. Ursache im Prüfwerkzeug, nicht im Produkt: pytests Ausgabeordner liegt unter `pytest-of-<Login>`, die Konsole druckt ihn geschwärzt (`pytest-of-<user>`, A-51), die Prüfung nahm diese Form nicht als den eigenen `--out`-Ordner heraus, und der Rohordner `PSG` traf `psg-ipa-1.0.0` im Ausgabepfad; behoben in 7426dee (`_path_forms` kennt die geschwärzte Form; Regressionstest `test_a_redacted_output_path_on_the_console_is_no_raw_name_leak`, vor dem Fix rot, danach grün). Wiederholung des Moduls auf 7426dee: <KORPUS-G1 7426dee>. Noch offen vor G1: `bundle.py sizes` [NV];
 Phasenbericht an den Projektverantwortlichen. Erzeugt nach dem letzten G1-Lauf: das zh-Prüfpaket (`zh_review_package.py --g1 .local/acceptance/g1 --since 6a4f737 --out .local/acceptance/zh_review.md`: 2626 zh-Texte aus 35 Dateien, 145 neu und 1 geändert gegenüber dem ersten Paket auf `6a4f737`, zwei Beispiel-PDFs; 4.7.8). Erledigt seit
 `18da12f`: CI grün auf ubuntu-24.04 und windows-latest (4.7.19), die Plattformzellen der Nutzerdoku (`17e0d3f`).
 
@@ -2432,8 +2432,7 @@ Cache entfernt).
 **P5 (Stand 27c3e90):** Bau, Integration, Lizenztexte (D-15, D-16, D-17), G1-Abnahme, Skalierungsgrenzen (A-88),
 Review, Fix-Runde, zweite CI-Fix-Runde, die Behebung des G1-Befunds und die dritte CI-Fix-Runde sind gemacht
 (4.7.6–4.7.18); auf `27c3e90` sind alle CI-Jobs grün, Abdeckung je Testjob Kern 93,3–93,5 %, Prüfer 97,3 % (4.7.19);
-G1 auf `18da12f` 6 von 6 Datensätzen bestanden (4.7.20). G1 auf `27c3e90`: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`); das zh-Prüfpaket ist erzeugt (4.7.20). Offen: Korpustests und
-`bundle.py sizes` auf dem Endstand, dann STOPP G1 (4.7.21). Eine lokale volle Suite auf dem
+G1 auf `18da12f` 6 von 6 Datensätzen bestanden (4.7.20). G1 auf `27c3e90`: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`); das zh-Prüfpaket ist erzeugt (4.7.20). Korpustests auf dem Endstand: `test_corpus.py` 62 von 62, `test_g1_corpus.py` nach dem Werkzeug-Fix 7426dee: <KORPUS-G1 7426dee> (4.7.20). Offen: `bundle.py sizes` auf dem Endstand, dann STOPP G1 (4.7.21). Eine lokale volle Suite auf dem
 Endstand gibt es nicht; die volle Suite läuft nur in der CI (4.0). Die Bündel-Tests laufen seit Review R10 wie in D-15
 verlangt bei jedem Push auf `dev` und `main`; grün auf `dev` mit `55335ca` [G, CI 55335ca], `dcec9bd` [G, CI dcec9bd],
 `18da12f` [G, CI 18da12f] und `27c3e90` [G, CI 27c3e90].
