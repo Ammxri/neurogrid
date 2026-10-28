@@ -5,9 +5,10 @@ Grundlage:
 - [ANFORDERUNGEN.md](ANFORDERUNGEN.md)
 - Entscheidungen D-01–D-07, offene Fragen E1–E5 und Annahmen A-00–A-61 in [ENTSCHEIDUNGEN.md](ENTSCHEIDUNGEN.md)
 
-Stand 11.10.2026, überarbeitet nach einer Prüfung aus drei Blickwinkeln (Abschnitt 10). Nach P5 (27.10.2026)
-sind die Abschnitte 1.1–1.3, 1.6, 2.6, 2.8, 3, 4 und 5 (Risiko R10) an den Code angeglichen (Annahmen A-84 bis A-88); was davon
-noch bei STOPP G1 zu bestätigen ist, steht dort als „für G1 vorgemerkt“.
+Stand 11.10.2026, überarbeitet nach einer Prüfung aus drei Blickwinkeln (Abschnitt 10). Nach P5 (27.10.2026,
+ergänzt am 28.10.2026 nach der zweiten CI-Fix-Runde und dem G1-Befund) sind die Abschnitte 1.1–1.4, 1.6, 2.6, 2.8, 3, 4
+und 5 (Risiko R10) an den Code angeglichen (Annahmen A-84 bis A-89); was davon noch bei STOPP G1 zu bestätigen ist,
+steht dort als „für G1 vorgemerkt“.
 
 ---
 
@@ -59,6 +60,7 @@ neurogrid/
       + errors.py  + evidence.py (P4)
       + safety.py (Pfadprüfung A-52, Ausgabefilter A-51, sicherer YAML-Lader A-53, Arbeitsordner A-54)  + netguard.py (Audit-Hook, A-49)
       + fonts.py (Subsets, Glyph-Zwillinge)  + pdf.py (Shell, Druck, QA-Gate)  + pdf_linux_packages.json (A-85)
+      + processes.py (Hilfsprozesse auf dem Nullgerät, `platform` ohne WMI; A-89)
     io/                   edf.py bdf.py brainvision.py eeglab.py fif.py gbt47127.py (v0.2)  + base.py  + discover.py
     model/                dataset.py consent.py results.py
     checks/               structure.py metadata.py signal.py annotation.py ai_dataset.py provenance.py consent.py
@@ -132,7 +134,7 @@ Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `valid
    - ein Streaming-Durchlauf je Aufnahme (M01, M07, M08, Signal-Hash, Dauer)
    - Stichprobe (M06, M09)
    - datensatzweite Prüfungen (M03, M04, M11, M12, Validator, Manifest, Nachweise, Vault)
-   - `--jobs` (E3) als Prozesspool; Ergebnisse in fester Reihenfolge
+   - `--jobs` (E3) als Prozesspool; Ergebnisse in fester Reihenfolge. Die Hilfsprozesse (Pool, loky) haben das Nullgerät als stdin, stdout und stderr, was sie dort schreiben, erreicht die Konsole nicht (Grenze: direktes Schreiben auf das Konsolengerät, A-89); `platform` fragt in keinem Prozess WMI (`kernel/processes.py`, A-89). Stirbt ein Hilfsprozess, rechnet `check` die betroffenen Aufnahmen allein nach (D-14) und sagt das einmal mit einer übersetzten Zeile auf stdout; results.json bleibt gleich.
 6. **Bewerten:** Regelmotor mit wirksamen Parametern samt Herkunft. Danach Ausnahmen, Nachweise und placeholder-Regeln anwenden; Ampel und Abdeckung bilden.
 7. **Ausgeben:** `results.json` kanonisch schreiben (A-61, mit `disclaimer`), Kurzfassung auf der Konsole, Exitcode.
 8. **Protokollieren:** Ist ein Vault vorhanden, Zugriffsereignis anhängen (mit Dateisperre). Es fließt nicht in results.json ein.
@@ -174,20 +176,22 @@ Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `valid
 - **Zeichen ohne Glyphe** und Steuerzeichen (außer Tab, LF, CR) erscheinen als sichtbarer Text `[U+XXXX]` (`report/glyphs.py`); Datensatztext führt so nie zu Exit 2.
 - **Alles oder nichts:** Mit `pdf` laufen Shell-Suche und Startprüfung vor dem Rendern. Alle Dateien werden neben ihrem Ziel bereitgestellt; erst wenn jedes PDF das QA-Gate bestanden hat, werden frühere Berichte beiseitegelegt und die neuen eingesetzt. Bei einem Fehler werden die neuen Dateien entfernt, die früheren zurückgeholt, Exit 2 (R00). `--format html` braucht nie die Shell.
 - **Seiten:** A4; Deckblatt und Zusammenfassung hoch, Abschnitte 3–6 quer; Kopfzeile mit Titel und Stichtag, fester Satz auf jeder Seite unten links, „Seite x / y“ unten rechts; Tabellenkopf wiederholt, Zeilen nie geteilt; feste Spaltenanteile, nichts ist breiter als die Seite (R01, R04). Die Ränder über CSS `@page` sind Chromium-spezifisch; die kanonische Seitenform ist das PDF.
-- **Inhalt:** Befunde höchstens 50 Zeilen je Regel plus Sammelzeile mit dem genauen Rest und dem Verweis auf results.json (A-59; Lesart von NG-F13 für G1 vorgemerkt); leere Zellen „–“ mit Grund; Verteilungsgrafiken als eigenes SVG ohne matplotlib (A-84).
+- **Inhalt:** Befunde höchstens 50 Zeilen je Regel plus Sammelzeile mit dem genauen Rest und dem Verweis auf results.json (A-59; Lesart von NG-F13 für G1 vorgemerkt); leere Zellen „–“ mit Grund; Verteilungsgrafiken als eigenes SVG ohne matplotlib (A-84). Eine Regel-ID bricht nie um, auch im Fließtext (A-84).
 
 **PDF** (A-26, A-85; `kernel/pdf.py`):
 - **Shell:** nur die Chrome Headless Shell 1243 (Playwright 1.63.0) aus dem NeuroGrid-Ordner: `NEUROGRID_PDF_BROWSER_DIR` (absoluter lokaler Ordner), sonst `%LOCALAPPDATA%\NeuroGrid\pdf-browser` bzw. `${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser`. Nie ms-playwright, `PLAYWRIGHT_BROWSERS_PATH`, ein Kanal, Edge oder eine Suche über PATH; auch die Browser-Tests der Doku starten die Shell nur über `locate_shell`.
 - **Installation (D-08):** Die Shell liegt nicht im Bündel. `tools/install_pdf_browser.py` (nur Standardbibliothek, Meldungen zh/en) lädt die gepinnte zip online (Adresse, Größe, SHA-256), spielt mit `--from-zip … --sha256 …` eine bereitgestellte zip ein, lädt mit `--download-only --platform … --out …` nur herunter und prüft mit `--check` die Installation. Es liegt im Offline-Bündel (`tools/`) und als Release-Datei; die Installationsseite der Doku nennt Adresse und SHA-256 (R28).
 - **Startprüfung:** Playwright-Version 1.63.0; unter Linux `ldd` auf die Shell, fehlende Bibliotheken werden über `kernel/pdf_linux_packages.json` (debian12, ubuntu22.04, ubuntu24.04) als apt-Pakete genannt, zu altes glibc eigens. Fehlt die Shell oder fehlt etwas, endet `report` mit Exit 2 und einem Hinweis, der je nach Installationsart den Befehl des Bündels oder die Doku-Seite nennt (R07: ein Befehl, der so ausgeführt werden kann, ohne Benutzernamen). **Kein Edge-Rückfall.**
-- **Netzwerk:** Chromium-Flags fest im Code (u. a. `--disable-background-networking`, `--disable-component-update`, `--no-pings`, `--proxy-server=direct://`, `--host-resolver-rules=MAP * ~NOTFOUND`, `--in-process-gpu`); Router lässt nur die Berichtsdatei durch, Anfragezähler im Lauf; CSP im `<head>` (sonst Abbruch vor dem Druck); JavaScript aus, Kontext offline, Service Worker gesperrt; Locale zh-CN bzw. en-US, Zeitzone UTC. Treiber und Browser bekommen eine minimale Umgebung und einen privaten Arbeitsordner `ng-pdf-*` im temporären Ordner (unter Windows höchstens 100 Zeichen), nie unter `--out`.
+- **Netzwerk:** Chromium-Flags fest im Code (u. a. `--disable-background-networking`, `--disable-component-update`, `--no-pings`, `--proxy-server=direct://`, `--host-resolver-rules=MAP * ~NOTFOUND`, `--in-process-gpu`; dazu für den Textsatz `--font-render-hinting=none`, unter Windows der Netzwerkdienst im Browserprozess, A-85); Router lässt nur die Berichtsdatei durch, Anfragezähler im Lauf; CSP im `<head>` (sonst Abbruch vor dem Druck); JavaScript aus, Kontext offline, Service Worker gesperrt; Locale zh-CN bzw. en-US, Zeitzone UTC. Treiber und Browser bekommen eine minimale Umgebung und einen privaten Arbeitsordner `ng-pdf-*` im temporären Ordner (unter Windows höchstens 100 Zeichen), nie unter `--out`.
 - **Metadaten:** untagged, ohne Gliederung; `/Info` genau Title (= `report.title`, ohne Datensatznamen oder Pfad), Creator, Producer, CreationDate, ModDate; kein XMP. Die Datumsfelder werden byte-genau in gleicher Länge auf den Stichtag gesetzt (`D:<as_of>000000+00'00'`); fehlt eines oder steht es mehrfach, Exit 2.
-- Eine `debug.log` im Programmordner der Shell (Kindprozesse unter Windows) entfernt der Drucker beim Start als Rest eines abgebrochenen Laufs und beim Schließen, wenn der Lauf sie angelegt hat; hält ein laufender Browser sie offen, schneidet er nur ab, was der Lauf angehängt hat (A-85). Auf dem Windows-Runner der CI ändert sich der Browser-Ordner während des Laufs trotzdem (`test_pdf_tests_pass_with_a_long_basetemp` auf 55335ca rot; Gegenstand der zweiten Fix-Runde).
+- Eine `debug.log` im Programmordner der Shell (Kindprozesse unter Windows) entfernt der Drucker beim Start als Rest eines abgebrochenen Laufs und beim Schließen, wenn der Lauf sie angelegt hat; hält ein laufender Browser sie offen, schneidet er nur ab, was der Lauf angehängt hat (A-85). Unter Windows schreibt jeder Kindprozess der Shell dorthin; deshalb laufen GPU (`--in-process-gpu`) und Netzwerkdienst (`--enable-features=CDPScreenshotNewSurface,NetworkServiceInProcess2`) im Browserprozess. Auf dem Windows-Runner der CI hatte der Netzwerkdienst als Kindprozess den Ordner geändert (`test_pdf_tests_pass_with_a_long_basetemp` auf 55335ca rot, auf dcec9bd grün).
+- Textsatz: ungehintete Vorschübe an Subpixel-Positionen auf jeder Plattform (`--font-render-hinting=none`; unter Linux standen sonst alle Glyphen gehintet auf ganzen Pixeln, und pypdf las Leerzeichen in Regel-IDs; unter Windows ändert der Schalter nichts).
 
 **Schrift** (A-27, A-85): statische Noto-Sans-SC-Schnitte 400/700, mit `tools/build_fonts.py` aus `NotoSansSC[wght].ttf` von google/fonts (gepinnter Commit und SHA-256) erzeugt, Radikal- und Kompatibilitäts-Codepunkte entfernt, eingecheckt mit `fonts.json` und `OFL.txt`. Subsetting zur Laufzeit mit fontTools (name-IDs 0–6, 13, 14; ohne Zeitstempel); Glyphen, die mehrere Codepunkte tragen oder aus GSUB-Ersetzungen entstehen, bekommen je Codepunkt eine eigene Kopie, damit der PDF-Text dem HTML-Text gleicht (Glyph-Zwillinge, R02).
 
 **QA-Gate je PDF** (zur Laufzeit auf jedem PDF und in den Tests; Codes):
 - Schriften: nur Type0 mit CIDFontType2 und ToUnicode, BaseFont `ABCDEF+` plus Name eines Berichtsschnitts (`font_type3`, `font_not_cid_truetype`, `font_not_report_font`, `font_no_tounicode`)
+- keine gezeigte Glyphe 0 (das .notdef-Kästchen, das Chromium in der Berichtsschrift zeichnet, wenn keine Schrift das Zeichen hat; `glyph_missing`); Type0-Schriften nur mit Identity-CMap (sonst `font_not_cid_truetype`)
 - kein Radikal-Codepunkt im extrahierten Text (`radical_codepoint`)
 - fester Satz auf jeder Seite, Titel, Abschnittsüberschriften und gegebenenfalls das Platzhalter-Banner einmal (`phrase_missing_on_page`, `phrase_missing`)
 - Metadaten (`metadata_keys`, `metadata_title`, `metadata_dates`, `metadata_xmp`)
@@ -209,7 +213,7 @@ Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `valid
 - Linux: alle v0.1-Befehle des installierten Bündels in einem Container mit `--network none` unter `strace -f -e trace=connect,sendto,sendmsg`; `tools/strace_check.py` scheitert an jeder AF_INET/AF_INET6-Verbindung zu einer Adresse außer Loopback und an Loopback-Port 9 (toter Proxy, R11); andere Loopback-Aufrufe werden gezählt und gelistet. Dazu PDF in `debian:12-slim` unter strace, Reinräume `debian:12-slim`, `ubuntu:22.04`, `ubuntu:24.04` (`--network none`, ohne Python, uid 1000) und die Ablehnung von glibc 2.27 (`ubuntu:18.04`).
 - Windows: Reinraum mit WFP-Audit und Sperrregeln für jede .exe von Bündel, Installation und PDF-Browser, unter Windows PowerShell 5.1 und PowerShell 7; Ereignisse 5156/5157 zu Adressen außer Loopback und zu Loopback-Port 9 müssen 0 sein (R11). Lokal nur der Reinraum auf Anwendungsebene (`-NoOsAudit`), keine Änderung an Sicherheitseinstellungen. Grenze: DNS-Anfragen über den DNS-Client-Dienst werden nicht zugeordnet.
 - Paketscan: `tools/scan_runtime_network.py` sucht in jedem .py der Laufzeit nach Netzwerkmodulen und Telemetrie-Markern; jeder Treffer braucht einen geprüften Eintrag in `license-gate/network_baseline.json`.
-- Stand: Lauf auf 55335ca ganz grün (Lauf 40403791782).
+- Stand: Lauf auf 55335ca ganz grün (Lauf 40403791782), ebenso auf dcec9bd (Lauf 40476578452).
 
 **Workflows** (A-87; Actions per Commit-SHA gepinnt, oberste Rechte `contents: read`):
 
@@ -532,7 +536,7 @@ approval_ref = "EC-2026-17"
 | R7 | Kalibrierte Schwellen untypisch | falsche Warnungen | Netzfrequenz je Aufnahme; Herkunft dokumentiert; überschreibbar | P3 |
 | R8 | Determinismus über Plattformen | nur je Umgebung zugesichert (A-11) | gemeinsame numpy/scipy-Linie; Messung in der CI | P1–P5 |
 | R9 | MkDocs/Material ohne Weiterentwicklung | Doku-Build altert | eingefroren; nur Build betroffen | P5 |
-| R10 | Kein GitHub-/Linux-Lauf vor v0.1 | NG-N04, TECH-05/11 spät geprüft | E2; seit D-15 läuft `ci.yml`, seit Review R10 auch `offline.yml` auf jedem Push auf `dev` (Stand 55335ca: `offline` grün, Testjobs von `ci` rot) | P1 |
+| R10 | Kein GitHub-/Linux-Lauf vor v0.1 | NG-N04, TECH-05/11 spät geprüft | E2; seit D-15 läuft `ci.yml`, seit Review R10 auch `offline.yml` auf jedem Push auf `dev` (Stand 55335ca: `offline` grün, Testjobs von `ci` rot; dcec9bd nach der zweiten CI-Fix-Runde: beide ganz grün) | P1 |
 | R11 | zh-Texte, Rechtstexte | Qualität | Platzhalter, Prüfung vor Veröffentlichung | P5, P9 |
 | R12 | Gate G1 (BIZ-05) | – | **STOPP nach P5** | nach P5 |
 | R13 | Gate G2 (BIZ-05) | – | **STOPP nach Abschluss von v0.2** (nach P8, oder früher, wenn nur normabhängige Phasen übrig sind) | nach P8 |

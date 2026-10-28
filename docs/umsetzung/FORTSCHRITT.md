@@ -6,71 +6,63 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P5 umgesetzt und gemergt (`dev` 55335ca, Doku-Korrektur 181654e); eine zweite CI-Fix-Runde (p5-ci2) läuft, danach STOPP G1.**
+**Phase P5 abgeschlossen (`dev` 18da12f: zweite CI-Fix-Runde, D-17 und die Behebung des G1-Befunds gemergt); es fehlen die Endzahlen auf 18da12f, die Plattformzellen der Nutzerdoku und das zh-Prüfpaket (P5-Eintrag), danach STOPP G1.**
 Freigabemodus A bis STOPP G1. Git: `main` (Doku-Commit), Arbeitszweig `dev`, gepusht nach `https://github.com/Ammxri/neurogrid`
-(D-15; nur `dev`, D-09; zuletzt gepusht: 55335ca). Version 0.1.0rc1; 0.1.0 und Tag erst nach G1.
-CI auf 55335ca: `offline` ganz grün, in `ci` die Testjobs rot (Einzelheiten im P5-Eintrag).
-Offen beim Nutzer: Entscheidungen der Liste „Für STOPP G1 vorgemerkt“, GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
-ISO-TS vor P10, muttersprachliche zh-Prüfung vor v0.1, Docker Desktop bei Gelegenheit.
+(D-15; nur `dev`, D-09; zuletzt gepusht: 18da12f). Version 0.1.0rc1; 0.1.0 und Tag erst nach G1.
+CI auf dcec9bd ganz grün (`ci` 40476578603, `offline` 40476578452); auf 18da12f: <CI 18da12f>. Volle lokale Suite
+auf 18da12f: <SUITE 18da12f>; voller G1-Lauf auf 18da12f: <G1 18da12f> (Einzelheiten im P5-Eintrag).
+Offen beim Nutzer: die Liste „Für STOPP G1 vorgemerkt“, GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
+ISO-TS vor P10, Docker Desktop bei Gelegenheit.
 
 ## Für STOPP G1 vorgemerkt
 
-Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge.
-- **Freigaben:** Push und Merge nach `main`; Veröffentlichung (Version 0.1.0, Tag `v0.1.0`, `release.yml`), PyPI über
-  `publish-pypi.yml` (Trusted Publishing bei TestPyPI und PyPI eintragen), Gitee-Spiegel (`mirror-gitee.yml`, Secret
-  `GITEE_SSH_KEY`, Variable `GITEE_MIRROR`; das Gitee-Release legt der Projektverantwortliche von Hand an, R15).
-- **Release-Sperre:** `tools/notices.py --check` meldet 8 Lücken aus `license-gate/known_missing.toml`; das Release
-  bleibt gesperrt, bis der Projektverantwortliche je Lücke entscheidet (Download der Texte außerhalb von D-06/D-15
-  oder anderer Umgang):
-  - `bids-validator-deno:hed-validator@4.2.0/node_modules` (acht Pakete im vorgebauten hed-validator ohne Version in der Source-Map)
-  - `bids-validator-deno:hash-wasm@4.12.0/src` (C-Quellen mit Verweis auf einen Haftungsausschluss bzw. ohne Lizenztext)
-  - `bids-validator-deno:node-modules-polyfills/@jspm/core` (Node-Polyfills ohne Version)
-  - `h5py:h5py.libs/libaec-*.so*` und `h5py:h5py.libs/libsz-*.so*` (Linux-Wheel ohne Lizenz und Text)
-  - `python-build-standalone:3.12.15+20261009` (Texte der eingebauten Bibliotheken außer CPython)
-  - `docs-site:focus-visible` und `docs-site:material-design-color` (Teile des Doku-Themes ohne angegebene Lizenz:
-    Download der Lizenztexte freigeben oder die Website ohne sie bauen)
-- **D-16:** Die LGPL-Ausnahme für den Abschnitt in bids-validator-deno 3.0.2 ist entschieden und umgesetzt (Texte
-  neben isomorphic-git in `license-gate/third_party/bids-validator-3.0.2/`, Nennung in den Notices). Offen: Den Entwurf
-  der Anfrage an die Entwickler des Validators (lokal, nicht versioniert) prüft und sendet der Projektverantwortliche.
-- **Muttersprachliche zh-Prüfung** (A-07): Paket mit `tools/zh_review_package.py` (Stand Abnahme: 2530 Texte aus
-  34 Dateien), dazu die neuen zh-Texte der Fix-Runde `report.text.severity_heading`, `report.text.severity_heading_none`,
-  `report.text.severity_heading_info`, `errors.pdf.install.command_windows`, die geänderten Installer-Meldungen,
-  README.bundle.txt, release-notes.md, gitee-release.md, die Sätze in docs/zh (installation.md, privacy.md) und der
-  feste Satz.
-- **Signatur, Lesart von D-10 g nach D-15 bestätigen:** Mit cosign (auf PATH oder `-Cosign`/`--cosign`) wird die
-  Signatur immer geprüft, `-SkipSignatureCheck`/`--skip-signature-check` übergeht keine Ablehnung und lässt nur eine
-  Installation ohne cosign weiterlaufen; die Meldung nennt für einen Rechner ohne Sigstore-Vertrauensanker den Weg
-  „nach der Prüfung auf einem vernetzten Rechner ohne cosign auf PATH und mit dem Schalter“ (R16). R12: Die Prüfung im
-  Archiv belegt nur Integrität (dokumentierte Grenze); die Installer nennen die geprüfte Identität zum Vergleich mit
-  den Release-Notes.
-- **Annahmen A-78 bis A-88 zur Freigabe**, darunter:
+Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den Projektverantwortlichen.
+- **Muttersprachliche zh-Prüfung** (A-07, D-15, D-17): Das Paket erzeugt `tools/zh_review_package.py` nach dem letzten
+  G1-Lauf (mit dessen Beispiel-PDFs); die Prüfperson stellt der Projektverantwortliche. Seit dem ersten Paket (Stand
+  Abnahme: 2530 Texte aus 34 Dateien) neu oder geändert: die Überschriften der Schweregrade (`report.text.severity_heading`,
+  `report.text.severity_heading_none`, `report.text.severity_heading_info`), der Installationshinweis
+  `errors.pdf.install.command_windows` (neu) und `errors.pdf.install.docs` (geändert), die Meldungen zum Arbeitsordner
+  des Browsers (`errors.pdf.work_path_too_long`, `errors.pdf.temp_hint`, `errors.pdf.temp_unusable`,
+  `errors.pdf.temp_unusable_hint`), die geänderten Installer-Meldungen, die Sätze in docs/zh (installation.md,
+  limitations.md, privacy.md, configuration.md, report.md, license.md) und im Plattformabsatz von README.bundle.txt und
+  release-notes.md, gitee-release.md, der feste Satz und die neue Zeile `cli.check.recomputed` (A-89). Von P6 nach D-17 nur
+  die Kernbegriffe (die fünf Nutzungsarten, Einwilligung und Widerruf, Zugriffsprotokoll, Hash-Kette,
+  Platzhalter-Regelpaket, der Grenzsatz und die V-06-Aussage).
+- **Sichtprüfung der PDFs** zh/en (KONZEPT 4; REP-00, UF-01).
+- **Annahmen A-78 bis A-89 zur Freigabe**, darunter:
   - A-84: höchstens 50 Befundzeilen je Regel plus Sammelzeile als Lesart von „jeder Befund“ (NG-F13); Abschnitt 4
     mit den datensatzweiten Werten von M11/M12, Anhang 6.1 (geprüfte Regeln) und 6.6 (Umgebung) als Lesart von
     REP-04/REP-06; Wortlaut der Überschriften in Abschnitt 3 (R05); eigenes SVG statt matplotlib.
-  - A-85 (PDF-Weg, Schrift, QA-Gate, Kernel-Importe fontTools/Playwright/pypdf), A-86 (eigener Notices-Leser statt
-    pip-licenses, Seitensatz der Doku, Offline-Suche), A-87 (Bündel, Pfadgrenzen, Signatur, Workflows), A-88
-    (G1-Werkzeug, Skalierungsgrenzen).
+  - A-85 (PDF-Weg, Schrift, QA-Gate mit `glyph_missing`, Startflags, Kernel-Importe fontTools/Playwright/pypdf), A-86
+    (eigener Notices-Leser statt pip-licenses, Seitensatz der Doku, Offline-Suche), A-87 (Bündel, Pfadgrenzen, Signatur,
+    Workflows), A-88 (G1-Werkzeug, Skalierungsgrenzen), A-89 (Hilfsprozesse ohne Konsole, `platform` ohne WMI, eine
+    Zeile auf stdout bei einem toten Prozess, Bibliothekswarnungen der Worker nicht gezeigt).
   - Aus P4: Alterspalten mit anderen Einheiten als Monate, Wochen, Tage gelten als Jahre; `report --out` nennt seinen
     Pfad auf der Konsole nicht pseudonym. Aus früheren Phasen: Restpunkte A-78, Zeitangaben ab 27,8 h nur auf 1 s
     genau (A-61, A-79), loky „resource tracker“ ohne Netzwerkschutz (A-79).
-- **CI-Testjobs grün (Nachweis ausstehend):** Auf 55335ca sind die Testjobs von `ci` rot: Linux ein P2-Formattest,
-  zwei Codepage-Umwandlungen von `convert` und zwei PDF-Tests; windows-latest drei Tests in `test_install_ps1.py`,
-  `test_pdf_tests_pass_with_a_long_basetemp` (Chrome schreibt eine `debug.log` in seinen Programmordner) und einmal
-  eine Zeitüberschreitung der Doku-Suche; der strace-Test der Doku ist mit 181654e behoben (Einzelheiten im
-  P5-Eintrag). Ergebnis der zweiten Fix-Runde: <ERGEBNIS NACH P5-CI2>.
-- **Nutzerdoku nachziehen:** R08 und R09 sind in Arbeit (p5-ci2-userdocs); auf 181654e nennen privacy.md und
-  report.md nicht, dass `document`, `reviewer`, `comment` und `justification` aus evidence.yaml im Klartext erscheinen
-  (A-83), und configuration.md dreht den Vorrang von `[dataset]` um. installation.md, limitations.md und privacy.md (en, zh) nennen Linux, PowerShell 7 und
-  den Lauf unter strace noch „bis zum ersten CI-Lauf nicht verifiziert“, privacy.md den Firewall-Test „nicht
-  verifiziert“; der Workflow `offline` auf 55335ca hat diese Punkte grün geprüft.
-- **Platzhalter `<REPO_URL>`** in docs/en und docs/zh (und `<PYPI_RELEASE>` auf der Installationsseite) mit der
-  freigegebenen Adresse füllen; `tools/release_check.py` sperrt das Release, solange sie stehen.
-- **Sichtprüfung der PDFs** zh/en (KONZEPT 4).
-- **Fragen zu P6** (Entwurf der P6-Vorgaben, ohne Commit, D-15):
-  1. M14 je Proband: Option A (Befunde je Proband überall), B (je Proband nur in results.json; Bericht, Export und
-     Mappe zusammengefasst je Nutzung und Grund) oder C (überall zusammengefasst). Empfehlung: B.
-  2. zh-Texte von P6: Option A (alle P6-Entwürfe in die G1-Prüfung), B (eigene Runde vor v0.2) oder C (bei G1 nur die
-     Begriffe, die vollen Texte vor v0.2). Empfehlung: C.
+- **Signatur, Lesart von D-10 g nach D-15 bestätigen** (Installer-Hinweis R16): Mit cosign (auf PATH oder
+  `-Cosign`/`--cosign`) wird die Signatur immer geprüft, `-SkipSignatureCheck`/`--skip-signature-check` übergeht keine
+  Ablehnung und lässt nur eine Installation ohne cosign weiterlaufen; die Meldung nennt für einen Rechner ohne
+  Sigstore-Vertrauensanker den Weg „nach der Prüfung auf einem vernetzten Rechner ohne cosign auf PATH und mit dem
+  Schalter“. R12: Die Prüfung im Archiv belegt nur Integrität (dokumentierte Grenze); die Installer nennen die geprüfte
+  Identität zum Vergleich mit den Release-Notes.
+- **Bekannte Grenzen zur Kenntnis:**
+  - Die Ausgabe von `convert` ist zwischen den Betriebssystemen nicht bytegleich: MNE-BIDS und pybv schreiben Textdateien
+    mit `os.linesep` („Übergreifend“, BrainVision unter Linux).
+  - Die Codepage-Werte `mbcs`, `dbcs` und `oem` bleiben plattformabhängig (unter Linux LookupError).
+  - `avoid_wmi()` ersetzt eine private Funktion von CPython (`platform._wmi_query`, A-89).
+  - Was eine Bibliothek direkt auf das Konsolengerät schreibt, bleibt ein Restrisiko; die Hilfsprozesse bleiben an der
+    Konsole, damit Strg+C sie beendet (A-89).
+  - Mit `--jobs` > 1 erscheinen Bibliothekswarnungen der Worker nicht; die Konsole unterscheidet sich darin von
+    `--jobs 1`, results.json nicht (A-89).
+- **Anfrage an die Entwickler des BIDS-Validators** (D-16): den Entwurf
+  (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) prüft und sendet der Projektverantwortliche.
+- **Merge und Veröffentlichung** (je Schritt durch den Projektverantwortlichen): Merge von `dev` nach `main` und Push;
+  Version 0.1.0, Tag `v0.1.0` und `release.yml` (vorher die Platzhalter `<REPO_URL>` und `<PYPI_RELEASE>` in docs/en und
+  docs/zh mit der freigegebenen Adresse füllen; `tools/release_check.py` sperrt das Release, solange sie stehen); PyPI über
+  `publish-pypi.yml` (Trusted Publishing bei TestPyPI und PyPI eintragen, erst TestPyPI); Gitee-Spiegel
+  (`mirror-gitee.yml`, Secret `GITEE_SSH_KEY`, Variable `GITEE_MIRROR`) und das Gitee-Release von Hand am gespiegelten
+  Tag (R15).
 
 ## Verlauf
 
@@ -81,12 +73,13 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge.
 - **Ergebnisse (Windows 11, Python 3.12.15, `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`):** Neue Tests: `tests/unit/test_processes.py` 6 bestanden, 1 übersprungen (POSIX); `tests/integration/test_worker_console.py` 3 bestanden, auf dcec9bd 3 gescheitert. Nachbarn: `test_quality_review_p3.py` 26 bestanden (u. a. `--jobs 1` = `--jobs 4`, sterbender Worker, loky-Rückfall); `test_quality_pipeline.py` und `test_quality_sample.py` 76 bestanden (NG-N03 über Jobs und BLAS-Threads); `test_architecture.py` und `test_validator.py` bestanden; `test_processes.py`, `test_worker_console.py`, `test_pdf_unit.py`, `test_cli.py`, `test_report_pdf_cli.py`, `test_docs_browser.py` und `test_console_sentence.py` zusammen 116 bestanden, 1 übersprungen (POSIX). `test_report_pdf.py` 49 bestanden; danach `tools/install_pdf_browser.py --check`: PDF-Browser vollständig (Revision 1243, 290 Dateien). ruff, `mypy src/neurogrid tools` und `mypy --strict src/neurogrid/kernel` (auch `--platform linux`) sauber. Korpus ds004504-1.0.9 (`check --jobs 4` wie `tools/acceptance_g1.py`): auf dcec9bd 0 von 3 Läufen mit Konsolenproblem (398,3 / 320,9 / 313,0 s; die Rate ohne Monitor ist niedrig), mit der Behebung 0 von 3 (327,5 / 317,7 / 319,6 s), results.json in allen sechs Läufen bytegleich. `tools/acceptance_g1.py --datasets ds004504-1.0.9` auf der Behebung: 1 von 1 Datensätzen bestanden, keine Probleme (Konsole, Datenschutz, Dateien, Berichte), beide Läufe bytegleich, Korpus unverändert, `check` 314,8 / 319,2 s statt 935,6 / 299,4 s; results.json und die vier Berichte bytegleich zum G1-Lauf auf dcec9bd (Minimum und Gesamtkriterien sind mit nur einem Datensatz nicht erfüllt).
 - **Nachprüfung, drei Punkte behoben** (A-89): (1) POSIX mit spawn oder forkserver: Der resource tracker von multiprocessing startete beim ersten Semaphor eines Pools mit der Konsole; endete der CLI-Prozess ohne Finalizer (SIGKILL, OOM-Killer), schrieb er `resource_tracker: … leaked semaphore objects` mit Installationspfad. `pool_context()` startet ihn jetzt auf dem Nullgerät (Test: Prozess mit NeuroGrid-Pool, SIGKILL, stderr leer, Semaphor trotzdem entfernt; Gegenprobe mit einfachem Pool zeigt die Warnung). (2) Direktes Schreiben auf das Konsolengerät (`CONOUT$`, `msvcrt.putwch`, `/dev/tty`) umgeht beide Schichten; die Prozesse bleiben an der Konsole, damit Strg+C sie beendet (A-77); als Grenze in A-89 mit dem Suchergebnis über die Umgebung. (3) Ein toter Pool- oder loky-Prozess (oder ein nicht zustellbarer Teil) erscheint jetzt einmal als übersetzte Zeile `cli.check.recomputed` (zh/en/de) auf stdout, bevor die Wiederholungen beginnen; results.json bleibt unberührt.
 - **Ergebnisse der Nachprüfung (Windows 11, Python 3.12.15, `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`):** `test_quality_review_p3.py` und `test_worker_console.py` 30 bestanden (u. a. `--jobs 1` = `--jobs 4`, sterbender Worker, loky-Rückfall, die Zeile genau einmal bei `--jobs 2`); `test_quality_pipeline.py`, `test_quality_sample.py`, `test_language_and_wording.py` und `test_processes.py` 128 bestanden, 2 übersprungen (POSIX, darunter der tracker-Test); `test_cli.py`, `test_architecture.py`, `test_console_sentence.py`, `test_g1_checks.py`, `test_zh_review_package.py`, `test_provenance_pipeline.py` und `test_packaging_texts.py` 182 bestanden. ruff, `mypy src/neurogrid tools` und `mypy --strict src/neurogrid/kernel` (auch `--platform linux`) sauber. Korpus ds004504-1.0.9 (`check --jobs 4` wie `tools/acceptance_g1.py`): Exit 0 in 311,4 s, stderr leer, Konsolen- und Datenschutzprüfung ohne Befund, keine Zeile `cli.check.recomputed` (kein Worker starb), results.json bytegleich zum G1-Lauf auf dcec9bd, Korpus unverändert.
-- **Nicht verifiziert:** die POSIX-Zweige (fork, spawn, forkserver, resource tracker) nur in der CI (lokal kein Linux); volle Testsuite.
+- **Gemergt:** 18da12f (gepusht). CI auf 18da12f: <CI 18da12f>; volle Suite auf 18da12f: <SUITE 18da12f>; voller G1-Lauf auf 18da12f: <G1 18da12f>.
+- **Nicht verifiziert:** die POSIX-Zweige (fork, spawn, forkserver, resource tracker) nur in der CI (lokal kein Linux; <CI 18da12f>).
 
 ### 2026-10-27 – P5 Bericht, PDF, Dokumentation, Bündel, Abnahme
-- **Abgeschlossen:** NG-F14, NG-F18, CLI-05, REP-01, REP-02, REP-03, REP-04, REP-05, REP-06, REP-07, POS-01, ARC-05, ARC-06, TECH-06, TECH-10, NG-N01, NG-N03, NG-N05, NG-N06, CON-01, CON-04, V-06, UF-07, UF-08; aus P1 nachgetragen: TECH-11 (CI aktiv).
-- **Umgesetzt, Nachweis offen (`nicht verifiziert`):** NG-F13, REP-00, TECH-05, TECH-07, NG-N04, NG-N08, UF-01 (CI-Testjobs noch rot, Lauf auf 55335ca, zweite Fix-Runde läuft; REP-00 und UF-01 zusätzlich Sichtprüfung bei G1).
-- **Teilweise:** V-01, NG-N07 (8 Lizenzlücken, G1), POS-02 und CON-05 (Platzhalter `<REPO_URL>`, Release nach G1). **Blockiert (extern):** TECH-08 (Gitee-Konto und Secret).
+- **Abgeschlossen:** NG-F14, NG-F18, CLI-05, REP-01, REP-02, REP-03, REP-04, REP-05, REP-06, REP-07, POS-01, ARC-05, ARC-06, TECH-06, TECH-10, NG-N01, NG-N03, NG-N05, NG-N06, CON-01, CON-04, V-06, UF-07, UF-08; aus P1 nachgetragen: TECH-11 (CI aktiv); nach der zweiten CI-Fix-Runde (CI auf dcec9bd grün): TECH-05, TECH-07, NG-N08; nach D-17: NG-N07.
+- **Umgesetzt, Nachweis offen (`nicht verifiziert`):** NG-F13, REP-00, UF-01 (Sichtprüfung der PDFs und voller G1-Lauf auf dem Endstand bei G1; NG-F13 dazu die Lesart von „jeder Befund“).
+- **Teilweise:** V-01 (G1-Lauf, Release nach G1), NG-N04 (Windows 10 nicht verifiziert), POS-02 und CON-05 (Platzhalter `<REPO_URL>`, Release nach G1). **Blockiert (extern):** TECH-08 (Gitee-Konto und Secret).
 - **Beigetragen zu:** UF-02, CON-02, TECH-01, RP-07.
 - **Gebaut** (vier Bereiche parallel nach den verbindlichen Vorgaben B1–B6, ENTSCHEIDUNGEN A-84 bis A-87):
   - Bericht (A-84): sechs Abschnitte zh/en; Deckblatt nach REP-01; Zusammenfassung mit Ampel, Summen und Abdeckungsmaß; Befunde mit zehn Zellen und erklärten leeren Zellen, höchstens 50 Zeilen je Regel plus Sammelzeile; Metriktabelle je Aufnahme und Verteilungsgrafiken als eigenes SVG (`report/charts.py`); Nachweise; Anhang 6.1–6.6; Abgrenzung (ARC-05) und Worttest `report/wording/statements.yaml`; Glyphensicherheit; Generator für den Skalierungsfall 1000 × 64 (`tools/gen_fixtures.py`).
@@ -95,19 +88,30 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge.
   - Bündel, Signatur, Workflows (A-87): `tools/bundle.py` (build, verify; byte-gleich), `packaging/` (install.ps1/install.cmd, install.sh, README, Release-Notes), Signatur nach D-15, `tools/release_check.py`, `tools/scan_runtime_network.py`, `tools/strace_check.py`, Reinraum-Skripte, sieben Workflows, `.env.example`.
 - **Integration:** PDF-Weg mit allen Bereichen (u. a. privater Arbeitsordner `ng-pdf-*` des Browsers im temporären Ordner, nie unter `--out`), Bündel mit Präfix an der Längengrenze im Windows-Reinraum, Lizenztexte nach D-15 (CC BY 4.0, Lizenzdateien der Validator-Pakete) und D-16 (LGPL-Abschnitt im Validator); Abnahme (A-88): `tools/acceptance_g1.py`, Skalierungstest, zh-Prüfpaket, fester Satz auf der Konsole jedes Befehls.
 - **Review:** vier Prüfrichtungen (Bericht/PDF, Datenschutz, Bündel/CI, Doku/Lizenzen/Abnahme), jeder Befund gegengeprüft.
-  - 30 Befunde R00–R29: 29 bestätigt, R12 strittig (Entscheidung: dokumentierte Grenze, die Installer nennen die geprüfte Identität). Behoben sind alle außer R08 und R09 (Nutzerdoku, in der Fix-Runde keinem Bereich zugeordnet; in Arbeit (p5-ci2-userdocs)), je mit Test, nachgeprüft und in einer Reparaturrunde nachgebessert.
+  - 30 Befunde R00–R29: 29 bestätigt, R12 strittig (Entscheidung: dokumentierte Grenze, die Installer nennen die geprüfte Identität). Behoben sind alle, je mit Test, nachgeprüft und in einer Reparaturrunde nachgebessert; R08 und R09 (Nutzerdoku, in der Fix-Runde keinem Bereich zugeordnet) erst in der zweiten CI-Fix-Runde (p5-ci2-userdocs).
   - Wichtigste Befunde:
     - R19: Die Doku-Website im Bündel enthielt fremdes JavaScript ohne Nennung, darunter lunr-languages (MPL); jetzt entfernt bzw. geprüft (`license-gate/third_party/mkdocs-material-9.7.7/`).
     - R00: Berichte wurden beim Ersetzen nicht alles oder nichts geschrieben; R01: ein langer Wert verkleinerte jede PDF-Seite auf 2/3.
     - R10: Die Bündel-Tests liefen nicht auf jedem Push auf `dev` (gegen D-15); R11: tote Loopback-Proxies ließen Netzversuche im strace- und WFP-Nachweis als erlaubt erscheinen.
     - R07, R13, R06: Installationshinweis, Installer und Browser-Installer zeigten Benutzerordner bzw. einen nicht ausführbaren Befehl.
     - R20–R24, R29: Das G1-Werkzeug verglich Klausel, Messwert, Schwelle und Titel nicht, suchte weder rohe Datei- und Ordnernamen noch ganzzahlige Rohalter, zählte unlesbare Datensätze mit und prüfte den festen Satz im HTML nicht.
-  - Fix-Runde in vier Bereichen (report, linux, bundle, docs). Sie behob auch die Fehler des GitHub-Laufs auf c3be509 (Lauf 40355705974; annotiert: windows-latest 3.12/3.13 je 18 Fehler, ubuntu-24.04 3.11/3.12 je 18 Fehler und 10 Setup-Fehler): `Get-FileHash` fehlt in Windows PowerShell 5.1 unter dem Modulpfad von PowerShell 7, EncodingWarning aus `ldd` in der PDF-Startprüfung, Benutzername in `/tmp`-Pfaden, UNC- und Gerätepfade unter POSIX, ein nur unter Windows gültiger Test; dazu Annotationen für bis zu 40 Fehler je Job. Offen: `test_pdf_tests_pass_with_a_long_basetemp` (windows-latest).
+  - Fix-Runde in vier Bereichen (report, linux, bundle, docs). Sie behob auch die Fehler des GitHub-Laufs auf c3be509 (Lauf 40355705974; annotiert: windows-latest 3.12/3.13 je 18 Fehler, ubuntu-24.04 3.11/3.12 je 18 Fehler und 10 Setup-Fehler): `Get-FileHash` fehlt in Windows PowerShell 5.1 unter dem Modulpfad von PowerShell 7, EncodingWarning aus `ldd` in der PDF-Startprüfung, Benutzername in `/tmp`-Pfaden, UNC- und Gerätepfade unter POSIX, ein nur unter Windows gültiger Test; dazu Annotationen für bis zu 40 Fehler je Job. Offen blieb `test_pdf_tests_pass_with_a_long_basetemp` (windows-latest), behoben in der zweiten CI-Fix-Runde.
   - Merges 28de466, 2e1e24e, e204c7b, 862de1d; Merge-Fix 55335ca (die Sicherungsdatei aus R00 entsteht über `create_temporary`, das die Linux-Fix-Runde an die Stelle von `mkstemp` setzte). Ein semantischer Konflikt zwischen R11 (Bündel) und R25 (Doku) ließ den strace-Test der Doku scheitern, behoben in 181654e.
+- **Zweite CI-Fix-Runde (p5-ci2)** gegen die roten Testjobs von `ci` auf 55335ca, je Bereich mit Test, der vorher scheitert, Nachprüfung und Reparaturrunde (ENTSCHEIDUNGEN „Übergreifend“, A-84 bis A-87):
+  - chrome-log (b2b5246): Unter Windows schreibt jeder Kindprozess der Shell in `debug.log` neben dem Programm (Quelltext von Chromium 153); der Netzwerkdienst tat das beim Schließen eines eben gestarteten Browsers. Er läuft dort jetzt im Browserprozess (`--enable-features=CDPScreenshotNewSurface,NetworkServiceInProcess2`, Playwrights eigenes Feature wiederholt); neuer Test „Browser gleich nach dem Start geschlossen, Ordner unberührt“ (vorher in jedem Lauf mit der CI-Zeile gescheitert).
+  - win-runner (18d1750): Auf dem Runner sind TEMP und die Benutzervariablen 8.3 geschrieben (`RUNNER~1`); `install.ps1` schreibt und zählt das Präfix lang (`Get-LongPath`) und verdeckt auch die lange Schreibweise von LOCALAPPDATA und USERPROFILE (ein echter A-51-Fehler: `C:\Users\runneradmin\…` in der Ausgabe von uv). Die Zeitüberschreitung der Doku-Suche war ein Wettlauf im Test (mkdocs-material liest die Suche nur bei keyup, focus oder bereitem Worker).
+  - linux-p2 (a4196e2): MNE liest die Markerdatei für das Datum mit der Kodierung des Locale, MNE-BIDS kopiert mit der Codepage als Codec (`ANSI` nur unter Windows). NeuroGrid liest diesen Schritt als Latin-1 und kopiert ANSI als Latin-1 auf jedem System, gehalten über das threadsichere `io.base.ModulePatch`; der Test „MNE folgt dem Backslash-Verweis“ läuft nur unter Windows, ein POSIX-Gegenstück hält das Linux-Verhalten fest.
+  - userdocs (d4f3214): R08 und R09 behoben; Plattform- und Nachweisstand der Nutzerdoku nach dem grünen `offline`-Lauf, auch in README.bundle.txt und den Release-Notes; Firewall-Prüfung wie im Windows-Reinraum (A-86).
+  - linux-pdf (df1c790): `--font-render-hinting=none` (unter Linux setzte die Shell gehintete Ganzpixel-Positionen, pypdf las Leerzeichen in Regel-IDs; unter Windows bytegleich); jede Regel-ID in einem Element, das nicht umbricht, auch im Fließtext (gemessen: „CORE-M05-“ | „02“ brach vorher auch unter Windows); QA-Gate `glyph_missing` für das .notdef-Kästchen und Gegenproben ohne Systemschriften (auf ubuntu-24.04 ergab die Radikal-Gegenprobe vorher kein Urteil).
+  - Doku der Runde mit dcec9bd; ein Querabgleich berichtigte u. a. die Python-Version der Suite auf 55335ca (3.12, nicht 3.13) und die Reihenfolge der ersten CI-Läufe (NACHBAU).
+- **D-17 Lizenztexte** (9d8afcb): 70 Downloads aus der freigegebenen URL-Liste, 70 abgelegte Texte (bids-validator 3.0.2: 45, h5py 3.16.0: 1, mkdocs-material 9.7.7: 3, python-build-standalone 3.12.15+20261009: 21), alle freizügig; `known_missing.toml` leer, `tools/notices.py --check` endet mit 0; neue Prüfungen für abgelegte Texte, Auszüge und die Bibliotheken von python-build-standalone (`notices.py --sources` gegen lokale Kopien: 4 Texte, 0 Probleme). Unabhängig nachgeprüft: jede Datei mit Größe und SHA-256 der Liste, die ganzen Texte bytegleich zu einem zweiten Download, die vier Auszüge gegen ihre Quelle.
+- **G1-Befund auf dcec9bd** (eigener Eintrag oben, A-89): ein sterbender Pool-Prozess schrieb auf die Konsole; behoben mit `avoid_wmi()` und Hilfsprozessen auf dem Nullgerät, gemergt in 18da12f.
 - **Ergebnisse (lokal, Windows 11):**
   - Volle Suiten der Fix-Runde: report c9a536a 3502 bestanden, 23 übersprungen; linux 191a62a 3510 bestanden, 25 übersprungen (mit `PYTHONWARNDEFAULTENCODING=1`); bundle d42bbf4 3498 bestanden, 23 übersprungen.
-  - Gemergter Stand 55335ca (Python 3.12, `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`): 3597 bestanden, 24 übersprungen, 127 abgewählt, 1 fehlgeschlagen (strace-Test der Doku, behoben in 181654e). Endstand nach der zweiten Fix-Runde: <ERGEBNIS NACH P5-CI2>.
-  - G1-Lauf (`tools/acceptance_g1.py`, 4587546): 6 von 6 Datensätzen in 5 Formaten (BDF, BrainVision, EDF, EEGLAB, FIF), alle Kriterien des Laufs erfüllt, zwei Läufe byte-gleich, `--jobs 1` = `--jobs 4`, Korpus unverändert, V-01-Checkliste des Laufs erfüllt (nur die Kriterien dieses Laufs; Matrix V-01 teilweise), V-06 ok; unabhängig nachgeprüft (alle 42 Ausgabedateien byte-gleich). Nach den Korrekturen R20–R24 mit verschärften Prüfungen auf 3 Datensätzen erneut bestanden; ein voller Lauf aller sechs Datensätze auf dem Endstand steht aus.
+  - Gemergter Stand 55335ca (Python 3.12, `NEUROGRID_REQUIRE_PDF=1`, `PYTHONWARNDEFAULTENCODING=1`): 3597 bestanden, 24 übersprungen, 127 abgewählt, 1 fehlgeschlagen (strace-Test der Doku, behoben in 181654e).
+  - Nach der zweiten CI-Fix-Runde auf dcec9bd (gleiche Umgebung): 3647 bestanden, 21 übersprungen, 127 abgewählt, 1 fehlgeschlagen, nur an seiner Zeitgrenze (`test_quality_review_p3.py::test_one_recording_with_jobs_4_equals_jobs_1`, 122,5 s statt höchstens 120 s; die Suite lief auf dem ausgelasteten Rechner 4 h 07 min statt etwa 30 min; im mitgeschnittenen stderr derselbe tote Pool-Prozess wie im G1-Befund, `SpawnProcess-18`, A-89; allein bestanden, in der CI grün). Endstand 18da12f: <SUITE 18da12f>.
+  - G1-Lauf (`tools/acceptance_g1.py`, 4587546): 6 von 6 Datensätzen in 5 Formaten (BDF, BrainVision, EDF, EEGLAB, FIF), alle Kriterien des Laufs erfüllt, zwei Läufe byte-gleich, `--jobs 1` = `--jobs 4`, Korpus unverändert, V-01-Checkliste des Laufs erfüllt (nur die Kriterien dieses Laufs; Matrix V-01 teilweise), V-06 ok; unabhängig nachgeprüft (alle 42 Ausgabedateien byte-gleich). Nach den Korrekturen R20–R24 mit verschärften Prüfungen auf 3 Datensätzen erneut bestanden.
+  - G1-Lauf auf dcec9bd (alle sechs Datensätze): 5 von 6 bestanden (BDF, BrainVision, EDF, FIF), Minimum erfüllt, beide Läufe bytegleich, `--jobs 1` = `--jobs 4`, Korpus unverändert, V-06 ja; ds004504-1.0.9 (EEGLAB) nur am Konsolenbefund von Lauf 1 gescheitert (A-89), Befundzeilen, Berichte und Dateien aller sechs ohne Problem; damit „alle Kriterien dieses Laufs“ und V-01 des Laufs nicht erfüllt. Voller Lauf auf 18da12f: <G1 18da12f>.
   - Skalierung (A-88, 1000 Aufnahmen × 64 Kanäle):
 
     | Fall | Befunde | `report` HTML | `report` HTML+PDF | PDF-Seiten zh/en |
@@ -116,15 +120,16 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge.
     | typisch | 6 110 | 13,0 s / 364 MB | 92,1 s / 1284 MB | 136 / 142 |
 
     Grenze im Test: größter Wert der Läufe vom 26.10.2026 plus 50 %, aufgerundet (z. B. 164 s / 2894 MB für HTML+PDF im ungünstigsten Fall).
-  - Lizenz-Gate (Laufzeit, Dev, Doku) und Komponentenprüfung (129 Wheels beider Ziele, 4 Bündelteile) grün auf dem 103-Paket-Lock (Zweig p5-acceptance, 228ec49); `notices.py --check` meldet die 8 Lücken (Exit 1 bis G1).
+  - Lizenz-Gate (Laufzeit, Dev, Doku) und Komponentenprüfung (129 Wheels beider Ziele, 4 Bündelteile) grün auf dem 103-Paket-Lock (Zweig p5-acceptance, 228ec49); `notices.py --check` meldete damals die 8 Lücken (Exit 1), seit D-17 Exit 0.
   - Windows-Reinraum lokal (`-NoOsAudit`, Integrationszweig cb19b17): Präfix an der Grenze (101 Zeichen) installiert, 102 abgelehnt; `report` mit PDF im installierten Bündel 20,2 s.
 - **CI (GitHub Actions, 55335ca):**
   - `offline` (Lauf 40403791782) ganz grün: beide Offline-Bündel aus `uv.lock` (unsignierte Entwicklungsbündel), PDF in debian:12-slim mit der dokumentierten Paketliste (`--network none`, strace), glibc 2.27 mit Exit 2 abgelehnt (ubuntu:18.04), Reinraum Windows (powershell 5.1 und pwsh, WFP-Audit, PDF), Reinräume debian:12-slim, ubuntu:24.04, ubuntu:22.04 (`--network none`, ohne Python, uid 1000), jeder v0.1-Befehl unter strace mit `--network none`.
-  - `ci` (Lauf 40403791901): grün Lizenz-Gate mit Paketscan, Kommandozeile unter Windows PowerShell 5.1 und PowerShell 7, Anforderungs-IDs; rot die Testjobs: ubuntu-24.04 Python 3.11/3.12/3.13 je 6 Fehler (`test_review_p2_formats.py::test_mne_alone_follows_the_differently_decoded_reference`, zwei Codepage-Umwandlungen in `test_review_p2_convert.py`, `test_report_pdf.py::test_qa_gate_negative_controls`, `::test_rule_ids_do_not_break_inside_in_the_pdf`, der strace-Test der Doku), windows-latest je 5–6 Fehler (drei Tests in `test_install_ps1.py` auf dem Runner, `test_pdf_tests_pass_with_a_long_basetemp`, der strace-Test der Doku, einmal eine Zeitüberschreitung der Suche in `test_docs_browser.py`). Die zweite Fix-Runde (p5-ci2) läuft.
-- **Annahmen:** A-84 (Bericht), A-85 (PDF), A-86 (Doku, Meldungen, Notices, Lizenzen), A-87 (Bündel, Signatur, Installation, Workflows), A-88 (Abnahme); für STOPP G1 vorgemerkt.
+  - `ci` (Lauf 40403791901): grün Lizenz-Gate mit Paketscan, Kommandozeile unter Windows PowerShell 5.1 und PowerShell 7, Anforderungs-IDs; rot die Testjobs: ubuntu-24.04 Python 3.11/3.12/3.13 je 6 Fehler (`test_review_p2_formats.py::test_mne_alone_follows_the_differently_decoded_reference`, zwei Codepage-Umwandlungen in `test_review_p2_convert.py`, `test_report_pdf.py::test_qa_gate_negative_controls`, `::test_rule_ids_do_not_break_inside_in_the_pdf`, der strace-Test der Doku), windows-latest je 5–6 Fehler (drei Tests in `test_install_ps1.py` auf dem Runner, `test_pdf_tests_pass_with_a_long_basetemp`, der strace-Test der Doku, einmal eine Zeitüberschreitung der Suche in `test_docs_browser.py`).
+- **CI (GitHub Actions, dcec9bd, nach der zweiten CI-Fix-Runde):** alles grün. `ci` (Lauf 40476578603): Testjobs ubuntu-24.04 und windows-latest × Python 3.11/3.12/3.13 mit Abdeckungs-Gates (Zahlen nur im Protokoll des Laufs: <COVERAGE>), Lizenz-Gate mit Paketscan, Kommandozeile unter Windows PowerShell 5.1 und PowerShell 7, Anforderungs-IDs, Plattformvergleich (berichtet, nicht erzwungen). `offline` (Lauf 40476578452): dieselben neun Jobs wie auf 55335ca. 18da12f: <CI 18da12f>.
+- **Annahmen:** A-84 (Bericht), A-85 (PDF), A-86 (Doku, Meldungen, Notices, Lizenzen), A-87 (Bündel, Signatur, Installation, Workflows), A-88 (Abnahme), A-89 (Hilfsprozesse, G1-Befund); für STOPP G1 vorgemerkt. Der Entwurf der P6-Vorgaben hatte A-89 bis A-91 vorläufig vergeben; P6 beginnt jetzt bei A-90.
+- **Nachzuziehen vor G1:** Die Nutzerdoku nennt für den Windows-Runner und Linux noch „Testsuite noch nicht verifiziert“ (installation.md, limitations.md, die Zeile der Audit-Hook-Tests in privacy.md, nach der die CI-Testläufe dort noch nicht bestehen, en und zh, dazu README.bundle.txt und die Release-Notes; `SUITE_PENDING`/`AUDIT_HOOK_PENDING` in `tests/docs/test_docs_sync.py`); seit dcec9bd ist die Testsuite auf ubuntu-24.04 und windows-latest grün, Debian 12 und Ubuntu 22.04 prüft die CI nur mit dem Offline-Bündel. Die Sätze sind von Hand nachzuziehen. Das zh-Prüfpaket entsteht nach dem letzten G1-Lauf (A-88).
 - **Nicht verifiziert:**
-  - Volle Testsuite unter Linux und auf dem Windows-Runner (siehe CI), damit auch die Abdeckungs-Gates im CI.
-  - Auf dem Endstand: voller G1-Lauf aller sechs Datensätze, Korpustests (`-m corpus`) und `bundle.py sizes`.
+  - Auf dem Endstand 18da12f: CI (<CI 18da12f>, darunter die POSIX-Zweige von A-89), volle Suite (<SUITE 18da12f>), voller G1-Lauf (<G1 18da12f>); Korpustests (`-m corpus`) und `bundle.py sizes`.
   - Windows 10; NG-N02 auf einem Runner mit 4 vCPU/16 GB; Signaturprüfung an einem echten Release; Sichtprüfung der PDFs.
   - Der Windows-Nachweis auf OS-Ebene ordnet DNS-Anfragen über den DNS-Client-Dienst nicht zu (A-87); Container-Images per Tag, nicht per Digest gepinnt.
 
@@ -382,7 +387,9 @@ Vollständige Liste nach P5; sie ersetzt die Listen der früheren Einträge.
 
 ## Nächster Schritt
 
-Zweite CI-Fix-Runde (p5-ci2) abschließen und ihr Ergebnis nachtragen (<ERGEBNIS NACH P5-CI2>), dann **STOPP G1**
-mit der Liste „Für STOPP G1 vorgemerkt“ (KONZEPT 6: zh-Prüfung, Push- und Veröffentlichungsfreigabe). Nach der
-Freigabe: Version 0.1.0, Tag `v0.1.0`, `release.yml`; danach P6 nach dem Entwurf der P6-Vorgaben und den Antworten
-auf die beiden P6-Fragen.
+Die Endzahlen auf 18da12f nachtragen (<CI 18da12f>, <SUITE 18da12f>, <G1 18da12f>, <COVERAGE>), die Zellen „Testsuite
+noch nicht verifiziert“ der Nutzerdoku nachziehen (P5-Eintrag), das zh-Prüfpaket nach dem letzten G1-Lauf erzeugen,
+dann **STOPP G1** mit der Liste „Für STOPP G1 vorgemerkt“ (KONZEPT 6: zh-Prüfung,
+Freigabe der Annahmen, Merge nach `main` und Veröffentlichung). Nach der Freigabe: Version 0.1.0, Tag `v0.1.0`,
+`release.yml`, PyPI und Gitee; danach P6 nach dem Entwurf der P6-Vorgaben und D-17 (M14 Option B, zh-Texte Option C),
+mit Annahmen ab A-90.
