@@ -312,7 +312,9 @@ else:
 
         class NullStdioForkServerPopen(popen_forkserver.Popen):
             """The forkserver itself is started by the first such start, so it and all its children
-            have the null device."""
+            have the null device. A forkserver that other code of this process started before keeps the
+            descriptors it got; the CLI starts none (it never selects forkserver, the default up to
+            CPython 3.13 is fork on Linux)."""
 
             def __init__(self, process_obj: BaseProcess) -> None:
                 with null_descriptors():
@@ -337,7 +339,10 @@ else:
         ``sys.stderr.fileno()``. If this process ends without its finalizers (SIGTERM, SIGKILL, the OOM
         killer), the tracker would print ``resource_tracker: There appear to be N leaked semaphore objects``
         with its install path. Started here, inside ``null_descriptors``, it writes to the null device; a
-        running tracker is only probed, one that died is started again here."""
+        running tracker is only probed, one that died is started again here. A tracker that other code of
+        this process started before keeps its descriptors (stopping it would unlink that code's resources);
+        in the CLI on Linux nothing does: with fork, the default there, no semaphore registers, and the CLI
+        process uses no shared memory."""
         if method == "fork":
             return
         from multiprocessing import resource_tracker
