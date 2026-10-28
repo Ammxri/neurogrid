@@ -724,7 +724,8 @@ SUITE_LIMITS = {
         " Ubuntu 22.04 上运行测试套件。"
     ),
 }
-# The wording up to 18da12f, written while the test jobs failed: no page and no delivery text may say it.
+# The wording up to 18da12f, written while the test jobs failed: no page and no delivery text may say it. Only
+# the sentences about the test suite, so that other text may still say that something did not pass yet.
 SUITE_PENDING = (
     "test suite not yet verified",
     "测试套件尚未验证",
@@ -732,8 +733,10 @@ SUITE_PENDING = (
     "on Linux and on the Windows runner is not yet verified",
     "在 Linux 和 Windows 运行器上尚未验证",
     "Linux 和 Windows 运行器上的测试套件尚未验证",
-    "do not pass yet",
-    "尚未通过",
+    "the CI runs of the test suite on these systems do not pass yet",
+    "测试套件在这些系统上的 CI 运行尚未通过",
+    "the CI test runs there do not pass yet",
+    "那里的 CI 测试运行尚未通过",
 )
 NOT_VERIFIED = {"en": "not verified", "zh": "未验证"}
 REFUSED = {
@@ -811,6 +814,9 @@ def test_platform_and_evidence_status_follow_the_offline_workflow() -> None:
     python_range = f"{pythons[0]}–{pythons[-1]}"
     without_suite = [name for name in names if name not in RUNNERS.values()]
     stale = [_flat(phrase) for phrase in (*SUITE_PENDING, *BEFORE_CI)]
+    # only the test-suite sentences are banned, not every sentence about something that did not pass yet
+    other = _flat("Datasets that do not pass yet stay in the report. 尚未通过检查的数据集留在报告中。")
+    assert not [phrase for phrase in stale if phrase in other], other
     texts = [*sorted((DOCS / "en").rglob("*.md")), *sorted((DOCS / "zh").rglob("*.md"))]
     for path in [*texts, ROOT / "packaging" / "README.bundle.txt", ROOT / "packaging" / "release-notes.md"]:
         flat = _flat(path.read_text(encoding="utf-8"))
