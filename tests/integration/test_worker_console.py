@@ -36,7 +36,7 @@ import subprocess
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
@@ -188,6 +188,38 @@ def test_a_task_that_cannot_be_pickled_still_fails_its_future(capfd: pytest.Capt
         unpicklable = pool.submit(abs, threading.Lock())
         assert isinstance(unpicklable.exception(timeout=120), TypeError)
         assert pool.submit(abs, -3).result(timeout=120) == 3
+    out, err = capfd.readouterr()
+    assert (out, err) == ("", ""), _traces(out + err)
+
+
+def test_a_task_that_could_not_be_sent_fails_its_future(capfd: pytest.CaptureFixture[str]) -> None:
+    """quiet_pool: a task that the feeder thread pickled but could not send fails its own future with that
+    error, as one that cannot be pickled does (compute_all then runs its recording again on its own, see
+    test_a_task_whose_result_cannot_be_delivered_runs_its_job_alone). Before, the feeder handed over only
+    the pickled bytes, the future stayed pending without any sign and the run waited for it forever
+    (CPython printed a traceback first). No trigger is known while a pool works; here the pipe's send fails
+    once. The pool goes on and nothing reaches the console."""
+    pool = quality._pool(1)
+    call_queue = pool._call_queue  # type: ignore[attr-defined]
+    send = call_queue._send_bytes
+    failure = OSError(errno.EIO, os.strerror(errno.EIO))
+    failures = [failure]
+
+    def send_or_fail(data: Any) -> None:
+        if failures:
+            raise failures.pop()
+        send(data)
+
+    call_queue._send_bytes = send_or_fail  # the feeder thread takes it at its start, with the first task
+    try:
+        lost = pool.submit(abs, -2)
+        if not wait([lost], timeout=60).done:  # it would hold the pool's shutdown forever: break the pool
+            for process in list(pool._processes.values()):  # type: ignore[attr-defined]
+                process.terminate()
+        assert lost.exception(timeout=60) is failure
+        assert pool.submit(abs, -3).result(timeout=120) == 3
+    finally:
+        pool.shutdown()
     out, err = capfd.readouterr()
     assert (out, err) == ("", ""), _traces(out + err)
 
