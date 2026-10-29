@@ -40,6 +40,7 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 | D-15 | G1-Vorabentscheidungen: Lizenztext-Downloads, öffentliches Repository, PyPI, Gitee, Doku, Signatur, kleine Zellen, DM-02 | entschieden; offen bei G1: zh-Prüfung, Push-/Veröffentlichungsfreigabe, vorgemerkte Annahmen |
 | D-16 | Versionsgebundene LGPL-Ausnahme für einen Abschnitt in bids-validator-deno 3.0.2; Anfrage an die Entwickler | entschieden; Anfrage sendet der Projektverantwortliche |
 | D-17 | G1: Download der Lizenztexte der acht Lücken (70 URLs), M14 je Person nur in results.json (Option B), zh-Texte von P6 bei G1 nur die Kernbegriffe (Option C), zh-Prüfpaket nach der zweiten CI-Fix-Runde | entschieden; umgesetzt (`known_missing.toml` leer); offen bei G1: zh-Prüfung |
+| D-18 | G1-Freigaben: Annahmen A-78 bis A-89, Lesarten R16/R12 und D-15 (core-js-pure); P6 parallel zur zh- und Sichtprüfung; Merge nach `main` und Release v0.1.0 erst danach | entschieden; offen: zh-Prüfung, Sichtprüfung |
 
 
 ---

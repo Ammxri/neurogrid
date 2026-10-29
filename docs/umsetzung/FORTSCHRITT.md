@@ -14,11 +14,13 @@ CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176); auf 18da12f
 P5, ENTSCHEIDUNGEN A-87): je Testjob 0 Fehler, windows-latest 3681–3682 von 3697 bestanden, ubuntu-24.04 3605 von 3702;
 Abdeckung Kern 93,3–93,5 %, Prüfer 97,3 %. G1-Lauf auf 18da12f: 6 von 6 Datensätzen bestanden, alle Kriterien erfüllt
 (151 min); Endlauf auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`) (Einzelheiten in den Einträgen unten).
-Offen beim Nutzer: die Liste „Für STOPP G1 vorgemerkt“, GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
+STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 startet parallel zur zh-Prüfung und zur Sichtprüfung; Merge nach `main` und Release v0.1.0 erst danach.
+Offen beim Nutzer: die übrigen Punkte von „Für STOPP G1 vorgemerkt“, GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
 ISO-TS vor P10, Docker Desktop bei Gelegenheit.
 
 ## Für STOPP G1 vorgemerkt
 
+Stand 29.10.2026 (D-18): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); offen sind zh-Prüfung, Sichtprüfung, die Anfrage an die Entwickler des BIDS-Validators, die Kenntnisnahme der Grenzen sowie Merge und Veröffentlichung (nach den beiden Prüfungen).
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
 - **Muttersprachliche zh-Prüfung** (A-07, A-86, D-15, D-17): Das Paket erzeugt `tools/zh_review_package.py` nach dem
@@ -220,7 +222,7 @@ Projektverantwortlichen.
 - **Nutzerdoku nachgezogen** (dritte CI-Fix-Runde, U1, 17e0d3f und 341beb1): Die Zellen „Testsuite noch nicht verifiziert“ sind ersetzt; Windows Server und Ubuntu 24.04 „Testsuite in der CI verifiziert (Python 3.11–3.13)“, Debian 12 und Ubuntu 22.04 „Testsuite nicht in der CI ausgeführt“ (die CI prüft dort nur das Offline-Bündel), auch in der Zeile der Audit-Hook-Tests in privacy.md, en und zh, in README.bundle.txt und den Release-Notes; `SUITE_PENDING`/`AUDIT_HOOK_PENDING` in `tests/docs/test_docs_sync.py` sind durch Prüfungen gegen die Matrix von `ci.yml` ersetzt (A-86). Belegt durch die grüne CI auf 27c3e90, für jedes Release durch `ci.yml` am Tag-Commit (dd9ab93, A-87). Das zh-Prüfpaket entsteht nach dem letzten G1-Lauf, dem auf 27c3e90 (A-88).
 - **Nicht verifiziert:**
   - Auf dem Endstand 27c3e90: `bundle.py sizes` (das Bündel baut und prüft die CI, `offline` 40680346176; die Größen stehen nur im Job-Protokoll); keine volle lokale Suite (die volle Suite belegt die grüne CI).
-- **Korpustests auf dem Endstand** (einmal, nach dem Prüfvorgehen, A-87): `tests/corpus/test_corpus.py` 62 von 62 bestanden (12 im ersten Lauf, dessen 3-h-Grenze im Test `…converts_without_validator_errors[keep-headers-BrainVision]` ablief – allein 242 s, bestanden –, die übrigen 50 in 74 min; `.local/logs/corpus_27c3e90.log`, `.local/logs/corpus_27c3e90_rest.log`); `tests/acceptance/test_g1_corpus.py` (52 Tests, ruft die Abnahme selbst auf, ≈ 2 h): auf 27c3e90 48 bestanden, 4 gescheitert – `test_no_host_path_or_header_data_in_outputs[psg-ipa-1.0.0]` und die drei Tests über den ganzen Lauf, die daraus folgen. Ursache im Prüfwerkzeug, nicht im Produkt: pytests Ausgabeordner liegt unter `pytest-of-<Login>`, die Konsole druckt ihn geschwärzt (`pytest-of-<user>`, A-51), die Prüfung nahm diese Form nicht als den eigenen `--out`-Ordner heraus, und der Rohordner `PSG` traf `psg-ipa-1.0.0` im Ausgabepfad; behoben in 7426dee (`_path_forms` kennt die geschwärzte Form; Regressionstest `test_a_redacted_output_path_on_the_console_is_no_raw_name_leak`, vor dem Fix rot, danach grün). Wiederholung des Moduls auf 7426dee: <KORPUS-G1 7426dee>.
+- **Korpustests auf dem Endstand** (einmal, nach dem Prüfvorgehen, A-87): `tests/corpus/test_corpus.py` 62 von 62 bestanden (12 im ersten Lauf, dessen 3-h-Grenze im Test `…converts_without_validator_errors[keep-headers-BrainVision]` ablief – allein 242 s, bestanden –, die übrigen 50 in 74 min; `.local/logs/corpus_27c3e90.log`, `.local/logs/corpus_27c3e90_rest.log`); `tests/acceptance/test_g1_corpus.py` (52 Tests, ruft die Abnahme selbst auf, ≈ 2 h): auf 27c3e90 48 bestanden, 4 gescheitert – `test_no_host_path_or_header_data_in_outputs[psg-ipa-1.0.0]` und die drei Tests über den ganzen Lauf, die daraus folgen. Ursache im Prüfwerkzeug, nicht im Produkt: pytests Ausgabeordner liegt unter `pytest-of-<Login>`, die Konsole druckt ihn geschwärzt (`pytest-of-<user>`, A-51), die Prüfung nahm diese Form nicht als den eigenen `--out`-Ordner heraus, und der Rohordner `PSG` traf `psg-ipa-1.0.0` im Ausgabepfad; behoben in 7426dee (`_path_forms` kennt die geschwärzte Form; Regressionstest `test_a_redacted_output_path_on_the_console_is_no_raw_name_leak`, vor dem Fix rot, danach grün). Wiederholung des Moduls auf 7426dee: 52 von 52 bestanden (1 h 57 min; `.local/logs/g1corpus_7426dee.log`).
   - Windows 10; NG-N02 auf einem Runner mit 4 vCPU/16 GB; Signaturprüfung an einem echten Release; Sichtprüfung der PDFs.
   - Der Windows-Nachweis auf OS-Ebene ordnet DNS-Anfragen über den DNS-Client-Dienst nicht zu (A-87); Container-Images per Tag, nicht per Digest gepinnt.
 
@@ -478,8 +480,8 @@ Projektverantwortlichen.
 
 ## Nächster Schritt
 
-G1-Endlauf auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`); das zh-Prüfpaket mit dessen Beispiel-PDFs ist erzeugt. Jetzt **STOPP G1**
-mit der Liste „Für STOPP G1 vorgemerkt“ (KONZEPT 6: zh-Prüfung, Sichtprüfung der PDFs, Freigabe der Annahmen A-78 bis
-A-89, Merge nach `main` und Veröffentlichung). Nach der Freigabe: Version 0.1.0, Tag `v0.1.0`, `release.yml`, PyPI und
-Gitee; danach P6 nach dem Entwurf der P6-Vorgaben und D-17 (M14 Option B, zh-Texte Option C), mit Annahmen ab A-90 und
-nach dem Prüfvorgehen ab dem Ende von P5 (A-87).
+G1-Endlauf auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`); das zh-Prüfpaket mit dessen Beispiel-PDFs ist erzeugt. STOPP G1 vorgelegt; D-18 (29.10.2026):
+Annahmen freigegeben, P6 startet jetzt parallel zur zh-Prüfung und zur Sichtprüfung der PDFs, nach dem Entwurf der
+P6-Vorgaben und D-17 (M14 Option B, zh-Texte Option C), mit Annahmen ab A-90 und nach dem Prüfvorgehen ab dem Ende von
+P5 (A-87). Nach zh- und Sichtprüfung ohne offene Befunde: Merge nach `main`, Version 0.1.0, Tag `v0.1.0`,
+`release.yml`, PyPI und Gitee, jeweils mit Freigabe.
