@@ -24,7 +24,7 @@ from neurogrid.kernel.evidence import EvidenceRecord, EvidenceState
 from neurogrid.kernel.findings import Finding, Phase, Severity, SourceStatus, Status
 from neurogrid.kernel.report import render_html
 from neurogrid.kernel.rules import EVIDENCE_CHECK
-from neurogrid.model.results import Results, RuleInfo, Summary
+from neurogrid.model.results import Results, RuleInfo, RulepackInfo, Summary
 from neurogrid.report import tables, texts
 from neurogrid.report.charts import histogram_svg
 from neurogrid.report.glyphs import font_coverage, glyph_safe
@@ -466,8 +466,12 @@ class _Formatter:
             "comment": none,
         }
 
-    def overall(self, summary: Summary) -> str:
-        """The overall sentence (POS-01): 'passes the checks of the loaded rule packs', never 'conforms'."""
+    def overall(self, summary: Summary, rulepacks: Sequence[RulepackInfo]) -> str:
+        """The overall sentence (POS-01): 'passes the checks of the loaded rule packs', never 'conforms'.
+        With placeholder packs alone nothing was evaluated, so no sentence says the dataset passes them
+        (A-41, A-92)."""
+        if all(pack.source_status is SourceStatus.PLACEHOLDER for pack in rulepacks):
+            return self.tr("report.text.overall_none_evaluated")
         if summary.errors:
             return self.tr("report.text.overall_fails", errors=summary.errors, warnings=summary.warnings)
         if summary.warnings:
@@ -1010,7 +1014,7 @@ def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[st
         "results": results,
         "titles": titles,
         "cover_rows": _cover_rows(results, fmt),
-        "overall": fmt.overall(results.summary),
+        "overall": fmt.overall(results.summary, results.rulepacks),
         "severity_sections": severity_sections,
         "placeholder_groups": placeholder_groups,
         "placeholder_count": placeholder_count,

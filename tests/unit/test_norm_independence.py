@@ -94,6 +94,8 @@ KNOWN = {
         'YYT = ("yyt2029",)  # the placeholder scaffold, with the flag (A-92)',
     ),
     ("tests/rules/test_builtin_rules.py", 'YYT_RULE = "YYT2029-ACQ-001"'),
+    ("tests/integration/test_yyt2029_scaffold.py", 'PACK = "yyt2029"'),
+    ("tests/integration/test_yyt2029_scaffold.py", 'RULE = "YYT2029-ACQ-001"'),
 }
 THIS = "tests/unit/test_norm_independence.py"
 

@@ -26,7 +26,7 @@ from neurogrid import pipeline
 from neurogrid.io.provenance import inside, shown_target
 from neurogrid.kernel import canonical, netguard, processes
 from neurogrid.kernel.errors import ConfigError, InputError, NeuroGridError, PdfError
-from neurogrid.kernel.findings import Severity
+from neurogrid.kernel.findings import Severity, SourceStatus
 from neurogrid.kernel.i18n import DEFAULT_LANGUAGE, detect_language, normalize_language
 from neurogrid.kernel.safety import (
     check_operator_path,
@@ -527,12 +527,19 @@ def check(
     )
     results = pipeline.run_check(path, options)
     _write_atomic(target, canonical.dumps(results))
-    packs = ", ".join(p.name for p in results.rulepacks)
-    _say("cli.check.fails" if results.summary.exit_code else "cli.check.passes", packs=packs)
+    # the sentence names only the evaluated packs: a dataset never "passes" a placeholder pack (POS-01,
+    # A-41, A-92); with placeholder packs alone nothing was evaluated (and the exit code is 0)
+    placeholder = [p.name for p in results.rulepacks if p.source_status is SourceStatus.PLACEHOLDER]
+    evaluated = [p.name for p in results.rulepacks if p.source_status is not SourceStatus.PLACEHOLDER]
+    if evaluated:
+        verdict = "cli.check.fails" if results.summary.exit_code else "cli.check.passes"
+        _say(verdict, packs=", ".join(evaluated))
+    else:
+        _say("cli.check.none_evaluated", packs=", ".join(placeholder))
     _say("cli.check.counts", errors=results.summary.errors, warnings=results.summary.warnings)
     if results.summary.open_evidence:
         _say("cli.check.open_evidence", count=results.summary.open_evidence)
-    if any(p.source_status.value == "placeholder" for p in results.rulepacks):
+    if placeholder:
         _say("cli.check.placeholder")
     for notice in results.notices:
         # warnings reach the console (links not followed, expired or unknown exceptions, evidence documents

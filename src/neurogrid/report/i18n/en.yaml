@@ -25,6 +25,7 @@ cli:
     counts: "{errors} error(s), {warnings} warning(s)"
     written: "Results written to {path}"
     placeholder: "Placeholder rule packs are loaded. Their findings are not based on a norm text and do not count."
+    none_evaluated: "No rule pack was evaluated: only placeholder rule packs are loaded ({packs})."
     open_evidence: "{count} open evidence item(s), counted in the errors and warnings above."
     recomputed: "Note: at least one helper process of --jobs stopped unexpectedly (for example out of memory); the work for {count} recording(s) is done without it."
   report:
@@ -713,6 +714,7 @@ report:
     secondary_note: "Rule pack {pack} takes its values second-hand (start values quoted in the PRD); the norm text was not accessible. Its clauses are unknown, and no coverage is computed."
     evidence_intro: "The evidence comes from evidence.yaml. 'Evidence filed' is the user's statement; NeuroGrid only checks that the document exists, is not a link and matches its recorded hash."
     overall_passes_warnings: "The dataset passes the error checks of the loaded rule packs; {warnings} warning(s) remain."
+    overall_none_evaluated: "No rule pack of this report was evaluated: only placeholder rule packs are loaded."
     scope_note: "NeuroGrid is a developer and compliance tool, not a medical device. This report describes the dataset and makes no statement about patients."
     core_clause_note: "Clauses of the core rule pack (M01, M02, …) are metric IDs: they refer to the metric descriptions on the page metrics.md of the English documentation of this NeuroGrid version, the source of the pack in the table above."
     coverage_note: "Coverage is computed only for rule packs of a norm with source status inventory or final: mandatory clauses with an automatic or semi-automatic check divided by all mandatory clauses. For core, bids, packs without mandatory clauses and secondary or placeholder packs it is n/a."
