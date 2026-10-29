@@ -331,7 +331,7 @@ Every check a rule pack may name in `check`, generated from the registry of this
 | Parameters | `min_hz` (number, default 500) |
 | Passes when | the rate is at least `min_hz` and the rates are uniform or their mix is documented |
 | Measured on | each recording |
-| Built-in rules | – |
+| Built-in rules | [YYT2029-ACQ-001](rules.md#YYT2029-ACQ-001) (placeholder) |
 
 ## signal.sampling_rate_min {#signal.sampling_rate_min}
 

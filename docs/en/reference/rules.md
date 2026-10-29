@@ -591,3 +591,26 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Severity | Warning |
 | Severity with --strict | Warning |
 | Verification | semi-automatic |
+
+## Rule pack yyt2029 {#pack-yyt2029}
+
+| | |
+|---|---|
+| Version | 0.2.0-draft |
+| Source | YY/T 2029-2026, norm text not read |
+| Source status | placeholder |
+| Maps a norm (coverage measure) | yes |
+| SHA-256 | `31bcab4eee2b3d81d2402a589ffd86a879093825a2718d33bf62a8859f6209f1` |
+
+### YYT2029-ACQ-001 {#YYT2029-ACQ-001}
+
+| | |
+|---|---|
+| Title | Sampling rate documented and consistent |
+| Clause | placeholder – not from the norm text |
+| Phase | Acquisition |
+| Check | [signal.sampling_rate_consistency](checks.md#signal.sampling_rate_consistency) |
+| Parameters | `min_hz` = 500 (rule pack) |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |

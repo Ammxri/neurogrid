@@ -40,6 +40,7 @@ rules:
   none: "–"
   default_param: "{name} = {value}（检查项默认值）"
   pack_param: "{name} = {value}（规则包）"
+  placeholder_suffix: "（占位）"
 thresholds:
   rule: "规则"
   severity: "严重程度"

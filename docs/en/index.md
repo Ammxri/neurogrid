@@ -23,7 +23,7 @@ NeuroGrid evaluates datasets only, never people, and it is not a medical device.
   [Output files](reference/outputs.md)).
 - Local operation without any network connection ([Privacy and offline operation](privacy.md)).
 
-Version 0.1 contains no content from YY/T 2029-2026. A yyt2029 rule pack follows once the norm text has been read.
+This version contains no content from YY/T 2029-2026. The placeholder pack yyt2029 (one example rule without clause, loaded only with `--allow-draft-rulepacks`, never counted) is not based on the norm text either; the clause-based pack follows once the norm text has been read.
 `diff`, NeuroVault and the evidence dossier are not part of version 0.1 ([Limitations](limitations.md)).
 
 ## Where to start {#start}

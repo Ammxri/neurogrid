@@ -41,6 +41,7 @@ rules:
   none: "–"
   default_param: "{name} = {value} (check default)"
   pack_param: "{name} = {value} (rule pack)"
+  placeholder_suffix: " (placeholder)"
 thresholds:
   rule: "Rule"
   severity: "Severity"

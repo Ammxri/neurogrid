@@ -93,6 +93,31 @@ def test_generated_pages_say_so_and_render_the_registry() -> None:
         )
 
 
+def test_generator_documents_every_builtin_pack_and_marks_placeholders() -> None:
+    """NG-F11, A-41, A-92: the generated pages cover every built-in pack; a placeholder pack's clause is the
+    report's placeholder text and its rule IDs carry the placeholder marker on the check registry page."""
+    folder = ROOT / "src" / "neurogrid" / "rulepacks"
+    shipped = {p.name.removesuffix(".yaml") for p in folder.glob("*.yaml")}
+    assert shipped == set(gen_docs.PACKS)
+    placeholders = [p.pack for p in gen_docs.builtin_packs() if p.pack.source_status.value == "placeholder"]
+    assert placeholders, "the scaffold is a built-in placeholder pack"
+    for lang in LANGUAGES:
+        labels = gen_docs.context(lang).labels["rules"]
+        rules = (DOCS / lang / "reference" / "rules.md").read_text(encoding="utf-8")
+        checks = (DOCS / lang / "reference" / "checks.md").read_text(encoding="utf-8")
+        clause_row = f"| {labels['clause']} | {tables()[lang]['report.value.placeholder_clause']} |"
+        for pack in placeholders:
+            start = rules.index(f"{{#pack-{pack.rulepack}}}")
+            end = rules.find("\n## ", start)
+            section = rules[start : end if end >= 0 else len(rules)]
+            assert section.count(clause_row) == len(pack.rules), lang
+            assert f"| {labels['version']} | {pack.version} |" in section  # the version in a row of its own
+            for rule in pack.rules:
+                assert f"[{rule.id}](rules.md#{rule.id}){labels['placeholder_suffix']}" in checks, lang
+        # no other pack gets the marker
+        assert checks.count(labels["placeholder_suffix"]) == sum(len(p.rules) for p in placeholders)
+
+
 def test_generator_refuses_an_outdated_or_incomplete_source(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

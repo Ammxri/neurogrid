@@ -1,0 +1,25 @@
+# NeuroGrid rule pack yyt2029: placeholder scaffold (RP-10, A-41, A-92), not based on the norm text.
+# The norm text has not been read, so nothing in this file is taken from it (V-06, A-55): the only rule is
+# the example of the product specification, with the clause TBD and a placeholder parameter, and no further
+# rule is invented before the text is read (A-41). The pack loads only with --allow-draft-rulepacks; its
+# findings are listed as "not evaluated" and never count for the exit code, the traffic light or the
+# coverage measure. norm: true and severity error are set on purpose: the tests show that even then nothing
+# counts and the coverage stays n/a, and the clause inventory (P8) only has to switch source_status.
+# The titles are the published title of the check signal.sampling_rate_consistency.
+# No line of this file may name the norm or the pack followed by a dotted number within 40 characters
+# (tests/unit/test_norm_independence.py), so the version stands on its own line.
+rulepack: yyt2029
+version: "0.2.0-draft"
+source: "YY/T 2029-2026, norm text not read"
+source_status: placeholder
+norm: true
+rules:
+  - id: YYT2029-ACQ-001
+    clause: TBD
+    title_zh: 采样率已记录且一致
+    title_en: Sampling rate documented and consistent
+    phase: acquisition
+    check: signal.sampling_rate_consistency
+    params: {min_hz: 500}
+    severity: error
+    verification: automatic

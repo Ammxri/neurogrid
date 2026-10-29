@@ -16,7 +16,7 @@ and it is not a medical device. It gives no legal advice.
 - **Calibrated thresholds** (M06, M07, M09) are the 95th percentile over five public OpenNeuro data sets
   (22 recordings, 1050 channels). They may not fit other devices, montages or populations; check and override
   them with a justification.
-- Version 0.1 contains no content from YY/T 2029-2026. A yyt2029 rule pack follows once the norm text has been read.
+- This version contains no content from YY/T 2029-2026. The placeholder pack yyt2029 (one example rule without clause, loaded only with `--allow-draft-rulepacks`, never counted) is not based on the norm text either; the clause-based pack follows once the norm text has been read.
 
 ## Methods {#methods}
 

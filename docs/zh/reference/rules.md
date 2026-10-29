@@ -591,3 +591,26 @@
 | 严重程度 | 警告 |
 | 使用 --strict 时的严重程度 | 警告 |
 | 核验方式 | 半自动 |
+
+## 规则包 yyt2029 {#pack-yyt2029}
+
+| | |
+|---|---|
+| 版本 | 0.2.0-draft |
+| 来源 | YY/T 2029-2026, norm text not read |
+| 来源状态 | 占位 |
+| 对应标准（计算覆盖率） | 是 |
+| SHA-256 | `31bcab4eee2b3d81d2402a589ffd86a879093825a2718d33bf62a8859f6209f1` |
+
+### YYT2029-ACQ-001 {#YYT2029-ACQ-001}
+
+| | |
+|---|---|
+| 名称 | 采样率已记录且一致 |
+| 条款 | 占位 – 并非出自标准原文 |
+| 阶段 | 采集 |
+| 检查项 | [signal.sampling_rate_consistency](checks.md#signal.sampling_rate_consistency) |
+| 参数 | `min_hz` = 500（规则包） |
+| 严重程度 | 错误 |
+| 使用 --strict 时的严重程度 | 错误 |
+| 核验方式 | 自动 |

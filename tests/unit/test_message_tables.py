@@ -21,7 +21,7 @@ PLACEHOLDER = re.compile(r"\{[a-z_]+\}")
 # Two Latin words in a row: prose. A Chinese text may contain names (neurogrid.toml, EEGChannelCount, N),
 # placeholders and punctuation without any Han character, but never an English sentence.
 PROSE = re.compile(r"[A-Za-z]{2,}[ \t]+[A-Za-z]{2,}")
-BUILTIN_PACKS = ("core", "bids", "gxdsl008")
+BUILTIN_PACKS = ("core", "bids", "gxdsl008", "yyt2029")
 
 
 def untranslated(zh: str) -> bool:
@@ -78,6 +78,13 @@ def test_validator_code_texts_are_translated() -> None:
         assert all(entry.get(lang, "").strip() for lang in LANGUAGES), code
         assert HAN.search(entry["zh"]), code
         assert not any(HAN.search(entry[lang]) for lang in LANGUAGES if lang != "zh"), code
+
+
+def test_builtin_pack_list_is_complete() -> None:
+    """NG-F11: the list above names every built-in pack, the placeholder scaffold included (A-92)."""
+    folder = resources.files("neurogrid.rulepacks")
+    shipped = {entry.name.removesuffix(".yaml") for entry in folder.iterdir() if entry.name.endswith(".yaml")}
+    assert shipped == set(BUILTIN_PACKS)
 
 
 @pytest.mark.parametrize("name", BUILTIN_PACKS)
