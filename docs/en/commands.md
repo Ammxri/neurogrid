@@ -137,10 +137,26 @@ files that cannot be read.
 | 1 | at least one deviation |
 | 2 | tool error: the manifest is invalid |
 
+## vault {#vault}
+
+`neurogrid vault <command> [arguments and options]`
+
+The NeuroVault commands work on the vault folder: `[vault] path` in `neurogrid.toml`, relative to the project
+root, by default `.neurogrid/vault`. It holds the consent records `consents.yaml` and the hash-chained access
+log `access.jsonl` with its lock file `access.jsonl.lock`. Links in the vault path are never followed.
+`neurogrid vault consent` groups the commands for the consent records. Without a command, `neurogrid vault`
+and `neurogrid vault consent` show their help and end with exit code 2.
+
+| Code | Meaning |
+|---|---|
+| 0 | the command did its work; for `vault verify`: the access log is intact |
+| 1 | `vault verify`: at least one deviation in the access log |
+| 2 | tool error: no vault, a link in the vault path, the vault locked by another NeuroGrid process or not writable, invalid input |
+
 ## Exit codes in general {#exit-codes}
 
 - **0** – no failed error rule and no open evidence for an error rule; warnings alone never change it.
 - **1** – findings: a failed error rule, open evidence for an error rule, an unreadable or unsupported data
-  file, no readable recording; for `verify` a deviation, for `convert` a file not converted.
+  file, no readable recording; for `verify` and `vault verify` a deviation, for `convert` a file not converted.
 - **2** – tool errors only: configuration, rule pack, validator, PDF browser, path not allowed, internal error,
   an explicitly given single file of unknown format. Data in the dataset never cause exit code 2.

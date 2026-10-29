@@ -1,5 +1,5 @@
-"""Command line (PRD §13): scan, convert, check, report, manifest, verify. Further commands follow in later
-phases.
+"""Command line (PRD §13): scan, convert, check, report, manifest, verify, and the NeuroVault groups 'vault'
+and 'vault consent' (v0.2). Further commands follow in later phases.
 
 Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error. manifest: 0 written, 1 files
 could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82);
@@ -79,6 +79,22 @@ def _param_label(param: Any) -> str:
     if param.param_type_name == "argument":
         return str(param.name).upper()
     return ", ".join(param.opts)
+
+
+def _help_scope(ctx: Any) -> str:
+    """The help scope of a command: its dotted command path below the root ("check", "vault",
+    "vault.consent.add"), "" for the root itself. Its keys are cli.help.<scope>.about and
+    cli.help.<scope>.<param>; a group lists its commands with cli.help.<scope>.<name>.about. Nested scopes
+    keep 'vault verify' apart from the top-level 'verify' (p6 decisions 5)."""
+    names: list[str] = []
+    while ctx is not None and ctx.parent is not None:
+        names.append(str(ctx.command.name))
+        ctx = ctx.parent
+    return ".".join(reversed(names))
+
+
+def _scoped(scope: str, name: str) -> str:
+    return f"{scope}.{name}" if scope else name
 
 
 def _help_rows(command: Any, ctx: Any, scope: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
@@ -210,7 +226,7 @@ class _HelpCommand(TyperCommand):
 
     def format_help(self, ctx: Any, formatter: Any) -> None:
         tr = translator(_lang()).t
-        scope = str(self.name)
+        scope = _help_scope(ctx)
         pieces = [tr("cli.help.metavar.options")]
         pieces += [_param_label(p) for p in self.get_params(ctx) if p.param_type_name == "argument"]
         _write_usage(formatter, ctx, " ".join(pieces))
@@ -231,19 +247,22 @@ class _HelpCommand(TyperCommand):
 
 
 class _HelpGroup(TyperGroup):
-    """The neurogrid command group: help and unknown commands in NeuroGrid's own words (NG-N06)."""
+    """A NeuroGrid command group (the root and the nested 'vault', 'vault consent'): help and unknown commands
+    in NeuroGrid's own words (NG-N06). The root's texts are cli.help.app and cli.help.global.*, a nested
+    group's those of its help scope."""
 
     def format_help(self, ctx: Any, formatter: Any) -> None:
         tr = translator(_lang()).t
+        scope = _help_scope(ctx)
         pieces = f"{tr('cli.help.metavar.options')} {tr('cli.help.metavar.command')}"
         _write_usage(formatter, ctx, pieces)
         formatter.write_paragraph()
         formatter.indent()
-        _write_text(formatter, tr("cli.help.app"))
+        _write_text(formatter, tr(f"cli.help.{scope}.about" if scope else "cli.help.app"))
         formatter.dedent()
-        _arguments, options = _help_rows(self, ctx, "global")
+        _arguments, options = _help_rows(self, ctx, scope or "global")
         _write_section(formatter, tr("cli.help.heading.options"), options)
-        commands = [(name, tr(f"cli.help.{name}.about")) for name in self.list_commands(ctx)]
+        commands = [(name, tr(f"cli.help.{_scoped(scope, name)}.about")) for name in self.list_commands(ctx)]
         _write_section(formatter, tr("cli.help.heading.commands"), commands)
 
     def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
@@ -685,6 +704,16 @@ def verify(
     _say("cli.verify.differs" if run.exit_code else "cli.verify.matches")
     _say("disclaimer")
     raise typer.Exit(code=run.exit_code)
+
+
+# --- vault (CLI-08, CLI-09, NV-F03; A-30, A-31, D-10) -------------------------------------------------------
+# The NeuroVault commands live in the nested groups 'vault' and 'vault consent'; their help scopes are
+# "vault.<command>" and "vault.consent.<command>" (_help_scope). The commands are added to these groups.
+
+vault_app = typer.Typer(cls=_HelpGroup, no_args_is_help=True, rich_markup_mode=None)
+consent_app = typer.Typer(cls=_HelpGroup, no_args_is_help=True, rich_markup_mode=None)
+vault_app.add_typer(consent_app, name="consent")
+app.add_typer(vault_app, name="vault")
 
 
 def _error_text(exc: NeuroGridError) -> str:

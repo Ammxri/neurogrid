@@ -76,6 +76,8 @@ cli:
     unreadable: "Cannot be read now: {count}"
     matches: "The dataset matches the manifest."
     differs: "The dataset differs from the manifest."
+  vault:
+    role_looks_identifying: "Note: the role looks like a personal name or an identification number. Use a role name or initials; the access log records it as given."
   help:
     app: "NeuroGrid – local, offline pre-check of EEG datasets. Not a conformity assessment."
     heading:
@@ -136,6 +138,10 @@ cli:
       path: "Dataset folder."
       manifest: "manifest.json written by 'manifest'."
       show_paths: "Show real paths instead of pseudonymous IDs."
+    vault:
+      about: "NeuroVault: consent records and the hash-chained access log of a dataset."
+      consent:
+        about: "Consent records in the vault (consents.yaml)."
 
 errors:
   splits:
@@ -273,6 +279,21 @@ errors:
     yaml_syntax: ".neurogrid/provenance.yaml: YAML syntax error (line {line})."
     yaml_too_large: ".neurogrid/provenance.yaml is too large (limit {limit} bytes)."
     yaml_too_deep: ".neurogrid/provenance.yaml is nested too deeply (limit {limit})."
+  vault:
+    not_found: "No vault found; create it with 'neurogrid vault init'."
+    link: "The vault part '{part}' is a link or junction; links are not followed."
+    not_folder: "The vault path is not a folder."
+    locked: "The vault is in use by another NeuroGrid process (the lock file access.jsonl.lock was not free in time); try again."
+    not_writable: "The vault cannot be written (read-only folder or file, or disk full)."
+    log_missing: "The vault has no access log (access.jsonl). NeuroGrid never recreates it silently: restore it from a backup or create a new, empty one with 'neurogrid vault init'."
+    log_damaged: "The end of the access log holds no readable entry; nothing was appended. Check it with 'neurogrid vault verify'."
+    bad_head: "--expect-head needs a SHA-256 hash of 64 hexadecimal digits."
+    role_missing: "No role given: use --role or [vault] role in neurogrid.toml (a role name or initials)."
+    role_invalid: "Invalid role: use a role name or initials (a letter, then letters, digits, '_', '.' or '-', at most 80 characters, no spaces)."
+    action_invalid: "Unknown action; allowed: {allowed}."
+    object_invalid: "Object {index} is not a relative path or pattern (no absolute, drive or network path, no '..', no backslash or colon, no control characters, at most 1024 characters)."
+    too_many_objects: "Too many or too long objects: at most {limit} objects, and one entry of the access log holds at most 64 KiB."
+    text_invalid: "The value of {field} cannot be recorded: it is empty, too long or contains control characters or invalid text."
 
 notice:
   splits_both_sources: "Splits come from splits.tsv; the 'split' column of participants.tsv is not used."

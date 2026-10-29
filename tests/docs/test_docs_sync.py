@@ -333,6 +333,7 @@ EXIT_CODES = {
     "report": {0, 2},
     "manifest": {0, 1, 2},
     "verify": {0, 1, 2},
+    "vault": {0, 1, 2},  # the NeuroVault group; 1 only for vault verify (CLI-09)
 }
 
 

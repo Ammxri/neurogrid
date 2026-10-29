@@ -7,11 +7,11 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 
 | | |
 |---|---|
-| Version | 0.1.1 |
+| Version | 0.2.0 |
 | Source | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | Source status | final |
 | Maps a norm (coverage measure) | no |
-| SHA-256 | `bf9e13bf235375654811748c5801439876811f17bbc47ba3944479c977466411` |
+| SHA-256 | `5ab784ee805e45dd3910053f2fac64516207746be0bf399a3ae219dcceed6f6f` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 

@@ -77,6 +77,8 @@ cli:
     unreadable: "当前无法读取：{count}"
     matches: "数据集与清单一致。"
     differs: "数据集与清单不一致。"
+  vault:
+    role_looks_identifying: "提示：该角色看起来像人名或身份编号。请使用角色或姓名缩写；访问日志按原样记录。"
   help:
     app: "NeuroGrid – 在本地离线运行的脑电数据集预检工具。不构成符合性评价。"
     heading:
@@ -137,6 +139,10 @@ cli:
       path: "数据集文件夹。"
       manifest: "由 'manifest' 写入的 manifest.json。"
       show_paths: "显示真实路径，而非假名 ID。"
+    vault:
+      about: "NeuroVault：数据集的知情同意记录和哈希链访问日志。"
+      consent:
+        about: "vault 中的知情同意记录（consents.yaml）。"
 
 errors:
   splits:
@@ -274,6 +280,21 @@ errors:
     yaml_syntax: ".neurogrid/provenance.yaml：YAML 语法错误（第 {line} 行）。"
     yaml_too_large: ".neurogrid/provenance.yaml 过大（上限 {limit} 字节）。"
     yaml_too_deep: ".neurogrid/provenance.yaml 嵌套层级过深（上限 {limit}）。"
+  vault:
+    not_found: "未找到 vault；请使用 'neurogrid vault init' 创建。"
+    link: "vault 的组成部分 '{part}' 是链接或目录联接；不跟随链接。"
+    not_folder: "vault 路径不是文件夹。"
+    locked: "vault 正被另一个 NeuroGrid 进程使用（未能及时获得锁文件 access.jsonl.lock）；请稍后重试。"
+    not_writable: "无法写入 vault（文件夹或文件为只读，或磁盘已满）。"
+    log_missing: "vault 中没有访问日志（access.jsonl）。NeuroGrid 不会自动重建它：请从备份恢复，或使用 'neurogrid vault init' 新建一个空日志。"
+    log_damaged: "访问日志末尾没有可读的条目；未追加任何内容。请使用 'neurogrid vault verify' 检查。"
+    bad_head: "--expect-head 需要由 64 位十六进制数字组成的 SHA-256 哈希值。"
+    role_missing: "未指定角色：请使用 --role 或 neurogrid.toml 中的 [vault] role（角色或姓名缩写）。"
+    role_invalid: "角色无效：请使用角色或姓名缩写（以字母开头，其后为字母、数字、'_'、'.' 或 '-'，最多 80 个字符，不含空格）。"
+    action_invalid: "未知操作；允许的操作：{allowed}。"
+    object_invalid: "第 {index} 个对象不是相对路径或模式（不得为绝对路径、盘符路径或网络路径，不得含 '..'、反斜杠、冒号或控制字符，最多 1024 个字符）。"
+    too_many_objects: "对象过多或过长：最多 {limit} 个对象，且访问日志的每个条目最多 64 KiB。"
+    text_invalid: "{field} 的值无法记录：为空、过长，或含有控制字符或无效文本。"
 
 notice:
   splits_both_sources: "数据划分取自 splits.tsv；未使用 participants.tsv 中的 'split' 列。"

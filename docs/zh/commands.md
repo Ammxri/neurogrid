@@ -135,10 +135,25 @@
 | 1 | 至少有一处不一致 |
 | 2 | 工具错误：清单无效 |
 
+## vault {#vault}
+
+`neurogrid vault <命令> [参数和选项]`
+
+NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] path`，相对于项目根目录，默认为
+`.neurogrid/vault`。其中包含知情同意记录 `consents.yaml`、哈希链访问日志 `access.jsonl` 及其锁文件
+`access.jsonl.lock`。vault 路径中的链接从不跟随。`neurogrid vault consent` 汇集用于知情同意记录的命令。不带命令时，
+`neurogrid vault` 和 `neurogrid vault consent` 显示帮助并以退出码 2 结束。
+
+| 退出码 | 含义 |
+|---|---|
+| 0 | 命令已完成；对 `vault verify`：访问日志完整 |
+| 1 | `vault verify`：访问日志中至少有一处不一致 |
+| 2 | 工具错误：没有 vault、vault 路径中有链接、vault 被另一个 NeuroGrid 进程锁定或无法写入、输入无效 |
+
 ## 退出码总览 {#exit-codes}
 
 - **0** – 没有未通过的错误级规则，错误级规则也没有待补的证明材料；仅有警告从不改变退出码。
 - **1** – 检查结果：未通过的错误级规则、错误级规则待补的证明材料、无法读取或不受支持的数据文件、没有可读取的记录；
-  对 `verify` 为存在不一致，对 `convert` 为有文件未转换。
+  对 `verify` 和 `vault verify` 为存在不一致，对 `convert` 为有文件未转换。
 - **2** – 仅限工具错误：配置、规则包、验证器、PDF 浏览器、不允许的路径、内部错误、明确指定的未知格式的单个文件。
   数据集中的数据从不导致退出码 2。

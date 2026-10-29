@@ -76,6 +76,8 @@ cli:
     unreadable: "Derzeit nicht lesbar: {count}"
     matches: "Der Datensatz entspricht dem Manifest."
     differs: "Der Datensatz weicht vom Manifest ab."
+  vault:
+    role_looks_identifying: "Hinweis: Die Rolle sieht wie ein Personenname oder eine Kennnummer aus. Verwenden Sie eine Rollenbezeichnung oder ein Kürzel; das Zugriffsprotokoll speichert sie wie angegeben."
   help:
     app: "NeuroGrid – lokale Offline-Vorprüfung von EEG-Datensätzen (keine Bewertung im Sinne der NMPA-Vorschriften)."
     heading:
@@ -136,6 +138,10 @@ cli:
       path: "Datensatzordner."
       manifest: "Von 'manifest' geschriebene manifest.json."
       show_paths: "Echte Pfade statt pseudonymer IDs zeigen."
+    vault:
+      about: "NeuroVault: Einwilligungen und das hashverkettete Zugriffsprotokoll eines Datensatzes."
+      consent:
+        about: "Einwilligungen im Vault (consents.yaml)."
 
 errors:
   splits:
@@ -273,6 +279,21 @@ errors:
     yaml_syntax: ".neurogrid/provenance.yaml: YAML-Syntaxfehler (Zeile {line})."
     yaml_too_large: ".neurogrid/provenance.yaml ist zu groß (Grenze {limit} Bytes)."
     yaml_too_deep: ".neurogrid/provenance.yaml ist zu tief verschachtelt (Grenze {limit})."
+  vault:
+    not_found: "Kein Vault gefunden; legen Sie ihn mit 'neurogrid vault init' an."
+    link: "Der Vault-Teil '{part}' ist ein Link oder eine Junction; Links werden nicht verfolgt."
+    not_folder: "Der Vault-Pfad ist kein Ordner."
+    locked: "Der Vault wird von einem anderen NeuroGrid-Prozess verwendet (die Sperrdatei access.jsonl.lock war nicht rechtzeitig frei); bitte erneut versuchen."
+    not_writable: "Der Vault kann nicht geschrieben werden (Ordner oder Datei schreibgeschützt oder Datenträger voll)."
+    log_missing: "Der Vault hat kein Zugriffsprotokoll (access.jsonl). NeuroGrid legt es nie stillschweigend neu an: Stellen Sie es aus einer Sicherung wieder her oder legen Sie mit 'neurogrid vault init' ein neues, leeres an."
+    log_damaged: "Am Ende des Zugriffsprotokolls steht kein lesbarer Eintrag; es wurde nichts angehängt. Prüfen Sie es mit 'neurogrid vault verify'."
+    bad_head: "--expect-head erwartet einen SHA-256-Hash aus 64 Hexadezimalziffern."
+    role_missing: "Keine Rolle angegeben: --role oder [vault] role in neurogrid.toml (Rollenbezeichnung oder Kürzel)."
+    role_invalid: "Ungültige Rolle: eine Rollenbezeichnung oder ein Kürzel (ein Buchstabe, dann Buchstaben, Ziffern, '_', '.' oder '-', höchstens 80 Zeichen, keine Leerzeichen)."
+    action_invalid: "Unbekannte Aktion; erlaubt: {allowed}."
+    object_invalid: "Objekt {index} ist kein relativer Pfad und kein Muster (kein absoluter, Laufwerks- oder Netzwerkpfad, kein '..', kein Backslash oder Doppelpunkt, keine Steuerzeichen, höchstens 1024 Zeichen)."
+    too_many_objects: "Zu viele oder zu lange Objekte: höchstens {limit} Objekte, und ein Eintrag des Zugriffsprotokolls fasst höchstens 64 KiB."
+    text_invalid: "Der Wert von {field} kann nicht protokolliert werden: Er ist leer, zu lang oder enthält Steuerzeichen oder ungültigen Text."
 
 notice:
   splits_both_sources: "Die Splits stammen aus splits.tsv; die Spalte 'split' in participants.tsv wird nicht verwendet."
