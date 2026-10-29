@@ -1,12 +1,17 @@
 """Generate the reference parts of the documentation from the code (TECH-06, A-13, POS-02).
 
 Generated, per language (docs/en, docs/zh): reference/checks.md (check registry), reference/rules.md (built-in
-rule packs) and, inside metrics.md and installation.md, the blocks between ``<!-- BEGIN GENERATED <name> -->``
-and ``<!-- END GENERATED -->`` (thresholds per metric with their origin, the calibration data sets; the
-release address and the SHA-256 of tools/install_pdf_browser.py, which the release attaches unchanged,
-p5_decisions B2). Texts come from the language tables (titles, phases, severities, verification),
-docs/_data (labels, check descriptions, rule origins) and src/neurogrid/rulepacks/calibration/core.json. A
-change of tools/install_pdf_browser.py therefore needs a new generation (--check fails until then).
+rule packs) and, inside metrics.md, installation.md and rulepacks.md, the blocks between
+``<!-- BEGIN GENERATED <name> -->`` and ``<!-- END GENERATED -->`` (thresholds per metric with their
+origin, the calibration data sets; the release address and the SHA-256 of tools/install_pdf_browser.py,
+which the release attaches unchanged, p5_decisions B2; the interpretation questions of
+docs/_data/interpretation_questions.yaml, A-92). Texts come from the language tables (titles, phases,
+severities, verification), docs/_data (labels, check descriptions, rule origins, questions) and
+src/neurogrid/rulepacks/calibration/core.json. A change of tools/install_pdf_browser.py therefore needs a
+new generation (--check fails until then). An invalid questions file is an error (exit 2): the strict
+model below, its rule pack and rules among the built-in packs, the chosen reading among the readings, an
+answer for an answered question, the clause TBD while the pack is a placeholder, Chinese only in the zh
+fields and no word of the wording list (A-57).
 
 Usage:
     python tools/gen_docs.py          # write the generated pages and blocks
@@ -16,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import hashlib
 import json
 import re
@@ -24,13 +30,23 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from neurogrid.checks.registry import REGISTRY
+from neurogrid.kernel.errors import ConfigError
 from neurogrid.kernel.findings import SourceStatus
-from neurogrid.kernel.rules import EVIDENCE_CHECK, Bound, CheckSpec, LoadedRulepack, is_true, load_rulepack
+from neurogrid.kernel.rules import (
+    EVIDENCE_CHECK,
+    Bound,
+    CheckSpec,
+    LoadedRulepack,
+    Rulepack,
+    is_true,
+    load_rulepack,
+)
 from neurogrid.kernel.safety import load_yaml
 from neurogrid.report.texts import tables
 
@@ -39,6 +55,9 @@ DOCS = ROOT / "docs"
 DATA = DOCS / "_data"
 TEMPLATES = Path(__file__).resolve().parent / "docs_templates"
 CALIBRATION = ROOT / "src" / "neurogrid" / "rulepacks" / "calibration" / "core.json"
+# The interpretation questions (pack-neutral template, A-92) and the product's word list (A-57).
+QUESTIONS = DATA / "interpretation_questions.yaml"
+FORBIDDEN = ROOT / "src" / "neurogrid" / "report" / "wording" / "forbidden.yaml"
 # The PDF browser installer that every release attaches as it is in the repository (release.yml).
 INSTALLER = Path(__file__).resolve().parent / "install_pdf_browser.py"
 INSTALLER_ADDRESS = "<REPO_URL>/releases/download/v<version>/install_pdf_browser.py"
@@ -267,6 +286,185 @@ def installer_block() -> str:
     return "\n".join(["```text", INSTALLER_ADDRESS, f"SHA-256: {digest}", "```", ""])
 
 
+# --- interpretation questions (RP-08 template, A-92) --------------------------------------------------------
+# One entry per clause of a rule pack that can be read in more than one way. The format names no pack, so
+# every pack with a norm behind it uses the same file (P7, P8). P6 ships the file empty; entries follow with
+# the clause inventory (P8). Texts are own words, never quotes of a norm (A-55); people appear by role only.
+
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
+_HAN = re.compile("[㐀-䶿一-鿿]")
+QUESTION_STATUSES = ("open", "asked", "answered", "withdrawn")
+ASKED_ROLES = ("author", "test_institute", "regulator", "other")
+EFFECTS = ("none", "params", "rule_text", "new_rule", "removed_rule")
+_STRICT = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+
+class Reading(BaseModel):
+    model_config = _STRICT
+
+    id: str = Field(pattern=r"^[a-z]$")
+    en: str = Field(min_length=1, max_length=600)
+    zh: str = Field(min_length=1, max_length=600)
+
+
+class Asked(BaseModel):
+    """Whom a question was put to: a role and a date, never a name (NZ-09)."""
+
+    model_config = _STRICT
+
+    role: Literal["author", "test_institute", "regulator", "other"]
+    date: dt.date
+
+    @field_validator("date", mode="before")
+    @classmethod
+    def _date_text(cls, value: Any) -> Any:
+        """A YAML date or the same date as quoted text 'YYYY-MM-DD' (as evidence.yaml, A-83)."""
+        if isinstance(value, str) and _ISO_DATE.fullmatch(value):
+            try:
+                return dt.date.fromisoformat(value)
+            except ValueError:
+                return value
+        return value
+
+
+class Question(BaseModel):
+    model_config = _STRICT
+
+    id: str = Field(pattern=r"^IQ-[0-9]{3}$")
+    rulepack: str = Field(pattern=r"^[a-z0-9_]+$")
+    clause: str = Field(min_length=1, max_length=40)
+    rules: list[str] = Field(default_factory=list, max_length=100)
+    topic_en: str = Field(min_length=1, max_length=120)
+    topic_zh: str = Field(min_length=1, max_length=120)
+    question_en: str = Field(min_length=1, max_length=600)
+    question_zh: str = Field(min_length=1, max_length=600)
+    readings: list[Reading] = Field(min_length=2, max_length=26)
+    chosen: str = Field(pattern=r"^[a-z]$")
+    rationale_en: str = Field(min_length=1, max_length=600)
+    rationale_zh: str = Field(min_length=1, max_length=600)
+    status: Literal["open", "asked", "answered", "withdrawn"]
+    asked: list[Asked] = Field(default_factory=list, max_length=50)
+    answer_en: str | None = Field(default=None, min_length=1, max_length=600)
+    answer_zh: str | None = Field(default=None, min_length=1, max_length=600)
+    effect: Literal["none", "params", "rule_text", "new_rule", "removed_rule"]
+    changed_in: str | None = Field(default=None, min_length=1, max_length=40)
+
+
+class QuestionsFile(BaseModel):
+    model_config = _STRICT
+
+    format_version: Literal[1]
+    questions: list[Question] = Field(max_length=1000)
+
+
+def _texts(item: BaseModel, prefix: str = "") -> list[tuple[str, str]]:
+    """Every text field of an entry as (dotted field name, text), readings included."""
+    found: list[tuple[str, str]] = []
+    for name, value in item:
+        if isinstance(value, str):
+            found.append((prefix + name, value))
+        elif isinstance(value, list):
+            for index, element in enumerate(value):
+                if isinstance(element, str):
+                    found.append((f"{prefix}{name}.{index}", element))
+                elif isinstance(element, BaseModel):
+                    found += _texts(element, f"{prefix}{name}.{index}.")
+    return found
+
+
+def _forbidden() -> tuple[list[re.Pattern[str]], list[str]]:
+    """The A-57 word list of the product (report/wording/forbidden.yaml) and its allowed negations."""
+    data = load_yaml(FORBIDDEN.read_text(encoding="utf-8"))
+    patterns = [re.compile(p) for lang, group in data.items() if lang != "allowed" for p in group]
+    return patterns, [str(phrase) for phrase in data["allowed"]]
+
+
+def validate_questions(data: object, packs: Mapping[str, Rulepack]) -> QuestionsFile:
+    """The questions file, checked against the given packs (the built-in ones in the generator)."""
+    try:
+        parsed = QuestionsFile.model_validate(data)
+    except ValidationError as exc:
+        first = exc.errors()[0]
+        where = ".".join(str(part) for part in first["loc"])
+        raise DocsError(f"interpretation_questions.yaml: {where}: {first['type']}") from None
+    patterns, allowed = _forbidden()
+    seen: set[str] = set()
+    for entry in parsed.questions:
+        where = f"interpretation_questions.yaml: {entry.id}"
+        if entry.id in seen:
+            raise DocsError(f"{where}: duplicate id")
+        seen.add(entry.id)
+        pack = packs.get(entry.rulepack)
+        if pack is None:
+            raise DocsError(f"{where}: no built-in rule pack '{entry.rulepack}'")
+        unknown = sorted(set(entry.rules) - {rule.id for rule in pack.rules})
+        if unknown:
+            raise DocsError(f"{where}: rules not in {entry.rulepack}: {', '.join(unknown)}")
+        readings = [reading.id for reading in entry.readings]
+        if len(set(readings)) != len(readings):
+            raise DocsError(f"{where}: duplicate reading id")
+        if entry.chosen not in readings:
+            raise DocsError(f"{where}: chosen reading '{entry.chosen}' is not among the readings")
+        if entry.status == "answered" and not (entry.answer_en and entry.answer_zh):
+            raise DocsError(f"{where}: an answered question needs answer_en and answer_zh")
+        if pack.source_status is SourceStatus.PLACEHOLDER and entry.clause != "TBD":
+            # a placeholder pack has read no norm text, so a clause number cannot come from it (A-41, V-06)
+            raise DocsError(f"{where}: the clause of a placeholder pack is TBD")
+        for field, text in _texts(entry):
+            if _HAN.search(text) and not (field.endswith("_zh") or field.endswith(".zh")):
+                raise DocsError(f"{where}: Chinese text in {field}")
+            scanned = text
+            for phrase in allowed:
+                scanned = re.sub(re.escape(phrase), "", scanned, flags=re.IGNORECASE)
+            if any(pattern.search(scanned) for pattern in patterns):
+                raise DocsError(f"{where}: {field} uses a word of the wording list (A-57)")
+    return parsed
+
+
+def load_questions(path: Path) -> QuestionsFile:
+    if not path.is_file():
+        raise DocsError(f"{path.name} is missing")
+    try:
+        data = load_yaml(path.read_text(encoding="utf-8"))
+    except ConfigError as exc:
+        raise DocsError(f"{path.name}: {exc.message_key}") from None
+    return validate_questions(data, {loaded.pack.rulepack: loaded.pack for loaded in builtin_packs()})
+
+
+def _cell(text: str) -> str:
+    """A text in a Markdown table cell: one line, '|' escaped."""
+    return " ".join(text.split()).replace("|", "\\|")
+
+
+def questions_block(ctx: Context, env: Environment) -> str:
+    labels = ctx.labels["questions"]
+    none = str(ctx.labels["rules"]["none"])
+    lang = "zh" if ctx.lang == "zh" else "en"
+    rows = []
+    for entry in load_questions(QUESTIONS).questions:
+        readings = {r.id: _cell(r.zh if lang == "zh" else r.en) for r in entry.readings}
+        answer = entry.answer_zh if lang == "zh" else entry.answer_en
+        effect = str(labels[f"effect_{entry.effect}"])
+        rows.append(
+            {
+                "id": entry.id,
+                "topic": _cell(getattr(entry, f"topic_{lang}")),
+                "rulepack": entry.rulepack,
+                "clause": _cell(entry.clause),
+                "rules": ", ".join(f"[{rule}](reference/rules.md#{rule})" for rule in entry.rules) or none,
+                "question": _cell(getattr(entry, f"question_{lang}")),
+                "readings": "; ".join(f"({key}) {text}" for key, text in readings.items()),
+                "chosen": f"({entry.chosen}) {_cell(getattr(entry, f'rationale_{lang}'))}",
+                "status": labels[f"status_{entry.status}"],
+                "asked": "; ".join(f"{labels[f'role_{a.role}']} ({a.date.isoformat()})" for a in entry.asked)
+                or none,
+                "answer": _cell(answer) if answer else none,
+                "effect": f"{effect} ({entry.changed_in})" if entry.changed_in else effect,
+            }
+        )
+    return env.get_template("questions.md.j2").render(L=labels, questions=rows)
+
+
 def fill_blocks(text: str, ctx: Context, env: Environment) -> str:
     def replace(match: re.Match[str]) -> str:
         name = match.group("name").strip()
@@ -276,6 +474,8 @@ def fill_blocks(text: str, ctx: Context, env: Environment) -> str:
             body = calibration_block(ctx, env)
         elif name == "pdf installer":
             body = installer_block()
+        elif name == "interpretation questions":
+            body = questions_block(ctx, env)
         else:
             raise DocsError(f"unknown generated block '{name}'")
         return match.group(1) + body + match.group(4)
@@ -283,9 +483,9 @@ def fill_blocks(text: str, ctx: Context, env: Environment) -> str:
     return BLOCK.sub(replace, text)
 
 
-def generate() -> dict[Path, str]:
-    """Every generated file with its expected content."""
-    env = Environment(
+def environment() -> Environment:
+    """The template environment of every generated page and block."""
+    return Environment(
         loader=FileSystemLoader(str(TEMPLATES)),
         undefined=StrictUndefined,
         keep_trailing_newline=True,
@@ -295,6 +495,11 @@ def generate() -> dict[Path, str]:
         comment_start_string="{%#",  # '{#' starts the explicit anchors of the pages ({#M01})
         comment_end_string="#%}",
     )
+
+
+def generate() -> dict[Path, str]:
+    """Every generated file with its expected content."""
+    env = environment()
     out: dict[Path, str] = {}
     for lang in LANGUAGES:
         ctx = context(lang)
@@ -312,6 +517,15 @@ def generate() -> dict[Path, str]:
         if "<!-- BEGIN GENERATED pdf installer -->" not in text:
             raise DocsError(f"{installation.relative_to(ROOT)} lacks the generated block 'pdf installer'")
         out[installation] = fill_blocks(text, ctx, env)
+        rulepacks = folder / "rulepacks.md"
+        if not rulepacks.is_file():
+            raise DocsError(f"{rulepacks.relative_to(ROOT)} is missing")
+        text = rulepacks.read_text(encoding="utf-8")
+        if "<!-- BEGIN GENERATED interpretation questions -->" not in text:
+            raise DocsError(
+                f"{rulepacks.relative_to(ROOT)} lacks the generated block 'interpretation questions'"
+            )
+        out[rulepacks] = fill_blocks(text, ctx, env)
     return out
 
 

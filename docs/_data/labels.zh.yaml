@@ -61,3 +61,35 @@ calibration:
   format: "格式"
   recordings: "记录数"
   channels: "通道数（M07）"
+questions:
+  title: "解读问题"
+  intro: >-
+    可以有多种解读的条款，列出可能的解读、NeuroGrid 采用的解读，以及已向哪类角色提出（只写角色，从不写姓名）。本清单由
+    `docs/_data/interpretation_questions.yaml` 生成；它不专属于某个规则包，凡对应一项标准的规则包均使用它。
+  empty: >-
+    目前尚未记录解读问题。将标准文本转化为规则时会补充条目；每个条目注明条款、可能的解读、NeuroGrid 采用的解读以及已向哪类角色提出。
+  id: "ID"
+  rulepack: "规则包"
+  clause: "条款"
+  rules: "规则"
+  topic: "主题"
+  question: "问题"
+  readings: "可能的解读"
+  chosen: "采用的解读"
+  status: "状态"
+  asked: "已提出（角色、日期）"
+  answer: "答复"
+  effect: "对规则的影响"
+  status_open: "未决"
+  status_asked: "已提出"
+  status_answered: "已答复"
+  status_withdrawn: "已撤回"
+  role_author: "标准起草人"
+  role_test_institute: "检验机构"
+  role_regulator: "监管机构"
+  role_other: "其他"
+  effect_none: "无变更"
+  effect_params: "参数变更"
+  effect_rule_text: "规则名称或说明变更"
+  effect_new_rule: "新增规则"
+  effect_removed_rule: "删除规则"

@@ -32,6 +32,8 @@ coverage measure (share of the must-clauses that are checked automatically or se
 for packs that map a norm with source status `inventory` or `final`; for `core`, `bids`, `gxdsl008` and
 placeholder packs it shows "n/a".
 
+The overall sentence above the table names no placeholder pack as passed. If only placeholder rule packs are loaded, it says instead that no rule pack of the report was evaluated; every light is then grey.
+
 ## 3 Findings by severity {#findings}
 
 Errors, warnings and notes, each with rule ID, clause, title, status, file, channel, measured value, threshold

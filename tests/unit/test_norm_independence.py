@@ -49,16 +49,32 @@ KNOWN = {
     ("docs/en/index.md", STATEMENT_EN),
     ("docs/en/limitations.md", f"- {STATEMENT_EN}"),
     ("docs/en/rulepacks.md", STATEMENT_EN),
-    (
-        "docs/en/rulepacks.md",
-        "repository; the list of interpretation questions follows in version 0.2 with the yyt2029 pack.",
-    ),
     ("docs/zh/index.md", STATEMENT_ZH),
     ("docs/zh/limitations.md", f"- {STATEMENT_ZH}"),
     ("docs/zh/rulepacks.md", STATEMENT_ZH),
+    # the user pages of the scaffold: the four built-in packs, the command, the --rulepack row
+    (
+        "docs/en/rulepacks.md",
+        "and the placeholder pack `yyt2029` ([Built-in rules](reference/rules.md), "
+        "[Placeholder packs](#placeholder)); a",
+    ),
+    ("docs/en/rulepacks.md", "neurogrid check DATA --rulepack yyt2029 --allow-draft-rulepacks"),
     (
         "docs/zh/rulepacks.md",
-        "提交到公开仓库的问题跟踪系统；解读问题清单将在 0.2 版中随 yyt2029 规则包提供。",
+        "和核验方式。NeuroGrid 内置四个规则包：`core`、`bids`、`gxdsl008` 和占位规则包 `yyt2029`",
+    ),
+    ("docs/zh/rulepacks.md", "neurogrid check DATA --rulepack yyt2029 --allow-draft-rulepacks"),
+    (
+        "docs/en/commands.md",
+        "| `--rulepack NAME_OR_PATH` | Built-in pack (`core`, `bids`, `gxdsl008`, `yyt2029`) or a YAML file; "
+        "repeatable. `yyt2029` is a placeholder pack and loads only with `--allow-draft-rulepacks` until its "
+        "clause-based version follows ([Placeholder packs](rulepacks.md#placeholder)). |",
+    ),
+    (
+        "docs/zh/commands.md",
+        "| `--rulepack NAME_OR_PATH` | 内置规则包（`core`、`bids`、`gxdsl008`、`yyt2029`）或 YAML 文件；"
+        "可重复指定。`yyt2029` 是占位规则包，在基于条款的版本提供之前只有使用 `--allow-draft-rulepacks` "
+        "时才会加载（[占位规则包](rulepacks.md#placeholder)）。 |",
     ),
     (
         "tools/acceptance_g1.py",
