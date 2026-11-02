@@ -73,16 +73,21 @@ Checks a dataset against the loaded rule packs and writes `results.json`. The pa
 | `--jobs N` | Processes for the signal metrics, 1–64; the result is byte-identical to `--jobs 1`. |
 | `--evidence FILE` | `evidence.yaml` (default: `.neurogrid/evidence.yaml` in the dataset). |
 | `--manifest FILE` | Manifest to compare with (default: `.neurogrid/manifest.json` in the dataset). |
+| `--role ROLE` | Role of this run's access event in the vault: a role name or initials (a letter, then letters, digits, `_`, `.` or `-`, at most 80 characters), over `[vault] role`. An invalid role ends with exit code 2, also without a vault; without a vault the option has no effect and a note says so. |
+
+With a vault (`[vault] path`, by default `.neurogrid/vault`), `check` appends one access event (action `check`,
+object `**`) after `results.json` is written; it never reaches `results.json`. An event that cannot be written
+(vault locked or read-only, access log missing) is a warning; the exit code stays the same.
 
 | Code | Meaning |
 |---|---|
 | 0 | no failed error rule and no open evidence for an error rule (placeholder packs do not count) |
 | 1 | at least one; also an unreadable or unsupported data file, or a dataset without a readable recording |
-| 2 | tool error: configuration, rule pack, validator, path not allowed, internal error |
+| 2 | tool error: configuration, rule pack, validator, path not allowed, a link in the vault path, an invalid `--role`, internal error |
 
 ## report {#report}
 
-`neurogrid report RESULTS [--lang zh,en] [--format html,pdf] [--out FOLDER]`
+`neurogrid report RESULTS [--lang zh,en] [--format html,pdf] [--out FOLDER] [--config FILE]`
 
 Renders the report from `results.json` alone, per language and format: `report.<lang>.html` and
 `report.<lang>.pdf` ([Reading the report](report.md)). The command prints the fixed sentence at the end.
@@ -93,11 +98,12 @@ Renders the report from `results.json` alone, per language and format: `report.<
 | `--lang` | Report languages `zh`, `en` (default `zh,en`). |
 | `--format` | `html`, `pdf` (default `html`); PDF needs the [PDF browser](installation.md#pdf-browser). |
 | `--out FOLDER` | Output folder (default: the folder of `results.json`). |
+| `--config FILE` | `neurogrid.toml` whose vault the report shows: the cover gets the row of the access log (entries, head hash, state of the chain) read before rendering, and the report appends its access event (action `report`) after the files are written. Without `--config` the report reads and writes no vault. |
 
 | Code | Meaning |
 |---|---|
 | 0 | every requested report written |
-| 2 | tool error: unreadable results, unknown language or format, PDF browser or Linux libraries missing (then nothing is written) |
+| 2 | tool error: unreadable results, unknown language or format, PDF browser or Linux libraries missing (then nothing is written), invalid `--config`, a link in the vault path |
 
 ## manifest {#manifest}
 
@@ -147,11 +153,87 @@ log `access.jsonl` with its lock file `access.jsonl.lock`. Links in the vault pa
 `neurogrid vault consent` groups the commands for the consent records. Without a command, `neurogrid vault`
 and `neurogrid vault consent` show their help and end with exit code 2.
 
+File formats, the hash chain and its limits: [NeuroVault](vault.md). Every vault command takes `PATH`, the
+dataset folder (default: the current folder; a file is refused), and `--config FILE`, the `neurogrid.toml`
+whose `[vault] path` names the vault (default: `.neurogrid/neurogrid.toml` in the dataset). Each ends with the
+fixed sentence.
+
 | Code | Meaning |
 |---|---|
 | 0 | the command did its work; for `vault verify`: the access log is intact |
-| 1 | `vault verify`: at least one deviation in the access log |
-| 2 | tool error: no vault, a link in the vault path, the vault locked by another NeuroGrid process or not writable, invalid input |
+| 1 | `vault verify`: at least one deviation in the access log, also a missing access log or an expected head hash that is not found |
+| 2 | tool error: no vault, a link in the vault path, a vault path that is no folder, the vault locked by another NeuroGrid process or not writable, invalid input (role, purpose, action, object, head hash) |
+
+### vault init {#vault-init}
+
+`neurogrid vault init [PATH] [--config FILE]`
+
+Creates the missing parts of the vault: the folders of the vault path, `consents.yaml` (no consent records yet),
+an empty access log `access.jsonl` and its lock file `access.jsonl.lock`. Existing parts are kept byte for
+byte, so the command can run again at any time; it records no access event (the chain starts at the genesis
+hash). Run `neurogrid manifest` again afterwards: `consents.yaml` is part of the manifest, the access log and
+its lock file are not.
+
+| Argument / option | Meaning |
+|---|---|
+| `PATH` | Dataset folder (default: the current folder). |
+| `--config FILE` | `neurogrid.toml`; its `[vault] path` names the vault. |
+
+### vault log {#vault-log}
+
+`neurogrid vault log [PATH] [--config FILE] --action ACTION --objects OBJECT [--objects OBJECT ...] --purpose TEXT [--approval-ref REF] [--role ROLE]`
+
+`neurogrid vault log [PATH] [--config FILE] --show`
+
+Records an access by hand, for example a copy for a reviewer that NeuroGrid does not see. Role and purpose are
+required: `--role` over `[vault] role`, `--purpose` over `[vault] purpose`; `--approval-ref` over `[vault]
+approval_ref` is optional. In a raw folder an object that names an existing file is recorded by its
+pseudonymous file name (as `verify` shows it); patterns, folders and BIDS paths are recorded as given. An
+object, purpose or role that looks like a name or an identification number gives a note and is recorded as
+given. The command prints the number and the hash of the new entry.
+
+`--show` prints the newest 200 entries (line, number, time in UTC, role, action, objects, purpose, approval
+reference; an unreadable line by its number), how many earlier lines are not shown, the number of entries, the
+head hash and the state of the chain. It cannot be combined with the options of an entry and records nothing.
+
+| Argument / option | Meaning |
+|---|---|
+| `PATH` | Dataset folder (default: the current folder). |
+| `--config FILE` | `neurogrid.toml`; its `[vault] path` names the vault. |
+| `--action ACTION` | `read`, `check`, `convert`, `report`, `export` or `consent_manage`. |
+| `--objects OBJECT` | A dataset-relative path or pattern (`**` = the whole dataset); repeat the option for several objects, a comma is part of the path (at most 1000 objects of 1024 characters). |
+| `--purpose TEXT` | Purpose of the access, at most 200 characters (default: `[vault] purpose`). |
+| `--approval-ref REF` | Reference of the approval, for example of the ethics committee, at most 120 characters (default: `[vault] approval_ref`). |
+| `--role ROLE` | Role name or initials (default: `[vault] role`). |
+| `--show` | Show the log instead of recording an entry. |
+
+### vault verify {#vault-verify}
+
+`neurogrid vault verify [PATH] [--config FILE] [--expect-head HASH ...]`
+
+Verifies the hash chain of the access log. It prints the number of entries, the head hash (the hash of the last
+entry), each deviation with its line, its kind and its likely cause (changed, inserted, deleted, reordered),
+never the content of an entry, the result for each expected head, a hint to record the head hash elsewhere and
+the limits of the chain. It records no access event.
+
+| Argument / option | Meaning |
+|---|---|
+| `PATH` | Dataset folder (default: the current folder). |
+| `--config FILE` | `neurogrid.toml`; its `[vault] path` names the vault. |
+| `--expect-head HASH` | A head hash recorded earlier outside the vault (64 hexadecimal digits); it must still be part of the intact chain, also after later entries. Repeatable. Only this detects truncation at the end and complete rewriting. |
+
+### Access events of the other commands {#access-events}
+
+`check` (action `check`), `convert` (action `convert`, the vault of the source folder's `neurogrid.toml`) and
+`report --config` (action `report`) append one event to the vault of their `neurogrid.toml`, with the role,
+purpose and approval reference from `[vault]` (`check --role` over `[vault] role`; without a role the event
+records none and a note says so). `scan`, `manifest` and `verify` append an event with action `read` to the
+vault at the default location `.neurogrid/vault` only, without role, purpose or approval reference. Every event
+is appended after the outputs of the run are written and names the whole dataset (`**`). Not recorded: runs that
+end with exit code 2, `report` without `--config`, `vault init`, `vault log --show` and `vault verify`. An
+event that cannot be written is a warning and never changes the exit code; for `convert`, `scan`, `manifest`
+and `verify` a link in the vault path is such a warning, for `check`, `report --config` and the vault commands
+it is exit code 2.
 
 ## Exit codes in general {#exit-codes}
 

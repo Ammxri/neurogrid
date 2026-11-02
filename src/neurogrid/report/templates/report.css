@@ -25,6 +25,7 @@ pre.settings { column-count: 3; column-gap: 18px; column-rule: 0.5pt solid #d0d0
 .disclaimer { border: 1px solid #555; padding: 6px 8px; background: #fafafa; font-weight: 700; }
 .banner { border: 2px solid #b00020; padding: 6px 8px; color: #b00020; font-weight: 700; }
 .scope-note, .core-clause-note, .coverage-note, .legend, .secondary-note { font-size: 8pt; color: #333; }
+.os-access, .access-log-note { font-size: 8pt; color: #333; }
 .overall { font-size: 10pt; font-weight: 700; }
 .light { display: inline-block; padding: 0 8px; border-radius: 8px; font-weight: 700; }
 .light-red { background: #f6c7c7; } .light-yellow { background: #f7e7a6; }

@@ -107,6 +107,17 @@ Both sections are accepted and validated; they are evaluated from version 0.2 on
 `[vault] path` (default `.neurogrid/vault`) keeps the vault's access log out of the manifest. Keys: `[consent]`
 `split_use`, `dataset_uses`; `[vault]` `path`, `role`, `purpose`, `approval_ref`.
 
+| `[vault]` key | Meaning |
+|---|---|
+| `path` | The vault folder, relative to the project root (default `.neurogrid/vault`); a plain relative path without `..`. |
+| `role` | Role of the access events of `check`, `convert` and `report --config`, and the default of `vault log`: a role name or initials matching `^[A-Za-z][A-Za-z0-9_.-]{0,79}$` (no spaces, no personal name); otherwise exit code 2. `check --role` overrides it for one run. |
+| `purpose` | Purpose of these events, at most 200 characters; the default of `vault log --purpose`. |
+| `approval_ref` | Approval reference of these events (for example of the ethics committee), at most 120 characters; the default of `vault log --approval-ref`. |
+
+Without `role` an automatic event records no role and the command says so. A `purpose` or `approval_ref` with
+control characters ends `check`, `convert` and `report --config` with exit code 2 before the data are read
+([NeuroVault](vault.md#events)).
+
 ## Example {#example}
 
 <!-- example: neurogrid.toml -->

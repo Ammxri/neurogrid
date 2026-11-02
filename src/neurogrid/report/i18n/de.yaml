@@ -78,6 +78,45 @@ cli:
     differs: "Der Datensatz weicht vom Manifest ab."
   vault:
     role_looks_identifying: "Hinweis: Die Rolle sieht wie ein Personenname oder eine Kennnummer aus. Verwenden Sie eine Rollenbezeichnung oder ein Kürzel; das Zugriffsprotokoll speichert sie wie angegeben."
+    role_missing: "Hinweis: Keine Rolle gesetzt ([vault] role in neurogrid.toml, für check auch --role); das Zugriffsereignis dieses Laufs speichert keine Rolle."
+    role_without_vault: "Hinweis: --role bleibt ohne Wirkung: Es wurde kein Vault gefunden (eine einzelne Datei hat keinen), daher schreibt dieser Lauf kein Zugriffsereignis."
+    event_not_written: "Warnung: Das Zugriffsereignis dieses Laufs wurde nicht in den Vault geschrieben ({reason}). Der Exitcode bleibt unverändert."
+    event_reason:
+      no_vault: "am Vault-Pfad gibt es keinen Vault-Ordner mehr"
+      link: "ein Teil des Vault-Pfads ist ein Link oder eine Junction, die nicht verfolgt wird"
+      log_missing: "der Vault hat kein Zugriffsprotokoll access.jsonl, und NeuroGrid legt es nie stillschweigend neu an"
+      locked: "ein anderer NeuroGrid-Prozess hielt die Vault-Sperre zu lange"
+      not_writable: "das Zugriffsprotokoll oder der Vault kann nicht geschrieben werden"
+      log_damaged: "am Ende des Zugriffsprotokolls steht kein lesbarer Eintrag"
+    init:
+      created: "Angelegt: {name}"
+      kept: "Unverändert behalten: {name}"
+      manifest_hint: "consents.yaml gehört zum Manifest: Führen Sie 'neurogrid manifest' erneut aus, damit 'neurogrid verify' die Datei erfasst. Zugriffsprotokoll und Sperrdatei bleiben außerhalb des Manifests."
+    log:
+      written: "Zugriffsereignis {seq} protokolliert, Hash {hash}"
+      identifying: "Hinweis: Ein Objekt, der Zweck oder die Genehmigungsreferenz sieht wie ein Personenname oder eine Kennnummer aus; das Zugriffsprotokoll speichert sie wie angegeben. Verwenden Sie pseudonyme IDs und Referenzen ohne personenbezogene Daten."
+    show:
+      header: "Einträge (Zeile: #seq, Zeit UTC | Rolle | Aktion | Objekte | Zweck | Genehmigungsreferenz):"
+      row: "Zeile {line}: #{seq}, {time} | {role} | {action} | {objects} | {purpose} | {approval_ref}"
+      none: "–"
+      unreadable_line: "Zeile {line}: unlesbarer Eintrag"
+      more: "… und {count} frühere Zeile(n), nicht gezeigt (gezeigt werden die neuesten 200)"
+      empty: "Das Zugriffsprotokoll hat noch keine Einträge."
+      summary_intact: "Hash-Kette: intakt."
+      summary_broken: "Hash-Kette: {deviations} Abweichung(en); 'neurogrid vault verify' listet sie auf."
+    verify:
+      events: "Einträge im Zugriffsprotokoll: {events}"
+      head: "Kopf-Hash (letzter Eintrag): {hash}"
+      head_none: "Kopf-Hash: keiner (kein lesbarer Eintrag)"
+      deviation: "Zeile {line}: {kind}"
+      deviation_likely: "Zeile {line}: {kind} (vermutlich {likely})"
+      deviation_no_line: "{kind}"
+      expected_found: "Erwarteter Kopf {hash}: in Zeile {line} gefunden, {after} Eintrag/Einträge danach."
+      expected_missing: "Erwarteter Kopf {hash}: nicht Teil der intakten Kette (das Protokoll wurde am Ende gekürzt oder neu geschrieben)."
+      intact: "Das Zugriffsprotokoll ist intakt."
+      differs: "Das Zugriffsprotokoll hat {deviations} Abweichung(en)."
+      head_hint: "Halten Sie den Kopf-Hash außerhalb des Vaults fest (zum Beispiel im Laborbuch) und prüfen Sie später mit 'neurogrid vault verify --expect-head <hash>': Nur ein anderswo festgehaltener Kopf zeigt Kürzen am Ende und Neuschreiben."
+      limits: "Grenzen: Ändern, Einfügen, Löschen und Umsortieren von Einträgen innerhalb der Kette werden erkannt; eine Änderung, die alle folgenden Hashes neu berechnet, ist ein Neuschreiben. Kürzen am Ende und vollständiges Neuschreiben erkennt nur --expect-head gegen einen anderswo festgehaltenen Kopf-Hash. Erfasst sind nur Zugriffe über NeuroGrid: Läufe mit Exitcode 2 protokollieren nichts, scan, manifest und verify nutzen nur den Vault am Standardort, report protokolliert nur mit --config. Zeiten stammen von der lokalen Uhr und werden nicht geprüft."
   help:
     app: "NeuroGrid – lokale Offline-Vorprüfung von EEG-Datensätzen (keine Bewertung im Sinne der NMPA-Vorschriften)."
     heading:
@@ -115,6 +154,7 @@ cli:
       jobs: "Prozesse für die Signalmetriken, 1 bis 64 (die Ergebnisse ändern sich nicht)."
       evidence: "evidence.yaml mit den Nachweisen für manuelle Regeln (Standard: .neurogrid/evidence.yaml)."
       manifest: "Manifest für den Vergleich (Standard: .neurogrid/manifest.json im Datensatz)."
+      role: "Rolle des Zugriffsereignisses dieses Laufs im Vault: Rollenbezeichnung oder Kürzel (vor [vault] role)."
     convert:
       about: "Einen Rohordner nach EEG-BIDS umwandeln und das Ergebnis validieren."
       path: "Rohdatenordner oder einzelne Datendatei."
@@ -128,6 +168,7 @@ cli:
       lang: "Berichtssprachen, z. B. zh,en (Standard: zh,en)."
       format: "Ausgabeformate, z. B. html,pdf (Standard: html)."
       out: "Ausgabeordner (Standard: neben results.json)."
+      config: "neurogrid.toml, deren Vault das Deckblatt zeigt (Einträge des Zugriffsprotokolls, Kopf-Hash, Zustand); der Bericht protokolliert dann dort sein Zugriffsereignis."
     manifest:
       about: "Das Provenienz-Manifest schreiben: SHA-256 und Größe jeder Datei, Verarbeitungsschritte, Softwareversionen."
       path: "Datensatzordner."
@@ -142,6 +183,25 @@ cli:
       about: "NeuroVault: Einwilligungen und das hashverkettete Zugriffsprotokoll eines Datensatzes."
       consent:
         about: "Einwilligungen im Vault (consents.yaml)."
+      init:
+        about: "Fehlende Teile des Vaults anlegen: Ordner, consents.yaml, Zugriffsprotokoll und Sperrdatei; vorhandene Teile bleiben erhalten."
+        path: "Datensatzordner (Standard: der aktuelle Ordner)."
+        config: "Pfad zu neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Datensatz); [vault] path nennt den Vault."
+      log:
+        about: "Einen Zugriff von Hand im Zugriffsprotokoll festhalten oder das Protokoll mit --show zeigen."
+        path: "Datensatzordner (Standard: der aktuelle Ordner)."
+        config: "Pfad zu neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Datensatz); [vault] path nennt den Vault."
+        action: "Aktion: read, check, convert, report, export oder consent_manage."
+        objects: "Objekt des Zugriffs: ein datensatzrelativer Pfad oder ein Muster (mehrfach; ein Komma gehört zum Pfad)."
+        purpose: "Zweck des Zugriffs (Standard: [vault] purpose)."
+        approval_ref: "Referenz der Genehmigung, z. B. der Ethikkommission (Standard: [vault] approval_ref)."
+        role: "Rollenbezeichnung oder Kürzel (Standard: [vault] role)."
+        show: "Die neuesten Einträge, die Zahl der Einträge, den Kopf-Hash und den Zustand der Kette zeigen; protokolliert nichts."
+      verify:
+        about: "Die Hash-Kette des Zugriffsprotokolls prüfen (Exit 0 intakt, 1 Abweichung)."
+        path: "Datensatzordner (Standard: der aktuelle Ordner)."
+        config: "Pfad zu neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Datensatz); [vault] path nennt den Vault."
+        expect_head: "Früher außerhalb des Vaults festgehaltener Kopf-Hash; er muss noch Teil der Kette sein (mehrfach)."
 
 errors:
   splits:
@@ -294,6 +354,10 @@ errors:
     object_invalid: "Objekt {index} ist kein relativer Pfad und kein Muster (kein absoluter, Laufwerks- oder Netzwerkpfad, kein '..', kein Backslash oder Doppelpunkt, keine Steuerzeichen, höchstens 1024 Zeichen)."
     too_many_objects: "Zu viele oder zu lange Objekte: höchstens {limit} Objekte, und ein Eintrag des Zugriffsprotokolls fasst höchstens 64 KiB."
     text_invalid: "Der Wert von {field} kann nicht protokolliert werden: Er ist leer, zu lang oder enthält Steuerzeichen oder ungültigen Text."
+    purpose_missing: "Kein Zweck angegeben: --purpose oder [vault] purpose in neurogrid.toml."
+    target_not_folder: "PATH muss der Datensatzordner sein, keine Datei."
+    show_exclusive: "--show lässt sich nicht mit --action, --objects, --purpose, --approval-ref oder --role kombinieren."
+    log_unreadable: "Das Zugriffsprotokoll access.jsonl kann nicht gelesen werden."
 
 notice:
   splits_both_sources: "Die Splits stammen aus splits.tsv; die Spalte 'split' in participants.tsv wird nicht verwendet."
@@ -468,6 +532,14 @@ reason:
     epoched: "Epochierter EEGLAB-Datensatz; kontinuierliche Annotation kann nicht beurteilt werden."
     duration_unknown: "Die Länge der Aufnahme ist unbekannt."
     too_many_epochs: "Das Epochenraster hat mehr Epochen als die Grenze (5.000.000); bitte ein längeres [annotation] epoch_s wählen."
+  vault:
+    not_found: "Kein Vault am Vault-Pfad ([vault] path, Standard .neurogrid/vault); legen Sie ihn mit 'neurogrid vault init' an."
+    single_file: "Eine einzelne Datei hat keinen Vault; das Zugriffsprotokoll gehört zu einem Datensatzordner."
+    locked: "Nicht gelesen: Ein anderer NeuroGrid-Prozess hielt die Vault-Sperre zu lange."
+    log_unreadable: "Das Zugriffsprotokoll access.jsonl kann nicht gelesen werden."
+    log_missing: "Der Vault hat kein Zugriffsprotokoll access.jsonl; NeuroGrid legt es nie stillschweigend neu an."
+    chain_broken: "Die Hash-Kette des Zugriffsprotokolls ist unterbrochen ('neurogrid vault verify' listet jede Abweichung)."
+    not_writable: "Das Zugriffsprotokoll kann nicht geschrieben werden (schreibgeschützter Vault); Zugriffe werden nicht protokolliert."
 
 issue:
   header:
@@ -562,6 +634,9 @@ check:
     codes: "Annotationscodes einheitlich und im Vokabular"
     gaps: "Keine Lücken in kontinuierlicher Annotation"
     overlaps: "Keine überlappenden Annotationen"
+  access:
+    log_intact: "Hash-Kette des Zugriffsprotokolls intakt"
+    log_writable: "Zugriffsprotokoll beschreibbar"
 
 report:
   ai:
@@ -677,6 +752,7 @@ report:
     recordings_count: "Aufnahmen"
     unassigned: "Aufnahmen ohne Split"
     duplicate_groups: "Gruppen von Aufnahmen mit gleichem Signal (M12)"
+    access_log: "Zugriffsprotokoll (NeuroVault)"
   value:
     none: "–"
     whole_recording: "gesamte Aufnahme"
@@ -713,6 +789,15 @@ report:
     missing_reason: "– ({reason})"
     no_values: "– (keine dokumentierten Werte)"
     title_missing: "– (Regel im Regelblock der results.json nicht aufgeführt)"
+    access_log: "{events} Einträge, Kopf-Hash {head}; {state}"
+    access_log_empty: "noch keine Einträge; {state}"
+    access_log_state:
+      intact: "Hash-Kette intakt"
+      broken: "Hash-Kette unterbrochen ({deviations} Abweichung(en); 'neurogrid vault verify' listet sie)"
+      log_missing: "– (der Vault hat kein Zugriffsprotokoll access.jsonl)"
+      not_found: "– (kein Vault am Vault-Pfad dieser neurogrid.toml)"
+      locked: "– (nicht gelesen: ein anderer NeuroGrid-Prozess hielt die Vault-Sperre zu lange)"
+      unreadable: "– (das Zugriffsprotokoll kann nicht gelesen werden)"
   text:
     no_findings: "Keine Befunde dieser Schweregrade."
     severity_heading: "{severity}: {findings} Befund(e), davon {counted} in der Zusammenfassung gezählt ({failed} nicht bestanden, {open} Nachweis offen)"
@@ -747,6 +832,8 @@ report:
     strict_severity: "(mit --strict: {severity})"
     label_source: "Label-Quelle: {source} ({unit})"
     splits_source: "Split-Zuordnung aus {source}."
+    access_log_note: "Zugriffsprotokoll: Der Kopf-Hash auf dem Deckblatt ist der beim Erzeugen dieses Berichts, vor dem eigenen Zugriffsereignis des Berichts. Halten Sie ihn außerhalb des Vaults fest und prüfen Sie später mit 'neurogrid vault verify --expect-head <hash>'. Ändern, Einfügen, Löschen und Umsortieren von Einträgen innerhalb der Kette werden erkannt; Kürzen am Ende und vollständiges Neuschreiben nur gegen einen anderswo festgehaltenen Kopf-Hash; erfasst sind nur Zugriffe über NeuroGrid."
+    os_access: "Keine Benutzerkonten; die Zugriffsrechte auf die Dateien regelt das Betriebssystem."
   measure:
     documented: "dokumentiert"
     channel_sets: "Kanalsätze"
@@ -822,3 +909,22 @@ report:
     sidecar: "Sidecar"
     header: "Datendatei"
     default: "Standardwert"
+  access:
+    first_line: "Erste Abweichung: Zeile {line}."
+    kind: "Art: {kind}."
+    deviations: "Abweichungen insgesamt: {count}."
+
+# Value terms shared by the console and the report (p6 decisions 9).
+terms:
+  access_kind:
+    malformed: "unlesbarer Eintrag"
+    hash_mismatch: "Eintrag geändert (sein Hash passt nicht zu seinem Inhalt)"
+    link_mismatch: "Kettenglied unterbrochen (previous_hash passt nicht zum Eintrag davor)"
+    start_mismatch: "Kette beginnt nicht am Anfang (Einträge am Anfang fehlen)"
+    log_missing: "Zugriffsprotokoll access.jsonl fehlt"
+    head_missing: "erwarteter Kopf-Hash nicht gefunden"
+  access_likely:
+    change: "geändert"
+    insert: "eingefügt"
+    delete: "gelöscht"
+    reorder: "umsortiert"

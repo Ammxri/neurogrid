@@ -112,7 +112,26 @@ Supplements: `key`, `rulepack`, `rulepack_version`, `source_status`, `phase`, `s
 
 ## ConsentScope and AccessEvent
 
-Both objects belong to NeuroVault and are added in version 0.2.
+Both objects belong to NeuroVault and are added in version 0.2 ([NeuroVault](vault.md)).
+
+### AccessEvent {#access-event}
+
+One line of the access log `access.jsonl`; the JSON schema is
+[`access_event.schema.json`](../schemas/access_event.schema.json).
+
+| Specification field | Field |
+|---|---|
+| zeit | time (UTC) |
+| rolle | role |
+| aktion | action |
+| objekte | objects |
+| zweck | purpose |
+| genehmigung_ref | approval_ref |
+| vorheriger_hash | previous_hash |
+| hash | hash |
+
+Supplements: `format_version`, `seq` (the position in the chain) and `tool_version`. An event holds no user
+name, computer name, process ID or absolute path ([fields and object namespaces](vault.md#fields)).
 
 ## Results
 

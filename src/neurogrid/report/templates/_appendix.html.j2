@@ -55,6 +55,8 @@
     {% endfor %}
     </tbody>
   </table>
+  {% if vault %}<p class="access-log-note">{{ t('report.text.access_log_note') }}</p>{% endif %}
+  <p class="os-access">{{ t('report.text.os_access') }}</p>
   <p class="scope-note">{{ t('report.text.scope_note') }}</p>
   <p class="disclaimer">{{ t('disclaimer') }}</p>
 </section>

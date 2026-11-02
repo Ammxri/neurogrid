@@ -1,4 +1,12 @@
-"""Orchestration of ``scan``, ``check``, ``convert``, ``manifest`` and ``verify`` (KONZEPT §1.4)."""
+"""Orchestration of ``scan``, ``check``, ``convert``, ``manifest``, ``verify`` and the NeuroVault commands
+(KONZEPT §1.4).
+
+Access events (NV-F03, A-30, A-90, p6 decisions 4): a run that reads the dataset returns a PendingAccess for
+the vault it found; the CLI commits it after every output of the run is written (KONZEPT 1.4 step 8), and an
+event that cannot be written is a console warning, never exit code 2. check, convert and ``report --config``
+append to the vault of their neurogrid.toml (action check, convert, report); scan, manifest and verify, which
+read no neurogrid.toml for this (A-82), append to the vault at the dataset's default location only (action
+read, without role, purpose or approval reference). A run that ends with exit code 2 records nothing."""
 
 from __future__ import annotations
 
@@ -9,13 +17,14 @@ import os
 import platform
 import re
 import sys
-from collections.abc import Callable
+from collections import deque
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from importlib import metadata, resources
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import neurogrid
 from neurogrid import config as config_module
@@ -29,7 +38,7 @@ from neurogrid.checks.registry import REGISTRY, measure
 from neurogrid.config import BUILTIN_RULEPACK, Config
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED_DIRS
 from neurogrid.io.discover import DatasetScan, FoundFile, pseudonym, scan, shown_extension
-from neurogrid.io.identifying import annotator_pseudonym, dates_or_times, display_text
+from neurogrid.io.identifying import annotator_pseudonym, dates_or_times, display_text, looks_identifying
 from neurogrid.io.provenance import (
     KNOWN_CONTROL_FILES,
     comparison_exclusions,
@@ -43,7 +52,7 @@ from neurogrid.io.provenance import (
     vault_exclusions,
 )
 from neurogrid.kernel import canonical, engine
-from neurogrid.kernel.errors import InputError, RulepackError, UnsafePathError
+from neurogrid.kernel.errors import ConfigError, InputError, RulepackError, UnsafePathError
 from neurogrid.kernel.findings import Notice, Severity, SourceStatus
 from neurogrid.kernel.provenance import (
     DEFAULT_MANIFEST,
@@ -67,6 +76,7 @@ from neurogrid.kernel.safety import (
     temp_work_base,
     work_directory,
 )
+from neurogrid.model.access import AccessEvent
 from neurogrid.model.dataset import Dataset
 from neurogrid.model.results import (
     ConfigInfo,
@@ -84,6 +94,15 @@ from neurogrid.model.results import (
 from neurogrid.quality import describe as describe_quality
 from neurogrid.quality import finite_values
 from neurogrid.report.texts import disclaimer
+from neurogrid.vault import ledger
+from neurogrid.vault import lock as vault_lock
+from neurogrid.vault import store as vault_store
+from neurogrid.vault.lock import VaultLocked
+from neurogrid.vault.roles import role_looks_identifying, validate_role
+from neurogrid.vault.store import VaultLocation
+
+if TYPE_CHECKING:
+    from neurogrid.report.render import VaultView
 
 # Libraries whose versions can change a result (A-11): readers, the BIDS validator and its runtime (A-48).
 RESULT_LIBRARIES = (
@@ -304,13 +323,57 @@ class CheckOptions:
     on_recompute: Callable[[int], None] | None = None
     manifest_path: Path | None = None  # --manifest (CLI-04/CLI-06, A-22); None: the default location
     evidence_path: Path | None = None  # --evidence (A-15); None: the default location
+    role: str | None = None  # --role (CLI-03, A-31): the role of the run's access event, over [vault] role
 
 
-def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Results:
-    options = options or CheckOptions()
+@dataclass(frozen=True)
+class CheckRun:
+    """A check run: its results and the access event to append after results.json is written (None without
+    a vault: none at the vault path, or a single file as target)."""
+
+    results: Results
+    access: PendingAccess | None
+
+
+@dataclass(frozen=True)
+class _CheckStart:
+    target: Target
+    loaded_config: config_module.LoadedConfig
+    role: str | None  # the role of the run's event: --role over [vault] role (A-31)
+    vault: VaultLocation | None  # None for a single file, which has no vault
+
+
+def _check_start(raw_target: str | Path, options: CheckOptions) -> _CheckStart:
+    """What a check run settles before any data work: --role (exit 2 also without a vault, p6 decisions 4),
+    the target, neurogrid.toml and the vault, where a link in the vault path or a path that is no folder ends
+    the run with exit 2 whichever checks are loaded: the run appends its event there (p6 decisions 2)."""
+    if options.role is not None:
+        validate_role(options.role)
     target = resolve_target(raw_target)
     config_path = check_operator_path(options.config_path) if options.config_path else None
     loaded_config = config_module.load(config_path, target.root)
+    cfg = loaded_config.config
+    role = options.role if options.role is not None else cfg.vault.role
+    vault = None if target.only is not None else _run_vault(loaded_config.project_root, cfg)
+    return _CheckStart(target, loaded_config, role, vault)
+
+
+def check_run(raw_target: str | Path, options: CheckOptions | None = None) -> CheckRun:
+    """A check run and the access event to append after its results are written (the CLI commits it): the
+    event's fields are validated before the data are read (errors.vault.text_invalid, exit 2)."""
+    options = options or CheckOptions()
+    start = _check_start(raw_target, options)
+    pending = None
+    if start.vault is not None and start.vault.state == "present":
+        pending = _pending(start.vault, start.loaded_config.config, start.role, "check")
+    return CheckRun(run_check(raw_target, options), pending)
+
+
+def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Results:
+    """The results of a check run; no access event is appended (check_run returns it)."""
+    options = options or CheckOptions()
+    start = _check_start(raw_target, options)
+    target, loaded_config, role, vault = start.target, start.loaded_config, start.role, start.vault
     cfg = loaded_config.config
     as_of = options.as_of or cfg.check.as_of or date.today()
     strict = options.strict or cfg.check.strict
@@ -338,6 +401,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             as_of=as_of,
             manifest_path=manifest_path,
             evidence_path=options.evidence_path,
+            vault=vault,
         )
         if check_ids & ai_dataset.CHECKS:  # control files first: an invalid splits.tsv ends with exit 2 (C2)
             ai_dataset.structure(ctx)
@@ -415,6 +479,8 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         )
         for use in result.exceptions
     ]
+    settings = _effective_settings(cfg, plain_names, show_paths=options.show_paths)
+    settings["vault"]["role"] = role  # the role of the run's event: --role over [vault] role (A-31)
     return Results(
         disclaimer=disclaimer_block(),
         tool=tool_info(),
@@ -455,7 +521,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             strict=strict,
             sampling=canonical.normalize(cfg.sampling.model_dump(mode="json")),
             effective_params=result.effective_params,
-            effective_settings=_effective_settings(cfg, plain_names, show_paths=options.show_paths),
+            effective_settings=settings,
             evidence_sha256=evidence.sha256,
         ),
         recordings=_recording_summaries(ctx),
@@ -723,6 +789,7 @@ class ConvertSummary:
     validator_errors: int
     validator_warnings: int
     steps_file: Path
+    access: PendingAccess | None = None  # the event for the source project's vault (p6 decisions 4)
 
     @property
     def exit_code(self) -> int:
@@ -752,7 +819,15 @@ def run_convert(
     target = resolve_target(raw_target)
     output = check_operator_path(out)
     checked_config = check_operator_path(config_path) if config_path else None
-    cfg = config_module.load(checked_config, target.root).config
+    loaded_config = config_module.load(checked_config, target.root)
+    cfg = loaded_config.config
+    # the source project's vault; convert does not own it as input: a link there means no event and a
+    # warning, never exit 2 (p6 decisions 2). A single file has no vault, as for check.
+    access = None
+    if target.only is None:
+        location = vault_store.locate(loaded_config.project_root, cfg.vault.path)
+        if location.state != "absent":
+            access = _pending(location, cfg, cfg.vault.role, "convert")
     base = work_base if work_base is not None else temp_work_base()
     for path in (output, base):
         if "," in str(path) or "," in str(path.resolve()):
@@ -801,6 +876,7 @@ def run_convert(
         validator_errors=errors,
         validator_warnings=warnings,
         steps_file=output / ".neurogrid" / "processing_steps.json",
+        access=access,
     )
 
 
@@ -836,6 +912,7 @@ class ManifestRun:
     # the target inside the dataset as the console names it (relative POSIX path or pseudonymous file name,
     # A-51); None: outside the dataset
     shown_target: str | None
+    access: PendingAccess | None = None  # the read event for the default vault (p6 decisions 4)
 
     @property
     def exit_code(self) -> int:
@@ -895,6 +972,7 @@ def run_manifest(
         total_bytes=built.total_bytes,
         validator_listing=validator_listing(root, own) if is_bids and own is not None else None,
         shown_target=shown_target(own, plain=plain) if own is not None else None,
+        access=read_access(root),
     )
 
 
@@ -907,6 +985,7 @@ class VerifyRun:
     hash_ok: bool
     files: int
     deviations: dict[str, list[str]]
+    access: PendingAccess | None = None  # the read event for the default vault (p6 decisions 4)
 
     @property
     def exit_code(self) -> int:
@@ -939,4 +1018,288 @@ def run_verify(raw_target: str | Path, manifest_path: str | Path, *, show_paths:
         hash_ok=parsed.hash_ok,
         files=comparison.files,
         deviations=deviations,
+        access=read_access(root),
     )
+
+
+# --- NeuroVault: access events and the vault commands (NV-F01, NV-F03, CLI-08, CLI-09; A-30, A-90) ----------
+
+DATASET_OBJECTS = ("**",)  # the object of automatic data events: the whole dataset (an A-14 pattern)
+_PATTERN_CHARS = frozenset("*?[")  # an object with one of them is a pattern and stored as given
+
+
+@dataclass(frozen=True)
+class PendingAccess:
+    """The access event of a run, validated when the run starts (a field that cannot be recorded ends the run
+    with exit 2 before the data are read) and appended by ``commit`` after every output of the run is written
+    (KONZEPT 1.4 step 8). ``commit`` never raises for an event that cannot be written: its AppendOutcome
+    tells why (the vault went missing or became a link, the log is missing or damaged, the vault is locked
+    or read-only), and the command warns without changing its exit code (p6 decisions 4)."""
+
+    location: VaultLocation
+    role: str | None
+    purpose: str | None
+    approval_ref: str | None
+    action: str
+    objects: tuple[str, ...] = DATASET_OBJECTS
+
+    def commit(self, now: Callable[[], datetime] = ledger.utc_now) -> ledger.AppendOutcome:
+        return ledger.append(
+            self.location,
+            role=self.role,
+            action=self.action,
+            objects=self.objects,
+            purpose=self.purpose,
+            approval_ref=self.approval_ref,
+            now=now,
+            timeout_s=vault_lock.LOCK_TIMEOUT_S,
+        )
+
+    @property
+    def role_looks_identifying(self) -> bool:
+        return self.role is not None and role_looks_identifying(self.role)
+
+
+def _run_vault(project_root: Path, cfg: Config) -> VaultLocation:
+    """The vault of a command that owns it as input (check, ``report --config``): a link anywhere in the vault
+    path, at the log, its lock file or consents.yaml, and a vault path that is no folder are tool errors
+    (errors.vault.link {part}, errors.vault.not_folder; p6 decisions 2); absent and present are returned."""
+    location = vault_store.locate(project_root, cfg.vault.path)
+    if location.state in ("link", "not_folder"):
+        vault_store.require_present(location)
+    return location
+
+
+def _pending(location: VaultLocation, cfg: Config, role: str | None, action: str) -> PendingAccess:
+    """The automatic event of a run for ``location``: objects ``**``, purpose and approval reference from
+    [vault]. Fields that cannot be recorded are tool errors now (errors.vault.text_invalid {field}), never a
+    lost event after the outputs are written."""
+    purpose, approval_ref = cfg.vault.purpose, cfg.vault.approval_ref
+    ledger.check_fields(
+        role=role, action=action, objects=DATASET_OBJECTS, purpose=purpose, approval_ref=approval_ref
+    )
+    return PendingAccess(location, role, purpose, approval_ref, action)
+
+
+def read_access(raw_target: str | Path) -> PendingAccess | None:
+    """The read event of scan, manifest and verify: only the vault at the dataset's default location
+    (``<dataset>/.neurogrid/vault``), since they read no neurogrid.toml for it (A-82); no role, purpose or
+    approval reference (p6 decisions 4). None without a vault there and for a single file. A link there is
+    no tool error for these commands, which do not own the vault: the event is not written (commit returns
+    the status link) and the command warns."""
+    target = resolve_target(raw_target)
+    if target.only is not None:
+        return None
+    location = vault_store.locate_default(target.root)
+    if location.state == "absent":
+        return None
+    return PendingAccess(location, None, None, None, "read")
+
+
+def vault_view(location: VaultLocation) -> VaultView:
+    """The access log as ``report --config`` shows it (A-30, p6 decisions 7): read with the snapshot rule
+    before anything is rendered, so its head is the one before the report's own event. A link or a vault path
+    that is no folder are tool errors as in check."""
+    from neurogrid.report.render import VaultView
+
+    current = location.refreshed()
+    if current.state == "absent":
+        return VaultView("not_found")
+    if current.state != "present":
+        vault_store.require_present(current)
+    try:
+        size = ledger.snapshot(current, vault_lock.LOCK_TIMEOUT_S)
+        verification = ledger.verify_entries(ledger.iter_entries(current.log, size))
+    except VaultLocked:
+        return VaultView("locked")
+    except FileNotFoundError:
+        return VaultView("log_missing")
+    except OSError:
+        return VaultView("unreadable")
+    return VaultView(
+        "intact" if verification.intact else "broken",
+        events=verification.events,
+        head=verification.head,
+        deviations=len(verification.deviations),
+    )
+
+
+def report_vault(config_path: Path) -> tuple[PendingAccess | None, VaultView]:
+    """``report --config FILE`` (A-30): the vault of that neurogrid.toml (its project root after A-66: the
+    folder above ``.neurogrid`` for a file in such a folder, else the file's folder; the report knows no
+    dataset) and how the report shows it; the report event (action report, objects ``**``) when a vault is
+    present. Without --config the report finds no vault and records nothing."""
+    path = check_operator_path(config_path)
+    if not path.is_file():
+        raise ConfigError("config.not_found")
+    loaded = config_module.load(path, path.resolve().parent)
+    cfg = loaded.config
+    location = _run_vault(loaded.project_root, cfg)
+    pending = _pending(location, cfg, cfg.vault.role, "report") if location.state == "present" else None
+    return pending, vault_view(location)
+
+
+@dataclass(frozen=True)
+class VaultTarget:
+    """What a vault command works on: the dataset folder (PATH, default '.'), its configuration (--config,
+    else the default location in the folder) and the vault there (A-66)."""
+
+    root: Path
+    config: Config
+    location: VaultLocation
+    is_bids: bool
+
+
+def vault_target(raw_path: str | Path, config_path: Path | None = None) -> VaultTarget:
+    """PATH must be a folder (errors.vault.target_not_folder for a file); an invalid neurogrid.toml or an
+    empty --config end with exit 2 like every other command (A-82)."""
+    path = check_operator_path(raw_path)
+    if not path.exists():
+        raise InputError("input.not_found")
+    if not path.is_dir():
+        raise InputError("vault.target_not_folder")
+    root = path.resolve()
+    checked = check_operator_path(config_path) if config_path is not None else None
+    loaded = config_module.load(checked, root)
+    location = vault_store.locate(loaded.project_root, loaded.config.vault.path)
+    return VaultTarget(root, loaded.config, location, is_bids_folder(root))
+
+
+def run_vault_init(raw_path: str | Path, config_path: Path | None = None) -> tuple[vault_store.InitPart, ...]:
+    """``vault init`` (CLI-08): create the missing parts of the vault, keep the others byte for byte; no
+    access event (the chain starts at the genesis hash)."""
+    return vault_store.init_vault(vault_target(raw_path, config_path).location)
+
+
+def _stored_object(root: Path, item: str, *, plain: bool) -> str:
+    """How a manual object is recorded (NZ-09, A-51): a path that names an existing file of a raw folder by
+    the pseudonymous file name verify shows (rec-<sha8>.<ext>; NeuroGrid's fixed names in .neurogrid/ in
+    clear), in the stored spelling of its name (A-66); anything else (BIDS datasets, patterns, folders,
+    paths that do not exist) as given. The log is part of the P9 export."""
+    if plain or _PATTERN_CHARS & set(item):
+        return item
+    try:
+        path = resolve_within(root, check_relative(item))
+        stored = path.resolve().relative_to(root).as_posix() if path.is_file() else None
+    except (UnsafePathError, OSError, ValueError):
+        return item
+    return item if stored is None else show(stored, plain=False).file
+
+
+@dataclass(frozen=True)
+class VaultLogRun:
+    """The event ``vault log`` appended and the warnings it gives (the event is written anyway)."""
+
+    event: AccessEvent
+    identifying: bool  # an object, the purpose or the approval reference looks like a name or an ID
+    role_identifying: bool  # the role does
+
+
+def run_vault_log(
+    raw_path: str | Path,
+    config_path: Path | None = None,
+    *,
+    action: str,
+    objects: Sequence[str],
+    purpose: str | None,
+    approval_ref: str | None,
+    role: str | None,
+) -> VaultLogRun:
+    """``vault log`` (CLI-08, A-31): append one manual event. Role = --role > [vault] role, purpose =
+    --purpose > [vault] purpose (both required: errors.vault.role_missing, .purpose_missing), approval
+    reference = --approval-ref > [vault] approval_ref > none. Every refusal and every event that cannot be
+    written is exit 2 (errors.vault.*); nothing is written then."""
+    target = vault_target(raw_path, config_path)
+    vault_store.require_present(target.location)
+    section = target.config.vault
+    role = role if role is not None else section.role
+    if role is None:
+        raise InputError("vault.role_missing")
+    validate_role(role)
+    purpose = purpose if purpose is not None else section.purpose
+    if purpose is None:
+        raise InputError("vault.purpose_missing")
+    approval_ref = approval_ref if approval_ref is not None else section.approval_ref
+    ledger.check_fields(role=role, action=action, objects=objects, purpose=purpose, approval_ref=approval_ref)
+    stored = [_stored_object(target.root, item, plain=target.is_bids) for item in objects]
+    outcome = ledger.append(
+        target.location,
+        role=role,
+        action=action,
+        objects=stored,
+        purpose=purpose,
+        approval_ref=approval_ref,
+        timeout_s=vault_lock.LOCK_TIMEOUT_S,
+    )
+    if outcome.status != "written" or outcome.event is None:
+        raise outcome.error()
+    texts = [*stored, purpose, *([approval_ref] if approval_ref else [])]
+    return VaultLogRun(
+        outcome.event,
+        identifying=any(looks_identifying(text) for text in texts),
+        role_identifying=role_looks_identifying(role),
+    )
+
+
+SHOWN_ENTRIES = 200  # vault log --show: the newest lines shown, then a count of the earlier ones (A-53)
+
+
+@dataclass(frozen=True)
+class VaultShowRun:
+    """``vault log --show`` (D-10 c): the newest SHOWN_ENTRIES lines of the log (entries and unreadable
+    lines), how many earlier lines are not shown, and the verification of the same pass."""
+
+    entries: tuple[ledger.Entry, ...]
+    earlier: int
+    verification: ledger.LogVerification
+
+
+def _log_size(target: VaultTarget) -> int:
+    """The snapshot size of a present vault's log: a missing log is errors.vault.log_missing, a lock not
+    obtained in time errors.vault.locked, a log that cannot be read errors.vault.log_unreadable (exit 2)."""
+    vault_store.require_present(target.location)
+    try:
+        return ledger.snapshot(target.location, vault_lock.LOCK_TIMEOUT_S)
+    except FileNotFoundError:
+        raise InputError("vault.log_missing") from None
+    except (VaultLocked, UnsafePathError):
+        raise
+    except OSError:
+        raise InputError("vault.log_unreadable") from None
+
+
+def run_vault_show(raw_path: str | Path, config_path: Path | None = None) -> VaultShowRun:
+    """Read and verify the log in one streaming pass (the lock only while its size is taken), keeping the
+    newest SHOWN_ENTRIES lines. Writes no event."""
+    target = vault_target(raw_path, config_path)
+    size = _log_size(target)
+    shown: deque[ledger.Entry] = deque(maxlen=SHOWN_ENTRIES)
+
+    def entries() -> Iterator[ledger.Entry]:
+        for entry in ledger.iter_entries(target.location.log, size):
+            shown.append(entry)
+            yield entry
+
+    try:
+        verification = ledger.verify_entries(entries())
+    except OSError:
+        raise InputError("vault.log_unreadable") from None
+    return VaultShowRun(tuple(shown), verification.lines - len(shown), verification)
+
+
+def run_vault_verify(
+    raw_path: str | Path, config_path: Path | None = None, expect_heads: Sequence[str] = ()
+) -> ledger.LogVerification:
+    """``vault verify`` (CLI-09, NV-F03): the chain and the expected heads (contained semantics). Invalid
+    heads are refused before anything is read (errors.vault.bad_head). A missing log is the deviation
+    log_missing (exit 1); no vault, a link, a path that is no folder and a lock not obtained in time are
+    tool errors (exit 2). Writes no event."""
+    heads = [ledger.normalize_head(head) for head in expect_heads]
+    target = vault_target(raw_path, config_path)
+    vault_store.require_present(target.location)
+    try:
+        return ledger.verify(target.location, heads, vault_lock.LOCK_TIMEOUT_S)
+    except (VaultLocked, UnsafePathError):
+        raise
+    except OSError:
+        raise InputError("vault.log_unreadable") from None

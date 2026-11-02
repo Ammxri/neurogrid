@@ -41,7 +41,7 @@ from neurogrid.kernel.pdf import (
 from neurogrid.kernel.safety import create_temporary
 from neurogrid.model.results import Results
 from neurogrid.report.glyphs import glyph_safe
-from neurogrid.report.render import page_text, render_report
+from neurogrid.report.render import VaultView, page_text, render_report
 from neurogrid.report.texts import FONT_FILES, translator
 
 FORMATS = ("html", "pdf")
@@ -70,12 +70,13 @@ def glyph_safe_document(document: str, covered: frozenset[int]) -> str:
     return pattern.sub(lambda match: glyph_safe(match.group(0), covered), document)
 
 
-def html_document(results: Results, lang: str) -> str:
-    """The delivered HTML of one language, with the embedded font subsets (deterministic)."""
+def html_document(results: Results, lang: str, vault: VaultView | None = None) -> str:
+    """The delivered HTML of one language, with the embedded font subsets (deterministic for the same
+    ``vault``, the access log of ``report --config``)."""
     covered = font_codepoints(FONT_FILES)
-    draft = glyph_safe_document(render_report(results, lang), covered)
+    draft = glyph_safe_document(render_report(results, lang, vault=vault), covered)
     css = subset_font_css(FONT_FILES, draft + page_text(lang), family=FONT_FAMILY)
-    return glyph_safe_document(render_report(results, lang, font_css=css), covered)
+    return glyph_safe_document(render_report(results, lang, font_css=css, vault=vault), covered)
 
 
 def pdf_expectation(results: Results, lang: str, document: str) -> PdfExpect:
@@ -212,10 +213,12 @@ def write_reports(
     folder: Path,
     *,
     environ: Mapping[str, str],
+    vault: VaultView | None = None,
 ) -> list[Path]:
     """Write ``report.<lang>.<format>`` for every language and format into ``folder``; returns the paths in
     the order languages × formats. PdfError (exit 2) or InputError leave no new report file behind and the
-    earlier reports in the folder unchanged (write_all)."""
+    earlier reports in the folder unchanged (write_all). ``vault``: the access log of ``report --config``
+    (cover row and appendix note, A-30)."""
     unknown = [name for name in formats if name not in FORMATS]
     if unknown:
         raise NeuroGridError("errors.report.format_unavailable", format=unknown[0])
@@ -227,7 +230,7 @@ def write_reports(
     targets = {(lang, name): folder / f"report.{lang}.{name}" for lang in languages for name in formats}
     try:
         check_output_folder(folder, list(targets.values()))
-        documents = {lang: html_document(results, lang) for lang in languages}
+        documents = {lang: html_document(results, lang, vault) for lang in languages}
         pdfs = _print_all(results, documents, shell) if shell is not None else {}
         files = {
             target: documents[lang].encode("utf-8") if name == "html" else pdfs[lang]

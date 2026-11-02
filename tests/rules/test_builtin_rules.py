@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from provenance_setups import PROVENANCE_SETUPS  # type: ignore[import-not-found]
+from vault_setups import VAULT_SETUPS  # type: ignore[import-not-found]
 
 from neurogrid import pipeline
 from neurogrid.kernel.findings import Status
@@ -38,6 +39,7 @@ class Case:
 # name -> function(fixture folder, temporary folder) -> (folder to check, further CheckOptions fields)
 SETUPS: dict[str, Callable[[Path, Path], tuple[Path, dict[str, object]]]] = {}
 SETUPS.update(PROVENANCE_SETUPS)  # P4 M13: manifest, manifest_outside, manifest_changed, manifest_invalid
+SETUPS.update(VAULT_SETUPS)  # P6 NV03: a vault with an intact, broken, missing, read-only or locked log
 
 
 def _ai_duplicate_copy(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
@@ -512,6 +514,20 @@ CASES = [
         setup="annotation_split",
     ),  # "Stage 2" 1 of 29 events
     Case("CORE-M11-01", "edf_ok", Status.NOT_CHECKABLE, '[ai]\nlabels = "annotations"\n'),  # no annotation
+    # --- P6 NeuroVault access log (NV03, A-30, A-90; tests/rules/vault_setups.py) ---
+    Case("CORE-NV03-01", "edf_ok", Status.PASSED, setup="vault_intact"),
+    Case("CORE-NV03-01", "edf_ok", Status.FAILED, setup="vault_broken"),  # vault.chain_broken
+    Case("CORE-NV03-01", "edf_ok", Status.FAILED, setup="vault_log_missing"),  # never recreated silently
+    Case("CORE-NV03-01", "edf_ok", Status.NOT_CHECKABLE),  # no vault: vault.not_found
+    Case("CORE-NV03-01", "edf_ok", Status.NOT_CHECKABLE, options=(("strict", True),)),  # no escalation
+    Case("CORE-NV03-01", "edf_ok", Status.NOT_CHECKABLE, setup="vault_locked"),  # vault.locked
+    Case("CORE-NV03-01", "edf_ok", Status.NOT_CHECKABLE, setup="vault_unreadable"),  # vault.log_unreadable
+    Case("CORE-NV03-01", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),  # a single file has no vault
+    Case("CORE-NV03-02", "edf_ok", Status.PASSED, setup="vault_intact"),
+    Case("CORE-NV03-02", "edf_ok", Status.FAILED, setup="vault_read_only"),  # A-30: warning and finding
+    Case("CORE-NV03-02", "edf_ok", Status.FAILED, setup="vault_log_missing"),
+    Case("CORE-NV03-02", "edf_ok", Status.NOT_CHECKABLE),
+    Case("CORE-NV03-02", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),
 ]
 
 

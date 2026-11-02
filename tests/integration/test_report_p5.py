@@ -241,8 +241,14 @@ def test_coverage_note_when_na(rich: Results, lang: str) -> None:
 
 
 def test_access_phase_is_grey_without_rules(quality: Results) -> None:
-    """core has no access rule: the light is grey, shown with its text (A-16)."""
-    assert not any(rule.phase is Phase.ACCESS for rule in quality.rules)
+    """No access rule is evaluated: the light is grey, shown with its text (A-16). Since P6 core has the
+    access log rules CORE-NV03-01/02 (A-90); without a vault both are not checkable, so nothing in the access
+    phase is evaluated, as before P6."""
+    access = {rule.id for rule in quality.rules if rule.phase is Phase.ACCESS}
+    assert access == {"CORE-NV03-01", "CORE-NV03-02"}
+    findings = [f for f in quality.findings if f.rule_id in access]
+    assert {f.rule_id for f in findings} == access and {f.status for f in findings} == {Status.NOT_CHECKABLE}
+    assert not any(p.rule_id in access for p in quality.passed)
     summary = section(render_report(quality, "en"), "summary")
     row = re.search(r'<tr data-phase="access">(.*?)</tr>', summary, flags=re.S)
     assert row is not None and 'class="light light-grey">grey<' in row.group(1)

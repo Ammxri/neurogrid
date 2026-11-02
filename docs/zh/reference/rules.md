@@ -11,7 +11,7 @@
 | 来源 | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | 来源状态 | 正式 |
 | 对应标准（计算覆盖率） | 否 |
-| SHA-256 | `5ab784ee805e45dd3910053f2fac64516207746be0bf399a3ae219dcceed6f6f` |
+| SHA-256 | `360aab2c0cf1b2825e60997a2ffd3132732321df8a3302f0da20a0efa8db7641` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -411,6 +411,32 @@
 | 条款 | [M13](../metrics.md#M13) |
 | 阶段 | 存储 |
 | 检查项 | [provenance.documented](checks.md#provenance.documented) |
+| 参数 | – |
+| 严重程度 | 警告 |
+| 使用 --strict 时的严重程度 | 警告 |
+| 核验方式 | 自动 |
+
+### CORE-NV03-01 {#CORE-NV03-01}
+
+| | |
+|---|---|
+| 名称 | 访问日志哈希链完整 |
+| 条款 | [NV03](../metrics.md#NV03) |
+| 阶段 | 访问 |
+| 检查项 | [access.log_intact](checks.md#access.log_intact) |
+| 参数 | – |
+| 严重程度 | 错误 |
+| 使用 --strict 时的严重程度 | 错误 |
+| 核验方式 | 自动 |
+
+### CORE-NV03-02 {#CORE-NV03-02}
+
+| | |
+|---|---|
+| 名称 | 访问日志可写入 |
+| 条款 | [NV03](../metrics.md#NV03) |
+| 阶段 | 访问 |
+| 检查项 | [access.log_writable](checks.md#access.log_writable) |
 | 参数 | – |
 | 严重程度 | 警告 |
 | 使用 --strict 时的严重程度 | 警告 |

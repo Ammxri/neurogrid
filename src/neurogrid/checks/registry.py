@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from neurogrid.checks import (
+    access,
     ai_dataset,
     annotation,
     bids,
@@ -19,7 +20,8 @@ from neurogrid.kernel.rules import CheckSpec, Measurement, evidence_spec
 
 Measurer = Callable[[CheckContext], list[Measurement]]
 
-_MODULES = (structure, metadata, signal, quality, bids, ai_dataset, provenance, annotation)
+# NeuroVault is a supplier of the checks (ARC-01): access reads the vault's access log (P6)
+_MODULES = (structure, metadata, signal, quality, bids, ai_dataset, provenance, annotation, access)
 
 REGISTRY: dict[str, CheckSpec] = {spec.id: spec for module in _MODULES for spec in module.SPECS}
 REGISTRY[evidence_spec().id] = evidence_spec()

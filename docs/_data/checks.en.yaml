@@ -1,5 +1,9 @@
 # What each registered check measures and, for checks with an own comparison, when it passes (tools/gen_docs.py,
 # reference/checks.md). Keys = the check IDs of the registry; a test keeps both in sync. English.
+access.log_intact:
+  object: "the dataset: the hash chain of its vault's access log (access.jsonl)"
+access.log_writable:
+  object: "the dataset: its vault's access log (opened for appending, nothing written)"
 ai.class_balance:
   object: "each scope of the label source (all, train, val, test) and class"
   passes: "the class reaches at least `min_share` of its scope; for a withheld label source (cells below 5 subjects) only what the subject numbers alone show (A-81)"

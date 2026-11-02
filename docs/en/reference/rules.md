@@ -11,7 +11,7 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Source | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | Source status | final |
 | Maps a norm (coverage measure) | no |
-| SHA-256 | `5ab784ee805e45dd3910053f2fac64516207746be0bf399a3ae219dcceed6f6f` |
+| SHA-256 | `360aab2c0cf1b2825e60997a2ffd3132732321df8a3302f0da20a0efa8db7641` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -411,6 +411,32 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Clause | [M13](../metrics.md#M13) |
 | Phase | Storage |
 | Check | [provenance.documented](checks.md#provenance.documented) |
+| Parameters | – |
+| Severity | Warning |
+| Severity with --strict | Warning |
+| Verification | automatic |
+
+### CORE-NV03-01 {#CORE-NV03-01}
+
+| | |
+|---|---|
+| Title | Access log hash chain intact |
+| Clause | [NV03](../metrics.md#NV03) |
+| Phase | Access |
+| Check | [access.log_intact](checks.md#access.log_intact) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### CORE-NV03-02 {#CORE-NV03-02}
+
+| | |
+|---|---|
+| Title | Access log can be written |
+| Clause | [NV03](../metrics.md#NV03) |
+| Phase | Access |
+| Check | [access.log_writable](checks.md#access.log_writable) |
 | Parameters | – |
 | Severity | Warning |
 | Severity with --strict | Warning |

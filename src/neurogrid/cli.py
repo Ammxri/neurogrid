@@ -3,7 +3,11 @@ and 'vault consent' (v0.2). Further commands follow in later phases.
 
 Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error. manifest: 0 written, 1 files
 could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82);
-report: 0 written, 2 tool error, e.g. no PDF browser for --format pdf (nothing written, A-26).
+report: 0 written, 2 tool error, e.g. no PDF browser for --format pdf (nothing written, A-26). vault init and
+vault log: 0 done, 2 every refusal; vault verify: 0 the access log is intact, 1 a deviation (also a missing
+log or an expected head not found), 2 tool error (CLI-09). An access event that cannot be written after the
+outputs of a run is a warning and never changes the exit code; check, report --config and every vault
+command end with exit 2 on a link in the vault path (A-30, p6 decisions 2 and 4).
 """
 
 from __future__ import annotations
@@ -39,6 +43,7 @@ from neurogrid.kernel.safety import (
 from neurogrid.metadata import NA_IS_MISSING
 from neurogrid.model.results import Results
 from neurogrid.report.texts import REPORT_LANGUAGES, translator
+from neurogrid.vault.ledger import AppendOutcome, Deviation, Entry
 
 MAX_RESULTS_BYTES = 256_000_000
 MAX_PARAM_CHARS = 200
@@ -444,6 +449,33 @@ def _split_list(values: list[str]) -> list[str]:
     return items
 
 
+def _access_messages(
+    access: pipeline.PendingAccess | None, outcome: AppendOutcome | None, *, role_option: bool = False
+) -> None:
+    """What the user needs to know about the access event of a run (p6 decisions 4), committed after its
+    outputs were written: --role without a vault, an event that was not written with its reason, and for a
+    written automatic event a missing role (recorded as null) or a role that looks like a name. The exit
+    code never changes for it."""
+    if access is None:
+        if role_option:
+            _say("cli.vault.role_without_vault")
+        return
+    if outcome is None or outcome.status != "written":
+        status = outcome.status if outcome is not None else "no_vault"
+        reason = translator(_lang()).t(f"cli.vault.event_reason.{status}")
+        _say("cli.vault.event_not_written", reason=reason)
+    elif access.action != "read":  # scan, manifest and verify record no role (p6 decisions 4)
+        if access.role is None:
+            _say("cli.vault.role_missing")
+        elif access.role_looks_identifying:
+            _say("cli.vault.role_looks_identifying")
+
+
+def _commit(access: pipeline.PendingAccess | None) -> AppendOutcome | None:
+    """Append the run's access event; called after every output of the run is written (KONZEPT 1.4 step 8)."""
+    return access.commit() if access is not None else None
+
+
 def _rulepack_refs(values: list[str]) -> list[str]:
     """Rule pack names or paths: kept as given (case matters on Linux, commas are legal in paths)."""
     refs: list[str] = []
@@ -474,6 +506,7 @@ def scan(
     """Inventory: formats, subjects, recordings, sizes, unsupported files."""
     _state["dataset_root"] = pipeline.resolve_target(path).root
     target = _output_file(out) if out is not None else None  # an invalid --out ends before the scan
+    access = pipeline.read_access(path)
     result = pipeline.run_scan(path, show_paths=show_paths)
     tr = translator(_lang()).t
     typer.echo(f"{tr('cli.scan.title')}")
@@ -505,6 +538,7 @@ def scan(
     if target is not None:
         _write_atomic(target, canonical.dumps(result))
         _say("cli.scan.written", path=_written_path(target, plain=result.is_bids or show_paths))
+    _access_messages(access, _commit(access))  # after the inventory is written (p6 decisions 4)
 
 
 @app.command(cls=_HelpCommand)
@@ -520,6 +554,7 @@ def check(
     jobs: Annotated[int, typer.Option("--jobs", min=1, max=64)] = 1,
     evidence: Annotated[str | None, typer.Option("--evidence")] = None,
     manifest_file: Annotated[str | None, typer.Option("--manifest")] = None,
+    role: Annotated[str | None, typer.Option("--role")] = None,
 ) -> None:
     """Check a dataset against rule packs and write results.json."""
     reference = None
@@ -543,9 +578,12 @@ def check(
         work_base=target.absolute().parent,  # work folder next to the results file (A-54)
         evidence_path=_given_path(evidence),
         manifest_path=_given_path(manifest_file),
+        role=role,
     )
-    results = pipeline.run_check(path, options)
+    run = pipeline.check_run(path, options)
+    results = run.results
     _write_atomic(target, canonical.dumps(results))
+    outcome = _commit(run.access)  # after results.json: the event never reaches it (DoD P6, A-30)
     packs = ", ".join(p.name for p in results.rulepacks)
     _say("cli.check.fails" if results.summary.exit_code else "cli.check.passes", packs=packs)
     _say("cli.check.counts", errors=results.summary.errors, warnings=results.summary.warnings)
@@ -561,6 +599,7 @@ def check(
                 name: _redact(_clean(str(value)))[:MAX_PARAM_CHARS] for name, value in notice.params.items()
             }
             _say(notice.message_key, **params)
+    _access_messages(run.access, outcome, role_option=role is not None)
     _say("cli.check.written", path=_written_path(target, plain=results.dataset.is_bids or show_paths))
     _say("disclaimer")
     raise typer.Exit(code=results.summary.exit_code)
@@ -586,6 +625,7 @@ def convert(
         strip_identifying_headers=strip_identifying_headers,
         work_base=output.absolute().parent,
     )
+    outcome = _commit(summary.access)  # after the BIDS output and the validator run
     _say("cli.convert.converted", count=summary.converted)
     for item_id, reason in summary.skipped:
         _say("cli.convert.skipped", id=_clean(item_id), reason=translator(_lang()).t(f"reason.{reason}"))
@@ -600,6 +640,7 @@ def convert(
         _say("cli.convert.written", path=_display_path(output))
     else:
         _say("cli.convert.nothing")
+    _access_messages(summary.access, outcome)
     _say("disclaimer")
     raise typer.Exit(code=summary.exit_code)
 
@@ -610,8 +651,11 @@ def report(
     lang: Annotated[list[str] | None, typer.Option("--lang")] = None,
     fmt: Annotated[list[str] | None, typer.Option("--format")] = None,
     out: Annotated[str | None, typer.Option("--out")] = None,
+    config: Annotated[str | None, typer.Option("--config")] = None,
 ) -> None:
-    """Render the report for each language and format (HTML; PDF with the PDF browser)."""
+    """Render the report for each language and format (HTML; PDF with the PDF browser). With --config the
+    report finds the vault of that neurogrid.toml: the cover shows its access log, and the report appends
+    its access event after the files are written (A-30); without it no vault is read or written."""
     from neurogrid.report.output import FORMATS, write_reports
 
     source = check_operator_path(results_file)
@@ -634,9 +678,13 @@ def report(
     folder = check_operator_path(out) if out is not None else source.resolve().parent
     if folder.exists() and not folder.is_dir():
         raise InputError("output.not_writable")
+    access, view = None, None
+    if config is not None:  # a link in the vault path ends here, before anything is rendered (exit 2)
+        access, view = pipeline.report_vault(check_operator_path(config))
     # all files or none (A-26); with pdf the PDF browser is checked before anything is rendered
-    for target in write_reports(results, languages, formats, folder, environ=os.environ):
+    for target in write_reports(results, languages, formats, folder, environ=os.environ, vault=view):
         _say("cli.report.written", path=_display_path(target))
+    _access_messages(access, _commit(access))
     _say("disclaimer")
 
 
@@ -683,6 +731,8 @@ def manifest(
             _say("cli.manifest.bids_hint")
         elif run.validator_listing == "maybe":
             _say("cli.manifest.bids_hint_bidsignore")
+    # after the manifest is written, which leaves the log and its lock file out (A-82)
+    _access_messages(run.access, _commit(run.access))
     _say("disclaimer")
     raise typer.Exit(code=run.exit_code)
 
@@ -702,6 +752,7 @@ def verify(
         _say(f"cli.verify.{kind}", count=len(names))
         _print_list(names)
     _say("cli.verify.differs" if run.exit_code else "cli.verify.matches")
+    _access_messages(run.access, _commit(run.access))
     _say("disclaimer")
     raise typer.Exit(code=run.exit_code)
 
@@ -714,6 +765,168 @@ vault_app = typer.Typer(cls=_HelpGroup, no_args_is_help=True, rich_markup_mode=N
 consent_app = typer.Typer(cls=_HelpGroup, no_args_is_help=True, rich_markup_mode=None)
 vault_app.add_typer(consent_app, name="consent")
 app.add_typer(vault_app, name="vault")
+
+
+def _vault_folder(path: str) -> None:
+    """The dataset folder of a vault command, for the redaction of console paths (A-51); the pipeline checks
+    it (errors.vault.target_not_folder)."""
+    folder = check_operator_path(path)
+    _state["dataset_root"] = folder.resolve() if folder.is_dir() else None
+
+
+@vault_app.command("init", cls=_HelpCommand)
+def vault_init(
+    path: Annotated[str, typer.Argument()] = ".",
+    config: Annotated[str | None, typer.Option("--config")] = None,
+) -> None:
+    """Create the missing parts of the vault (CLI-08, A-30): idempotent, no access event."""
+    _vault_folder(path)
+    for part in pipeline.run_vault_init(path, _given_path(config)):
+        _say("cli.vault.init.created" if part.created else "cli.vault.init.kept", name=_clean(part.name))
+    _say("cli.vault.init.manifest_hint")
+    _say("disclaimer")
+
+
+def _shown_text(value: str | None) -> str:
+    """A text of a log entry on the console: cleaned, paths redacted, shortened (A-51, A-53)."""
+    if value is None:
+        return translator(_lang()).t("cli.vault.show.none")
+    text = _redact(_clean(value))
+    return text if len(text) <= MAX_PARAM_CHARS else text[: MAX_PARAM_CHARS - 1] + "…"
+
+
+def _show_entry(entry: Entry) -> None:
+    event = entry.event
+    if event is None:
+        _say("cli.vault.show.unreadable_line", line=entry.line)
+        return
+    _say(
+        "cli.vault.show.row",
+        line=entry.line,
+        seq=event.seq,
+        time=event.time,
+        role=_shown_text(event.role),
+        action=event.action,
+        objects=_shown_text(", ".join(event.objects)),
+        purpose=_shown_text(event.purpose),
+        approval_ref=_shown_text(event.approval_ref),
+    )
+
+
+def _show_head(head: str | None) -> None:
+    if head is None:
+        _say("cli.vault.verify.head_none")
+    else:
+        _say("cli.vault.verify.head", hash=head)
+
+
+def _vault_show(path: str, config: str | None) -> None:
+    """``vault log --show`` (D-10 c): the newest entries, the earlier ones as a count, then entries, head and
+    the state of the chain. Exit 0 whatever the state; writes no event."""
+    run = pipeline.run_vault_show(path, _given_path(config))
+    verification = run.verification
+    if not verification.lines:
+        _say("cli.vault.show.empty")
+    else:
+        _say("cli.vault.show.header")
+        for entry in run.entries:
+            _show_entry(entry)
+        if run.earlier:
+            _say("cli.vault.show.more", count=run.earlier)
+    _say("cli.vault.verify.events", events=verification.events)
+    _show_head(verification.head)
+    if verification.intact:
+        _say("cli.vault.show.summary_intact")
+    else:
+        _say("cli.vault.show.summary_broken", deviations=len(verification.deviations))
+    _say("disclaimer")
+
+
+@vault_app.command("log", cls=_HelpCommand)
+def vault_log(
+    path: Annotated[str, typer.Argument()] = ".",
+    config: Annotated[str | None, typer.Option("--config")] = None,
+    action: Annotated[str | None, typer.Option("--action")] = None,
+    objects: Annotated[list[str] | None, typer.Option("--objects")] = None,
+    purpose: Annotated[str | None, typer.Option("--purpose")] = None,
+    approval_ref: Annotated[str | None, typer.Option("--approval-ref")] = None,
+    role: Annotated[str | None, typer.Option("--role")] = None,
+    show: Annotated[bool, typer.Option("--show")] = False,
+) -> None:
+    """Append one access event by hand (CLI-08, A-31), or show the log with --show (D-10 c)."""
+    _vault_folder(path)
+    given = (action, objects, purpose, approval_ref, role)
+    if show:
+        if any(value is not None for value in given):
+            raise InputError("vault.show_exclusive")
+        _vault_show(path, config)
+        return
+    for name, value in (("--action", action), ("--objects", objects)):
+        if not value:
+            raise _UsageProblem("cli.error.missing_option", name=name, command="neurogrid vault log")
+    run = pipeline.run_vault_log(
+        path,
+        _given_path(config),
+        action=str(action),
+        objects=list(objects or []),  # never split at commas: they are legal in paths
+        purpose=purpose,
+        approval_ref=approval_ref,
+        role=role,
+    )
+    _say("cli.vault.log.written", seq=run.event.seq, hash=run.event.hash)
+    if run.identifying:
+        _say("cli.vault.log.identifying")
+    if run.role_identifying:
+        _say("cli.vault.role_looks_identifying")
+    _say("disclaimer")
+
+
+def _say_deviation(deviation: Deviation) -> None:
+    tr = translator(_lang()).t
+    kind = tr(f"terms.access_kind.{deviation.kind}")
+    if deviation.line is None:
+        _say("cli.vault.verify.deviation_no_line", kind=kind)
+    elif deviation.likely is None:
+        _say("cli.vault.verify.deviation", line=deviation.line, kind=kind)
+    else:
+        likely = tr(f"terms.access_likely.{deviation.likely}")
+        _say("cli.vault.verify.deviation_likely", line=deviation.line, kind=kind, likely=likely)
+
+
+@vault_app.command("verify", cls=_HelpCommand)
+def vault_verify(
+    path: Annotated[str, typer.Argument()] = ".",
+    config: Annotated[str | None, typer.Option("--config")] = None,
+    expect_head: Annotated[list[str] | None, typer.Option("--expect-head")] = None,
+) -> None:
+    """Verify the hash chain of the access log (CLI-09, NV-F03): exit 0 intact, 1 deviation."""
+    _vault_folder(path)
+    verification = pipeline.run_vault_verify(path, _given_path(config), expect_head or [])
+    _say("cli.vault.verify.events", events=verification.events)
+    _show_head(verification.head)
+    deviations = verification.deviations
+    for deviation in deviations[:MAX_LISTED]:  # line numbers, kinds and likely causes, never content
+        _say_deviation(deviation)
+    if len(deviations) > MAX_LISTED:
+        _say("cli.manifest.more", count=len(deviations) - MAX_LISTED)
+    for expected in verification.expected:
+        if expected.found:
+            _say(
+                "cli.vault.verify.expected_found",
+                hash=expected.hash,
+                line=expected.line,
+                after=expected.events_after,
+            )
+        else:
+            _say("cli.vault.verify.expected_missing", hash=expected.hash)
+    if verification.intact:
+        _say("cli.vault.verify.intact")
+    else:
+        _say("cli.vault.verify.differs", deviations=len(deviations))
+    _say("cli.vault.verify.head_hint")
+    _say("cli.vault.verify.limits")
+    _say("disclaimer")
+    raise typer.Exit(code=0 if verification.intact else 1)
 
 
 def _error_text(exc: NeuroGridError) -> str:
@@ -778,7 +991,9 @@ def main(argv: list[str] | None = None) -> None:
     warnings.showwarning = _show_warning
     code = 0
     try:
-        rv = app(args=argv, standalone_mode=False, prog_name="neurogrid")
+        # click expands wildcards in sys.argv on Windows; NeuroGrid takes every argument as typed, so that a
+        # pattern such as 'vault log --objects "**"' arrives as on POSIX (A-14 patterns, A-73)
+        rv = app(args=argv, standalone_mode=False, prog_name="neurogrid", windows_expand_args=False)
         code = rv if isinstance(rv, int) else 0
     except typer.Exit as exc:
         code = exc.exit_code

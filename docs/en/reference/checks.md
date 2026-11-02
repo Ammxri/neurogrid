@@ -3,6 +3,26 @@
 
 Every check a rule pack may name in `check`, generated from the registry of this NeuroGrid version (`neurogrid.checks.registry`). A rule pack uses only registered checks and only their declared parameters (A-13); a parameter value comes from `neurogrid.toml` (`[rules."ID".params]`), else from the rule pack, else from the default below.
 
+## access.log_intact {#access.log_intact}
+
+| | |
+|---|---|
+| Title | Access log hash chain intact |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the dataset: the hash chain of its vault's access log (access.jsonl) |
+| Built-in rules | [CORE-NV03-01](rules.md#CORE-NV03-01) |
+
+## access.log_writable {#access.log_writable}
+
+| | |
+|---|---|
+| Title | Access log can be written |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the dataset: its vault's access log (opened for appending, nothing written) |
+| Built-in rules | [CORE-NV03-02](rules.md#CORE-NV03-02) |
+
 ## ai.class_balance {#ai.class_balance}
 
 | | |

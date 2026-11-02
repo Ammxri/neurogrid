@@ -40,10 +40,25 @@ Server and Ubuntu 24.04; the CI does not run the test suite on Debian 12 and Ubu
 on Windows 11 and Ubuntu releases after 24.04 are not verified; other Linux distributions and ARM64 are not
 supported ([Installation](installation.md#platforms)).
 
+## NeuroVault {#neurovault}
+
+NeuroVault is partly available: the vault folder, the consent records and the hash-chained access log with
+`vault init`, `vault log` and `vault verify` ([NeuroVault](vault.md)). The role register, retention periods, the
+impact assessment and the export follow in later versions.
+
+- The hash chain detects changing, inserting, deleting and reordering entries inside the chain. Truncation at
+  the end and complete rewriting are detected only with `vault verify --expect-head` against a head hash
+  recorded elsewhere.
+- Only accesses through NeuroGrid are recorded. Runs that end with exit code 2 record nothing; `scan`,
+  `manifest` and `verify` record their access only in the vault at the default location `.neurogrid/vault`;
+  `report` records only with `--config`. Event times come from the local clock and are not verified.
+- The vault lock keeps NeuroGrid processes apart, not other programs; roles are advisory, not enforced.
+  Access rights are governed by the operating system.
+
 ## Not part of version 0.1 {#not-in-v01}
 
 - `diff` (comparison of two results), NeuroVault (consent, roles, access log, M14) and the evidence dossier
-  follow in later versions.
+  follow in later versions. Version 0.2 adds the parts of NeuroVault named [above](#neurovault).
 - GB/T 47127 as an input and output format follows with version 0.2.
 - The documentation is published inside the offline bundle and as a build artefact; a website for it is decided
   with the publication.

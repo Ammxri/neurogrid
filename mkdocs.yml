@@ -107,6 +107,7 @@ nav:
       - Rule packs: rulepacks.md
       - Metrics: metrics.md
       - Reading the report: report.md
+      - NeuroVault: vault.md
   - Background:
       - Privacy and offline operation: privacy.md
       - Limitations: limitations.md
