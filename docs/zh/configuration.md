@@ -115,11 +115,12 @@ M06 和 M09 在抽样上运行：`mode = "sample"` 在等分的各段中间各�
 |---|---|
 | `path` | vault 文件夹，相对于项目根目录（默认 `.neurogrid/vault`）；不含 `..` 的普通相对路径。 |
 | `role` | `check`、`convert` 和 `report --config` 的访问事件的角色，也是 `vault log` 的默认角色：符合 `^[A-Za-z][A-Za-z0-9_.-]{0,79}$` 的角色名称或姓名缩写（不含空格，不是人名）；否则退出码为 2。`check --role` 可在单次运行中覆盖它。 |
-| `purpose` | 这些事件的目的，最多 200 个字符；也是 `vault log --purpose` 的默认值。 |
-| `approval_ref` | 这些事件的批准编号（例如伦理委员会的批件编号），最多 120 个字符；也是 `vault log --approval-ref` 的默认值。 |
+| `purpose` | 这些事件的目的，1 至 200 个字符，不含控制字符；也是 `vault log --purpose` 的默认值。 |
+| `approval_ref` | 这些事件的批准编号（例如伦理委员会的批件编号），1 至 120 个字符，不含控制字符；也是 `vault log --approval-ref` 的默认值。 |
 
-未设置 `role` 时，自动事件不记录角色，命令会给出提示。`purpose` 或 `approval_ref` 含控制字符时，`check`、`convert`
-和 `report --config` 在读取数据之前以退出码 2 结束（[NeuroVault](vault.md#events)）。
+未设置 `role` 时，自动事件不记录角色，命令会给出提示。`purpose` 或 `approval_ref` 为空或含控制字符（制表符、换行）
+时，与不符合模式的 `role` 一样属于无效值：无论是否存在 vault，所有读取该文件的命令都在读取数据之前以退出码 2 结束并指明该
+字段（[NeuroVault](vault.md#events)）。
 
 ## 示例 {#example}
 

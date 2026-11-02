@@ -678,12 +678,13 @@
     },
     "VaultSection": {
       "additionalProperties": false,
-      "description": "NeuroVault (A-30, A-66, A-90): the vault folder relative to the project root and the fields of the\naccess events that check, convert and report append. ``role`` is a role name or initials, never a\npersonal name with spaces or an OS login (model.access.ROLE_PATTERN, NZ-09); ``check --role`` overrides\nit for one run.",
+      "description": "NeuroVault (A-30, A-66, A-90): the vault folder relative to the project root and the fields of the\naccess events that check, convert and report append. ``role`` is a role name or initials, never a\npersonal name with spaces or an OS login (model.access.ROLE_PATTERN, NZ-09); ``check --role`` overrides\nit for one run. ``purpose`` and ``approval_ref`` follow the rules of the access event (not empty, at most\n200 and 120 characters, no control character).",
       "properties": {
         "approval_ref": {
           "anyOf": [
             {
               "maxLength": 120,
+              "minLength": 1,
               "type": "string"
             },
             {
@@ -702,6 +703,7 @@
           "anyOf": [
             {
               "maxLength": 200,
+              "minLength": 1,
               "type": "string"
             },
             {

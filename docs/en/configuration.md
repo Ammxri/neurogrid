@@ -122,12 +122,13 @@ the vault's access log out of the manifest), `role`, `purpose`, `approval_ref`.
 |---|---|
 | `path` | The vault folder, relative to the project root (default `.neurogrid/vault`); a plain relative path without `..`. |
 | `role` | Role of the access events of `check`, `convert` and `report --config`, and the default of `vault log`: a role name or initials matching `^[A-Za-z][A-Za-z0-9_.-]{0,79}$` (no spaces, no personal name); otherwise exit code 2. `check --role` overrides it for one run. |
-| `purpose` | Purpose of these events, at most 200 characters; the default of `vault log --purpose`. |
-| `approval_ref` | Approval reference of these events (for example of the ethics committee), at most 120 characters; the default of `vault log --approval-ref`. |
+| `purpose` | Purpose of these events, 1 to 200 characters without control characters; the default of `vault log --purpose`. |
+| `approval_ref` | Approval reference of these events (for example of the ethics committee), 1 to 120 characters without control characters; the default of `vault log --approval-ref`. |
 
-Without `role` an automatic event records no role and the command says so. A `purpose` or `approval_ref` with
-control characters ends `check`, `convert` and `report --config` with exit code 2 before the data are read
-([NeuroVault](vault.md#events)).
+Without `role` an automatic event records no role and the command says so. An empty `purpose` or
+`approval_ref`, or one with a control character (a tab, a line break), is an invalid value like a `role` off
+the pattern: every command that reads the file ends with exit code 2 and names the field, with or without a
+vault, before the data are read ([NeuroVault](vault.md#events)).
 
 ## Example {#example}
 

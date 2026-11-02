@@ -344,14 +344,69 @@ def test_check_invalid_vault_fields_exit2_before_data(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A purpose or approval reference that cannot be recorded is a configuration error at the start, never a
-    lost event after results.json (errors.vault.text_invalid); a role off the pattern is config.invalid."""
+    lost event after results.json: config.invalid naming the field (P6 review: as a role off the pattern)."""
     folder = _dataset(tmp_path, toml='[vault]\npurpose = "line one\\nline two"\n')
     code, _, err = _check(folder, tmp_path / "r.json", capsys)
-    assert code == 2 and _t("errors.vault.text_invalid", field="purpose") in err
+    assert code == 2 and _t("errors.config.invalid", field="vault.purpose", problem="value_error") in err
     assert not (tmp_path / "r.json").exists() and _log(folder) == b""
     other = _dataset(tmp_path / "other", toml='[vault]\nrole = "QA lead"\n')
     code, _, err = _check(other, tmp_path / "r.json", capsys)
     assert code == 2 and "vault.role" in err
+
+
+@pytest.mark.parametrize(
+    ("toml", "field", "problem"),
+    [
+        ('[vault]\npurpose = ""\n', "vault.purpose", "string_too_short"),
+        ('[vault]\npurpose = "QA\\trun"\n', "vault.purpose", "value_error"),
+        ('[vault]\napproval_ref = ""\n', "vault.approval_ref", "string_too_short"),
+        ('[vault]\napproval_ref = "EC\\u0007-17"\n', "vault.approval_ref", "value_error"),
+    ],
+)
+@pytest.mark.parametrize("vault", [False, True])
+def test_vault_texts_of_the_toml_are_config_errors_for_every_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], toml: str, field: str, problem: str, vault: bool
+) -> None:
+    """P6 review (spec sections 4 and 5): a [vault] purpose or approval_ref that the access log cannot record
+    (empty, a tab or another control character) is an invalid value of neurogrid.toml: every command that
+    reads the file ends with exit 2 config.invalid naming the field, with or without a vault, before the data
+    are read and without an event, as for [vault] role; never errors.vault.text_invalid of a pending event."""
+    folder = _dataset(tmp_path, vault=vault, toml=toml)
+    before = _log(folder) if vault else b""
+    message = _t("errors.config.invalid", field=field, problem=problem)
+    config = str(folder / ".neurogrid" / "neurogrid.toml")
+    results = tmp_path / "results.json"
+    commands = [
+        ["check", str(folder), "--out", str(results), "--as-of", AS_OF],
+        ["convert", str(folder), "--to", "bids", "--out", str(tmp_path / "bids")],
+        ["manifest", str(folder)],
+        ["vault", "init", str(folder)],
+        [
+            "vault",
+            "log",
+            str(folder),
+            "--action",
+            "read",
+            "--objects",
+            "**",
+            "--purpose",
+            "p",
+            "--role",
+            "QA",
+        ],
+    ]
+    for args in commands:
+        code, out, err = run(args, capsys)
+        assert code == 2 and message in err, (args, out, err)
+    assert not results.exists() and not (tmp_path / "bids").exists()
+    assert not (folder / ".neurogrid" / "manifest.json").exists()
+    good = _dataset(tmp_path / "good", vault=False)
+    assert _check(good, results, capsys)[0] in (0, 1)
+    code, out, err = run(["report", str(results), "--format", "html", "--config", config], capsys)
+    assert code == 2 and message in err, (out, err)
+    assert not (results.parent / "report.en.html").exists()
+    if vault:
+        assert _log(folder) == before
 
 
 def test_check_single_file_has_no_vault(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

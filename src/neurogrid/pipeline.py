@@ -1084,8 +1084,9 @@ def _run_vault(project_root: Path, cfg: Config) -> VaultLocation:
 
 def _pending(location: VaultLocation, cfg: Config, role: str | None, action: str) -> PendingAccess:
     """The automatic event of a run for ``location``: objects ``**``, purpose and approval reference from
-    [vault]. Fields that cannot be recorded are tool errors now (errors.vault.text_invalid {field}), never a
-    lost event after the outputs are written."""
+    [vault]. Every field is valid already: [vault] purpose and approval_ref follow the rules of the event when
+    neurogrid.toml is read (config.VaultSection: config.invalid naming the field, exit 2 for every command),
+    the role there and with --role; check_fields only guards that no event is lost after the outputs."""
     purpose, approval_ref = cfg.vault.purpose, cfg.vault.approval_ref
     ledger.check_fields(
         role=role, action=action, objects=DATASET_OBJECTS, purpose=purpose, approval_ref=approval_ref
