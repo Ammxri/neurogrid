@@ -10,8 +10,9 @@ severities, verification), docs/_data (labels, check descriptions, rule origins,
 src/neurogrid/rulepacks/calibration/core.json. A change of tools/install_pdf_browser.py therefore needs a
 new generation (--check fails until then). An invalid questions file is an error (exit 2): the strict
 model below, its rule pack and rules among the built-in packs, the chosen reading among the readings, an
-answer for an answered question, the clause TBD while the pack is a placeholder, Chinese only in the zh
-fields and no word of the wording list (A-57).
+answer for an answered question, the clause TBD while the pack is a placeholder, no rule twice, Chinese
+script and full-width punctuation only in the zh fields, no word of the wording list (A-57), no mention of
+the norm in a text and no generated line that names it with a dotted number after it (V-06, A-55).
 
 Usage:
     python tools/gen_docs.py          # write the generated pages and blocks
@@ -292,7 +293,20 @@ def installer_block() -> str:
 # the clause inventory (P8). Texts are own words, never quotes of a norm (A-55); people appear by role only.
 
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
-_HAN = re.compile("[㐀-䶿一-鿿]")
+# Chinese script in an en field: radicals, CJK symbols and punctuation (the ideographic full stop, the
+# corner brackets) up to the CJK compatibility block, extension A, the unified ideographs, the compatibility
+# ideographs, vertical and compatibility forms, the half- and full-width forms (full-width comma, colon,
+# parentheses) and the supplementary and tertiary ideographic planes (extensions B and later, the
+# compatibility supplement).
+_HAN = re.compile(
+    "[\u2e80-\u2fdf\u3000-\u33ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\ufe10-\ufe1f\ufe30-\ufe4f"
+    "\uff00-\uffef\U00020000-\U0003ffff]"
+)
+# The V-06 guard of tests/unit/test_norm_independence.py (the same patterns; a test there keeps them equal):
+# the texts of an entry never name the norm (the field rulepack names the pack), and no generated line
+# carries the norm's or the pack's name with a dotted number within 40 characters after it.
+NORM_MENTION = re.compile(r"(?i)YY\s*/?\s*T\s*2029|yyt\s*2029")
+NORM_CLAUSE = re.compile(r"(?i)(?:YY\s*/?\s*T\s*2029|yyt2029)[^\n]{0,40}?\b\d+(?:\.\d+)+")
 QUESTION_STATUSES = ("open", "asked", "answered", "withdrawn")
 ASKED_ROLES = ("author", "test_institute", "regulator", "other")
 EFFECTS = ("none", "params", "rule_text", "new_rule", "removed_rule")
@@ -397,6 +411,8 @@ def validate_questions(data: object, packs: Mapping[str, Rulepack]) -> Questions
         pack = packs.get(entry.rulepack)
         if pack is None:
             raise DocsError(f"{where}: no built-in rule pack '{entry.rulepack}'")
+        if len(set(entry.rules)) != len(entry.rules):
+            raise DocsError(f"{where}: duplicate rule id")
         unknown = sorted(set(entry.rules) - {rule.id for rule in pack.rules})
         if unknown:
             raise DocsError(f"{where}: rules not in {entry.rulepack}: {', '.join(unknown)}")
@@ -413,6 +429,11 @@ def validate_questions(data: object, packs: Mapping[str, Rulepack]) -> Questions
         for field, text in _texts(entry):
             if _HAN.search(text) and not (field.endswith("_zh") or field.endswith(".zh")):
                 raise DocsError(f"{where}: Chinese text in {field}")
+            # the pack and its rule IDs name the pack by design and are checked above
+            named = field == "rulepack" or field.startswith("rules.")
+            if not named and NORM_MENTION.search(text):
+                # own words only (A-55); a mention would also be an unreviewed line of the generated pages
+                raise DocsError(f"{where}: {field} names the norm or the pack (V-06)")
             scanned = text
             for phrase in allowed:
                 scanned = re.sub(re.escape(phrase), "", scanned, flags=re.IGNORECASE)
@@ -462,7 +483,11 @@ def questions_block(ctx: Context, env: Environment) -> str:
                 "effect": f"{effect} ({entry.changed_in})" if entry.changed_in else effect,
             }
         )
-    return env.get_template("questions.md.j2").render(L=labels, questions=rows)
+    block = env.get_template("questions.md.j2").render(L=labels, questions=rows)
+    for line in block.splitlines():
+        if NORM_CLAUSE.search(line):
+            raise DocsError(f"interpretation questions ({ctx.lang}): a line cites a clause number (V-06)")
+    return block
 
 
 def fill_blocks(text: str, ctx: Context, env: Environment) -> str:

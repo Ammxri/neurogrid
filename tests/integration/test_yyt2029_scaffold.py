@@ -25,12 +25,14 @@ from typing import Any
 import pypdf
 import pytest
 
+import gen_docs  # type: ignore[import-not-found]
 from conftest import documented_config  # type: ignore[import-not-found]
 from neurogrid import pipeline
 from neurogrid.cli import main
 from neurogrid.kernel import canonical
 from neurogrid.kernel.errors import RulepackError
 from neurogrid.kernel.findings import Light, Phase, Severity, SourceStatus, Status
+from neurogrid.kernel.rules import load_rulepack
 from neurogrid.model.results import Results
 from neurogrid.report import output
 from neurogrid.report.output import html_document, write_reports
@@ -240,6 +242,27 @@ def test_report_banner_with_builtin_placeholder(lang: str, runs: dict[tuple[str,
     without = render_report(runs[("edf_lowrate", False)], lang)
     assert passed in html and _after(html, passed) == _after(without, passed)
     assert tr("report.placeholder_banner") not in without
+
+
+@pytest.mark.parametrize("lang", ["en", "zh"])
+def test_report_source_has_no_clause_like_line(lang: str, runs: dict[tuple[str, bool], Results]) -> None:
+    """The cover names the pack with its source and then its version: on one source line that reads as a
+    clause number after the norm's name (V-06), so a report kept as an example or a golden would fail the
+    norm-independence test. The version cell has a line of its own."""
+    html = render_report(runs[("edf_lowrate", True)], lang)
+    hits = [line for line in html.splitlines() if gen_docs.NORM_CLAUSE.search(line)]
+    assert not hits, hits
+    entry = next(p for p in runs[("edf_lowrate", True)].rulepacks if p.name == PACK)
+    assert re.search(rf"<td>{re.escape(entry.version)}</td>", html)  # the version is still in the cover
+
+
+def test_rule_titles_are_the_published_check_title() -> None:
+    """A-92: the example rule carries the title of its check as published (checks.md, zh.yaml), so the
+    scaffold introduces no second term for the same check."""
+    pack = load_rulepack(_pack_bytes(), "builtin").pack
+    for rule in pack.rules:
+        for lang, title in (("zh", rule.title_zh), ("en", rule.title_en)):
+            assert title == translator(lang).t(f"check.{rule.check}"), (rule.id, lang, title)
 
 
 def _after(html: str, label: str) -> str:

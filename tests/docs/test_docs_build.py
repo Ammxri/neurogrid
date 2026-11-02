@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import docs_site  # type: ignore[import-not-found]
+import jinja2
 import pytest
 import yaml
 
@@ -120,6 +121,23 @@ def test_generator_documents_every_builtin_pack_and_marks_placeholders() -> None
         assert checks.count(labels["placeholder_suffix"]) == sum(len(p.rules) for p in placeholders)
 
 
+def test_placeholder_flag_is_documented_where_packs_are_chosen() -> None:
+    """RP-10, A-41: every place that loads rule packs (the --rulepack option, [check] rulepacks) says that a
+    placeholder pack needs --allow-draft-rulepacks and links the placeholder section."""
+    flag, link = "`--allow-draft-rulepacks`", "#placeholder)"
+    for lang in LANGUAGES:
+        commands = (DOCS / lang / "commands.md").read_text(encoding="utf-8")
+        (option,) = [
+            line for line in commands.splitlines() if line.startswith("| `--rulepack NAME_OR_PATH` |")
+        ]
+        configuration = (DOCS / lang / "configuration.md").read_text(encoding="utf-8")
+        check = configuration[configuration.index("{#check}") :]
+        (key,) = [line for line in check.splitlines() if line.startswith("| `rulepacks` |")]
+        for row in (option, key):
+            assert flag in row and f"rulepacks.md{link}" in row, (lang, row)
+        assert "{#placeholder}" in (DOCS / lang / "rulepacks.md").read_text(encoding="utf-8")
+
+
 # --- interpretation questions (RP-08 template, A-92) -------------------------------------------------------
 
 
@@ -223,6 +241,15 @@ def test_interpretation_question_block_renders_an_entry(
         ("asked_with_name", "asked.0.role"),
         ("asked_bad_date", "asked.0.date"),
         ("duplicate_id", "duplicate id"),
+        ("duplicate_rule", "duplicate rule id"),
+        ("ideograph_ext_b_in_en", "Chinese text in topic_en"),
+        ("compatibility_ideograph_in_en", "Chinese text in rationale_en"),
+        ("fullwidth_comma_in_en", "Chinese text in question_en"),
+        ("ideographic_full_stop_in_reading_en", "Chinese text in readings.0.en"),
+        ("norm_in_topic_en", "topic_en names the norm or the pack"),
+        ("pack_and_clause_in_topic_en", "topic_en names the norm or the pack"),
+        ("norm_in_question_zh", "question_zh names the norm or the pack"),
+        ("pack_in_reading_zh", "readings.1.zh names the norm or the pack"),
         ("bad_id", "questions.0.id"),
         ("extra_field", "questions.0.reviewer"),
         ("format_version", "format_version"),
@@ -263,6 +290,32 @@ def test_interpretation_questions_rejects(
         entries = [_entry(asked=[{"role": "Dr. Wang", "date": "2026-11-02"}])]
     elif case == "asked_bad_date":
         entries = [_entry(asked=[{"role": "regulator", "date": "02.11.2026"}])]
+    elif case == "duplicate_rule":
+        entries = [_entry(rules=[pack.rules[0].id, pack.rules[0].id])]
+    elif case == "ideograph_ext_b_in_en":
+        entries = [_entry(topic_en="Which recordings \U00020000 applies to")]
+    elif case == "compatibility_ideograph_in_en":
+        entries = [_entry(rationale_en="The stricter reading 豈 until the text is read.")]
+    elif case == "fullwidth_comma_in_en":
+        entries = [_entry(question_en="Every EEG channel， or the recording as a whole?")]
+    elif case == "ideographic_full_stop_in_reading_en":
+        readings = [
+            {"id": "a", "en": "every EEG channel。", "zh": "每个 EEG 通道"},
+            {"id": "b", "en": "the recording as a whole", "zh": "整条记录"},
+        ]
+        entries = [_entry(readings=readings)]
+    elif case == "norm_in_topic_en":
+        entries = [_entry(topic_en="What " + "YY/T " + "2029 means by the minimum rate")]
+    elif case == "pack_and_clause_in_topic_en":
+        entries = [_entry(topic_en=pack.rulepack + " " + "4.2" + " minimum rate")]
+    elif case == "norm_in_question_zh":
+        entries = [_entry(question_zh="YY/T" + "2029 中的最低采样率是否适用于每个通道？")]
+    elif case == "pack_in_reading_zh":
+        readings = [
+            {"id": "a", "en": "every EEG channel", "zh": "每个 EEG 通道"},
+            {"id": "b", "en": "the recording as a whole", "zh": pack.rulepack.upper() + " 的整条记录"},
+        ]
+        entries = [_entry(readings=readings)]
     elif case == "duplicate_id":
         entries = [_entry(), _entry()]
     elif case == "bad_id":
@@ -281,6 +334,36 @@ def test_interpretation_questions_rejects(
     path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
     monkeypatch.setattr(gen_docs, "QUESTIONS", path)
     assert gen_docs.main(["--check"]) == 2
+
+
+def test_interpretation_questions_accept_latin_typography_in_en() -> None:
+    """Negative of the script rule: dashes, typographic quotes, micro sign and comparison signs are no
+    Chinese; the rule IDs and the pack name may name the pack (only the texts may not)."""
+    text = "Does “minimum” mean ≥ 500 Hz – for every channel (µV scale)?"
+    parsed = gen_docs.validate_questions(
+        {"format_version": 1, "questions": [_entry(question_en=text)]}, _builtin()
+    )
+    entry = parsed.questions[0]
+    assert entry.question_en == text and gen_docs.NORM_MENTION.search(entry.rules[0] + entry.rulepack)
+
+
+def test_interpretation_question_block_refuses_a_clause_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No generated line names the pack with a dotted number after it (V-06), whatever the template puts on
+    one line: here the pack and the version of the change."""
+    path = tmp_path / "interpretation_questions.yaml"
+    entry = _entry(effect="params", changed_in="0.3.0")
+    path.write_text(yaml.safe_dump({"format_version": 1, "questions": [entry]}), encoding="utf-8")
+    monkeypatch.setattr(gen_docs, "QUESTIONS", path)
+    one_line = "{% for q in questions %}{{ q.rulepack }}: {{ q.effect }}\n{% endfor %}"
+    env = gen_docs.environment()
+    env.loader = jinja2.DictLoader({"questions.md.j2": one_line})
+    with pytest.raises(gen_docs.DocsError, match="cites a clause number"):
+        gen_docs.questions_block(gen_docs.context("en"), env)
+    # the shipped template keeps the pack and the version in rows of their own
+    block = gen_docs.questions_block(gen_docs.context("en"), gen_docs.environment())
+    assert "(0.3.0)" in block and not any(gen_docs.NORM_CLAUSE.search(line) for line in block.splitlines())
 
 
 def test_interpretation_questions_accept_a_clause_for_an_inventory_pack() -> None:

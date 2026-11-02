@@ -91,6 +91,11 @@ KNOWN = {
     ("src/neurogrid/rulepacks/yyt2029.yaml", 'source: "YY/T 2029-2026, norm text not read"'),
     ("src/neurogrid/rulepacks/yyt2029.yaml", "- id: YYT2029-ACQ-001"),
     ("tools/gen_docs.py", 'PACKS = ("core", "bids", "gxdsl008", "yyt2029")'),
+    # the generator's copy of CLAUSE for the interpretation questions (test_generator_guard_is_this_guard)
+    (
+        "tools/gen_docs.py",
+        r'NORM_CLAUSE = re.compile(r"(?i)(?:YY\s*/?\s*T\s*2029|yyt2029)[^\n]{0,40}?\b\d+(?:\.\d+)+")',
+    ),
     # the generated reference pages: pack heading, source row, rule heading and the check's rule column
     ("docs/en/reference/rules.md", "## Rule pack yyt2029 {#pack-yyt2029}"),
     ("docs/en/reference/rules.md", "| Source | YY/T 2029-2026, norm text not read |"),
@@ -179,10 +184,10 @@ def test_yyt2029_mentions_are_known() -> None:
     mentions = _mentions()
     assert mentions, "the documentation states the independence (V-06)"
     unknown = [(name, line) for name, line in mentions if name != THIS and (name, line) not in KNOWN]
-    assert not unknown, unknown
+    assert not unknown, ("new or changed lines naming the norm: review each, then list it in KNOWN", unknown)
     # every reviewed line still exists: a changed or removed one leaves no stale entry behind
     stale = sorted(KNOWN - set(mentions))
-    assert not stale, stale
+    assert not stale, ("KNOWN lines no longer in the repository: remove or update the entry", stale)
     stated = {name for name, line in mentions if STATEMENT_EN in line or STATEMENT_ZH in line}
     pages = ("index", "limitations", "rulepacks")
     assert {f"docs/{lang}/{page}.md" for lang in ("en", "zh") for page in pages} <= stated
@@ -191,6 +196,15 @@ def test_yyt2029_mentions_are_known() -> None:
 def test_no_yyt2029_clause_numbers() -> None:
     hits = [(name, line) for name, line in _mentions() if name != THIS and CLAUSE.search(line)]
     assert not hits, hits
+
+
+def test_generator_guard_is_this_guard() -> None:
+    """tools/gen_docs.py refuses interpretation questions that name the norm and generated lines with a
+    clause number (A-92); its patterns are the ones of this file."""
+    import gen_docs  # type: ignore[import-not-found]  # tools/ is on sys.path (tests/conftest.py)
+
+    assert gen_docs.NORM_MENTION.pattern == MENTION.pattern
+    assert gen_docs.NORM_CLAUSE.pattern == CLAUSE.pattern
 
 
 @pytest.mark.parametrize(

@@ -24,7 +24,7 @@ dataset is shown as "unnamed"; the folder name is never used, it could be identi
 
 | Key | Meaning |
 |---|---|
-| `rulepacks` | Rule packs to load (names or relative paths); replaces the default `core`, so list `core` as well. `--rulepack` adds more. An empty list is invalid. |
+| `rulepacks` | Rule packs to load (names or relative paths); replaces the default `core`, so list `core` as well. `--rulepack` adds more. An empty list is invalid. A placeholder pack listed here loads only with `--allow-draft-rulepacks`, otherwise the run ends with exit code 2 ([Placeholder packs](rulepacks.md#placeholder)). |
 | `strict` | Strict mode like `--strict` (default `false`). |
 | `seed` | Seed of the sampled metrics (default 20261011, 0 to 2^63−1). |
 | `as_of` | Reference date `YYYY-MM-DD` (default: today); `--as-of` wins. |
