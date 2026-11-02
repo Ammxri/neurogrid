@@ -171,10 +171,13 @@ fixed sentence.
 `neurogrid vault init [PATH] [--config FILE]`
 
 Creates the missing parts of the vault: the folders of the vault path, `consents.yaml` (no consent records yet),
-an empty access log `access.jsonl` and its lock file `access.jsonl.lock`. Existing parts are kept byte for
-byte, so the command can run again at any time; it records no access event (the chain starts at the genesis
-hash). Run `neurogrid manifest` again afterwards: `consents.yaml` is part of the manifest, the access log and
-its lock file are not.
+an empty access log `access.jsonl` and its lock file `access.jsonl.lock`, the role register `roles.yaml`, the
+risk register `risks.yaml` and the retention periods `retention.yaml` (each empty, with a commented example) and
+the drafts of the impact assessment `pia/pia.zh.md` and `pia/pia.en.md` ([NeuroVault](vault.md#folder)).
+Existing parts are kept byte for byte, so the command can run again at any time, also on a vault of version 0.2,
+which gets only the new parts; it records no access event (the chain starts at the genesis hash). Run
+`neurogrid manifest` again afterwards: `consents.yaml`, the registers and the PIA files are part of the manifest,
+the access log and its lock file are not.
 
 | Argument / option | Meaning |
 |---|---|
@@ -239,6 +242,13 @@ end with exit code 2, `report` without `--config`, `vault init`, `vault log --sh
 event that cannot be written is a warning and never changes the exit code; for `convert`, `scan`, `manifest`
 and `verify` a link in the vault path is such a warning, for `check`, `report --config` and the vault commands
 it is exit code 2.
+
+`check`, `convert`, `report --config`, `vault log` and `vault consent add` compare their own access with the role
+register `roles.yaml` when they start ([NeuroVault](vault.md#roles)): when the register does not permit it (an
+unknown role, an action or an object the role does not have), or when `roles.yaml` cannot be read, they warn and
+record the event anyway; the exit code does not change. Only `check` ends with exit code 2 for an invalid
+`roles.yaml`, which CORE-NV04-01 reads. Without a register, with `roles: []` and for `scan`, `manifest` and
+`verify`, which record no role, nothing is compared.
 
 ### vault consent add {#vault-consent-add}
 

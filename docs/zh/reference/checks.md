@@ -243,6 +243,16 @@
 | 测量对象 | 每条记录及每个必填字段 |
 | 内置规则 | [CORE-M02-01](rules.md#CORE-M02-01) |
 
+## pia.edited {#pia.edited}
+
+| | |
+|---|---|
+| 名称 | 个人信息保护影响评估已填写 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 数据集：其 vault 中的个人信息保护影响评估（pia/pia.zh.md、pia/pia.en.md） |
+| 内置规则 | [CORE-NV05-02](rules.md#CORE-NV05-02) |
+
 ## provenance.documented {#provenance.documented}
 
 | | |
@@ -352,6 +362,36 @@
 | 通过条件 | 测量值 ≤ `max_fraction` |
 | 测量对象 | 每条记录（抽样） |
 | 内置规则 | [CORE-M09-02](rules.md#CORE-M09-02) |
+
+## retention.complete {#retention.complete}
+
+| | |
+|---|---|
+| 名称 | 已记录 vault 文件的保存期限 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | retention.yaml 中每个必需（pia、access_log）或已列出的对象；没有 retention.yaml 时为数据集 |
+| 内置规则 | [CORE-NV05-01](rules.md#CORE-NV05-01) |
+
+## retention.ending {#retention.ending}
+
+| | |
+|---|---|
+| 名称 | 最低保存期限结束前的提醒 |
+| 参数 | `days`（integer，默认 90） |
+| 通过条件 | 最低保存期限在基准日期之后超过 `days` 天才结束，且尚未到复核日期（中立的提醒，A-30） |
+| 测量对象 | retention.yaml 中列出的每个对象 |
+| 内置规则 | [CORE-NV05-03](rules.md#CORE-NV05-03) |
+
+## roles.permitted {#roles.permitted}
+
+| | |
+|---|---|
+| 名称 | 访问在角色登记册允许的范围内 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 基准日期前一天之前的访问事件中的每个角色和操作 |
+| 内置规则 | [CORE-NV04-01](rules.md#CORE-NV04-01) |
 
 ## signal.sampling_rate_consistency {#signal.sampling_rate_consistency}
 

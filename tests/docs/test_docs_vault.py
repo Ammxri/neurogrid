@@ -13,9 +13,12 @@ from pathlib import Path
 import pytest
 
 from neurogrid.model.access import AccessEvent
+from neurogrid.model.retention import RetentionItem, parse_retention
+from neurogrid.model.risks import Risk, parse_risks
+from neurogrid.model.roles import Role, parse_roles
 from neurogrid.vault import ledger
 from neurogrid.vault.lock import LOCK_TIMEOUT_S
-from neurogrid.vault.store import init_vault, locate
+from neurogrid.vault.store import RETENTION_TEMPLATE, RISKS_TEMPLATE, ROLES_TEMPLATE, init_vault, locate
 
 DOCS = Path(__file__).resolve().parents[2] / "docs"
 LANGUAGES = ("en", "zh")
@@ -131,3 +134,44 @@ def test_vault_pages_state_the_lock_timeout_and_the_limits(lang: str) -> None:
         assert "--expect-head" in _page(lang, page), page
     limits = _page(lang, "limitations.md").split("{#neurovault}", 1)[1]
     assert "--expect-head" in limits and "`.neurogrid/vault`" in limits and "--config" in limits
+
+
+# --- the registers (P9, A-93 to A-95) ----------------------------------------------------------------------
+
+REGISTER_EXAMPLES = {
+    "roles-yaml": (parse_roles, ROLES_TEMPLATE, "roles"),
+    "retention-yaml": (parse_retention, RETENTION_TEMPLATE, "objects"),
+    "risks-yaml": (parse_risks, RISKS_TEMPLATE, "risks"),
+}
+
+
+def _commented_example(template: bytes, list_key: str) -> str:
+    """The example of a template of vault init, without '# ' and without the line '<list_key>: []'."""
+    lines = template.decode("utf-8").splitlines()
+    start = lines.index(f"# {list_key}:")
+    example = [line[2:] for line in lines[start:] if line.startswith("# ")]
+    return "format_version: 1\n" + "\n".join(example)
+
+
+@pytest.mark.parametrize("tag", REGISTER_EXAMPLES)
+def test_register_examples_are_the_templates_examples_and_parse(tag: str) -> None:
+    """The examples of vault.md (both languages) are the commented examples of the templates that vault init
+    writes, and the readers accept them (C2)."""
+    parse, template, list_key = REGISTER_EXAMPLES[tag]
+    examples = {lang: _tagged(_page(lang, "vault.md"), tag, "yaml") for lang in LANGUAGES}
+    assert examples["en"] == examples["zh"] and len(examples["en"]) == 1
+    assert examples["en"][0] == _commented_example(template, list_key)
+    assert parse(examples["en"][0].encode("utf-8")).entries
+
+
+@pytest.mark.parametrize("lang", LANGUAGES)
+def test_vault_page_names_every_register_field_and_the_limits(lang: str) -> None:
+    text = _page(lang, "vault.md")
+    for anchor, model in (("{#roles}", Role), ("{#retention}", RetentionItem), ("{#risks}", Risk)):
+        section = text.split(anchor, 1)[1].split("\n## ", 1)[0]
+        assert all(f"| `{name}` |" in section for name in model.model_fields), (lang, anchor)
+    for limit in ("1,000,000", "100,000", "200", "1,000"):
+        assert limit in text, (lang, limit)
+    assert "{#pia}" in text and "pia/pia.zh.md" in text and "pia/pia.en.md" in text
+    folder = text.split("{#folder}", 1)[1].split("\n## ", 1)[0]
+    assert all(f"`{name}`" in folder for name in ("roles.yaml", "risks.yaml", "retention.yaml"))

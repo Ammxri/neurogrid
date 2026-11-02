@@ -79,6 +79,12 @@ cli:
     differs: "Der Datensatz weicht vom Manifest ab."
   vault:
     role_looks_identifying: "Hinweis: Die Rolle sieht wie ein Personenname oder eine Kennnummer aus. Verwenden Sie eine Rollenbezeichnung oder ein Kürzel; das Zugriffsprotokoll speichert sie wie angegeben."
+    role_not_permitted: "Hinweis: Das Rollenregister roles.yaml erlaubt diesen Zugriff nicht ({reason}); das Zugriffsereignis wird trotzdem aufgezeichnet. Das Register ist beratend: NeuroGrid verweigert deshalb nichts."
+    role_reason:
+      role_unknown: "die Rolle steht nicht im Register"
+      action_not_allowed: "die Rolle darf diese Aktion nicht ausführen"
+      object_not_allowed: "ein Objekt ist von den Objektmustern der Rolle nicht abgedeckt"
+    roles_invalid: "Hinweis: Das Rollenregister roles.yaml kann nicht gelesen werden, daher wurde dieser Zugriff nicht damit verglichen ('neurogrid check' nennt das Problem); das Zugriffsereignis wird trotzdem aufgezeichnet."
     consent:
       added: "Einwilligung erfasst: {subject}, Version {version}."
       imported: "Einwilligungen importiert: {count}."
@@ -98,6 +104,7 @@ cli:
       created: "Angelegt: {name}"
       kept: "Unverändert behalten: {name}"
       manifest_hint: "consents.yaml, roles.yaml, risks.yaml, retention.yaml und die Folgenabschätzung pia/pia.zh.md und pia/pia.en.md gehören zum Manifest: Führen Sie 'neurogrid manifest' erneut aus, damit 'neurogrid verify' sie erfasst. Zugriffsprotokoll und Sperrdatei bleiben außerhalb des Manifests."
+      templates_hint: "roles.yaml, risks.yaml und retention.yaml sind leere Register mit einem auskommentierten Beispiel; pia/pia.zh.md und pia/pia.en.md sind Entwürfe der Folgenabschätzung. Füllen Sie sie aus (NeuroVault-Seite der Dokumentation); bis dahin melden CORE-NV05-01 und CORE-NV05-02 Befunde."
     log:
       written: "Zugriffsereignis {seq} protokolliert, Hash {hash}"
       identifying: "Hinweis: Ein Objekt, der Zweck oder die Genehmigungsreferenz sieht wie ein Personenname oder eine Kennnummer aus; das Zugriffsprotokoll speichert sie wie angegeben. Verwenden Sie pseudonyme IDs und Referenzen ohne personenbezogene Daten."
@@ -459,6 +466,9 @@ notice:
   consents_without_recording: "{count} Proband(en) der Einwilligungen haben keine Signalaufnahme im Datensatz."
   consent_refs_look_identifying: "{count} Referenz(en) eines Ethikvotums in den Einwilligungen können Personen erkennbar machen (ein Name, Buchstaben außerhalb von ASCII oder sechs oder mehr Ziffern in Folge); die Werte werden nicht gezeigt."
   consents_outside_dataset: "Der Vault mit den Einwilligungen liegt außerhalb des Datensatzes; ein Manifest des Datensatzes erfasst consents.yaml nicht."
+  roles_without_ethics_ref: "{count} Rolle(n) des Rollenregisters nennen keine Referenz eines Ethikvotums (ethics_approval_ref)."
+  registers_look_identifying: "{count} Beschreibung(en) oder Referenz(en) eines Ethikvotums in den Registern des Vaults (roles.yaml, risks.yaml) können Personen erkennbar machen (ein Name, Buchstaben außerhalb von ASCII oder sechs oder mehr Ziffern in Folge); die Werte werden nicht gezeigt."
+  retention_reminder: "Erinnerung: Für {count} Objekt(e) in retention.yaml endet die Mindestaufbewahrung bald oder ist beendet, oder das Prüfdatum ist erreicht (CORE-NV05-03). Entscheiden Sie über Weiteraufbewahrung oder Löschung nach eigener Rechtsprüfung."
 
 severity:
   error: "Fehler"
@@ -622,6 +632,28 @@ reason:
     log_missing: "Der Vault hat kein Zugriffsprotokoll access.jsonl; NeuroGrid legt es nie stillschweigend neu an."
     chain_broken: "Die Hash-Kette des Zugriffsprotokolls ist unterbrochen ('neurogrid vault verify' listet jede Abweichung)."
     not_writable: "Das Zugriffsprotokoll kann nicht geschrieben werden (schreibgeschützter Vault); Zugriffe werden nicht protokolliert."
+  roles:
+    no_register: "Der Vault hat kein Rollenregister roles.yaml (angelegt von 'neurogrid vault init')."
+    empty: "Das Rollenregister roles.yaml nennt keine Rolle."
+    no_events: "Das Zugriffsprotokoll enthält kein Ereignis vor dem Vortag des Stichtags."
+    role_missing: "Ereignisse ohne Rolle (scan, manifest und verify zeichnen keine auf): Sie können nicht mit dem Rollenregister verglichen werden."
+    role_unknown: "Ein Ereignis nennt eine Rolle, die nicht im Rollenregister steht."
+    action_not_allowed: "Ein Ereignis nennt eine Aktion, die die Rolle nicht ausführen darf."
+    object_not_allowed: "Ein Ereignis nennt ein Objekt, das kein Objektmuster der Rolle abdeckt."
+  retention:
+    no_file: "Der Vault hat keine retention.yaml (angelegt von 'neurogrid vault init')."
+    entry_missing: "retention.yaml hat keinen Eintrag für dieses Objekt."
+    object_missing: "Die Datei dieses Objekts fehlt im Vault."
+    log_truncated: "Das Zugriffsprotokoll beginnt nicht beim Genesis-Hash: Einträge am Anfang wurden entfernt."
+    ending: "Die Mindestaufbewahrung dieses Objekts endet bald. Entscheiden Sie über Weiteraufbewahrung oder Löschung nach eigener Rechtsprüfung."
+    ended: "Die Mindestaufbewahrung dieses Objekts ist beendet. Entscheiden Sie über Weiteraufbewahrung oder Löschung nach eigener Rechtsprüfung."
+    review_due: "Das Prüfdatum dieses Objekts ist erreicht."
+    no_entries: "retention.yaml nennt kein Objekt (eine fehlende Datei meldet CORE-NV05-01)."
+  pia:
+    missing: "Der Vault enthält keine Folgenabschätzung (pia/pia.zh.md, pia/pia.en.md; angelegt von 'neurogrid vault init')."
+    template_unedited: "Die Folgenabschätzung ist die unbearbeitete Vorlage."
+    fields_open: "Die Folgenabschätzung enthält noch auszufüllende Felder."
+    unreadable: "Die Folgenabschätzung kann nicht gelesen werden (oder eine Datei ist größer als 4.000.000 Bytes)."
 
 issue:
   header:
@@ -721,12 +753,32 @@ check:
   access:
     log_intact: "Hash-Kette des Zugriffsprotokolls intakt"
     log_writable: "Zugriffsprotokoll beschreibbar"
+  roles:
+    permitted: "Zugriffe im Rollenregister erlaubt"
+  retention:
+    complete: "Aufbewahrungsfristen der Vault-Dateien erfasst"
+    ending: "Erinnerung vor dem Ende einer Mindestaufbewahrung"
+  pia:
+    edited: "Folgenabschätzung ausgefüllt"
 
 report:
   access:
     first_line: "Erste Abweichung: Zeile {line}."
     kind: "Art: {kind}."
     deviations: "Abweichungen insgesamt: {count}."
+  roles:
+    role: "Rolle: {role}."
+    action: "Aktion: {action}."
+    events: "Nicht erlaubte Ereignisse: {count}."
+    events_without_role: "Ereignisse ohne Rolle: {count}."
+    first_line: "Erstes solches Ereignis: Zeile {line} des Zugriffsprotokolls."
+  retention:
+    object: "Objekt: {object}."
+    min_until: "Mindestens aufbewahrt bis {date}."
+    review_at: "Prüfdatum: {date}."
+  pia:
+    files: "Dateien: {count}."
+    open_fields: "Noch auszufüllende Felder: {count}."
   ai:
     share: "{count} von {total} ({unit})"
     unit_events: "Ereignisse"
@@ -1035,3 +1087,16 @@ terms:
     insert: "eingefügt"
     delete: "gelöscht"
     reorder: "umsortiert"
+  access_action:
+    read: "Lesen"
+    check: "Prüfen"
+    convert: "Konvertieren"
+    report: "Bericht"
+    export: "Export"
+    consent_manage: "Einwilligungen verwalten"
+  retention_object:
+    pia: "Folgenabschätzung (pia/)"
+    access_log: "Zugriffsprotokoll (access.jsonl)"
+    roles: "Rollenregister (roles.yaml)"
+    risks: "Risikoregister (risks.yaml)"
+    consents: "Einwilligungen (consents.yaml)"

@@ -243,6 +243,16 @@ Every check a rule pack may name in `check`, generated from the registry of this
 | Measured on | each recording and required field |
 | Built-in rules | [CORE-M02-01](rules.md#CORE-M02-01) |
 
+## pia.edited {#pia.edited}
+
+| | |
+|---|---|
+| Title | Impact assessment filled in |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the dataset: the impact assessment of its vault (pia/pia.zh.md, pia/pia.en.md) |
+| Built-in rules | [CORE-NV05-02](rules.md#CORE-NV05-02) |
+
 ## provenance.documented {#provenance.documented}
 
 | | |
@@ -352,6 +362,36 @@ Every check a rule pack may name in `check`, generated from the registry of this
 | Passes when | measured value ≤ `max_fraction` |
 | Measured on | each recording (sample) |
 | Built-in rules | [CORE-M09-02](rules.md#CORE-M09-02) |
+
+## retention.complete {#retention.complete}
+
+| | |
+|---|---|
+| Title | Retention periods recorded for the vault files |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each object of retention.yaml that is required (pia, access_log) or listed; the dataset without retention.yaml |
+| Built-in rules | [CORE-NV05-01](rules.md#CORE-NV05-01) |
+
+## retention.ending {#retention.ending}
+
+| | |
+|---|---|
+| Title | Reminder before a minimum retention ends |
+| Parameters | `days` (integer, default 90) |
+| Passes when | the minimum retention ends more than `days` days after the reference date and the review date is not reached (a neutral reminder, A-30) |
+| Measured on | each object listed in retention.yaml |
+| Built-in rules | [CORE-NV05-03](rules.md#CORE-NV05-03) |
+
+## roles.permitted {#roles.permitted}
+
+| | |
+|---|---|
+| Title | Accesses permitted by the role register |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each role and action of the access events before the day before the reference date |
+| Built-in rules | [CORE-NV04-01](rules.md#CORE-NV04-01) |
 
 ## signal.sampling_rate_consistency {#signal.sampling_rate_consistency}
 

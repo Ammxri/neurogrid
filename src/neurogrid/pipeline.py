@@ -28,11 +28,13 @@ from typing import TYPE_CHECKING, Any
 
 import neurogrid
 from neurogrid import config as config_module
+from neurogrid.checks import access as access_checks
 from neurogrid.checks import ai_dataset
 from neurogrid.checks import annotation as annotation_checks
 from neurogrid.checks import consent as consent_checks
 from neurogrid.checks import evidence as evidence_module
 from neurogrid.checks import provenance as provenance_checks
+from neurogrid.checks import retention as retention_checks
 from neurogrid.checks.context import CheckContext
 from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
@@ -483,6 +485,8 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         notices.append(Notice(level=Severity.WARNING, message_key="notice.output_inside_dataset"))
     notices.extend(annotation_checks.notices(ctx))  # M10: files and rows that could not be used (A-80)
     notices.extend(consent_checks.notices(ctx, check_ids))  # M14: counts only (A-51)
+    notices.extend(access_checks.notices(ctx, check_ids))  # the registers: counts only (A-51, A-93)
+    notices.extend(retention_checks.notices(result.findings))  # NV05-03: the reminder on the console (A-94)
     exceptions = [
         use.model_copy(
             update={
@@ -1086,6 +1090,9 @@ class PendingAccess:
     approval_ref: str | None
     action: str
     objects: tuple[str, ...] = DATASET_OBJECTS
+    # the event compared with the role register at the start of the run (A-93): a vault.roles.Permission or
+    # vault.roles.ROLES_INVALID; None when not compared (read events without a role, a vault not present)
+    permission: str | None = None
 
     def commit(self, now: Callable[[], datetime] = ledger.utc_now) -> ledger.AppendOutcome:
         return ledger.append(
@@ -1102,6 +1109,13 @@ class PendingAccess:
     @property
     def role_looks_identifying(self) -> bool:
         return self.role is not None and role_looks_identifying(self.role)
+
+    @property
+    def role_warning(self) -> str | None:
+        """What the command warns about the role register (cli.vault.role_not_permitted {reason},
+        cli.vault.roles_invalid; KONZEPT 2.8): a permission of vault.roles.NOT_PERMITTED or ROLES_INVALID;
+        None (silent) without a register, with an empty one or for a permitted access."""
+        return vault_roles.role_warning(self.permission)
 
 
 def _run_vault(project_root: Path, cfg: Config) -> VaultLocation:
@@ -1123,7 +1137,12 @@ def _pending(location: VaultLocation, cfg: Config, role: str | None, action: str
     ledger.check_fields(
         role=role, action=action, objects=DATASET_OBJECTS, purpose=purpose, approval_ref=approval_ref
     )
-    return PendingAccess(location, role, purpose, approval_ref, action)
+    # compared with the role register now, at the start of the run (A-93): the warning describes the
+    # register as it was when the access began; a vault that is not present gets no event anyway
+    permission = None
+    if location.state == "present":
+        permission = vault_roles.permission_at(location, role, action, DATASET_OBJECTS)
+    return PendingAccess(location, role, purpose, approval_ref, action, permission=permission)
 
 
 def read_access(raw_target: str | Path) -> PendingAccess | None:
@@ -1283,6 +1302,8 @@ class VaultLogRun:
     event: AccessEvent
     identifying: bool  # an object, the purpose or the approval reference looks like a name or an ID
     role_identifying: bool  # the role does
+    # the role register does not permit the event, or cannot be read (vault.roles.role_warning; A-93)
+    role_warning: str | None = None
 
 
 def run_vault_log(
@@ -1298,7 +1319,8 @@ def run_vault_log(
     """``vault log`` (CLI-08, A-31): append one manual event. Role = --role > [vault] role, purpose =
     --purpose > [vault] purpose (both required: errors.vault.role_missing, .purpose_missing), approval
     reference = --approval-ref > [vault] approval_ref > none. Every refusal and every event that cannot be
-    written is exit 2 (errors.vault.*); nothing is written then."""
+    written is exit 2 (errors.vault.*); nothing is written then. An event the role register does not permit,
+    or a register that cannot be read, is written anyway and only warned about (A-93)."""
     target = vault_target(raw_path, config_path)
     vault_store.require_present(target.location)
     section = target.config.vault
@@ -1315,6 +1337,8 @@ def run_vault_log(
         _stored_object(target.root, item, index, plain=target.is_bids)
         for index, item in enumerate(objects, start=1)
     ]
+    # the objects as the log records them (pseudonymous in raw folders) are compared with the register
+    permission = vault_roles.permission_at(target.location, role, action, stored)
     outcome = ledger.append(
         target.location,
         role=role,
@@ -1331,6 +1355,7 @@ def run_vault_log(
         outcome.event,
         identifying=any(looks_identifying(text) for text in texts),
         role_identifying=role_looks_identifying(role),
+        role_warning=vault_roles.role_warning(permission),
     )
 
 

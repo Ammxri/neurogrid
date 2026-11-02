@@ -230,6 +230,28 @@ def test_vault_supplies_registered_checks() -> None:
     assert all(f"check: {check_id}\n" in core for check_id in VAULT_CHECKS)
 
 
+# The checks of the P9 registers (A-93, A-94): CORE-NV04-01 in checks/access.py, CORE-NV05-01..03 in
+# checks/retention.py; they read the role register, the retention periods, the impact assessment and the start
+# of the access log through neurogrid.vault (ARC-01).
+REGISTER_CHECKS = ("roles.permitted", "retention.complete", "pia.edited", "retention.ending")
+
+
+def test_vault_supplies_the_register_checks() -> None:
+    from neurogrid.checks.registry import MEASURERS, REGISTRY
+
+    for check_id in REGISTER_CHECKS:
+        assert check_id in REGISTRY and check_id in MEASURERS, check_id
+    names = _imports(SRC / "checks" / "retention.py")
+    assert {"neurogrid.vault.retention", "neurogrid.vault.pia", "neurogrid.vault.ledger"} <= names
+    allowed = ("neurogrid.kernel", "neurogrid.model", "neurogrid.vault", "neurogrid.checks")
+    assert not _outside(names, allowed), _outside(names, allowed)
+    assert "neurogrid.vault.roles" in _imports(SRC / "checks" / "access.py")
+    for module in ("roles.py", "pia.py", "retention.py"):
+        assert not _outside(_imports(SRC / "vault" / module), VAULT_ALLOWED), module
+    core = (SRC / "rulepacks" / "core.yaml").read_text(encoding="utf-8")
+    assert all(f"check: {check_id}\n" in core for check_id in REGISTER_CHECKS)
+
+
 def _aliases(tree: ast.AST) -> dict[str, str]:
     """Local name -> imported dotted name, for ``import x as y`` and ``from x import y [as z]``."""
     found: dict[str, str] = {}

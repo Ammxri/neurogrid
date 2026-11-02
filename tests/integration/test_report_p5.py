@@ -242,11 +242,12 @@ def test_coverage_note_when_na(rich: Results, lang: str) -> None:
 
 def test_access_phase_is_grey_without_rules(quality: Results) -> None:
     """No access rule is evaluated: the light is grey, shown with its text (A-16). Since P6 core has the
-    access log rules CORE-NV03-01/02 (A-90) and CORE-M14-01 (A-91); without a vault the first two are not
-    checkable, and without a split no use needs consent, so nothing in the access phase is evaluated, as
-    before P6."""
+    access log rules CORE-NV03-01/02 (A-90) and CORE-M14-01 (A-91), since P9 the register rules CORE-NV04-01
+    and CORE-NV05-01..03 (A-93, A-94); without a vault the vault rules are not checkable, and without a split
+    no use needs consent, so nothing in the access phase is evaluated, as before P6."""
     access = {rule.id for rule in quality.rules if rule.phase is Phase.ACCESS}
-    assert access == {"CORE-M14-01", "CORE-NV03-01", "CORE-NV03-02"}
+    vault_rules = {"CORE-NV04-01", "CORE-NV05-01", "CORE-NV05-02", "CORE-NV05-03"}
+    assert access == {"CORE-M14-01", "CORE-NV03-01", "CORE-NV03-02", *vault_rules}
     findings = [f for f in quality.findings if f.rule_id in access]
     assert {f.rule_id for f in findings} == access
     assert {f.status for f in findings if f.rule_id != "CORE-M14-01"} == {Status.NOT_CHECKABLE}

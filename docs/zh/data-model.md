@@ -147,6 +147,22 @@ weitergabe → `sharing`，kommerziell → `commercial`。
 补充字段：`format_version`、`seq`（在哈希链中的位置）和 `tool_version`。事件中不含用户名、计算机名、进程 ID 和
 绝对路径（[字段和对象命名空间](vault.md#fields)）。
 
+## Role 与 RetentionItem
+
+这两个对象属于 NeuroVault，在 1.0 版中加入（[NeuroVault](vault.md)）。规格要求提供附有伦理审批编号的角色登记册，
+以及至少三年的保存期限；字段由 NeuroGrid 规定。
+
+### Role {#role}
+
+角色登记册 `roles.yaml` 中的一个条目（[NeuroVault](vault.md#roles)）；JSON 模式为
+[`roles.schema.json`](../schemas/roles.schema.json)。字段：`role`、`description`、`actions`（访问事件的操作）、
+`objects`（路径和模式，与事件的对象相同）、`ethics_approval_ref`（伦理审批编号）。
+
+### RetentionItem {#retention-item}
+
+`retention.yaml` 中的一个条目（[NeuroVault](vault.md#retention)）；JSON 模式为
+[`retention.schema.json`](../schemas/retention.schema.json)。字段：`object`、`created`、`min_until`、`review_at`。
+
 ## Results（结果）
 
 `results.json` 包含上述对象以及本次运行的上下文：规则包和规则、生效配置、各记录及其指标和抽样、检查结果

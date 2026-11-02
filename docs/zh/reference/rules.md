@@ -11,7 +11,7 @@
 | 来源 | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | 来源状态 | 正式 |
 | 对应标准（计算覆盖率） | 否 |
-| SHA-256 | `401894f1fe40ec6436b1025ac9b9b2a3f2d98379abf79b5d48afbe90f4bf6041` |
+| SHA-256 | `ea07895be3486850e4339cab1a11dc2c94f0204a25d04ea3939b1f454f0ce1a8` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -453,6 +453,58 @@
 | 参数 | – |
 | 严重程度 | 警告 |
 | 使用 --strict 时的严重程度 | 警告 |
+| 核验方式 | 自动 |
+
+### CORE-NV04-01 {#CORE-NV04-01}
+
+| | |
+|---|---|
+| 名称 | 访问在角色登记册允许的范围内 |
+| 条款 | [NV04](../metrics.md#NV04) |
+| 阶段 | 访问 |
+| 检查项 | [roles.permitted](checks.md#roles.permitted) |
+| 参数 | – |
+| 严重程度 | 警告 |
+| 使用 --strict 时的严重程度 | 警告 |
+| 核验方式 | 自动 |
+
+### CORE-NV05-01 {#CORE-NV05-01}
+
+| | |
+|---|---|
+| 名称 | 已记录 vault 文件的保存期限 |
+| 条款 | [NV05](../metrics.md#NV05) |
+| 阶段 | 访问 |
+| 检查项 | [retention.complete](checks.md#retention.complete) |
+| 参数 | – |
+| 严重程度 | 警告 |
+| 使用 --strict 时的严重程度 | 警告 |
+| 核验方式 | 自动 |
+
+### CORE-NV05-02 {#CORE-NV05-02}
+
+| | |
+|---|---|
+| 名称 | 个人信息保护影响评估已填写 |
+| 条款 | [NV05](../metrics.md#NV05) |
+| 阶段 | 访问 |
+| 检查项 | [pia.edited](checks.md#pia.edited) |
+| 参数 | – |
+| 严重程度 | 警告 |
+| 使用 --strict 时的严重程度 | 警告 |
+| 核验方式 | 自动 |
+
+### CORE-NV05-03 {#CORE-NV05-03}
+
+| | |
+|---|---|
+| 名称 | 最低保存期限结束前的提醒 |
+| 条款 | [NV05](../metrics.md#NV05) |
+| 阶段 | 访问 |
+| 检查项 | [retention.ending](checks.md#retention.ending) |
+| 参数 | `days` = 90（规则包） |
+| 严重程度 | 提示 |
+| 使用 --strict 时的严重程度 | 提示 |
 | 核验方式 | 自动 |
 
 ### CORE-M10-01 {#CORE-M10-01}

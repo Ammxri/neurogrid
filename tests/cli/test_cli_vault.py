@@ -901,3 +901,77 @@ def test_vault_flow_git_bash_chinese_path(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
     _flow_result(folder, codes)
+
+
+# --- the role register in the commands (NV-F04, KONZEPT 2.8 "Ein Befehl warnt"; A-93) ----------------------
+
+QA_READS = (
+    b"format_version: 1\nroles:\n  - {role: QA, description: Reviews, actions: [read], objects: ['**']}\n"
+)
+CONSENT = ["--subject", "01", "--version", "1", "--date", "2026-03-01", "--uses", "training"]
+
+
+def _not_permitted(reason: str) -> str:
+    return _t("cli.vault.role_not_permitted", reason=_t(f"cli.vault.role_reason.{reason}"))
+
+
+def test_vault_init_names_the_templates_to_fill_in(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    folder = _folder(tmp_path)
+    code, out, _ = run(["--lang", "en", "vault", "init", str(folder)], capsys)
+    assert code == 0 and _t("cli.vault.init.templates_hint") in out
+    code, out, _ = run(["--lang", "en", "vault", "init", str(folder)], capsys)
+    assert code == 0 and _t("cli.vault.init.templates_hint") not in out  # nothing new was created
+
+
+def test_commands_warn_when_the_register_does_not_permit_their_access(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """vault log, vault consent add and check compare their own event with roles.yaml at their start: a
+    warning naming the reason, the event written anyway, the exit code unchanged (A-30: advisory)."""
+    folder = _initialised(tmp_path, capsys)
+    (folder / VAULT / "roles.yaml").write_bytes(QA_READS)
+    code, out, _ = _entry(folder, capsys, *ENTRY)  # QA reads '**': permitted, silent
+    assert code == 0 and "roles.yaml" not in out
+    code, out, _ = _entry(
+        folder, capsys, "--action", "check", "--objects", "**", "--purpose", "p", "--role", "QA"
+    )
+    assert code == 0 and _not_permitted("action_not_allowed") in out
+    code, out, _ = _entry(
+        folder, capsys, "--action", "read", "--objects", "**", "--purpose", "p", "--role", "ops"
+    )
+    assert code == 0 and _not_permitted("role_unknown") in out
+    assert [event["role"] for event in _events(folder)] == ["QA", "QA", "ops"]  # every event written
+    code, out, err = run(
+        ["--lang", "en", "vault", "consent", "add", str(folder), *CONSENT, "--role", "QA"], capsys
+    )
+    assert code == 0 and _not_permitted("action_not_allowed") in out, err
+    assert _events(folder)[-1]["action"] == "consent_manage"
+    results = tmp_path / "r.json"
+    check = ["--lang", "en", "check", str(folder), "--out", str(results), "--as-of", "2026-11-20"]
+    permitted_code, out, _ = run([*check, "--role", "QA"], capsys)  # check is not among QA's actions
+    assert _not_permitted("action_not_allowed") in out
+    (folder / VAULT / "roles.yaml").write_bytes(QA_READS.replace(b"[read]", b"[read, check]"))
+    code, out, _ = run([*check, "--role", "QA"], capsys)
+    assert code == permitted_code and "roles.yaml" not in out
+    assert [event["action"] for event in _events(folder)][-2:] == ["check", "check"]
+
+
+def test_an_invalid_register_only_warns_outside_check(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """roles.yaml is the control file of CORE-NV04-01: check ends with exit 2; the other commands warn
+    (cli.vault.roles_invalid) and write their event."""
+    folder = _initialised(tmp_path, capsys)
+    (folder / VAULT / "roles.yaml").write_bytes(b"format_version: 1\nroles: [x]\n")
+    code, out, _ = _entry(folder, capsys, *ENTRY)
+    assert code == 0 and _t("cli.vault.roles_invalid") in out and len(_events(folder)) == 1
+    code, out, _ = run(
+        ["--lang", "en", "vault", "consent", "add", str(folder), *CONSENT, "--role", "QA"], capsys
+    )
+    assert code == 0 and _t("cli.vault.roles_invalid") in out and len(_events(folder)) == 2
+    results = tmp_path / "r.json"
+    code, _, err = run(["--lang", "en", "check", str(folder), "--out", str(results)], capsys)
+    assert code == 2 and _t("errors.roles.invalid", field="roles.0", problem="model_type") in err
+    assert not results.exists() and len(_events(folder)) == 2  # a run with exit 2 records nothing

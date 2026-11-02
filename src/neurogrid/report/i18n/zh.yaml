@@ -80,6 +80,12 @@ cli:
     differs: "数据集与清单不一致。"
   vault:
     role_looks_identifying: "提示：该角色看起来像人名或身份编号。请使用角色或姓名缩写；访问日志按原样记录。"
+    role_not_permitted: "提示：角色登记册 roles.yaml 不允许此次访问（{reason}）；访问事件仍会记录。登记册仅供参考：NeuroGrid 不会因此拒绝任何操作。"
+    role_reason:
+      role_unknown: "该角色不在登记册中"
+      action_not_allowed: "该角色不得执行此操作"
+      object_not_allowed: "有对象未被该角色的对象模式覆盖"
+    roles_invalid: "提示：无法读取角色登记册 roles.yaml，因此本次访问未与其比较（'neurogrid check' 会指出问题）；访问事件仍会记录。"
     consent:
       added: "已记录知情同意：{subject}，版本 {version}。"
       imported: "已导入知情同意记录：{count} 条。"
@@ -99,6 +105,7 @@ cli:
       created: "已创建：{name}"
       kept: "已保留，未更改：{name}"
       manifest_hint: "consents.yaml、roles.yaml、risks.yaml、retention.yaml 以及个人信息保护影响评估 pia/pia.zh.md 和 pia/pia.en.md 属于清单的一部分：请重新运行 'neurogrid manifest'，以便 'neurogrid verify' 覆盖这些文件。访问日志及其锁文件不纳入清单。"
+      templates_hint: "roles.yaml、risks.yaml 和 retention.yaml 是带有注释示例的空登记册；pia/pia.zh.md 和 pia/pia.en.md 是个人信息保护影响评估的草稿。请填写这些文件（参见文档中的 NeuroVault 页面）；在此之前，CORE-NV05-01 和 CORE-NV05-02 会报告结果。"
     log:
       written: "已记录访问事件 {seq}，哈希值 {hash}"
       identifying: "提示：某个对象、目的或批准编号看起来像人名或身份编号；访问日志按原样记录。请使用假名 ID 和不含个人数据的编号。"
@@ -460,6 +467,9 @@ notice:
   consents_without_recording: "知情同意记录中有 {count} 名受试者在数据集中没有信号记录。"
   consent_refs_look_identifying: "知情同意记录中有 {count} 个伦理审批编号可能识别个人（人名、非 ASCII 字母或连续六位以上数字）；不显示其值。"
   consents_outside_dataset: "存放知情同意记录的 vault 位于数据集之外；数据集的清单不包含 consents.yaml。"
+  roles_without_ethics_ref: "角色登记册中有 {count} 个角色未注明伦理审批编号（ethics_approval_ref）。"
+  registers_look_identifying: "vault 中各登记册（roles.yaml、risks.yaml）有 {count} 项说明或伦理审批编号可能识别个人（人名、非 ASCII 字母或连续六位以上数字）；不显示其值。"
+  retention_reminder: "提醒：retention.yaml 中有 {count} 个对象的最低保存期限即将结束或已经结束，或已到复核日期（CORE-NV05-03）。请在自行开展法律审查后，决定继续保存或删除。"
 
 severity:
   error: "错误"
@@ -623,6 +633,28 @@ reason:
     log_missing: "vault 中没有访问日志 access.jsonl；NeuroGrid 不会自动重建它。"
     chain_broken: "访问日志的哈希链已断开（'neurogrid vault verify' 会列出每处不一致）。"
     not_writable: "无法写入访问日志（vault 为只读）；访问不会被记录。"
+  roles:
+    no_register: "vault 中没有角色登记册 roles.yaml（由 'neurogrid vault init' 创建）。"
+    empty: "角色登记册 roles.yaml 未列出任何角色。"
+    no_events: "访问日志中没有早于基准日期前一天的事件。"
+    role_missing: "事件未记录角色（scan、manifest 和 verify 不记录角色）：无法与角色登记册比较。"
+    role_unknown: "某事件记录的角色不在角色登记册中。"
+    action_not_allowed: "某事件记录的操作是该角色不得执行的。"
+    object_not_allowed: "某事件记录的对象未被该角色的任何对象模式覆盖。"
+  retention:
+    no_file: "vault 中没有 retention.yaml（由 'neurogrid vault init' 创建）。"
+    entry_missing: "retention.yaml 中没有该对象的条目。"
+    object_missing: "vault 中缺少该对象的文件。"
+    log_truncated: "访问日志不是从创世哈希开始：开头的条目已被删除。"
+    ending: "该对象的最低保存期限即将结束。请在自行开展法律审查后，决定继续保存或删除。"
+    ended: "该对象的最低保存期限已经结束。请在自行开展法律审查后，决定继续保存或删除。"
+    review_due: "该对象已到复核日期。"
+    no_entries: "retention.yaml 未列出任何对象（文件缺失由 CORE-NV05-01 报告）。"
+  pia:
+    missing: "vault 中没有个人信息保护影响评估（pia/pia.zh.md、pia/pia.en.md；由 'neurogrid vault init' 创建）。"
+    template_unedited: "个人信息保护影响评估仍是未经编辑的模板。"
+    fields_open: "个人信息保护影响评估仍有待填写的字段。"
+    unreadable: "无法读取个人信息保护影响评估（或某文件大于 4,000,000 字节）。"
 
 issue:
   header:
@@ -722,12 +754,32 @@ check:
   access:
     log_intact: "访问日志哈希链完整"
     log_writable: "访问日志可写入"
+  roles:
+    permitted: "访问在角色登记册允许的范围内"
+  retention:
+    complete: "已记录 vault 文件的保存期限"
+    ending: "最低保存期限结束前的提醒"
+  pia:
+    edited: "个人信息保护影响评估已填写"
 
 report:
   access:
     first_line: "第一处不一致：第 {line} 行。"
     kind: "类型：{kind}。"
     deviations: "不一致总数：{count}。"
+  roles:
+    role: "角色：{role}。"
+    action: "操作：{action}。"
+    events: "不被允许的事件：{count}。"
+    events_without_role: "未记录角色的事件：{count}。"
+    first_line: "首个此类事件：访问日志第 {line} 行。"
+  retention:
+    object: "对象：{object}。"
+    min_until: "最低保存至 {date}。"
+    review_at: "复核日期：{date}。"
+  pia:
+    files: "文件数：{count}。"
+    open_fields: "待填写字段：{count}。"
   ai:
     share: "{count} / {total}（{unit}）"
     unit_events: "事件"
@@ -1036,3 +1088,16 @@ terms:
     insert: "插入"
     delete: "删除"
     reorder: "重新排序"
+  access_action:
+    read: "读取"
+    check: "检查"
+    convert: "转换"
+    report: "报告"
+    export: "导出"
+    consent_manage: "知情同意管理"
+  retention_object:
+    pia: "个人信息保护影响评估（pia/）"
+    access_log: "访问日志（access.jsonl）"
+    roles: "角色登记册（roles.yaml）"
+    risks: "风险登记册（risks.yaml）"
+    consents: "知情同意记录（consents.yaml）"

@@ -46,6 +46,11 @@ synchronised if that matters to you.
   references or permitted uses; the report shows M14 only aggregated per use and reason, without subject IDs and
   versions, and withholds a breakdown with fewer than 5 subjects in a cell. The later vault export leaves the
   consent records out.
+- The registers of the vault (`roles.yaml`, `risks.yaml`, `retention.yaml`) and the impact assessment stay in
+  the vault: `results.json` and the report show roles, actions and the first line of the log (CORE-NV04-01), the
+  objects and dates of `retention.yaml` and counts, never descriptions, ethics references or text of the impact
+  assessment. Descriptions and references that read like a name or an identification number are only counted
+  in a note.
 - No user accounts; access rights to the files are governed by the operating system. With a vault, NeuroGrid
   keeps one log: the access log `access.jsonl` of [NeuroVault](vault.md). Each entry holds the time (UTC), the
   role (a role name or initials), the action, the objects (`**` for the whole dataset; files of raw folders by

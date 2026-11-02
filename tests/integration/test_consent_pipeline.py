@@ -288,6 +288,13 @@ def test_a_vault_outside_the_dataset_gets_a_notice(tmp_path: Path) -> None:
     location = store.locate(project, "vault")
     store.init_vault(location)
     location.consents.write_bytes(dump_consents(ConsentFile(consents=ALL)))
+    # P9: the registers filled in, so that the retention and impact assessment rules (CORE-NV05-01/02) pass
+    location.retention.write_text(
+        "format_version: 1\nobjects:\n  - {object: pia, created: 2026-10-01, min_until: 2029-10-01}\n"
+        "  - {object: access_log, created: 2026-10-01, min_until: 2029-10-01}\n",
+        encoding="utf-8",
+    )
+    location.pia_files[1].write_bytes(b"# Impact assessment\n\nDone.\n")
     results = _check(folder, tmp_path, config_path=toml)
     assert "notice.consents_outside_dataset" in {n.message_key for n in results.notices}
     assert results.summary.phases["access"].light is Light.GREEN

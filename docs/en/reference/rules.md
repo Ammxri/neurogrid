@@ -11,7 +11,7 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Source | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | Source status | final |
 | Maps a norm (coverage measure) | no |
-| SHA-256 | `401894f1fe40ec6436b1025ac9b9b2a3f2d98379abf79b5d48afbe90f4bf6041` |
+| SHA-256 | `ea07895be3486850e4339cab1a11dc2c94f0204a25d04ea3939b1f454f0ce1a8` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -453,6 +453,58 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Parameters | – |
 | Severity | Warning |
 | Severity with --strict | Warning |
+| Verification | automatic |
+
+### CORE-NV04-01 {#CORE-NV04-01}
+
+| | |
+|---|---|
+| Title | Accesses permitted by the role register |
+| Clause | [NV04](../metrics.md#NV04) |
+| Phase | Access |
+| Check | [roles.permitted](checks.md#roles.permitted) |
+| Parameters | – |
+| Severity | Warning |
+| Severity with --strict | Warning |
+| Verification | automatic |
+
+### CORE-NV05-01 {#CORE-NV05-01}
+
+| | |
+|---|---|
+| Title | Retention periods recorded for the vault files |
+| Clause | [NV05](../metrics.md#NV05) |
+| Phase | Access |
+| Check | [retention.complete](checks.md#retention.complete) |
+| Parameters | – |
+| Severity | Warning |
+| Severity with --strict | Warning |
+| Verification | automatic |
+
+### CORE-NV05-02 {#CORE-NV05-02}
+
+| | |
+|---|---|
+| Title | Impact assessment filled in |
+| Clause | [NV05](../metrics.md#NV05) |
+| Phase | Access |
+| Check | [pia.edited](checks.md#pia.edited) |
+| Parameters | – |
+| Severity | Warning |
+| Severity with --strict | Warning |
+| Verification | automatic |
+
+### CORE-NV05-03 {#CORE-NV05-03}
+
+| | |
+|---|---|
+| Title | Reminder before a minimum retention ends |
+| Clause | [NV05](../metrics.md#NV05) |
+| Phase | Access |
+| Check | [retention.ending](checks.md#retention.ending) |
+| Parameters | `days` = 90 (rule pack) |
+| Severity | Note |
+| Severity with --strict | Note |
 | Verification | automatic |
 
 ### CORE-M10-01 {#CORE-M10-01}

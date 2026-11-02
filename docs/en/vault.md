@@ -1,9 +1,8 @@
 # NeuroVault {#vault}
 
-NeuroVault keeps the consent records of a dataset and a hash-chained log of the accesses to it, in a vault
-folder next to the data. Version 0.2 contains the vault folder, the consent records, the access log and its
-checks; the role register, the retention periods, the impact assessment and the export follow in later
-versions ([Limitations](limitations.md#neurovault)).
+NeuroVault keeps the consent records of a dataset, a hash-chained log of the accesses to it, the role
+register, the retention periods, the risk register and the impact assessment in a vault folder next to the data.
+NeuroGrid checks them and warns; it enforces nothing ([Limitations](limitations.md#neurovault)).
 
 NeuroGrid has no user accounts. Access rights to the files are governed by the operating system: whoever may
 write the vault folder may change it. The access log records what happened through NeuroGrid and makes later
@@ -31,8 +30,15 @@ The vault is the folder `[vault] path` of `neurogrid.toml`, relative to the proj
 | `consents.yaml` | The consent records (pseudonymous subject IDs only). Part of the manifest: `neurogrid verify` reports a change. |
 | `access.jsonl` | The access log, one event per line. Not part of the manifest: it grows with every access. |
 | `access.jsonl.lock` | The lock file of every NeuroGrid process that reads or writes the vault. Not part of the manifest. |
+| `roles.yaml` | The role register ([Roles](#roles)). Part of the manifest. |
+| `retention.yaml` | The retention periods of the vault's files ([Retention](#retention)). Part of the manifest. |
+| `risks.yaml` | The risk register ([Risks](#risks)). Part of the manifest. |
+| `pia/pia.zh.md`, `pia/pia.en.md` | The impact assessment, drafts to fill in ([Impact assessment](#pia)). Part of the manifest. |
 
-A link or junction anywhere in the vault path, at the log, its lock file or `consents.yaml` is never followed:
+`vault init` writes the registers and the PIA files from templates when they are missing and keeps existing
+files byte for byte; a vault made by NeuroGrid 0.2 gets them with one more `vault init`. A link or junction
+anywhere in the vault path, at the log, its lock file, `consents.yaml`, a register, the folder `pia` or a PIA file
+is never followed:
 `check`, `report --config` and the vault commands end with exit code 2; `convert`, `scan`, `manifest` and
 `verify` write no event and warn. On Linux new vault folders get mode 0700 and new vault files 0600; on Windows
 they inherit the rights of their folder.
@@ -172,10 +178,123 @@ also after later entries. Only this detects truncation at the end and complete r
 
 A role is what you call the function that accesses the data (`data_steward`, `QA.lead`), or initials – never a
 personal name or a login. NeuroGrid checks only its form and warns when a role, an object or a purpose looks
-like a name or an identification number; it records them anyway. Roles are advisory, not enforced; the role
-register follows in a later version.
+like a name or an identification number; it records them anyway. Roles are advisory, not enforced.
+
+The role register `roles.yaml` says which role may perform which action on which objects. `vault init` writes it
+with `roles: []` and this example as a comment:
+
+<!-- example: roles-yaml -->
+```yaml
+format_version: 1
+roles:
+  - role: data_steward
+    description: Prepares, checks and converts the dataset
+    actions: [read, check, convert, report, export, consent_manage]
+    objects: ["**", ".neurogrid/vault/consents.yaml"]
+    ethics_approval_ref: "EC-2026-17"
+  - role: QA.lead
+    description: Reviews the check results and the reports
+    actions: [read, report]
+    objects: ["**"]
+```
+
+| Field | Content |
+|---|---|
+| `role` | A role name or initials: a letter, then letters, digits, `_`, `.` or `-`, at most 80 characters; each role once. |
+| `description` | 1 to 200 printable characters. It stays in the file: never in `results.json`, a report or on the console. |
+| `actions` | 1 to 6 of `read`, `check`, `convert`, `report`, `export` and `consent_manage`, each once. |
+| `objects` | 1 to 100 paths or patterns (`**` any number of folders, `*` and `?` within one name): relative to the dataset for its data, relative to the project root for the files of the vault. |
+| `ethics_approval_ref` | Optional: the reference of the ethics approval, 1 to 120 printable characters; never in an output. |
+
+The register holds at most 200 roles and 1,000,000 bytes. An access is permitted when its role is in the
+register, the role may perform its action and an object pattern of the role covers every object of the event.
+An object that is itself a pattern is covered only by a pattern that covers everything it may name: `**`, the
+object of every automatic event, only by `**`. In a raw folder the log names files by their pseudonymous names
+(`rec-<sha8>.<ext>`), so patterns of real file names do not match there.
+
+CORE-NV04-01 compares the access log with the register ([Metrics](metrics.md#NV04)). `check`, `convert`,
+`report --config`, `vault log` and `vault consent add` compare their own access when they start, warn when the
+register does not permit it and record it anyway; the exit code does not change. Without a register or with
+`roles: []` nothing is compared. An invalid `roles.yaml` ends `check` with exit code 2 before the data are read
+(the error names the entry and the field, never a value); the other commands only warn.
+
+## Retention {#retention}
+
+`retention.yaml` records for each file of the vault when it was created, until when it is kept at least and,
+optionally, when it is reviewed. `vault init` writes it with `objects: []` and this example as a comment:
+
+<!-- example: retention-yaml -->
+```yaml
+format_version: 1
+objects:
+  - object: pia
+    created: 2026-11-02
+    min_until: 2029-11-02
+    review_at: 2029-08-01
+  - object: access_log
+    created: 2026-11-02
+    min_until: 2029-11-02
+```
+
+| Field | Content |
+|---|---|
+| `object` | `pia` (the impact assessment), `access_log`, `roles`, `risks` or `consents`; each object once. |
+| `created` | The date the object was created (YYYY-MM-DD). |
+| `min_until` | The date until which it is kept at least: three years after `created` or later; from 29 February the earliest date is 1 March three years later. An earlier date ends `check` with exit code 2. |
+| `review_at` | Optional: a review date between `created` and `min_until`. |
+
+The file holds at most 100,000 bytes. CORE-NV05-01 expects an entry for `pia` and for `access_log`: NeuroGrid
+reads the PIPL provision on the impact assessment as asking that the assessment report and the record of the
+processing – here the access log – be kept for at least three years. This is NeuroGrid's interpretation, not
+legal advice. CORE-NV05-01 also reports a listed object whose file is missing and an access log whose first
+entries were removed. CORE-NV05-03 reminds you from 90 days before `min_until` (the parameter `days`) and from
+`review_at` on. The reminder is neutral: decide on further retention or deletion after your own legal review.
+NeuroGrid deletes nothing and sets no retention period for EEG data ([Metrics](metrics.md#NV05)).
+
+## Impact assessment {#pia}
+
+`vault init` writes the impact assessment as two drafts, `pia/pia.zh.md` and `pia/pia.en.md`. The first line of
+each marks it as a placeholder that is no legal advice. They contain a checklist of the cases in which the PIPL
+asks for an impact assessment, the points of the assessment as headings and fields to fill in, each with a
+placeholder (`[to be completed]` in the English file, its Chinese counterpart in the other). The templates
+restate the provisions in NeuroGrid's own words and name their articles; they contain no legal basis and no
+assessment. A legal adviser admitted in the People's Republic of China reviews the templates before their first
+real use; this review is not a condition of a NeuroGrid release.
+
+CORE-NV05-02 reports a vault without a PIA file, PIA files that are still the unedited template (apart from a
+byte order mark and CRLF line ends) and edited files in which placeholders are left; one edited file without a
+placeholder suffices. NeuroGrid does not judge the content and never puts it into an output.
+
+## Risks {#risks}
+
+The risk register `risks.yaml` lists risks found after consents were given: the uses they affect and the consent
+version from which a consent covers them. `vault init` writes it with `risks: []` and this example as a comment:
+
+<!-- example: risks-yaml -->
+```yaml
+format_version: 1
+risks:
+  - id: R-2026-01
+    date: 2026-09-01
+    description: The recordings are also used to train a second model
+    affected_uses: [training, sharing]
+    min_consent_version: 2
+```
+
+| Field | Content |
+|---|---|
+| `id` | A letter, then letters, digits, `_`, `.` or `-`, at most 40 characters; each ID once. |
+| `date` | The date the risk was recorded (YYYY-MM-DD). |
+| `description` | 1 to 500 printable characters. It stays in the file: never in `results.json`, a report, an export or on the console. |
+| `affected_uses` | 1 to 5 of `training`, `validation`, `publication`, `sharing` and `commercial`, each once. |
+| `min_consent_version` | The consent version from which a consent covers the risk (1 to 1,000,000). |
+
+The register holds at most 1,000 risks and 1,000,000 bytes; an invalid file ends `check` with exit code 2 when a
+rule reads it. The re-consent check that reads it is described with M14 ([Metrics](metrics.md#M14)).
 
 ## Checks {#checks}
 
 The rule pack `core` checks the log with CORE-NV03-01 (hash chain intact, error) and CORE-NV03-02 (log can be
-written, warning): [Metrics](metrics.md#NV03).
+written, warning): [Metrics](metrics.md#NV03). CORE-NV04-01 compares the log with the role register (warning),
+CORE-NV05-01 and CORE-NV05-02 check the retention periods and the impact assessment (warnings), CORE-NV05-03
+reminds of the end of a minimum retention (info): [Metrics](metrics.md#NV04), [Metrics](metrics.md#NV05).

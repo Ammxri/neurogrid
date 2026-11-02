@@ -45,14 +45,19 @@ CI 不在 Debian 12 和 Ubuntu 22.04 上运行测试套件。Windows 10、Window
 
 ## NeuroVault {#neurovault}
 
-NeuroVault 目前部分可用：vault 文件夹、知情同意记录以及带 `vault init`、`vault log` 和 `vault verify` 的哈希链访问
-日志（[NeuroVault](vault.md)）。角色登记册、保存期限、影响评估和导出将在以后的版本中提供。
+NeuroVault 目前部分可用：vault 文件夹、知情同意记录、带 `vault init`、`vault log` 和 `vault verify` 的哈希链访问
+日志、角色登记册、保存期限、风险登记册和个人信息保护影响评估（[NeuroVault](vault.md)）。导出将在以后的版本中提供。
 
 - 哈希链可以发现哈希链内条目的修改、插入、删除和重新排序。末尾截断和整体重写只能通过 `vault verify --expect-head`
   对照在别处记录的链头哈希值发现。
 - 只记录通过 NeuroGrid 进行的访问。以退出码 2 结束的运行不作记录；`scan`、`manifest` 和 `verify` 只在默认位置
   `.neurogrid/vault` 的 vault 中记录其访问；`report` 只有在指定 `--config` 时才记录。事件时间取自本地时钟，未经核实。
 - vault 锁只能使 NeuroGrid 进程彼此错开，不能约束其他程序；角色只作参考，不强制执行。访问权限由操作系统管理。
+- CORE-NV04-01 只评判早于基准日期前一天 00:00 UTC 的事件：最后一天的访问会进入之后的结果。基准日期比当前日期晚
+  一天以上时，一次运行自身的事件可能进入下一次运行的结果。
+- 个人信息保护影响评估模板是占位文本，不构成法律意见；在首次实际使用前，由在中华人民共和国获准执业的法律顾问审核。
+  `pia` 和 `access_log` 需要保存期限条目，是 NeuroGrid 对 PIPL 的理解。NeuroGrid 不删除任何内容，也不为 EEG 数据
+  设定保存期限。
 
 ## 不属于 0.1 版的内容 {#not-in-v01}
 

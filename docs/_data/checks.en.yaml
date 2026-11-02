@@ -57,6 +57,8 @@ metadata.consistent:
   object: "the dataset: TaskName, BIDSVersion and Name"
 metadata.required_fields:
   object: "each recording and required field"
+pia.edited:
+  object: "the dataset: the impact assessment of its vault (pia/pia.zh.md, pia/pia.en.md)"
 provenance.documented:
   object: "the dataset: processing steps and software versions"
 provenance.files_match:
@@ -80,6 +82,13 @@ quality.line_noise:
   object: "each EEG channel of a recording (full length)"
 quality.non_brain_components:
   object: "each recording (sample)"
+retention.complete:
+  object: "each object of retention.yaml that is required (pia, access_log) or listed; the dataset without retention.yaml"
+retention.ending:
+  object: "each object listed in retention.yaml"
+  passes: "the minimum retention ends more than `days` days after the reference date and the review date is not reached (a neutral reminder, A-30)"
+roles.permitted:
+  object: "each role and action of the access events before the day before the reference date"
 signal.sampling_rate_consistency:
   object: "each recording"
   passes: "the rate is at least `min_hz` and the rates are uniform or their mix is documented"

@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 from consent_setups import CONSENT_SETUPS  # type: ignore[import-not-found]
 from provenance_setups import PROVENANCE_SETUPS  # type: ignore[import-not-found]
+from register_setups import REGISTER_SETUPS  # type: ignore[import-not-found]
 from vault_setups import VAULT_SETUPS  # type: ignore[import-not-found]
 
 from neurogrid import pipeline
@@ -42,6 +43,7 @@ SETUPS: dict[str, Callable[[Path, Path], tuple[Path, dict[str, object]]]] = {}
 SETUPS.update(PROVENANCE_SETUPS)  # P4 M13: manifest, manifest_outside, manifest_changed, manifest_invalid
 SETUPS.update(CONSENT_SETUPS)  # P6 M14: a copy with a vault and consent records (A-91)
 SETUPS.update(VAULT_SETUPS)  # P6 NV03: a vault with an intact, broken, missing, read-only or locked log
+SETUPS.update(REGISTER_SETUPS)  # P9 NV04, NV05: role register, retention periods, impact assessment
 
 
 def _ai_duplicate_copy(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
@@ -563,6 +565,40 @@ CASES = [
     Case("CORE-NV03-02", "edf_ok", Status.FAILED, setup="vault_log_missing"),
     Case("CORE-NV03-02", "edf_ok", Status.NOT_CHECKABLE),
     Case("CORE-NV03-02", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),
+    # --- P9 role register (NV04, A-30, A-93; tests/rules/register_setups.py), events before as_of - 1 day ---
+    Case("CORE-NV04-01", "edf_ok", Status.PASSED, setup="reg_roles_permitted"),
+    Case("CORE-NV04-01", "edf_ok", Status.FAILED, setup="reg_roles_action"),  # roles.action_not_allowed
+    Case("CORE-NV04-01", "edf_ok", Status.FAILED, setup="reg_roles_unknown"),  # roles.role_unknown
+    Case("CORE-NV04-01", "edf_ok", Status.FAILED, setup="reg_roles_object"),  # roles.object_not_allowed
+    Case("CORE-NV04-01", "edf_ok", Status.FAILED, setup="reg_roles_star"),  # '*' does not cover '**'
+    Case("CORE-NV04-01", "edf_ok", Status.EXCEPTED, setup="reg_roles_excepted"),  # subkey data_steward/check
+    Case("CORE-NV04-01", "edf_ok", Status.NOT_CHECKABLE, setup="reg_roles_no_file"),  # roles.no_register
+    Case("CORE-NV04-01", "edf_ok", Status.NOT_CHECKABLE, setup="reg_roles_empty"),  # roles.empty
+    Case("CORE-NV04-01", "edf_ok", Status.NOT_CHECKABLE, setup="reg_roles_no_role"),  # roles.role_missing
+    Case("CORE-NV04-01", "edf_ok", Status.NOT_APPLICABLE, setup="reg_roles_late"),  # roles.no_events
+    Case("CORE-NV04-01", "edf_ok", Status.NOT_CHECKABLE),  # no vault: vault.not_found
+    Case("CORE-NV04-01", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),  # a single file has no vault
+    # --- P9 retention and impact assessment (NV05, A-30, A-94) ---
+    Case("CORE-NV05-01", "edf_ok", Status.PASSED, setup="reg_complete"),
+    Case("CORE-NV05-01", "edf_ok", Status.FAILED, setup="reg_template"),  # retention.entry_missing
+    Case("CORE-NV05-01", "edf_ok", Status.FAILED, setup="reg_no_retention"),  # retention.no_file
+    Case("CORE-NV05-01", "edf_ok", Status.FAILED, setup="reg_object_missing"),  # retention.object_missing
+    Case("CORE-NV05-01", "edf_ok", Status.FAILED, setup="reg_log_truncated"),  # retention.log_truncated
+    Case("CORE-NV05-01", "edf_ok", Status.NOT_CHECKABLE),
+    Case("CORE-NV05-01", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),
+    Case("CORE-NV05-02", "edf_ok", Status.PASSED, setup="reg_complete"),  # one edited file suffices
+    Case("CORE-NV05-02", "edf_ok", Status.FAILED, setup="reg_template"),  # pia.template_unedited
+    Case("CORE-NV05-02", "edf_ok", Status.FAILED, setup="reg_pia_missing"),  # pia.missing
+    Case("CORE-NV05-02", "edf_ok", Status.FAILED, setup="reg_pia_open"),  # pia.fields_open
+    Case("CORE-NV05-02", "edf_ok", Status.NOT_CHECKABLE),
+    Case("CORE-NV05-02", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),
+    Case("CORE-NV05-03", "edf_ok", Status.PASSED, setup="reg_complete"),  # min_until in 2029
+    Case("CORE-NV05-03", "edf_ok", Status.FAILED, setup="reg_ending"),  # retention.ending (41 days)
+    Case("CORE-NV05-03", "edf_ok", Status.FAILED, setup="reg_ended"),  # retention.ended
+    Case("CORE-NV05-03", "edf_ok", Status.FAILED, setup="reg_review_due"),  # retention.review_due
+    Case("CORE-NV05-03", "edf_ok", Status.NOT_APPLICABLE, setup="reg_template"),  # retention.no_entries
+    Case("CORE-NV05-03", "edf_ok", Status.NOT_CHECKABLE),
+    Case("CORE-NV05-03", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),
 ]
 
 

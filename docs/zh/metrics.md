@@ -1,6 +1,6 @@
 # 指标 {#metrics}
 
-规则包 `core` 评价指标 M01–M14 和 NeuroVault 的访问日志 NV03；本页是它的来源（core 规则的条款即为指标）。对每个指标，本页说明测量什么、如何测量、
+规则包 `core` 评价指标 M01–M14 和 NeuroVault 的 NV03 至 NV05；本页是它的来源（core 规则的条款即为指标）。对每个指标，本页说明测量什么、如何测量、
 在什么对象上测量、何时无法判断、哪些规则使用它及其阈值，以及该阈值的来源。所有阈值都可以在 `neurogrid.toml`
 （`[rules."ID".params]`）中覆盖。
 
@@ -271,6 +271,55 @@ vault（不适用）。另一个 NeuroGrid 进程占用 vault 锁超过 10 秒�
 |---|---|---|---|
 | [CORE-NV03-01](reference/rules.md#CORE-NV03-01) 访问日志哈希链完整 | 错误 | – | 产品规格书中的起始值（A-30, A-90） |
 | [CORE-NV03-02](reference/rules.md#CORE-NV03-02) 访问日志可写入 | 警告 | – | 假设 A-30, A-90（决策记录） |
+<!-- END GENERATED -->
+
+## NV04 角色登记册 {#NV04}
+
+**测量内容。** 将 vault 访问日志中的事件与 vault 中的角色登记册 `roles.yaml` 比较（[NeuroVault](vault.md#roles)）。
+事件的角色在登记册中、该角色允许其操作，且该角色的某个对象模式覆盖事件的每个对象时，访问即为允许；本身就是模式的对象
+（例如每个自动事件的 `**`）只被能覆盖其所有可能路径的模式（`**`）覆盖。CORE-NV04-01 只评判时间早于基准日期前一天
+00:00 UTC 的格式正确的事件：本次运行自身的事件以及同一天其他运行的事件都不会改变结果，因此两次运行得到相同的
+`results.json`。每个角色和操作给出一个结果：该组合的所有事件都被允许时为通过，否则为不通过，原因取自其中第一个
+不被允许的事件。登记册仅供参考：NeuroGrid 不会因此拒绝任何访问；`check`、`convert`、`report --config`、`vault log`
+和 `vault consent add` 在登记册不允许其自身访问时给出警告，并照常记录事件。
+
+**无法检查、不适用。** 没有 vault 时该规则为无法检查；以单个文件为目标时没有 vault（不适用）。没有 `roles.yaml`、
+`roles: []`，以及日志缺失、无法读取或被锁定超过 10 秒时，该规则为无法检查。没有角色的事件（`scan`、`manifest` 和
+`verify` 不记录角色）为无法检查，每个操作一个结果。基准日期前一天之前没有事件时，该规则为不适用。`roles.yaml`
+无效时，`check` 在读取数据之前以退出码 2 结束。
+
+**详细信息。** 角色、操作、不被允许的事件数以及访问日志中第一个此类事件所在的行；从不包含时间、对象、目的或登记册中的
+文字。例外以该组合作为子键，例如 `QA.lead/export`。
+
+<!-- BEGIN GENERATED thresholds NV04 -->
+| 规则 | 严重程度 | 参数 | 来源 |
+|---|---|---|---|
+| [CORE-NV04-01](reference/rules.md#CORE-NV04-01) 访问在角色登记册允许的范围内 | 警告 | – | 假设 A-30, A-93（决策记录） |
+<!-- END GENERATED -->
+
+## NV05 保存期限和个人信息保护影响评估 {#NV05}
+
+**测量内容。** vault 中的保存期限 `retention.yaml` 以及个人信息保护影响评估 `pia/pia.zh.md`、`pia/pia.en.md`
+（[NeuroVault](vault.md#retention)）。CORE-NV05-01：`retention.yaml` 为每个必需对象（`pia` 和 `access_log`，即
+NeuroGrid 对 PIPL 中关于个人信息保护影响评估规定的理解）都有条目，且每个已列出对象的文件都存在；访问日志仍从创世哈希
+开始（开头的条目被删除时报告结果）。CORE-NV05-02：至少有一个 PIA 文件已被编辑，且不含任一模板的占位标记；NeuroGrid
+不评判其内容。CORE-NV05-03：每个条目从基准日期到 `min_until` 的天数；天数不超过 `days` 或已到复核日期 `review_at`
+时给出提醒（信息）。提醒措辞中立：请在自行开展法律审查后，决定继续保存或删除。此处不为 EEG 数据设定保存期限。
+
+**无法检查、不适用。** 没有 vault 时这些规则为无法检查；以单个文件为目标时没有 vault（不适用）。vault 中没有
+`retention.yaml` 时 CORE-NV05-01 不通过一次；此时 CORE-NV05-03 为不适用，`objects: []` 时也是如此。PIA 文件大于
+4,000,000 字节或无法读取时，CORE-NV05-02 为无法检查。`min_until` 不足 `created` 之后三年（自 2 月 29 日起算时为
+三年后的 3 月 1 日）以及 `retention.yaml` 的其他无效内容，会使 `check` 在读取数据之前以退出码 2 结束。
+
+**详细信息。** 对象及其日期（CORE-NV05-01、CORE-NV05-03），PIA 文件数以及待填写字段数（CORE-NV05-02）；从不包含
+文件中的文字。
+
+<!-- BEGIN GENERATED thresholds NV05 -->
+| 规则 | 严重程度 | 参数 | 来源 |
+|---|---|---|---|
+| [CORE-NV05-01](reference/rules.md#CORE-NV05-01) 已记录 vault 文件的保存期限 | 警告 | – | 产品规格书中的起始值（A-30, A-94） |
+| [CORE-NV05-02](reference/rules.md#CORE-NV05-02) 个人信息保护影响评估已填写 | 警告 | – | 假设 A-30, A-94（决策记录） |
+| [CORE-NV05-03](reference/rules.md#CORE-NV05-03) 最低保存期限结束前的提醒 | 提示 | `days` = 90（规则包） | 假设 A-30, A-94（决策记录） |
 <!-- END GENERATED -->
 
 ## 校准 {#calibration}

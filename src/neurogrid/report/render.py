@@ -74,6 +74,9 @@ _COUNTER = re.compile(r"(\{page\}|\{pages\})")
 # (_slot_safe) holds it only where a rule ID goes (_with_rule_ids); no dataset or user text can hold one.
 RULE_SLOT = "\x1f"
 ACCESS_LOG_CHECK = "access.log_intact"  # CORE-NV03-01; its details are rendered by access_details
+ROLES_CHECK = "roles.permitted"  # CORE-NV04-01; its details are rendered by roles_details
+# CORE-NV05-01..03; their details are rendered by retention_details
+RETENTION_CHECKS = ("retention.complete", "pia.edited", "retention.ending")
 
 
 @dataclass(frozen=True)
@@ -296,6 +299,10 @@ class _Formatter:
         parts.extend(self.ai_details(finding.details))
         if finding.message_key == f"check.{ACCESS_LOG_CHECK}":
             parts.extend(self.access_details(finding.details))
+        if finding.message_key == f"check.{ROLES_CHECK}":
+            parts.extend(self.roles_details(finding.details))
+        if finding.message_key in {f"check.{check_id}" for check_id in RETENTION_CHECKS}:
+            parts.extend(self.retention_details(finding.details))
         chars = finding.details.get("chars")
         if isinstance(chars, int) and not isinstance(chars, bool):  # a code or label not shown (A-17, M10)
             parts.append(self.tr("report.value.free_text", n=chars))
@@ -361,6 +368,42 @@ class _Formatter:
             parts.append(self.tr("report.access.kind", kind=self.label("terms.access_kind", details["kind"])))
         if isinstance(details.get("deviations"), int):
             parts.append(self.tr("report.access.deviations", count=details["deviations"]))
+        return parts
+
+    def roles_details(self, details: dict[str, Any]) -> list[str]:
+        """CORE-NV04-01 (NV-F04, A-93): the role and the action of the pair, the number of events the role
+        register does not permit (or that carry no role) and the first such line of the access log; never
+        times, objects, purposes or texts of the register (A-51)."""
+        parts: list[str] = []
+        if isinstance(details.get("role"), str):
+            parts.append(self.tr("report.roles.role", role=details["role"]))
+        if isinstance(details.get("action"), str):
+            action = self.label("terms.access_action", details["action"])
+            parts.append(self.tr("report.roles.action", action=action))
+        if isinstance(details.get("events_not_permitted"), int) and details["events_not_permitted"] > 0:
+            parts.append(self.tr("report.roles.events", count=details["events_not_permitted"]))
+        if isinstance(details.get("events_without_role"), int):
+            parts.append(self.tr("report.roles.events_without_role", count=details["events_without_role"]))
+        if isinstance(details.get("first_line"), int):
+            parts.append(self.tr("report.roles.first_line", line=details["first_line"]))
+        return parts
+
+    def retention_details(self, details: dict[str, Any]) -> list[str]:
+        """CORE-NV05-01..03 (NV-F05, A-94): the object of retention.yaml, its minimum retention and review
+        date, and for the impact assessment the number of files and of fields still to be completed; never
+        text of the files (A-51)."""
+        parts: list[str] = []
+        if isinstance(details.get("object"), str):
+            name = self.label("terms.retention_object", details["object"])
+            parts.append(self.tr("report.retention.object", object=name))
+        if isinstance(details.get("min_until"), str):
+            parts.append(self.tr("report.retention.min_until", date=details["min_until"]))
+        if isinstance(details.get("review_at"), str):
+            parts.append(self.tr("report.retention.review_at", date=details["review_at"]))
+        if isinstance(details.get("files"), int) and not isinstance(details.get("files"), bool):
+            parts.append(self.tr("report.pia.files", count=details["files"]))
+        if isinstance(details.get("open_fields"), int) and details["open_fields"] > 0:
+            parts.append(self.tr("report.pia.open_fields", count=details["open_fields"]))
         return parts
 
     @staticmethod
