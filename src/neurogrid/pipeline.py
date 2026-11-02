@@ -28,11 +28,13 @@ from typing import TYPE_CHECKING, Any
 
 import neurogrid
 from neurogrid import config as config_module
+from neurogrid.checks import access as access_checks
 from neurogrid.checks import ai_dataset
 from neurogrid.checks import annotation as annotation_checks
 from neurogrid.checks import consent as consent_checks
 from neurogrid.checks import evidence as evidence_module
 from neurogrid.checks import provenance as provenance_checks
+from neurogrid.checks import retention as retention_checks
 from neurogrid.checks.context import CheckContext
 from neurogrid.checks.quality import SAMPLE_CHECKS, STREAM_CHECKS
 from neurogrid.checks.registry import REGISTRY, measure
@@ -98,6 +100,9 @@ from neurogrid.report.texts import disclaimer
 from neurogrid.vault import consents as vault_consents
 from neurogrid.vault import ledger
 from neurogrid.vault import lock as vault_lock
+from neurogrid.vault import retention as vault_retention
+from neurogrid.vault import risks as vault_risks
+from neurogrid.vault import roles as vault_roles
 from neurogrid.vault import store as vault_store
 from neurogrid.vault.lock import VaultLocked
 from neurogrid.vault.roles import role_looks_identifying, validate_role
@@ -416,6 +421,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
                 target.root, loaded_config.project_root, cfg.vault.path
             )
             ctx.consent_required = strict or cfg.consent.configured
+        _load_vault_files(ctx, check_ids, vault)  # the registers are control files too (A-93 to A-95)
         stream = bool(check_ids & (STREAM_CHECKS | ai_dataset.STREAM_CHECKS))  # M12 needs the signal hash
         sample = bool(check_ids & SAMPLE_CHECKS)
         if stream or sample:
@@ -479,6 +485,8 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         notices.append(Notice(level=Severity.WARNING, message_key="notice.output_inside_dataset"))
     notices.extend(annotation_checks.notices(ctx))  # M10: files and rows that could not be used (A-80)
     notices.extend(consent_checks.notices(ctx, check_ids))  # M14: counts only (A-51)
+    notices.extend(access_checks.notices(ctx, check_ids))  # the registers: counts only (A-51, A-93)
+    notices.extend(retention_checks.notices(result.findings))  # NV05-03: the reminder on the console (A-94)
     exceptions = [
         use.model_copy(
             update={
@@ -534,6 +542,9 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             effective_settings=settings,
             evidence_sha256=evidence.sha256,
             consents_sha256=ctx.consents.sha256 if ctx.consents is not None else None,
+            roles_sha256=ctx.roles.sha256 if ctx.roles is not None else None,
+            retention_sha256=ctx.retention.sha256 if ctx.retention is not None else None,
+            risks_sha256=ctx.risks.sha256 if ctx.risks is not None else None,
         ),
         recordings=_recording_summaries(ctx),
         findings=result.findings,
@@ -554,6 +565,31 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         manifest=manifest,
         consent=consent_checks.summary(ctx, check_ids),  # M14 subjects per use, for the report (A-91)
     )
+
+
+# The checks that read a register of the vault (A-93 to A-95): CORE-NV04-01 reads roles.yaml, CORE-NV05-01
+# and CORE-NV05-03 (every check whose ID starts with RETENTION_CHECKS) retention.yaml, CORE-M14-02
+# risks.yaml. CORE-NV05-02 (pia.edited) reads the PIA files itself.
+ROLES_CHECK = "roles.permitted"
+RETENTION_CHECKS = "retention."
+RISKS_CHECK = "consent.reconsent"
+
+
+def _load_vault_files(ctx: CheckContext, check_ids: set[str], vault: VaultLocation | None) -> None:
+    """Read the registers of the vault that a loaded rule needs into ``ctx`` (ctx.roles, ctx.retention,
+    ctx.risks), right after the consent records and before the signal pass: they are control files, so an
+    invalid one ends the run with exit 2 before the data are read (C2; errors.roles.*, errors.retention.*
+    with too_short, errors.risks.*, errors.vault.link {part}). Nothing is read for a single file, which has
+    no vault (``vault`` None: the fields stay None); a vault path without a vault gives the state no_vault,
+    a vault without the file no_file. config.<file>_sha256 of results.json comes from these fields."""
+    if vault is None:
+        return
+    if ROLES_CHECK in check_ids:
+        ctx.roles = vault_roles.load_for_check(vault)
+    if any(check_id.startswith(RETENTION_CHECKS) for check_id in check_ids):
+        ctx.retention = vault_retention.load_for_check(vault)
+    if RISKS_CHECK in check_ids:
+        ctx.risks = vault_risks.load_for_check(vault)
 
 
 def _explicit_manifest(raw: Path | None) -> Path | None:
@@ -1054,6 +1090,9 @@ class PendingAccess:
     approval_ref: str | None
     action: str
     objects: tuple[str, ...] = DATASET_OBJECTS
+    # the event compared with the role register at the start of the run (A-93): a vault.roles.Permission or
+    # vault.roles.ROLES_INVALID; None when not compared (read events without a role, a vault not present)
+    permission: str | None = None
 
     def commit(self, now: Callable[[], datetime] = ledger.utc_now) -> ledger.AppendOutcome:
         return ledger.append(
@@ -1070,6 +1109,13 @@ class PendingAccess:
     @property
     def role_looks_identifying(self) -> bool:
         return self.role is not None and role_looks_identifying(self.role)
+
+    @property
+    def role_warning(self) -> str | None:
+        """What the command warns about the role register (cli.vault.role_not_permitted {reason},
+        cli.vault.roles_invalid; KONZEPT 2.8): a permission of vault.roles.NOT_PERMITTED or ROLES_INVALID;
+        None (silent) without a register, with an empty one or for a permitted access."""
+        return vault_roles.role_warning(self.permission)
 
 
 def _run_vault(project_root: Path, cfg: Config) -> VaultLocation:
@@ -1091,7 +1137,12 @@ def _pending(location: VaultLocation, cfg: Config, role: str | None, action: str
     ledger.check_fields(
         role=role, action=action, objects=DATASET_OBJECTS, purpose=purpose, approval_ref=approval_ref
     )
-    return PendingAccess(location, role, purpose, approval_ref, action)
+    # compared with the role register now, at the start of the run (A-93): the warning describes the
+    # register as it was when the access began; a vault that is not present gets no event anyway
+    permission = None
+    if location.state == "present":
+        permission = vault_roles.permission_at(location, role, action, DATASET_OBJECTS)
+    return PendingAccess(location, role, purpose, approval_ref, action, permission=permission)
 
 
 def read_access(raw_target: str | Path) -> PendingAccess | None:
@@ -1251,6 +1302,8 @@ class VaultLogRun:
     event: AccessEvent
     identifying: bool  # an object, the purpose or the approval reference looks like a name or an ID
     role_identifying: bool  # the role does
+    # the role register does not permit the event, or cannot be read (vault.roles.role_warning; A-93)
+    role_warning: str | None = None
 
 
 def run_vault_log(
@@ -1266,7 +1319,8 @@ def run_vault_log(
     """``vault log`` (CLI-08, A-31): append one manual event. Role = --role > [vault] role, purpose =
     --purpose > [vault] purpose (both required: errors.vault.role_missing, .purpose_missing), approval
     reference = --approval-ref > [vault] approval_ref > none. Every refusal and every event that cannot be
-    written is exit 2 (errors.vault.*); nothing is written then."""
+    written is exit 2 (errors.vault.*); nothing is written then. An event the role register does not permit,
+    or a register that cannot be read, is written anyway and only warned about (A-93)."""
     target = vault_target(raw_path, config_path)
     vault_store.require_present(target.location)
     section = target.config.vault
@@ -1283,6 +1337,8 @@ def run_vault_log(
         _stored_object(target.root, item, index, plain=target.is_bids)
         for index, item in enumerate(objects, start=1)
     ]
+    # the objects as the log records them (pseudonymous in raw folders) are compared with the register
+    permission = vault_roles.permission_at(target.location, role, action, stored)
     outcome = ledger.append(
         target.location,
         role=role,
@@ -1299,6 +1355,7 @@ def run_vault_log(
         outcome.event,
         identifying=any(looks_identifying(text) for text in texts),
         role_identifying=role_looks_identifying(role),
+        role_warning=vault_roles.role_warning(permission),
     )
 
 

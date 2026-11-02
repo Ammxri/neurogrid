@@ -21,6 +21,9 @@ from neurogrid.quality.positions import Position, sidecar_positions
 from neurogrid.validator import ValidatorResult
 from neurogrid.validator import run as run_validator
 from neurogrid.vault.consents import LoadedConsents
+from neurogrid.vault.retention import LoadedRetention
+from neurogrid.vault.risks import LoadedRisks
+from neurogrid.vault.roles import LoadedRoles
 from neurogrid.vault.store import VaultLocation
 
 __all__ = ["ENTITY_FIELDS", "CheckContext", "RecordingState"]
@@ -95,6 +98,11 @@ class CheckContext:
     # whether the run requires consent data (--strict or [check] strict, or a configured [consent] section)
     consents: LoadedConsents | None = field(default=None, repr=False)
     consent_required: bool = False
+    # NV04, NV05 and M14-02 (A-93 to A-95): the registers of the vault, read before the signal pass when a
+    # loaded rule needs them (pipeline._load_vault_files); None: not read (no such rule, or a single file)
+    roles: LoadedRoles | None = field(default=None, repr=False)
+    retention: LoadedRetention | None = field(default=None, repr=False)
+    risks: LoadedRisks | None = field(default=None, repr=False)
 
     def annotations(self) -> AnnotationIndex:
         """The annotations of every signal recording, with the annotation-only files attached to them (M10,

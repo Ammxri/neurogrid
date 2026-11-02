@@ -464,8 +464,9 @@ def _access_messages(
 ) -> None:
     """What the user needs to know about the access event of a run (p6 decisions 4), committed after its
     outputs were written: --role without a vault, an event that was not written with its reason, and for a
-    written automatic event a missing role (recorded as null) or a role that looks like a name. The exit
-    code never changes for it."""
+    written automatic event a missing role (recorded as null) or a role that looks like a name; then the
+    role register's view of the event, compared at the start of the run (A-93). The exit code never changes
+    for it."""
     if access is None:
         if role_option:
             _say("cli.vault.role_without_vault")
@@ -479,6 +480,18 @@ def _access_messages(
             _say("cli.vault.role_missing")
         elif access.role_looks_identifying:
             _say("cli.vault.role_looks_identifying")
+    _role_warning(access.role_warning)
+
+
+def _role_warning(warning: str | None) -> None:
+    """The warning of a command whose access the role register does not permit, or whose register cannot be
+    read (KONZEPT 2.8 "Ein Befehl warnt", A-93): the event is written anyway, the exit code stays."""
+    from neurogrid.vault.roles import ROLES_INVALID
+
+    if warning == ROLES_INVALID:
+        _say("cli.vault.roles_invalid")
+    elif warning is not None:
+        _say("cli.vault.role_not_permitted", reason=translator(_lang()).t(f"cli.vault.role_reason.{warning}"))
 
 
 def _commit(access: pipeline.PendingAccess | None) -> AppendOutcome | None:
@@ -870,6 +883,11 @@ def consent_add(
     chosen_ref = approval_ref if approval_ref is not None else section.approval_ref
     location = store.locate(loaded.project_root, section.path)
     store.require_present(location)
+    # the event (consent_manage on consents.yaml) compared with the role register before it is written
+    objects = [location.object_name(store.CONSENTS_FILE)]
+    warning = roles.role_warning(
+        roles.permission_at(location, chosen_role, vault_consents.CONSENT_ACTION, objects)
+    )
     added: list[ConsentScope | vault_consents.ImportedRecord] = []
     if record is not None:
         added.append(record)
@@ -890,6 +908,7 @@ def consent_add(
         _say("cli.vault.consent.subject_hint", count=long_numbers)
     if roles.role_looks_identifying(chosen_role):
         _say("cli.vault.role_looks_identifying")
+    _role_warning(warning)
     _say("disclaimer")
 
 
@@ -906,10 +925,17 @@ def vault_init(
     config: Annotated[str | None, typer.Option("--config")] = None,
 ) -> None:
     """Create the missing parts of the vault (CLI-08, A-30): idempotent, no access event."""
+    from neurogrid.vault.store import PIA_FILES, PIA_FOLDER, REGISTER_TEMPLATES
+
     _vault_folder(path)
-    for part in pipeline.run_vault_init(path, _given_path(config)):
+    parts = pipeline.run_vault_init(path, _given_path(config))
+    for part in parts:
         _say("cli.vault.init.created" if part.created else "cli.vault.init.kept", name=_clean(part.name))
     _say("cli.vault.init.manifest_hint")
+    # the registers and the impact assessment are templates to fill in (A-93 to A-95)
+    templates = {name for name, _data in REGISTER_TEMPLATES} | {f"{PIA_FOLDER}/{name}" for name in PIA_FILES}
+    if any(part.created and part.name.endswith(tuple(f"/{name}" for name in templates)) for part in parts):
+        _say("cli.vault.init.templates_hint")
     _say("disclaimer")
 
 
@@ -1004,6 +1030,7 @@ def vault_log(
         _say("cli.vault.log.identifying")
     if run.role_identifying:
         _say("cli.vault.role_looks_identifying")
+    _role_warning(run.role_warning)
     _say("disclaimer")
 
 

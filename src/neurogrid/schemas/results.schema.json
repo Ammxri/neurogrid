@@ -259,6 +259,42 @@
           "default": null,
           "title": "Evidence Sha256"
         },
+        "retention_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retention Sha256"
+        },
+        "risks_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Risks Sha256"
+        },
+        "roles_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Roles Sha256"
+        },
         "sampling": {
           "additionalProperties": true,
           "title": "Sampling",

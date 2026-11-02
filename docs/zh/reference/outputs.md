@@ -17,7 +17,7 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 | `dataset` | 数据集字段，不含路径。 |
 | `rulepacks` | 已加载的规则包：名称、版本、来源、来源状态、是否对应标准、文件的 SHA-256。 |
 | `rules` | 每条已加载的规则，含条款、名称、阶段、检查项、生效的严重程度、严格模式下的严重程度、核验方式。 |
-| `config` | 规范化配置的哈希值、`as_of`、随机种子、严格模式、抽样、生效阈值和设置（已清理）、`evidence.yaml` 的哈希值、知情同意记录的哈希值（`consents_sha256`）。 |
+| `config` | 规范化配置的哈希值、`as_of`、随机种子、严格模式、抽样、生效阈值和设置（已清理）、`evidence.yaml` 的哈希值、知情同意记录的哈希值（`consents_sha256`）、vault 中各登记册的哈希值（`roles_sha256`、`retention_sha256`、`risks_sha256`；[登记册](#registers)）。 |
 | `recordings` | 每条记录：假名 ID、格式、能否分块读取、指标以及 M06/M09 的抽样。 |
 | `findings` | 每条未通过的检查结果，每个“规则 × 对象 × 子键”一条，带稳定的键。 |
 | `passed` | 通过的检查，按规则和对象计数。 |
@@ -88,6 +88,19 @@ consents:
 `results.json` 中的 `config.consents_sha256` 是解析后规范化记录的 SHA-256（同一组记录无论如何书写都相同）；没有
 `consents.yaml` 或未加载 M14 时为 `null`；记录本身从不进入 `results.json`。
 
+## 登记册和个人信息保护影响评估 {#registers}
+
+vault 中的 `roles.yaml`、`risks.yaml` 和 `retention.yaml` 分别保存角色登记册、风险登记册和保存期限（模式
+[`roles.schema.json`](../../schemas/roles.schema.json)、[`risks.schema.json`](../../schemas/risks.schema.json)、
+[`retention.schema.json`](../../schemas/retention.schema.json)；字段见 [NeuroVault](../vault.md#roles)）。
+`neurogrid vault init` 写入的每个文件都带有英文注释说明、注释示例和空列表；NeuroGrid 从不改写这些文件。编码为带或不带
+BOM 的 UTF-8；当有规则读取某文件时，无效内容会使 `check` 以退出码 2 结束，错误信息指出条目和字段，从不显示值。
+`pia/pia.zh.md` 和 `pia/pia.en.md` 是个人信息保护影响评估的草稿（[NeuroVault](../vault.md#pia)）。这些文件都属于清单。
+
+`results.json` 中的 `config.roles_sha256`、`config.retention_sha256` 和 `config.risks_sha256` 是解析后规范化内容的
+SHA-256（同样的条目无论如何书写都相同）；没有该文件或没有已加载的规则读取它时为 `null`；内容本身从不进入
+`results.json`。
+
 ## 访问日志 {#access-log}
 
 vault（`[vault] path`，默认 `.neurogrid/vault`）中的 `access.jsonl`，由 `vault init` 创建为空文件，由各命令追加
@@ -101,7 +114,10 @@ vault（`[vault] path`，默认 `.neurogrid/vault`）中的 `access.jsonl`，由
 [`config.schema.json`](../../schemas/config.schema.json)（`neurogrid.toml`）、
 [`rulepack.schema.json`](../../schemas/rulepack.schema.json)、
 [`evidence.schema.json`](../../schemas/evidence.schema.json)（`evidence.yaml`）、
-[`consents.schema.json`](../../schemas/consents.schema.json)（`consents.yaml`）和
+[`consents.schema.json`](../../schemas/consents.schema.json)（`consents.yaml`）、
+[`roles.schema.json`](../../schemas/roles.schema.json)（`roles.yaml`）、
+[`risks.schema.json`](../../schemas/risks.schema.json)（`risks.yaml`）、
+[`retention.schema.json`](../../schemas/retention.schema.json)（`retention.yaml`）和
 [`access_event.schema.json`](../../schemas/access_event.schema.json)（`access.jsonl` 的一行）。
 
 ## 退出码 {#exit-codes}

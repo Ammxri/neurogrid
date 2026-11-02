@@ -1,8 +1,7 @@
 # NeuroVault {#vault}
 
-NeuroVault 在数据旁的 vault 文件夹中保存数据集的知情同意记录，以及对数据集访问情况的哈希链日志。0.2 版包含 vault
-文件夹、知情同意记录、访问日志及其检查；角色登记册、保存期限、影响评估和导出将在以后的版本中提供
-（[局限](limitations.md#neurovault)）。
+NeuroVault 在数据旁的 vault 文件夹中保存数据集的知情同意记录、对数据集访问情况的哈希链日志、角色登记册、保存期限、
+风险登记册和个人信息保护影响评估。NeuroGrid 对其进行检查并给出警告，但不强制执行任何内容（[局限](limitations.md#neurovault)）。
 
 NeuroGrid 不设用户账户。文件的访问权限由操作系统管理：能写入 vault 文件夹的人就能修改它。访问日志记录通过
 NeuroGrid 发生的访问，并使之后对日志的修改可见；它不能阻止这些修改。
@@ -29,8 +28,14 @@ vault 是 `neurogrid.toml` 中 `[vault] path` 指定的文件夹，相对于项�
 | `consents.yaml` | 知情同意记录（只含受试者的假名 ID）。属于清单：`neurogrid verify` 会报告其更改。 |
 | `access.jsonl` | 访问日志，每行一个事件。不属于清单：它随每次访问而增长。 |
 | `access.jsonl.lock` | 所有读取或写入 vault 的 NeuroGrid 进程共用的锁文件。不属于清单。 |
+| `roles.yaml` | 角色登记册（[角色](#roles)）。属于清单。 |
+| `retention.yaml` | vault 中各文件的保存期限（[保存期限](#retention)）。属于清单。 |
+| `risks.yaml` | 风险登记册（[风险登记册](#risks)）。属于清单。 |
+| `pia/pia.zh.md`、`pia/pia.en.md` | 个人信息保护影响评估，待填写的草稿（[个人信息保护影响评估](#pia)）。属于清单。 |
 
-vault 路径中任何位置的链接或目录联接，以及访问日志、其锁文件或 `consents.yaml` 处的链接，都从不跟随：`check`、
+缺少登记册和 PIA 文件时，`vault init` 根据模板写入它们，已有文件逐字节保持不变；由 NeuroGrid 0.2 创建的 vault 只需
+再运行一次 `vault init` 即可获得这些文件。vault 路径中任何位置的链接或目录联接，以及访问日志、其锁文件、`consents.yaml`、
+各登记册、`pia` 文件夹或 PIA 文件处的链接，都从不跟随：`check`、
 `report --config` 和各 vault 命令以退出码 2 结束；`convert`、`scan`、`manifest` 和 `verify` 不写入事件并给出警告。
 在 Linux 下，新建的 vault 文件夹权限为 0700，新建的 vault 文件为 0600；在 Windows 下沿用其所在文件夹的权限。
 
@@ -158,10 +163,117 @@ print("head", previous)
 ## 角色 {#roles}
 
 角色是您为访问数据的职能所取的名称（`data_steward`、`QA.lead`），或姓名缩写——绝不是人名或登录名。NeuroGrid 只
-检查其格式；当角色、对象或目的看起来像人名或身份编号时会给出警告，但仍会记录。角色只作参考，不强制执行；角色登记册
-将在以后的版本中提供。
+检查其格式；当角色、对象或目的看起来像人名或身份编号时会给出警告，但仍会记录。角色只作参考，不强制执行。
+
+角色登记册 `roles.yaml` 规定哪个角色可以对哪些对象执行哪些操作。`vault init` 写入的文件包含 `roles: []`，并以注释形式
+附上以下示例：
+
+<!-- example: roles-yaml -->
+```yaml
+format_version: 1
+roles:
+  - role: data_steward
+    description: Prepares, checks and converts the dataset
+    actions: [read, check, convert, report, export, consent_manage]
+    objects: ["**", ".neurogrid/vault/consents.yaml"]
+    ethics_approval_ref: "EC-2026-17"
+  - role: QA.lead
+    description: Reviews the check results and the reports
+    actions: [read, report]
+    objects: ["**"]
+```
+
+| 字段 | 内容 |
+|---|---|
+| `role` | 角色名称或姓名缩写：以字母开头，后跟字母、数字、`_`、`.` 或 `-`，最多 80 个字符；每个角色只能出现一次。 |
+| `description` | 1 至 200 个可打印字符。只保存在该文件中：从不出现在 `results.json`、报告或控制台中。 |
+| `actions` | `read`、`check`、`convert`、`report`、`export` 和 `consent_manage` 中的 1 至 6 项，每项只能出现一次。 |
+| `objects` | 1 至 100 个路径或模式（`**` 表示任意层文件夹，`*` 和 `?` 只在一个名称内匹配）：数据相对于数据集，vault 中的文件相对于项目根目录。 |
+| `ethics_approval_ref` | 可选：伦理审批编号，1 至 120 个可打印字符；从不出现在输出中。 |
+
+角色登记册最多包含 200 个角色、1,000,000 字节。事件的角色在登记册中、该角色可以执行其操作，且该角色的某个对象模式
+覆盖事件的每个对象时，访问即为允许。本身就是模式的对象只被能覆盖其所有可能路径的模式覆盖：每个自动事件的对象 `**`
+只被 `**` 覆盖。在原始文件夹中，访问日志以假名文件名（`rec-<sha8>.<ext>`）记录文件，因此按真实文件名编写的模式在
+那里不会匹配。
+
+CORE-NV04-01 将访问日志与登记册比较（[指标](metrics.md#NV04)）。`check`、`convert`、`report --config`、`vault log`
+和 `vault consent add` 在开始时比较自身的访问；登记册不允许时给出警告，但仍记录该访问，退出码不变。没有登记册或为
+`roles: []` 时不作比较。`roles.yaml` 无效时，`check` 在读取数据之前以退出码 2 结束（错误信息指出条目和字段，从不显示
+值）；其他命令只给出警告。
+
+## 保存期限 {#retention}
+
+`retention.yaml` 为 vault 中的每个文件记录其创建日期、最低保存期限，以及可选的复核日期。`vault init` 写入的文件包含
+`objects: []`，并以注释形式附上以下示例：
+
+<!-- example: retention-yaml -->
+```yaml
+format_version: 1
+objects:
+  - object: pia
+    created: 2026-11-02
+    min_until: 2029-11-02
+    review_at: 2029-08-01
+  - object: access_log
+    created: 2026-11-02
+    min_until: 2029-11-02
+```
+
+| 字段 | 内容 |
+|---|---|
+| `object` | `pia`（个人信息保护影响评估）、`access_log`、`roles`、`risks` 或 `consents`；每个对象只能出现一次。 |
+| `created` | 对象的创建日期（YYYY-MM-DD）。 |
+| `min_until` | 最低保存期限：不早于 `created` 之后三年；自 2 月 29 日起算时最早为三年后的 3 月 1 日。日期更早时 `check` 以退出码 2 结束。 |
+| `review_at` | 可选：介于 `created` 和 `min_until` 之间的复核日期。 |
+
+该文件最多 100,000 字节。CORE-NV05-01 要求 `pia` 和 `access_log` 各有一个条目：NeuroGrid 将 PIPL 中关于个人信息
+保护影响评估的规定理解为要求影响评估报告和处理情况记录（此处即访问日志）至少保存三年。这是 NeuroGrid 的理解，
+不构成法律意见。CORE-NV05-01 还会报告文件缺失的已列出对象，以及开头条目被删除的访问日志。CORE-NV05-03 从
+`min_until` 之前 90 天起（参数 `days`）以及自 `review_at` 起给出提醒。提醒措辞中立：请在自行开展法律审查后，决定
+继续保存或删除。NeuroGrid 不删除任何内容，也不为 EEG 数据设定保存期限（[指标](metrics.md#NV05)）。
+
+## 个人信息保护影响评估 {#pia}
+
+`vault init` 以两份草稿写入个人信息保护影响评估：`pia/pia.zh.md` 和 `pia/pia.en.md`。每份的第一行都注明它是占位
+文本，不构成法律意见。草稿包含 PIPL 要求开展个人信息保护影响评估的情形的检查清单、作为标题的评估要点以及待填写的
+字段，每个字段都带有占位标记（中文文件为【待填写】，英文文件为 `[to be completed]`）。模板以 NeuroGrid 自己的语言转述
+相关规定并注明条文；其中不含任何法律依据，也不含任何评估结论。模板在首次实际使用前，由在中华人民共和国获准执业的
+法律顾问审核；该审核不是 NeuroGrid 发布的前提条件。
+
+CORE-NV05-02 报告以下情况：vault 中没有 PIA 文件；PIA 文件仍是未经编辑的模板（字节顺序标记和 CRLF 换行符除外）；
+已编辑的文件中仍留有占位标记。只要有一个已编辑且不含占位标记的文件即可。NeuroGrid 不评判其内容，也从不将其写入任何
+输出。
+
+## 风险登记册 {#risks}
+
+风险登记册 `risks.yaml` 列出在取得知情同意之后发现的风险：受影响的用途，以及从哪个知情同意版本起该风险被覆盖。
+`vault init` 写入的文件包含 `risks: []`，并以注释形式附上以下示例：
+
+<!-- example: risks-yaml -->
+```yaml
+format_version: 1
+risks:
+  - id: R-2026-01
+    date: 2026-09-01
+    description: The recordings are also used to train a second model
+    affected_uses: [training, sharing]
+    min_consent_version: 2
+```
+
+| 字段 | 内容 |
+|---|---|
+| `id` | 以字母开头，后跟字母、数字、`_`、`.` 或 `-`，最多 40 个字符；每个 ID 只能出现一次。 |
+| `date` | 记录该风险的日期（YYYY-MM-DD）。 |
+| `description` | 1 至 500 个可打印字符。只保存在该文件中：从不出现在 `results.json`、报告、导出或控制台中。 |
+| `affected_uses` | `training`、`validation`、`publication`、`sharing` 和 `commercial` 中的 1 至 5 项，每项只能出现一次。 |
+| `min_consent_version` | 从该知情同意版本起，知情同意覆盖该风险（1 至 1,000,000）。 |
+
+风险登记册最多包含 1,000 项风险、1,000,000 字节；当有规则读取它时，无效的文件会使 `check` 以退出码 2 结束。读取它的
+重新取得知情同意检查在 M14 中说明（[指标](metrics.md#M14)）。
 
 ## 检查 {#checks}
 
 规则包 `core` 用 CORE-NV03-01（哈希链完整，错误）和 CORE-NV03-02（访问日志可写入，警告）检查日志：
-[指标](metrics.md#NV03)。
+[指标](metrics.md#NV03)。CORE-NV04-01 将日志与角色登记册比较（警告），CORE-NV05-01 和 CORE-NV05-02 检查保存期限和
+个人信息保护影响评估（警告），CORE-NV05-03 提醒最低保存期限即将结束（信息）：[指标](metrics.md#NV04)、
+[指标](metrics.md#NV05)。

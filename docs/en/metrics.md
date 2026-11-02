@@ -1,6 +1,6 @@
 # Metrics {#metrics}
 
-The rule pack `core` evaluates the metrics M01–M14 and the access log NV03 of NeuroVault; this page is its
+The rule pack `core` evaluates the metrics M01–M14 and NeuroVault's NV03 to NV05; this page is its
 source (the clause of a core rule is the metric). For each metric it says what is measured, how, on which
 object, when a value cannot be judged, which rules use it with which threshold and where that threshold comes
 from. Every threshold can be overridden in `neurogrid.toml` (`[rules."ID".params]`).
@@ -298,6 +298,63 @@ rewriting are detected only with `vault verify --expect-head`.
 |---|---|---|---|
 | [CORE-NV03-01](reference/rules.md#CORE-NV03-01) Access log hash chain intact | Error | – | start value of the product specification (A-30, A-90) |
 | [CORE-NV03-02](reference/rules.md#CORE-NV03-02) Access log can be written | Warning | – | assumption A-30, A-90 (decision log) |
+<!-- END GENERATED -->
+
+## NV04 Role register {#NV04}
+
+**Measured.** The events of the vault's access log against the role register `roles.yaml` in the vault
+([NeuroVault](vault.md#roles)). An access is permitted when its role is in the register, the role allows its
+action and an object pattern of the role covers every object of the event; an object that is itself a pattern,
+such as `**` of every automatic event, is covered only by a pattern that covers everything it may name (`**`).
+CORE-NV04-01 judges only the well-formed events whose time lies before 00:00 UTC of the day before the reference
+date: the run's own event and those of other runs on the same day never change the result, so two runs give the
+same `results.json`. One result per role and action: passed when every event of the pair is permitted, otherwise
+failed with the reason of its first event that is not. The register is advisory: NeuroGrid refuses no access
+because of it; `check`, `convert`, `report --config`, `vault log` and `vault consent add` warn when it does not
+permit their own access, and record the event anyway.
+
+**Not checkable, not applicable.** Without a vault the rule is not checkable; a single file has no vault (not
+applicable). Without `roles.yaml`, with `roles: []`, and with a log that is missing, cannot be read or is locked
+longer than 10 s, the rule is not checkable. Events without a role (`scan`, `manifest` and `verify` record none)
+are not checkable, one result per action. Without an event before the day before the reference date the rule is
+not applicable. An invalid `roles.yaml` ends `check` with exit code 2 before the data are read.
+
+**Details.** Role, action, the number of events not permitted and the first such line of the access log; never
+times, objects, purposes or texts of the register. An exception names the pair as its subkey, for example
+`QA.lead/export`.
+
+<!-- BEGIN GENERATED thresholds NV04 -->
+| Rule | Severity | Parameter | Origin |
+|---|---|---|---|
+| [CORE-NV04-01](reference/rules.md#CORE-NV04-01) Accesses permitted by the role register | Warning | – | assumption A-30, A-93 (decision log) |
+<!-- END GENERATED -->
+
+## NV05 Retention and impact assessment {#NV05}
+
+**Measured.** The retention periods `retention.yaml` and the impact assessment `pia/pia.zh.md`, `pia/pia.en.md`
+in the vault ([NeuroVault](vault.md#retention)). CORE-NV05-01: `retention.yaml` has an entry for each required
+object (`pia` and `access_log`, NeuroGrid's reading of the PIPL provision on the impact assessment) and the file
+of each listed object exists; the access log still starts at the genesis hash (entries removed at its start are a
+finding). CORE-NV05-02: at least one PIA file was edited and holds no placeholder of either template; NeuroGrid
+does not judge the content. CORE-NV05-03: for each entry the days from the reference date to `min_until`; a
+reminder (info) when they are at most `days` or the review date `review_at` is reached. The reminder is neutral:
+decide on further retention or deletion after your own legal review. EEG data have no retention period here.
+
+**Not checkable, not applicable.** Without a vault the rules are not checkable; a single file has no vault (not
+applicable). A vault without `retention.yaml` fails CORE-NV05-01 once; CORE-NV05-03 is then not applicable, as
+with `objects: []`. A PIA file larger than 4,000,000 bytes or one that cannot be read makes CORE-NV05-02 not
+checkable. A `min_until` less than three years after `created` (from 29 February: 1 March three years later)
+and any other invalid `retention.yaml` end `check` with exit code 2 before the data are read.
+
+**Details.** The object and its dates (CORE-NV05-01, CORE-NV05-03), the number of PIA files and of fields still
+to be completed (CORE-NV05-02); never text of the files.
+
+<!-- BEGIN GENERATED thresholds NV05 -->
+| Rule | Severity | Parameter | Origin |
+|---|---|---|---|
+| [CORE-NV05-01](reference/rules.md#CORE-NV05-01) Retention periods recorded for the vault files | Warning | – | start value of the product specification (A-30, A-94) |
+| [CORE-NV05-02](reference/rules.md#CORE-NV05-02) Impact assessment filled in | Warning | – | assumption A-30, A-94 (decision log) |
+| [CORE-NV05-03](reference/rules.md#CORE-NV05-03) Reminder before a minimum retention ends | Note | `days` = 90 (rule pack) | assumption A-30, A-94 (decision log) |
 <!-- END GENERATED -->
 
 ## Calibration {#calibration}

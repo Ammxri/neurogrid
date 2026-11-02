@@ -57,6 +57,8 @@ metadata.consistent:
   object: "数据集：TaskName、BIDSVersion 和 Name"
 metadata.required_fields:
   object: "每条记录及每个必填字段"
+pia.edited:
+  object: "数据集：其 vault 中的个人信息保护影响评估（pia/pia.zh.md、pia/pia.en.md）"
 provenance.documented:
   object: "数据集：处理步骤和软件版本"
 provenance.files_match:
@@ -80,6 +82,13 @@ quality.line_noise:
   object: "记录中的每个 EEG 通道（全长）"
 quality.non_brain_components:
   object: "每条记录（抽样）"
+retention.complete:
+  object: "retention.yaml 中每个必需（pia、access_log）或已列出的对象；没有 retention.yaml 时为数据集"
+retention.ending:
+  object: "retention.yaml 中列出的每个对象"
+  passes: "最低保存期限在基准日期之后超过 `days` 天才结束，且尚未到复核日期（中立的提醒，A-30）"
+roles.permitted:
+  object: "基准日期前一天之前的访问事件中的每个角色和操作"
 signal.sampling_rate_consistency:
   object: "每条记录"
   passes: "采样率不低于 `min_hz`，且各采样率一致或混合采样率已有记录"

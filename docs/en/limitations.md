@@ -51,9 +51,9 @@ supported ([Installation](installation.md#platforms)).
 
 ## NeuroVault {#neurovault}
 
-NeuroVault is partly available: the vault folder, the consent records and the hash-chained access log with
-`vault init`, `vault log` and `vault verify` ([NeuroVault](vault.md)). The role register, retention periods, the
-impact assessment and the export follow in later versions.
+NeuroVault is partly available: the vault folder, the consent records, the hash-chained access log with
+`vault init`, `vault log` and `vault verify`, the role register, the retention periods, the risk register and the
+impact assessment ([NeuroVault](vault.md)). The export follows in a later version.
 
 - The hash chain detects changing, inserting, deleting and reordering entries inside the chain. Truncation at
   the end and complete rewriting are detected only with `vault verify --expect-head` against a head hash
@@ -63,6 +63,13 @@ impact assessment and the export follow in later versions.
   `report` records only with `--config`. Event times come from the local clock and are not verified.
 - The vault lock keeps NeuroGrid processes apart, not other programs; roles are advisory, not enforced.
   Access rights are governed by the operating system.
+- CORE-NV04-01 judges only events before 00:00 UTC of the day before the reference date: the accesses of the
+  last day enter a later result. With a reference date more than one day in the future, a run's own event can
+  enter the next run's result.
+- The impact assessment templates are placeholders and no legal advice; a legal adviser admitted in the
+  People's Republic of China reviews them before their first real use. That `pia` and `access_log` need a
+  retention entry is NeuroGrid's reading of the PIPL. NeuroGrid deletes nothing and sets no retention period
+  for EEG data.
 
 ## Not part of version 0.1 {#not-in-v01}
 

@@ -1,0 +1,75 @@
+{
+  "$defs": {
+    "RetentionItem": {
+      "additionalProperties": false,
+      "description": "The retention of one object of the vault (A-94).",
+      "properties": {
+        "created": {
+          "format": "date",
+          "title": "Created",
+          "type": "string"
+        },
+        "min_until": {
+          "format": "date",
+          "title": "Min Until",
+          "type": "string"
+        },
+        "object": {
+          "enum": [
+            "pia",
+            "access_log",
+            "roles",
+            "risks",
+            "consents"
+          ],
+          "title": "Object",
+          "type": "string"
+        },
+        "review_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Review At"
+        }
+      },
+      "required": [
+        "object",
+        "created",
+        "min_until"
+      ],
+      "title": "RetentionItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The whole retention.yaml. ``format_version`` and ``objects`` are required in a file (parse_retention,\nand the schema); the defaults only serve NeuroGrid's own construction. Each object is listed at most once,\nmin_until lies at least three years after created and a review date between both (parse_retention; the\nschema cannot compare fields).",
+  "properties": {
+    "format_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Format Version",
+      "type": "integer"
+    },
+    "objects": {
+      "items": {
+        "$ref": "#/$defs/RetentionItem"
+      },
+      "maxItems": 5,
+      "title": "Objects",
+      "type": "array"
+    }
+  },
+  "required": [
+    "format_version",
+    "objects"
+  ],
+  "title": "RetentionRegister",
+  "type": "object"
+}

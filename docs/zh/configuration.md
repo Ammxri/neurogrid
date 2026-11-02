@@ -178,3 +178,4 @@ splits = ".neurogrid/splits.tsv"
 | `splits.tsv` | 列 `recording`（相对路径或假名 ID）和 `split`（train、val、test）。 |
 | `provenance.yaml` | `processing_steps` 和 `software`（CORE-M13-03）；`processing_steps: []` 表示“未经处理”。 |
 | `manifest.json` | 由 `manifest` 写入（[输出文件](reference/outputs.md#manifest)）。 |
+| `vault/` | 默认 `[vault] path` 处的 vault：`consents.yaml`、访问日志、登记册 `roles.yaml`、`risks.yaml` 和 `retention.yaml` 以及个人信息保护影响评估 `pia/`（[NeuroVault](vault.md#folder)）。 |

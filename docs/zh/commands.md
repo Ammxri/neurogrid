@@ -167,8 +167,11 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 `neurogrid vault init [PATH] [--config FILE]`
 
 创建 vault 中缺少的部分：vault 路径中的文件夹、`consents.yaml`（尚无知情同意记录）、空的访问日志 `access.jsonl`
-及其锁文件 `access.jsonl.lock`。已有部分逐字节保留，因此该命令可随时重复运行；它不记录访问事件（哈希链从创世哈希值
-开始）。之后请重新运行 `neurogrid manifest`：`consents.yaml` 属于清单，访问日志及其锁文件不属于清单。
+及其锁文件 `access.jsonl.lock`、角色登记册 `roles.yaml`、风险登记册 `risks.yaml` 和保存期限 `retention.yaml`（均为空，
+附带注释示例），以及个人信息保护影响评估的草稿 `pia/pia.zh.md` 和 `pia/pia.en.md`（[NeuroVault](vault.md#folder)）。
+已有部分逐字节保留，因此该命令可随时重复运行，也可用于 0.2 版的 vault（只补充新增部分）；它不记录访问事件（哈希链从
+创世哈希值开始）。之后请重新运行 `neurogrid manifest`：`consents.yaml`、各登记册和 PIA 文件属于清单，访问日志及其
+锁文件不属于清单。
 
 | 参数 / 选项 | 含义 |
 |---|---|
@@ -226,6 +229,11 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 追加，并以整个数据集（`**`）为对象。不作记录的有：以退出码 2 结束的运行、不带 `--config` 的 `report`、`vault init`、
 `vault log --show` 和 `vault verify`。事件无法写入时只给出警告，从不改变退出码；对 `convert`、`scan`、`manifest` 和
 `verify`，vault 路径中的链接属于这种警告，对 `check`、`report --config` 和各 vault 命令则为退出码 2。
+
+`check`、`convert`、`report --config`、`vault log` 和 `vault consent add` 在开始时将自身的访问与角色登记册
+`roles.yaml` 比较（[NeuroVault](vault.md#roles)）：登记册不允许该访问（未知角色，或该角色没有的操作或对象），或无法
+读取 `roles.yaml` 时，它们给出警告，但仍记录该事件；退出码不变。只有 `check` 会因无效的 `roles.yaml`（CORE-NV04-01
+读取该文件）以退出码 2 结束。没有登记册、为 `roles: []`，以及不记录角色的 `scan`、`manifest` 和 `verify`，均不作比较。
 
 ### vault consent add {#vault-consent-add}
 

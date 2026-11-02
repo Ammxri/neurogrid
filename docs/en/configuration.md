@@ -187,3 +187,4 @@ splits = ".neurogrid/splits.tsv"
 | `splits.tsv` | Columns `recording` (relative path or pseudonymous ID) and `split` (train, val, test). |
 | `provenance.yaml` | `processing_steps` and `software` (CORE-M13-03); `processing_steps: []` documents "no processing". |
 | `manifest.json` | Written by `manifest` ([Output files](reference/outputs.md#manifest)). |
+| `vault/` | The vault at the default `[vault] path`: `consents.yaml`, the access log, the registers `roles.yaml`, `risks.yaml` and `retention.yaml` and the impact assessment `pia/` ([NeuroVault](vault.md#folder)). |

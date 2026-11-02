@@ -149,6 +149,25 @@ One line of the access log `access.jsonl`; the JSON schema is
 Supplements: `format_version`, `seq` (the position in the chain) and `tool_version`. An event holds no user
 name, computer name, process ID or absolute path ([fields and object namespaces](vault.md#fields)).
 
+## Role and RetentionItem
+
+Both objects belong to NeuroVault and are added in version 1.0 ([NeuroVault](vault.md)). The specification asks
+for a role register with a reference to the ethics approval and for retention periods of at least three years;
+the fields are NeuroGrid's.
+
+### Role {#role}
+
+One entry of the role register `roles.yaml` ([NeuroVault](vault.md#roles)); the JSON schema is
+[`roles.schema.json`](../schemas/roles.schema.json). Fields: `role`, `description`, `actions` (the actions of the
+access events), `objects` (paths and patterns, as the objects of the events), `ethics_approval_ref` (the
+reference to the ethics approval).
+
+### RetentionItem {#retention-item}
+
+One entry of `retention.yaml` ([NeuroVault](vault.md#retention)); the JSON schema is
+[`retention.schema.json`](../schemas/retention.schema.json). Fields: `object`, `created`, `min_until`,
+`review_at`.
+
 ## Results
 
 `results.json` carries the objects above together with the run's context: the rule packs and rules, the

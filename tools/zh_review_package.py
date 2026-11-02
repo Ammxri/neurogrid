@@ -176,6 +176,14 @@ def sources(root: Path = ROOT) -> list[Source]:
             Source(f"src/neurogrid/rulepacks/{pack}.yaml", f"rule titles of the {pack} pack", rule_titles)
         )
     found.append(Source("src/neurogrid/report/validator_codes.yaml", "validator texts", validator_texts))
+    found.append(
+        Source(
+            "src/neurogrid/vault/templates/pia.zh.md",
+            "impact assessment template that vault init writes (A-94)",
+            zh_lines,
+            keyed=False,
+        )
+    )
     pages = sorted(path.relative_to(root).as_posix() for path in (root / "docs" / "zh").rglob("*.md"))
     found += [Source(page, "documentation page", zh_lines, keyed=False) for page in pages]
     data = sorted(path.relative_to(root).as_posix() for path in (root / "docs" / "_data").glob("*.zh.yaml"))

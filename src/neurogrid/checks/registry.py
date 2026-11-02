@@ -13,6 +13,7 @@ from neurogrid.checks import (
     metadata,
     provenance,
     quality,
+    retention,
     signal,
     structure,
 )
@@ -21,8 +22,9 @@ from neurogrid.kernel.rules import CheckSpec, Measurement, evidence_spec
 
 Measurer = Callable[[CheckContext], list[Measurement]]
 
-# NeuroVault is a supplier of the checks (ARC-01): access reads the vault's access log, consent its
-# consent records (P6)
+# NeuroVault is a supplier of the checks (ARC-01): access reads the vault's access log (P6) and compares it
+# with the role register, consent its consent records (P6), retention the retention periods and the impact
+# assessment (P9)
 _MODULES = (
     structure,
     metadata,
@@ -34,6 +36,7 @@ _MODULES = (
     annotation,
     consent,
     access,
+    retention,
 )
 
 REGISTRY: dict[str, CheckSpec] = {spec.id: spec for module in _MODULES for spec in module.SPECS}

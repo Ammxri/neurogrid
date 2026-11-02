@@ -4,4 +4,4 @@ NeuroGrid reports whether a dataset passes the checks of the loaded rule packs.
 It never claims conformity; conformity is assessed by test institutes and the NMPA.
 """
 
-__version__ = "0.2.0.dev0"
+__version__ = "1.0.0.dev0"

@@ -8,11 +8,13 @@ Two levels:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
 from importlib import resources
 from pathlib import Path
 
 import pytest
+from register_setups import REGISTER_SETUPS  # type: ignore[import-not-found]
 
 from neurogrid import pipeline
 from neurogrid.checks.registry import REGISTRY
@@ -47,6 +49,12 @@ EFFECT_CASES: dict[tuple[str, str], tuple[str, ParamValue]] = {
     ("ai.class_balance", "min_share"): ("bids_ai_ok", 0.35),
     # P4 annotation: one object with three scorers, pairwise kappa 1.0 / 0.5 / 0.5 (mean 0.667)
     ("annotation.kappa", "min_kappa"): ("annotation_continuous_ok", 0.95),
+    # P9 NV05-03: the entries end in 2029, about 1000 days after AS_OF; a reminder of 5000 days fails them
+    ("retention.ending", "days"): ("edf_ok", 5000),
+}
+# check -> a setup (tests/rules) that makes the fixture a dataset the check can judge: a copy with a vault
+EFFECT_SETUPS: dict[str, Callable[[Path, Path], tuple[Path, dict[str, object]]]] = {
+    "retention.ending": REGISTER_SETUPS["reg_complete"],
 }
 # check -> toml lines both runs need so that the check can be evaluated at all
 BASE_CONFIG = {
@@ -120,21 +128,26 @@ def _meta_pack(tmp_path: Path, check_id: str) -> Path:
 def test_parameter_override_changes_the_outcome(tmp_path: Path, check_id: str, param: str) -> None:
     fixture, value = EFFECT_CASES[(check_id, param)]
     options = {"rulepacks": (str(_meta_pack(tmp_path, check_id)),), "as_of": AS_OF}
+    target = FIX / fixture
+    if check_id in EFFECT_SETUPS:
+        target, _extra = EFFECT_SETUPS[check_id](target, tmp_path / "setup")  # checked at AS_OF as the others
+    # a toml in the dataset's .neurogrid folder: its project root is the dataset, where the vault lies (A-66)
+    config_dir = target / ".neurogrid" if check_id in EFFECT_SETUPS else tmp_path
     base = BASE_CONFIG.get(check_id, "")
-    base_config = tmp_path / "base.toml"
+    base_config = config_dir / "base.toml"
     base_config.write_text(base, encoding="utf-8")
     default = pipeline.run_check(
-        FIX / fixture,
+        target,
         pipeline.CheckOptions(config_path=base_config, **options),
     )
     assert not [f for f in default.findings if f.rule_id == "META-ACQ-001"]
     assert any(p.rule_id == "META-ACQ-001" for p in default.passed)
-    config = tmp_path / "neurogrid.toml"
+    config = config_dir / "neurogrid.toml"
     config.write_text(
         f'{base}[rules."META-ACQ-001".params]\n{param} = {_toml_value(value)}\n', encoding="utf-8"
     )
     overridden = pipeline.run_check(
-        FIX / fixture,
+        target,
         pipeline.CheckOptions(config_path=config, **options),
     )
     statuses = {f.status for f in overridden.findings if f.rule_id == "META-ACQ-001"}

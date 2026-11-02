@@ -304,6 +304,17 @@ def snapshot(location: VaultLocation, timeout_s: float = LOCK_TIMEOUT_S) -> int:
         return info.st_size
 
 
+def first_entry(location: VaultLocation, timeout_s: float = LOCK_TIMEOUT_S) -> AccessEvent | None:
+    """The event of the first well-formed line of the log under the snapshot rule (CORE-NV05-01, A-94: a
+    first event that does not link to GENESIS shows that entries at the start were removed); None for a log
+    without a well-formed line. Raises the errors of snapshot and iter_entries."""
+    size = snapshot(location, timeout_s)
+    for entry in iter_entries(location.log, size):
+        if entry.event is not None:
+            return entry.event
+    return None
+
+
 # --- verifying --------------------------------------------------------------------------------------------
 
 

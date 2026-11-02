@@ -2,7 +2,7 @@
 # (docs/<lang>/metrics.md). Rule IDs follow CORE-Mxx-NN by design (documented exception to PACK-PHASE-NNN).
 # Further metrics are added phase by phase (KONZEPT.md §2.2).
 rulepack: core
-version: "0.2.0"
+version: "1.0.0"
 source: "NeuroGrid core metrics (docs/<lang>/metrics.md)"
 source_status: final
 norm: false
@@ -329,6 +329,44 @@ rules:
     phase: access
     check: access.log_writable
     severity: warning  # A-30: a read-only vault is a warning and a finding, never exit 2
+    verification: automatic
+
+  # --- P9 NeuroVault registers (NV-F04, NV-F05; A-30, A-93, A-94) ---
+  - id: CORE-NV04-01
+    clause: NV04
+    title_zh: 访问在角色登记册允许的范围内
+    title_en: Accesses permitted by the role register
+    phase: access
+    check: roles.permitted
+    severity: warning  # A-30: the role register is advisory, never enforced
+    verification: automatic
+
+  - id: CORE-NV05-01
+    clause: NV05
+    title_zh: 已记录 vault 文件的保存期限
+    title_en: Retention periods recorded for the vault files
+    phase: access
+    check: retention.complete
+    severity: warning
+    verification: automatic
+
+  - id: CORE-NV05-02
+    clause: NV05
+    title_zh: 个人信息保护影响评估已填写
+    title_en: Impact assessment filled in
+    phase: access
+    check: pia.edited
+    severity: warning
+    verification: automatic
+
+  - id: CORE-NV05-03
+    clause: NV05
+    title_zh: 最低保存期限结束前的提醒
+    title_en: Reminder before a minimum retention ends
+    phase: access
+    check: retention.ending
+    params: {days: 90}  # A-30: a reminder at most 90 days before min_until
+    severity: info
     verification: automatic
 
   # --- P4 annotation ---

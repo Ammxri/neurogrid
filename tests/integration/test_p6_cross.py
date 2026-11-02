@@ -205,7 +205,7 @@ def test_linked_vault_and_linked_consents_exit2(tmp_path: Path, capsys: pytest.C
     vault verify and report --config end with exit 2 and touch nothing behind the link."""
     outside = _dataset(tmp_path, name="other")
     _init(outside, capsys)
-    keep = {path.name: path.read_bytes() for path in (outside / VAULT).iterdir()}
+    keep = _vault_files(outside)
 
     folder = _dataset(tmp_path)
     dir_link(folder / VAULT, outside / VAULT)
@@ -238,7 +238,7 @@ def test_linked_vault_and_linked_consents_exit2(tmp_path: Path, capsys: pytest.C
     for call in calls:
         code, out, err = run(call, capsys)
         assert code == 2, (call[0], out + err)
-    assert {path.name: path.read_bytes() for path in (outside / VAULT).iterdir()} == keep
+    assert _vault_files(outside) == keep
 
     second = _dataset(tmp_path, name="second")
     _init(second, capsys)
@@ -269,7 +269,16 @@ def test_linked_vault_and_linked_consents_exit2(tmp_path: Path, capsys: pytest.C
     ):
         code, out, err = run(call, capsys)
         assert code == 2, (call[0], out + err)
-    assert {path.name: path.read_bytes() for path in (outside / VAULT).iterdir()} == keep
+    assert _vault_files(outside) == keep
+
+
+def _vault_files(folder: Path) -> dict[str, bytes]:
+    """Every file of the vault of ``folder`` (relative POSIX name -> bytes); since P9 the PIA files lie in
+    its folder pia."""
+    vault = folder / VAULT
+    return {
+        path.relative_to(vault).as_posix(): path.read_bytes() for path in vault.rglob("*") if path.is_file()
+    }
 
 
 def test_vault_without_access_log(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

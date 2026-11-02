@@ -18,7 +18,7 @@ Written by `check` (`--out`, default `results.json`); `report` reads only this f
 | `dataset` | The dataset fields, without paths. |
 | `rulepacks` | Loaded packs: name, version, source, source status, norm, SHA-256 of the file. |
 | `rules` | Every loaded rule with clause, titles, phase, check, effective severity, strict severity, verification. |
-| `config` | Hash of the canonical configuration, `as_of`, seed, strict mode, sampling, effective thresholds and settings (cleaned), hash of `evidence.yaml`, hash of the consent records (`consents_sha256`). |
+| `config` | Hash of the canonical configuration, `as_of`, seed, strict mode, sampling, effective thresholds and settings (cleaned), hash of `evidence.yaml`, hash of the consent records (`consents_sha256`), hashes of the registers of the vault (`roles_sha256`, `retention_sha256`, `risks_sha256`; [registers](#registers)). |
 | `recordings` | Per recording: pseudonymous ID, format, readable in blocks, metrics and the sample of M06/M09. |
 | `findings` | Every finding that is not passed, one per rule × object × sub-key, with its stable key. |
 | `passed` | Passed checks, counted per rule and object. |
@@ -96,6 +96,21 @@ column, never the content of a cell.
 spelling of the same records), `null` without `consents.yaml` or without M14; the records themselves never reach
 `results.json`.
 
+## The registers and the impact assessment {#registers}
+
+`roles.yaml`, `risks.yaml` and `retention.yaml` in the vault hold the role register, the risk register and the
+retention periods (schemas [`roles.schema.json`](../../schemas/roles.schema.json),
+[`risks.schema.json`](../../schemas/risks.schema.json), [`retention.schema.json`](../../schemas/retention.schema.json);
+fields: [NeuroVault](../vault.md#roles)). `neurogrid vault init` writes each with an English comment header, a
+commented example and an empty list; NeuroGrid never rewrites them. UTF-8 with or without BOM; invalid content
+ends `check` with exit code 2 when a rule reads the file and names the entry and the field, never a value.
+`pia/pia.zh.md` and `pia/pia.en.md` are the drafts of the impact assessment ([NeuroVault](../vault.md#pia)). All
+of them are part of the manifest.
+
+`config.roles_sha256`, `config.retention_sha256` and `config.risks_sha256` in `results.json` are the SHA-256 of
+the canonical parsed content (the same for every spelling of the same entries), `null` without the file or when
+no loaded rule reads it; the content itself never reaches `results.json`.
+
 ## Access log {#access-log}
 
 `access.jsonl` in the vault (`[vault] path`, default `.neurogrid/vault`), created empty by `vault init` and
@@ -110,7 +125,10 @@ are left out of the manifest.
 [`config.schema.json`](../../schemas/config.schema.json) (`neurogrid.toml`),
 [`rulepack.schema.json`](../../schemas/rulepack.schema.json),
 [`evidence.schema.json`](../../schemas/evidence.schema.json) (`evidence.yaml`),
-[`consents.schema.json`](../../schemas/consents.schema.json) (`consents.yaml`) and
+[`consents.schema.json`](../../schemas/consents.schema.json) (`consents.yaml`),
+[`roles.schema.json`](../../schemas/roles.schema.json) (`roles.yaml`),
+[`risks.schema.json`](../../schemas/risks.schema.json) (`risks.yaml`),
+[`retention.schema.json`](../../schemas/retention.schema.json) (`retention.yaml`) and
 [`access_event.schema.json`](../../schemas/access_event.schema.json) (one line of `access.jsonl`).
 
 ## Exit codes {#exit-codes}

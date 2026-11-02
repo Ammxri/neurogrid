@@ -79,6 +79,12 @@ cli:
     differs: "The dataset differs from the manifest."
   vault:
     role_looks_identifying: "Note: the role looks like a personal name or an identification number. Use a role name or initials; the access log records it as given."
+    role_not_permitted: "Note: the role register roles.yaml does not permit this access ({reason}); the access event is recorded anyway. The register is advisory: NeuroGrid refuses nothing because of it."
+    role_reason:
+      role_unknown: "the role is not in the register"
+      action_not_allowed: "the role may not perform this action"
+      object_not_allowed: "an object is not covered by the object patterns of the role"
+    roles_invalid: "Note: the role register roles.yaml cannot be read, so this access was not compared with it ('neurogrid check' names the problem); the access event is recorded anyway."
     consent:
       added: "Consent recorded: {subject}, version {version}."
       imported: "Consent records imported: {count}."
@@ -97,7 +103,8 @@ cli:
     init:
       created: "Created: {name}"
       kept: "Kept unchanged: {name}"
-      manifest_hint: "consents.yaml is part of the manifest: run 'neurogrid manifest' again so that 'neurogrid verify' covers it. The access log and its lock file are left out of the manifest."
+      manifest_hint: "consents.yaml, roles.yaml, risks.yaml, retention.yaml and the impact assessment pia/pia.zh.md and pia/pia.en.md are part of the manifest: run 'neurogrid manifest' again so that 'neurogrid verify' covers them. The access log and its lock file are left out of the manifest."
+      templates_hint: "roles.yaml, risks.yaml and retention.yaml are empty registers with a commented example; pia/pia.zh.md and pia/pia.en.md are drafts of the impact assessment. Fill them in (NeuroVault page of the documentation); until then CORE-NV05-01 and CORE-NV05-02 report findings."
     log:
       written: "Access event {seq} recorded, hash {hash}"
       identifying: "Note: an object, the purpose or the approval reference looks like a personal name or an identification number; the access log records it as given. Use pseudonymous IDs and references without personal data."
@@ -204,7 +211,7 @@ cli:
           purpose: "Purpose recorded in the access event (default: [vault] purpose)."
           approval_ref: "Approval reference recorded in the access event (default: [vault] approval_ref)."
       init:
-        about: "Create the missing parts of the vault: its folder, consents.yaml, the access log and its lock file; existing parts are kept."
+        about: "Create the missing parts of the vault: its folder, consents.yaml, the access log and its lock file, the role register roles.yaml, the risk register risks.yaml, the retention periods retention.yaml and the impact assessment templates pia/pia.zh.md and pia/pia.en.md; existing parts are kept."
         path: "Dataset folder (default: the current folder)."
         config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset); [vault] path names the vault."
       log:
@@ -385,6 +392,25 @@ errors:
     encoding: "The consent records (consents.yaml in the vault) are not UTF-8 text (UTF-8 with or without BOM is accepted)."
     not_a_file: "consents.yaml in the vault is not a regular file."
     unreadable: "consents.yaml in the vault cannot be read."
+  roles:
+    invalid: "The role register (roles.yaml in the vault) is invalid: field '{field}' ({problem})."
+    too_large: "The role register (roles.yaml in the vault) is too large (limit {limit} bytes)."
+    encoding: "The role register (roles.yaml in the vault) is not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "roles.yaml in the vault is not a regular file."
+    unreadable: "roles.yaml in the vault cannot be read."
+  risks:
+    invalid: "The risk register (risks.yaml in the vault) is invalid: field '{field}' ({problem})."
+    too_large: "The risk register (risks.yaml in the vault) is too large (limit {limit} bytes)."
+    encoding: "The risk register (risks.yaml in the vault) is not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "risks.yaml in the vault is not a regular file."
+    unreadable: "risks.yaml in the vault cannot be read."
+  retention:
+    invalid: "The retention periods (retention.yaml in the vault) are invalid: field '{field}' ({problem})."
+    too_short: "retention.yaml in the vault: the minimum retention of '{object}' ends less than three years after its creation date; min_until must lie at least three years after created (from 29 February: 1 March three years later)."
+    too_large: "The retention periods (retention.yaml in the vault) are too large (limit {limit} bytes)."
+    encoding: "The retention periods (retention.yaml in the vault) are not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "retention.yaml in the vault is not a regular file."
+    unreadable: "retention.yaml in the vault cannot be read."
   consent:
     from_with_fields: "--from imports a table; it cannot be combined with --subject, --version, --date, --uses, --withdrawn or --ethics-ref."
     from_not_found: "The import table (--from) was not found."
@@ -440,6 +466,9 @@ notice:
   consents_without_recording: "{count} subject(s) of the consent records have no signal recording in the dataset."
   consent_refs_look_identifying: "{count} ethics approval reference(s) of the consent records may identify persons (a name, non-ASCII letters or six or more digits in a row); the values are not shown."
   consents_outside_dataset: "The vault with the consent records lies outside the dataset; a manifest of the dataset does not cover consents.yaml."
+  roles_without_ethics_ref: "{count} role(s) of the role register name no ethics approval reference (ethics_approval_ref)."
+  registers_look_identifying: "{count} description(s) or ethics approval reference(s) of the vault's registers (roles.yaml, risks.yaml) may identify persons (a name, non-ASCII letters or six or more digits in a row); the values are not shown."
+  retention_reminder: "Reminder: for {count} object(s) of retention.yaml the minimum retention ends soon or has ended, or the review date is reached (CORE-NV05-03). Decide on further retention or deletion after your own legal review."
 
 severity:
   error: "Error"
@@ -603,6 +632,28 @@ reason:
     log_missing: "The vault has no access log access.jsonl; NeuroGrid never recreates it silently."
     chain_broken: "The hash chain of the access log is broken ('neurogrid vault verify' lists every deviation)."
     not_writable: "The access log cannot be written (read-only vault); accesses are not recorded."
+  roles:
+    no_register: "The vault has no role register roles.yaml (created by 'neurogrid vault init')."
+    empty: "The role register roles.yaml lists no role."
+    no_events: "The access log holds no event before the day before the reference date."
+    role_missing: "Events without a role (scan, manifest and verify record none): they cannot be compared with the role register."
+    role_unknown: "An event names a role that is not in the role register."
+    action_not_allowed: "An event names an action that the role may not perform."
+    object_not_allowed: "An event names an object that no object pattern of the role covers."
+  retention:
+    no_file: "The vault has no retention.yaml (created by 'neurogrid vault init')."
+    entry_missing: "retention.yaml has no entry for this object."
+    object_missing: "The file of this object is missing from the vault."
+    log_truncated: "The access log does not start at the genesis hash: entries at its start were removed."
+    ending: "The minimum retention of this object ends soon. Decide on further retention or deletion after your own legal review."
+    ended: "The minimum retention of this object has ended. Decide on further retention or deletion after your own legal review."
+    review_due: "The review date of this object is reached."
+    no_entries: "retention.yaml lists no object (a missing file is a finding of CORE-NV05-01)."
+  pia:
+    missing: "The vault holds no impact assessment (pia/pia.zh.md, pia/pia.en.md; created by 'neurogrid vault init')."
+    template_unedited: "The impact assessment is the unedited template."
+    fields_open: "The impact assessment still holds fields to be completed."
+    unreadable: "The impact assessment cannot be read (or a file is larger than 4,000,000 bytes)."
 
 issue:
   header:
@@ -702,12 +753,32 @@ check:
   access:
     log_intact: "Access log hash chain intact"
     log_writable: "Access log can be written"
+  roles:
+    permitted: "Accesses permitted by the role register"
+  retention:
+    complete: "Retention periods recorded for the vault files"
+    ending: "Reminder before a minimum retention ends"
+  pia:
+    edited: "Impact assessment filled in"
 
 report:
   access:
     first_line: "First deviation: line {line}."
     kind: "Kind: {kind}."
     deviations: "Deviations in total: {count}."
+  roles:
+    role: "Role: {role}."
+    action: "Action: {action}."
+    events: "Events not permitted: {count}."
+    events_without_role: "Events without a role: {count}."
+    first_line: "First such event: line {line} of the access log."
+  retention:
+    object: "Object: {object}."
+    min_until: "Kept at least until {date}."
+    review_at: "Review date: {date}."
+  pia:
+    files: "Files: {count}."
+    open_fields: "Fields still to be completed: {count}."
   ai:
     share: "{count} of {total} ({unit})"
     unit_events: "events"
@@ -1016,3 +1087,16 @@ terms:
     insert: "inserted"
     delete: "deleted"
     reorder: "reordered"
+  access_action:
+    read: "read"
+    check: "check"
+    convert: "convert"
+    report: "report"
+    export: "export"
+    consent_manage: "consent management"
+  retention_object:
+    pia: "impact assessment (pia/)"
+    access_log: "access log (access.jsonl)"
+    roles: "role register (roles.yaml)"
+    risks: "risk register (risks.yaml)"
+    consents: "consent records (consents.yaml)"
