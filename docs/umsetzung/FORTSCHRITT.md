@@ -6,19 +6,20 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P6 abgeschlossen (`dev` 0ffdd90: Bereiche vault, consent und yyt2029, Querschnittstests, Merge- und CI-Korrekturen, Fix-Runde nach dem Review; gepusht am 02.11.2026); CI auf 0ffdd90: ganz grün (`ci` 41422859481, `offline` 41422859830); nächster Schritt P9 (vorgezogen nach D-13 und D-19).**
+**Phase P9 abgeschlossen (`dev` 5596a8d: Bereiche Register, Neueinwilligung, Paket und Vergleich, Merge-Entscheidungen des Leads, Querschnittstests; vor P7 und P8 vorgezogen nach D-13 und D-19, weil G-A und G-B nicht erfüllt sind); CI auf 5596a8d grün (`ci` 41447040471, `offline` 41447040492, `ci-integration` 41447040527); nächster Schritt P11 (NeuroArena) vor P10, weil G-C fehlt.**
 Freigabemodus A. Git: `main` (Doku-Commit), Arbeitszweig `dev`, gepusht nach `https://github.com/Ammxri/neurogrid`
-(D-15; nur `dev`, D-09; zuletzt gepusht: 0ffdd90). Version auf `dev` 0.2.0.dev0 seit 8391420; v0.1.0 wird später aus
-dem P5-Stand c4f240a plus den Korrekturen der Prüfungen auf einem Release-Zweig geschnitten, ein v0.2.0 ebenso aus dem
-Endstand von P6; mit dem ersten Commit von P9 geht `dev` auf 1.0.0.dev0 (D-19).
-CI auf d50158b (nach den Merges von P6): `ci` 41402168683 rot nur an fünf Tests außerhalb der Bereiche, behoben in
-2f2a5a5; `offline` 41402168572 grün. Die volle Testsuite läuft nur in der CI (A-87); lokal liefen nur die betroffenen
-Tests (Zahlen im P6-Eintrag). Stand P5: CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176); G1-Endlauf
+(D-15; nur `dev`, D-09; zuletzt gepusht: 5596a8d). Version auf `dev` 1.0.0.dev0 seit 8e9575f (D-19); v0.1.0 wird
+später aus dem P5-Stand c4f240a plus den Korrekturen der Prüfungen auf einem Release-Zweig geschnitten, ein v0.2.0
+ebenso aus dem Endstand von P6 (0ffdd90), jeweils mit Freigabe.
+Stand P6: `dev` 0ffdd90, CI ganz grün (`ci` 41422859481, `offline` 41422859830); davor auf d50158b `ci` 41402168683
+rot nur an fünf Tests außerhalb der Bereiche, behoben in 2f2a5a5. Die volle Testsuite läuft nur in der CI (A-87);
+lokal liefen nur die betroffenen Tests (Zahlen in den Einträgen von P9 und P6). Stand P5: CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176); G1-Endlauf
 auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`).
 STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 lief parallel zur zh-Prüfung und zur Sichtprüfung; das Release v0.1.0 erst danach.
 Offen beim Nutzer: die übrigen Punkte von „Für STOPP G1 vorgemerkt“ (darunter die Kernbegriffe von P6 für die
-zh-Prüfung), GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8, ISO-TS vor P10, Docker Desktop bei Gelegenheit; vor v1.0
-ein eigener Runner für den echten Lauf der CI-Integration (D-19).
+zh-Prüfung), die Punkte von „Für STOPP G2 vorgemerkt“ (darunter A-90 bis A-99, die Kernbegriffe von P9, die
+Sichtprüfung einer Nachweismappe, vor v1.0 ein eigener Runner für den echten Lauf der CI-Integration, D-19),
+GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8, ISO-TS vor P10, Docker Desktop bei Gelegenheit.
 
 ## Für STOPP G1 vorgemerkt
 
@@ -119,8 +120,8 @@ Projektverantwortlichen.
 
 ## Für STOPP G2 vorgemerkt
 
-Stand 02.11.2026 (nach P6). STOPP G2 folgt nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf die
-Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
+Stand 02.11.2026 (nach P6 und P9). STOPP G2 folgt nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf
+die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
 - **Annahmen A-90 bis A-92 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P6“), darunter die Lesarten:
   - A-90: Zugriffsereignisse von `scan`, `manifest` und `verify` nur im Vault am Standardort, von `report` nur mit
     `--config`, keine Ereignisse bei Exit 2; das Ereignis erst nach allen Ausgaben; Leser halten die Sperre nur für die
@@ -132,13 +133,171 @@ Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
     kleinen oder gemischten Datensätzen fast immer nur Summen je Nutzung).
   - A-92: `title_zh` des Gerüsts aus der veröffentlichten Prüfung statt aus dem Beispiel; der Gesamtsatz mit core und
     `yyt2029` bleibt „besteht die Prüfungen der geladenen Regelpakete“ (Banner und Abschnitt grenzen ab).
+- **Annahmen A-93 bis A-99 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P9“; vorgemerkt für die
+  Freigabe nach P9), darunter die Lesarten:
+  - A-93: Rollenregister beratend; CORE-NV04-01 beurteilt nur Ereignisse vor dem Vortag des Stichtags (UTC), damit
+    zwei `check` bytegleich bleiben, Ereignisse ohne Rolle sind not_checkable; die Befehle warnen und schreiben ihr
+    Ereignis trotzdem; eine ungültige `roles.yaml` ist nur für `check` Exit 2.
+  - A-94: Pflichtobjekte `pia` und `access_log` als Lesart von PIPL Art. 56; der 29. Februar plus drei Jahre ist der
+    1. März; die Erinnerung ohne „muss löschen“; die beiden PIA-Vorlagen als einzige Ausnahme des Worttests für
+    Gesetzesartikel (D-19).
+  - A-95: CORE-M14-02 je Proband mit gültiger Einwilligung, Probanden ohne gültige Einwilligung bleiben CORE-M14-01;
+    **Abweichung vom Entwurf, braucht die Freigabe mit A-95:** der neue optionale Block `reconsent` in results.json und
+    die Lesart der kleinen Zellen (ein zurückgehaltenes Risiko zeigt nur `subjects`, Anhang 6.1 ohne Zahl für ein
+    zurückgehaltenes CORE-M14-02); der Preis: Summen, Ampel und Überschrift zählen verletzte Ergebnisse, mit einem
+    beurteilten Risiko ist die Zahl unter der Version ablesbar (wie bei M14-01 hingenommen).
+  - A-96: fünf Pflichtteile, Ereignis vor dem Packen, Kopie des Manifests mit pseudonymen Namen in Rohordnern,
+    `roles.yaml` und die PIA-Dateien so im ZIP, wie sie geschrieben sind („Rollen ohne personenbezogene Daten
+    beschreiben“), kein Hash von `consents.yaml` im Ereignis.
+  - A-97: Kategorie „entfallen“ neben „behoben“, der Schweregrad als Änderung, Rundung auf 6 signifikante Stellen,
+    Regeln der Einwilligungsprüfungen nur gezählt (D-19).
+  - A-98: Schutz der Action über `runner.environment` (Wert nicht verifiziert), GitLab nur über den Runner-Tag, kein
+    Upload, fail-on errors als Standard.
+  - A-99: Aufbau der Nachweismappe, immer zh und en, Zusammenführen mit pypdf, Metadaten und QA-Gate.
+- **zh-Prüfung der P9-Texte** (D-19 wie D-17 Option C): jetzt die Kernbegriffe, die vollständigen Texte in einer Runde
+  vor dem Release von v1.0. Kernbegriffe aus den Berichten der Bereiche: 角色登记册 (Rollenregister), 保存期限 und
+  最低保存期限 (Aufbewahrungsfrist, Mindestaufbewahrung), 个人信息保护影响评估 (Folgenabschätzung), 风险登记册
+  (Risikoregister), 重新取得知情同意 (Neueinwilligung), 检查包 (Export-ZIP), 版本比较 (Versionsvergleich), 证明材料汇编
+  (Nachweismappe); die Sätze von A-30 请在自行开展法律审查后，决定继续保存或删除。 (Erinnerung der Aufbewahrung) und
+  根据风险登记册，可能需要重新取得知情同意——由伦理委员会决定。 (Neueinwilligung); der Kopf der PIA-Vorlage und die
+  Markierung 【待填写】; als neue Begriffe vorgeschlagen 自托管运行器 (eigener Runner), GitHub 托管的运行器
+  (GitHub-gehosteter Runner), 制品 (Artefakt), 基线 (Baseline). Fundstellen: `cli.vault.role_not_permitted`,
+  `cli.vault.role_reason.*`, `cli.vault.roles_invalid`, `cli.vault.init.templates_hint`, die Hinweise
+  `notice.roles_without_ethics_ref`, `notice.registers_look_identifying`, `notice.retention_reminder`,
+  `notice.risks_future`, `reason.roles.*`, `reason.retention.*`, `reason.pia.*`, `reason.reconsent.*`, die Titel der fünf
+  Prüfungen und `title_zh` der fünf neuen Regeln in `core.yaml`, `report.roles.*`, `report.retention.*`, `report.pia.*`,
+  `report.reconsent.*`, `report.dossier.*`, `terms.access_action.*`, `terms.retention_object.*`,
+  `terms.diff_category.*`, `cli.check.reconsent`, `cli.vault.export.*`, `cli.diff.*`, `errors.export.*`,
+  `errors.diff.*`, `cli.help.vault.export.*`, `cli.help.diff.*`, `cli.help.report.format`, die Texte der Action und der
+  GitLab-Vorlage, `pia.zh.md` und die zh-Doku (`vault.md`, `metrics.md`, `commands.md`, `report.md`,
+  `reference/outputs.md`, `data-model.md`, `privacy.md`, `limitations.md`, `index.md`, `ci.md`).
+- **Eigener Runner vor v1.0** (D-19): ein vorübergehend registrierter Runner mit dem Label `neurogrid`, nur per Dispatch
+  und nie für Pull Requests, für den echten Lauf von `ci-integration.yml` (Job `self-hosted`); bis dahin bleibt V-03
+  `teilweise`.
+- **Juristische Prüfung der PIA-Vorlage** durch eine in der VR China zugelassene Rechtsberatung vor der ersten echten
+  Verwendung (D-19; kein Release-Gate).
+- **Sichtprüfung einer Nachweismappe** (`dossier.pdf`); bis dahin bleibt REP-08 `nicht verifiziert` (Muster D-18).
+- **Echter Lauf der GitLab-Vorlage:** nicht verifiziert sind die GitLab-Variable in `tags`, ein leerer Tag und die
+  Kodierung unter PowerShell auf GitLab.
 - **zh-Runde der vollständigen P6-Texte** vor dem Release von v0.2 (D-17 Option C).
 - **Release v0.2.0**, falls gewünscht, aus dem Endstand von P6 auf einem Release-Zweig (D-19).
 - **Bekannte Grenzen zur Kenntnis:** Kürzen am Ende und Neuschreiben des Zugriffsprotokolls nur mit
   `vault verify --expect-head`; nur Zugriffe über NeuroGrid; Zeiten aus der lokalen Uhr; Sperre beratend; die Gültigkeit
   einer Einwilligung beurteilt NeuroGrid nicht; das Ziel „10⁶ Einträge in < 30 s“ für `vault verify` ist nicht gemessen.
+  Aus P9: Rollen bleiben beratend, und mit einem Stichtag mehr als einen Tag in der Zukunft kann das eigene Ereignis
+  eines Laufs in CORE-NV04-01 des nächsten Laufs eingehen; `vault export` prüft das Protokoll nach dem Streamen über
+  den Namen (ein fremdes Programm, das es dazwischen ersetzt, bleibt unbemerkt) und hält die Berichte bis zu 5 × 256 MB
+  im Speicher; Risiko-IDs erscheinen im Bericht wie geschrieben; Differenzen zweier veröffentlichter, sich
+  überschneidender Risiken können Zahlen von 1 bis 4 ergeben (A-81 gilt je Tabelle); das Export-ZIP ist nur in einer
+  Umgebung bytegleich (zlib); die Leistung mit etwa 1 000 Risiken ist nicht gemessen.
 
 ## Verlauf
+
+### 2026-11-02 – P9 v1.0 normunabhängig: Register, Neueinwilligung, Export und Nachweismappe, diff und CI-Integration (NV-F04, NV-F05, NV-F06, NV-F07, NG-F15, NG-F16, CLI-07, CLI-08, CON-02, UF-02, UF-03, UF-06, REP-08, V-03)
+- **Abgeschlossen:** NV-F04, NV-F05 (Software; PIA-Vorlage = Platzhalter nach A-30, juristische Prüfung vor erster
+  echter Verwendung, D-19), NV-F06, NV-F07, NG-F15, CLI-07, CLI-08, CON-02, UF-02, UF-03, UF-06 (lokal mit den
+  betroffenen Tests belegt, A-87; volle Suite in der CI auf 5596a8d grün: `ci` 41447040471, `offline` 41447040492,
+  `ci-integration` 41447040527).
+- **Nicht verifiziert:** REP-08 (Nachweismappe gebaut und getestet, `tests/integration/test_dossier.py::test_dossier_complete`;
+  offen bis zur Sichtprüfung eines Dossier-PDFs durch den Projektverantwortlichen, Muster D-18).
+- **Teilweise:** NG-F16 (NV-F01, NV-F02, NV-F04 bis NV-F07 erfüllt; NV-F03 bleibt `teilweise` bis zu den Details aus dem
+  Normtext, P8), V-03 (NeuroVault, `diff` und Nachweismappe gebaut; die CI-Integration gilt erst nach dem echten Lauf
+  auf eigenem Runner, D-19; die Abbildung ISO/IEC TS 27571 bleibt blockiert, P10).
+- **Beigetragen zu:** ARC-01 (fünf Stufen mit jedem Zulieferer von P9, `tests/integration/test_p9_cross.py::test_five_stages_v1`),
+  NG-F13 (Abschnitt Neueinwilligung des Berichts), DM-09 (Aktionen des Rollenregisters), NG-N03 (zwei `check` mit
+  vollem Vault bytegleich), NG-N05 (eingepflanzte Kennungen in jeder Ausgabe von P9), NG-N06 (neue Schlüssel in zh, en
+  und de).
+- **Gebaut** (vier Bereiche nach den verbindlichen Vorgaben des Leads vom 02.11.2026, ENTSCHEIDUNGEN A-93 bis A-99):
+  - Register (A-93, A-94): `model/_registers.py` (strenger Leser der drei Register), `model/roles.py`,
+    `model/retention.py`, `model/risks.py`; `vault/roles.py` (Erlaubnisregel, Warnungen), `vault/retention.py`,
+    `vault/pia.py`, `vault/risks.py` (Leser), `vault/templates/pia.zh.md` und `pia.en.md`; `vault init` legt die
+    Register und die PIA-Dateien an; CORE-NV04-01 (`checks/access.py`) und CORE-NV05-01 bis -03
+    (`checks/retention.py`); Warnungen von check, convert, report `--config`, vault log und vault consent add; core 1.0.0;
+    Schemas `roles`, `retention`, `risks`.
+  - Neueinwilligung (A-95): `vault.risks.judged`/`future`, CORE-M14-02 (`checks/consent.py`), der Block `reconsent` in
+    results.json, der Abschnitt Neueinwilligung am Ende von Abschnitt 3 des Berichts mit der Tabellenregel, die
+    Konsolenzeile `cli.check.reconsent`.
+  - Paket (A-96, A-99): `vault/export.py`, `model/export.py` (ExportIndex) mit Schema, `report/identify.py`,
+    `dossier.py` mit `report/templates/dossier.html.j2`, `kernel/pdf.py` (`PdfExpect.every_page_any`, `merge_pdfs`,
+    `page_count`); Befehle `vault export` und `report --format dossier`.
+  - Vergleich (A-97, A-98): `diff.py`, `model/diff.py` (DiffResult) mit Schema, Befehl `diff`; `action.yml`,
+    `ci-templates/gitlab-ci.yml`, `.github/workflows/ci-integration.yml`, Nutzerseite `ci.md`.
+- **Vorgehen:** Start mit 8e9575f (`1.0.0.dev0`, 02.11. 10:55) auf `p9-registers`, Schnittstellen-Freeze 159539d
+  (11:46); Neueinwilligung und Paket ab dem Freeze, Vergleich ab 0ffdd90. Merges c00475b (Register), cd08106
+  (Vergleich), 74db563 (Paket), cc7bc9c (Neueinwilligung); vom Lead dazwischen 851031c (`.env.example` deckt Action und
+  Vorlage ab) und 9597441 (Rollenwarnung von `vault export`); Querschnittstests 5596a8d (13:39). Die Worktrees von P6
+  und der vier Bereiche von P9 (`p6-*`, `p9-*`) wurden nach einer Prüfung auf Reparse-Punkte (keine gefunden) entfernt,
+  ihre Zweige mit `git branch -d` gelöscht.
+- **Entscheidungen des Leads beim Merge** (in ENTSCHEIDUNGEN „Übergreifend“, A-95, A-96 und A-98):
+  1. Konflikte als Vereinigung (Sprachtabellen, Doku, `tools/gen_schemas.py`, Regel-Setups), erzeugte Dateien neu
+     erzeugt (`gen_docs.py --check`, `gen_schemas.py --check` sauber).
+  2. Ein Abschnitt `#risks` in `vault.md`: der Text des Bereichs Neueinwilligung mit dem markierten Beispiel
+     `risks-yaml` des Bereichs Register (gleich dem Beispiel der Vorlage, in beiden Sprachen); die Grenze „1,000 risks
+     and 1,000,000 bytes“.
+  3. `vault export` warnt über das Rollenregister wie die anderen Befehle (9597441,
+     `tests/cli/test_cli_export.py::test_export_warns_when_the_register_does_not_permit_it`); `roles_invalid` kommt
+     dort nicht vor, eine ungültige `roles.yaml` lehnt den Export schon mit Exit 2 ab.
+  4. Die Warnung „PIA unbearbeitet“ des Exports bleibt eine örtliche Prüfung der gepackten Bytes nach der Regel von
+     CORE-NV05-02.
+  5. Datenschutz: `roles.yaml` und die PIA-Dateien sind Pflichtteile und werden so gepackt, wie sie geschrieben sind;
+     die Nutzerdoku sagt „Rollen ohne personenbezogene Daten beschreiben“.
+  6. Veraltete Sätze in `docs/{en,zh}/limitations.md` und `index.md` aktualisiert; Nennungen der Norm in `KNOWN` von
+     `test_norm_independence` geprüft.
+  7. `.env.example` mit den zwölf Job-Variablen der GitLab-Vorlage; `test_env_example` liest `action.yml` und
+     `ci-templates/*.yml` (851031c); schließt die Lücke des Bereichs Vergleich.
+  8. Abweichung des Bereichs Neueinwilligung vom Entwurf (Block `reconsent`, kleine Zellen): braucht die Freigabe mit
+     A-95 bei G2.
+  9. „Wert von `runner.environment` nicht verifiziert“ bleibt in den Lücken (der echte Lauf belegt den Schutz, nicht den
+     Wert); der eigene Runner ist vor v1.0 offen.
+- **Integration:** Querschnittstests 5596a8d, `tests/integration/test_p9_cross.py` (neun Tests):
+  `test_uf02_scan_convert_check_diff`, `test_uf06_init_consent_add_log_verify_export`,
+  `test_uf03_build_check_consent_export`, `test_dod_two_checks_full_vault_byte_identical[1]` und `[4]`,
+  `test_privacy_planted_identifiers_in_p9_outputs`, `test_consent_namespace_agrees_in_report_and_diff`,
+  `test_dossier_as_export_report_part` (Marker `pdf`), `test_five_stages_v1`. Festgestellt: `vault log` und `manifest`
+  schreiben im Vault am Standardort Ereignisse `read`; `bids_ai_ok` hat keine `neurogrid.toml` (die Tests schreiben
+  `documented.toml` wie in P6); `report` hat keine Option `--role`.
+- **Ergebnisse (lokal, Windows 11; nur betroffene Tests, A-87; die Bereiche mit `NEUROGRID_REQUIRE_PDF=1` und
+  `PYTHONWARNDEFAULTENCODING=1`, Vergleich ohne Angabe):**
+  - Register: unit, rules, acceptance und packaging_texts 3240 bestanden, 23 übersprungen, 1 fehlgeschlagen
+    (Markierung der zh-Vorlage, behoben mit `\u`-Escape); Integration von Vault, Einwilligung, check und Bericht
+    (9 Dateien) 300 bestanden, 3 übersprungen, 3 fehlgeschlagen (behoben: Datei der not_checkable-Befunde von
+    CORE-NV04-01 ohne Register; geänderte Erwartung in `test_report_p5`, vier Regeln mehr in der Phase access;
+    geänderter Aufbau in `test_consent_pipeline` mit gefüllter `retention.yaml` und einer PIA-Datei); übrige Integration
+    450 bestanden, 1 übersprungen; cli, docs und workflows 462 bestanden, 3 übersprungen; Wiederholungen grün (298/3,
+    415/4, 24, 151/2).
+  - Neueinwilligung (66 Dateien, die geänderte Dateien lesen): acceptance 64 bestanden, 2 übersprungen; cli, docs,
+    packaging und rules 761/3; integration 690/3; unit 1469/6; 0 Fehler.
+  - Paket: pdf_unit und architecture 89; report_pdf mit cli 65; dossier 6; identify, Wortwahl, Tabellen, Norm,
+    Architektur, Texte, Hilfe, cli, zh-Paket und Berichte 327; Export im Vault 15/1; export_pipeline 7; cli_export 6/1
+    (kein pwsh lokal); Doku 142; docs_browser, licensing und notices 103/3; Vault, Einwilligung, Querschnitt P6,
+    Register und packaging 565/13; coverage_gates 5.
+  - Vergleich: tests/cli und tests/unit 2860 bestanden, 22 übersprungen; `test_ci_integration.py` 51; workflows,
+    env_example und bundle_lock 56; Doku, Wortwahl, Lizenzen, Notices, Vault, zh-Paket, Sprache, Norm, Texte und
+    Datenmodell 356/3; `test_docs_build.py` 53 (MkDocs strikt mit `ci.md`); `test_docs_browser.py` 4.
+  - Nach allen vier Merges (Lead): Integration 243 bestanden, 1 übersprungen; unit, docs, cli und rules 1315 bestanden,
+    8 übersprungen; Querschnittstests 9 bestanden; `ruff check`, `ruff format --check`, `mypy src/neurogrid tools`,
+    `mypy --strict` für den Kern, `gen_schemas.py --check` und `gen_docs.py --check` sauber. Volle Suite: nur in der CI.
+- **CI:**
+  - 851031c: `ci-integration` 41442891483 lehnte auf den GitHub-gehosteten Runnern ubuntu-24.04 und windows-latest ab
+    und lief mit allow-hosted-runner auf beiden (check, report, diff); der Job auf eigenem Runner wurde übersprungen.
+  - 5596a8d (02.11.2026): alle drei Läufe abgeschlossen mit Ergebnis success. `ci` 41447040471; `offline` 41447040492
+    (beide Bündel, Reinräume ubuntu 22.04/24.04 und debian:12-slim, Windows unter powershell und pwsh, glibc 2.27 mit
+    Exit 2 abgelehnt, strace-Lauf, PDF in debian:12-slim); `ci-integration` 41447040527 (abgelehnt auf ubuntu-24.04 und
+    windows-latest; check, report und diff mit allow-hosted-runner auf beiden, der Schritt mit fail-on errors scheiterte
+    wie vorgesehen; Job auf eigenem Runner übersprungen). Testjobs laut Notice-Annotationen: {{CI_ZAHLEN_5596a8d}}
+- **Annahmen:** A-93 (Rollenregister), A-94 (Aufbewahrung und Folgenabschätzung), A-95 (Risikoregister und
+  Neueinwilligung), A-96 (Export-ZIP), A-97 (Versionsvergleich), A-98 (CI-Integration), A-99 (Nachweismappe);
+  vorgemerkt für die Freigabe nach P9 (STOPP G2). Angewandt: D-19; keine neue Entscheidung.
+- **Nicht verifiziert:**
+  - REP-08: Sichtprüfung einer Nachweismappe; für `table.reconsent` gibt es kein CSS, ein gedrucktes PDF mit vielen
+    Risiken hat niemand angesehen.
+  - CI-Integration: der Wert von `runner.environment` in einem zusammengesetzten Schritt, der Lauf auf eigenem Runner
+    (vor v1.0, D-19), die GitLab-Vorlage auf GitLab (Variable in `tags`, leerer Tag, Kodierung unter PowerShell).
+  - Die Laufzeit mit etwa 1 000 Risiken; PowerShell 7 für `diff` nur in der CI; lokal übersprungen sind u. a. die Tests
+    mit Datei-Links (auf diesem Rechner nicht erlaubt) und mit pwsh.
+  - zh-Texte von P9: die Kernbegriffe jetzt, die vollständigen Texte vor dem Release von v1.0 (Liste unter „Für STOPP
+    G2 vorgemerkt“).
+- **Für STOPP G2 vorgemerkt:** übernommen in die Liste „Für STOPP G2 vorgemerkt“ oben.
 
 ### 2026-11-02 – P6 v0.2 normunabhängig: NeuroVault, Einwilligung M14, Gerüst yyt2029 (NG-F11, NV-F01, NV-F02, NV-F03, M14, DM-08, DM-09, CLI-09, RP-10, ARC-01)
 - **Abgeschlossen:** NG-F11, NV-F01, NV-F02, M14, DM-08, DM-09, CLI-09, RP-10, ARC-01 (lokal mit den betroffenen Tests
@@ -615,11 +774,12 @@ Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
 
 ## Nächster Schritt
 
-P6 ist abgeschlossen (`dev` 0ffdd90; CI auf 0ffdd90: ganz grün (`ci` 41422859481, `offline` 41422859830)). Weil weder das GB/T-47127-PDF (G-A) noch der
-YY/T-2029-Text (G-B) vorliegt (`.local/normen/` gibt es nicht), folgt nach D-13 und D-19 als nächste normunabhängige
-Phase **P9 v1.0 normunabhängig** (Rollenregister, Aufbewahrung und Vorlage der Folgenabschätzung, Risikoregister mit
-Neueinwilligung, Export-ZIP mit `index.json`, `diff`, GitHub Action und GitLab-Vorlage, Nachweismappe; KONZEPT 6); mit
-ihrem ersten Commit geht `dev` auf 1.0.0.dev0 (D-19). Danach P11 (NeuroArena, normunabhängig) oder die
-normabhängigen Phasen P7, P8 und P10, sobald der Projektverantwortliche die Texte liefert (G-A, G-B, G-C).
-Parallel beim Projektverantwortlichen: zh-Prüfung (mit den Kernbegriffen von P6) und Sichtprüfung für STOPP G1, danach
-Release v0.1.0 aus dem P5-Stand c4f240a auf einem Release-Zweig, jeweils mit Freigabe.
+P9 ist abgeschlossen (`dev` 5596a8d; CI auf 5596a8d grün: `ci` 41447040471, `offline` 41447040492, `ci-integration`
+41447040527). Weil weder das GB/T-47127-PDF (G-A) noch der YY/T-2029-Text (G-B) noch ISO/IEC TS 27571 (G-C) vorliegt
+(`.local/normen/` gibt es nicht), folgt nach D-13 und KONZEPT 5 als nächste normunabhängige Phase **P11 NeuroArena**
+(`research/neuroarena` mit eigenem Lock; KONZEPT 6) vor P10; P7, P8 und P10 warten auf die Normtexte.
+Parallel beim Projektverantwortlichen: zh-Prüfung (Kernbegriffe von P6 und P9) und Sichtprüfung (die Berichte für STOPP
+G1, eine Nachweismappe für REP-08), die übrigen Punkte von „Für STOPP G2 vorgemerkt“ (A-90 bis A-99, eigener Runner vor
+v1.0, juristische Prüfung der PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die
+Release-Zweige für v0.1.0 aus dem P5-Stand c4f240a und, falls gewünscht, für v0.2.0 aus dem P6-Endstand 0ffdd90,
+jeweils nach den Prüfungen und mit Freigabe.
