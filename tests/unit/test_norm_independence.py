@@ -125,6 +125,14 @@ KNOWN = {
         'assert {pack["name"] for pack in results["rulepacks"]} == {"core", "bids", "yyt2029"}  # rule packs',
     ),
     ("tests/integration/test_p6_cross.py", "def test_dod_two_checks_vault_consents_yyt2029_byte_identical("),
+    # P9: the access log details that wait for the norm text (NV-F03) and the P9 cross-area tests
+    ("docs/en/limitations.md", "depend on the text of YY/T 2029 follow once the norm text has been read."),
+    ("docs/zh/limitations.md", "YY/T 2029 文本的细节将在研读标准文本后提供。"),
+    ("tests/integration/test_p9_cross.py", 'YYT = ("--rulepack", "yyt2029", "--allow-draft-rulepacks")'),
+    (
+        "tests/integration/test_p9_cross.py",
+        'assert {pack["name"] for pack in results["rulepacks"]} == {"core", "bids", "yyt2029"}',
+    ),
 }
 THIS = "tests/unit/test_norm_independence.py"
 
