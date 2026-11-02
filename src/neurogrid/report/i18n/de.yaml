@@ -726,6 +726,12 @@ report:
     withheld: "Aufschlüsselung zurückgehalten: ein Grund oder Status hat weniger als 5 Probanden (Tabellenregel für kleine Zellen)"
     note: "Einwilligungsbefunde je Proband stehen nur in results.json; dieser Bericht zeigt sie zusammengefasst je Nutzung und Grund, ohne Probanden-IDs und Versionsnummern der Einwilligung."
     exception_withheld: "zurückgehalten: Einwilligungsbefunde und ihre Ausnahmen stehen je Proband nur in results.json"
+    aggregate: "Probanden mit einer Nutzung, die ihre Einwilligung abdecken muss: {subjects}"
+    aggregate_recordings: "Aufnahmen ohne bekannten Probanden: {recordings}"
+    overview_withheld: "Aufschlüsselung zurückgehalten (Tabellenregel für kleine Zellen); insgesamt {count} Ergebnis(se)"
+    exceptions_total: "{count} Ausnahme(n) für Einwilligungsbefunde; Probanden, Nutzungen und Begründungen stehen nur in results.json"
+    passed_note: "Nicht enthalten: die bestandenen Ergebnisse von Einwilligungsregeln mit zurückgehaltener Aufschlüsselung (Tabellenregel für kleine Zellen)."
+    severity_note: "Bei Einwilligungsregeln mit zurückgehaltener Aufschlüsselung zählen hier nur nicht bestandene Ergebnisse (Tabellenregel für kleine Zellen)."
   title: "NeuroGrid-Vorprüfungsbericht"
   placeholder_banner: "Dieser Bericht enthält Regelpakete, die als Platzhalter markiert sind. Ihre Regeln beruhen nicht auf dem Normtext, erscheinen ohne Klauselbezug und zählen nicht."
   section:

@@ -6,7 +6,7 @@
     <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.pack') }}</th><th>{{ t('report.label.clause') }}</th><th>{{ t('report.label.title') }}</th><th>{{ t('report.label.phase') }}</th><th>{{ t('report.label.severity') }}</th><th>{{ t('report.label.verification') }}</th>{% for status in counted_statuses %}<th class="num">{{ t('status.' ~ status) }}</th>{% endfor %}</tr></thead>
     <tbody>
     {% for row in rule_overview %}
-    <tr data-rule="{{ row.id }}"><td class="mono nowrap">{{ row.id }}</td><td>{{ row.pack }}</td><td>{{ row.clause }}</td><td>{{ row.title }}</td><td>{{ row.phase }}</td><td>{{ row.severity }}</td><td>{{ row.verification }}</td>{% if row.placeholder %}<td colspan="{{ counted_statuses | length }}">{{ row.placeholder }}</td>{% else %}{% for count in row.counts %}<td class="num">{{ count }}</td>{% endfor %}{% endif %}</tr>
+    <tr data-rule="{{ row.id }}"><td class="mono nowrap">{{ row.id }}</td><td>{{ row.pack }}</td><td>{{ row.clause }}</td><td>{{ row.title }}</td><td>{{ row.phase }}</td><td>{{ row.severity }}</td><td>{{ row.verification }}</td>{% if row.placeholder %}<td colspan="{{ counted_statuses | length }}">{{ row.placeholder }}</td>{% elif row.withheld %}<td colspan="{{ counted_statuses | length }}">{{ row.withheld }}</td>{% else %}{% for count in row.counts %}<td class="num">{{ count }}</td>{% endfor %}{% endif %}</tr>
     {% endfor %}
     </tbody>
   </table>
@@ -24,8 +24,10 @@
   <table class="exceptions">
     <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.file') }}</th><th>{{ t('report.label.exception_reason') }}</th><th>{{ t('report.label.approved_by') }}</th><th>{{ t('report.label.valid_until') }}</th><th>{{ t('report.label.used') }}</th><th>{{ t('report.label.expired') }}</th></tr></thead>
     <tbody>
-    {% for use in results.exceptions %}
-    <tr><td class="mono">{% if use.entry.rule in known_rules %}<span class="nowrap">{{ use.entry.rule }}</span>{% else %}{{ use.entry.rule }}{% endif %}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td>{% if use.entry.rule in consent_rules %}<td colspan="2">{{ t('report.consent.exception_withheld') }}</td>{% else %}<td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td>{% endif %}<td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td class="own">{{ fmt.value(use.used) }}</td><td class="own">{{ fmt.value(use.expired) }}</td></tr>
+    {% for row in exception_rows %}{% set use = row.use %}
+    {% if row.consent_total is not none %}<tr><td class="mono">{% if use.entry.rule in known_rules %}<span class="nowrap">{{ use.entry.rule }}</span>{% else %}{{ use.entry.rule }}{% endif %}</td><td colspan="6">{{ t('report.consent.exceptions_total', count=row.consent_total) }}</td></tr>
+    {% else %}<tr><td class="mono">{% if use.entry.rule in known_rules %}<span class="nowrap">{{ use.entry.rule }}</span>{% else %}{{ use.entry.rule }}{% endif %}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td><td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td><td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td class="own">{{ fmt.value(use.used) }}</td><td class="own">{{ fmt.value(use.expired) }}</td></tr>
+    {% endif %}
     {% endfor %}
     </tbody>
   </table>

@@ -51,10 +51,15 @@ The report shows at most 50 rows per rule; a closing line names the exact number
 the complete list is in `results.json` (`findings`, selected by `rule_id`). Passed checks are counted per rule.
 Findings of placeholder packs are in a section of their own, "not evaluated".
 
-M14 (consent, CORE-M14-01) is the one rule without finding rows: its block counts the results per use, status
-and reason, without subject IDs and consent versions; when a cell has fewer than 5 subjects only the total per use
-is shown (small-cell rule). The results per subject are in `results.json`. Exceptions for this rule show neither
-object nor reason in the appendix.
+M14 (consent, CORE-M14-01) is the one rule without finding rows: its block counts the subjects that need each
+use per status and reason, passed subjects included, without subject IDs and consent versions; it is shown
+whenever the rule has results per subject, also when all of them passed. When a cell has fewer than 5 subjects,
+every use shows only its total (small-cell rule), and no other count in the report depends on the consent
+decisions: the line under the rule heading names only the number of subjects that need a use, the rule overview
+in the appendix only the total of the rule's results, the passed checks of the summary leave them out, and the
+severity heading counts only the results that are not passed. The error counts and lights of the summary and the
+exit code include them as for every rule. The results per subject are in `results.json`. Exceptions for this rule
+appear in the appendix only as their number, without subject, use or justification.
 
 ## 4 Metrics per recording {#metrics}
 

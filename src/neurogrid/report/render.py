@@ -669,21 +669,33 @@ def _group_view(
     }
 
 
+def _consent_aggregate(table: tables.ConsentTable, fmt: _Formatter) -> str:
+    """The line under the heading of an M14 rule with results per subject: the number of subjects that need
+    a use (and of recordings without a known subject), never a count of findings, objects or statuses, which
+    would tell what a withheld table hides or, beside a published one, which uses its subjects share."""
+    parts = [fmt.tr("report.consent.aggregate", subjects=table.subjects)]
+    if table.recordings:
+        parts.append(fmt.tr("report.consent.aggregate_recordings", recordings=table.recordings))
+    return fmt.tr("report.text.separator").join(parts)
+
+
 def _consent_view(
-    group: tables.RuleGroup,
-    findings: Sequence[Finding],
+    rule_id: str,
+    table: tables.ConsentTable,
+    group: tables.RuleGroup | None,
     fmt: _Formatter,
     titles: dict[str, str],
     *,
     placeholder: bool,
 ) -> dict[str, Any]:
     """M14 in the report (D-17 option B, A-91): one block per rule instead of finding rows, counts per use,
-    status and reason only (tables.consent_rows with the A-81 table rule); never a subject ID or a consent
-    version. The findings per subject stay in results.json."""
+    status and reason only (tables.consent_table with the A-81 table rule); never a subject ID or a consent
+    version. The findings per subject stay in results.json. ``group`` is None for a rule whose results per
+    subject all passed: its block is shown all the same, so that the absence of a block never tells that a
+    small table holds passed subjects only."""
     tr = fmt.tr
-    rows, _withheld = tables.consent_rows(f for f in findings if f.rule_id == group.rule_id)
     shown = []
-    for row in rows:
+    for row in table.rows:
         use = tr(f"terms.consent_use.{row.use}") if row.use is not None else tr("report.consent.all_uses")
         if row.unit == "dataset":
             count = tr("report.consent.dataset")
@@ -696,31 +708,41 @@ def _consent_view(
         status = tr("report.value.placeholder_status") if placeholder else tr(f"status.{row.status.value}")
         reason = tr(f"reason.{row.reason}") if row.reason else tr("report.value.no_details")
         shown.append({"use": use, "status": status, "reason": reason, "withheld": "", "count": count})
+    if table.subjects or group is None:
+        aggregate = _consent_aggregate(table, fmt)
+    else:  # dataset-level results and recordings without a known subject only: no subject is counted
+        aggregate = _aggregate(group, fmt, placeholder=placeholder)
     return {
-        "rule": group.rule_id,
-        "title": titles.get(group.rule_id, ""),
-        "aggregate": _aggregate(group, fmt, placeholder=placeholder),
+        "rule": rule_id,
+        "title": titles.get(rule_id, ""),
+        "aggregate": aggregate,
         "rows": [],
         "consent": {"rows": shown, "note": tr("report.consent.note")},
         "more": "",
     }
 
 
-def _severity_heading(fmt: _Formatter, severity: Severity, items: Sequence[Finding]) -> str:
+def _severity_heading(
+    fmt: _Formatter, severity: Severity, items: Sequence[Finding], withheld: frozenset[str] = frozenset()
+) -> str:
     """The heading of one severity in section 3 (review R05): the number of findings next to the number the
     summary counts (not passed and open evidence, A-16), so the total of all findings, most of them often
-    not applicable, never reads as an error count that contradicts the summary. Notes are never counted."""
+    not applicable, never reads as an error count that contradicts the summary. Notes are never counted.
+    Of the M14 rules with a withheld table (``withheld``) only the failed results are counted, as in the
+    summary: their excepted or not checkable results would be the difference to the visible groups (A-81)."""
     label = fmt.label("severity", severity.value)
+    hidden = sum(1 for f in items if f.rule_id in withheld and f.status is not Status.FAILED)
+    findings = len(items) - hidden
     if severity is Severity.INFO:
-        return fmt.tr("report.text.severity_heading_info", severity=label, findings=len(items))
+        return fmt.tr("report.text.severity_heading_info", severity=label, findings=findings)
     failed = sum(1 for f in items if f.status is Status.FAILED)
     open_evidence = sum(1 for f in items if f.status is Status.EVIDENCE_OPEN)
     if not failed + open_evidence:  # no status words then: nothing of this severity is counted
-        return fmt.tr("report.text.severity_heading_none", severity=label, findings=len(items))
+        return fmt.tr("report.text.severity_heading_none", severity=label, findings=findings)
     return fmt.tr(
         "report.text.severity_heading",
         severity=label,
-        findings=len(items),
+        findings=findings,
         counted=failed + open_evidence,
         failed=failed,
         open=open_evidence,
@@ -732,25 +754,42 @@ def _findings(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     evaluated = [f for f in results.findings if f.source_status is not SourceStatus.PLACEHOLDER]
     placeholder = [f for f in results.findings if f.source_status is SourceStatus.PLACEHOLDER]
-    consent = tables.consent_rules(results)
+    consent = {
+        rule_id: tables.rule_consent_table(results, rule_id) for rule_id in tables.consent_rules(results)
+    }
+    withheld = frozenset(rule_id for rule_id, table in consent.items() if table.withheld)
 
-    def view(group: tables.RuleGroup, items: Sequence[Finding], *, draft: bool) -> dict[str, Any]:
+    def view(group: tables.RuleGroup, *, draft: bool) -> dict[str, Any]:
         if group.rule_id in consent:  # M14: aggregated, never per subject (D-17 option B)
-            return _consent_view(group, items, fmt, titles, placeholder=draft)
+            return _consent_view(group.rule_id, consent[group.rule_id], group, fmt, titles, placeholder=draft)
         return _group_view(group, fmt, titles, see_also, placeholder=draft)
 
     sections = []
     for severity in Severity:
         items = [f for f in evaluated if f.severity is severity]
+        groups = [view(g, draft=False) for g in tables.rule_groups(items)]
+        shown = {group["rule"] for group in groups}
+        groups += [  # M14 rules whose results per subject all passed: their block all the same
+            _consent_view(rule.id, consent[rule.id], None, fmt, titles, placeholder=False)
+            for rule in results.rules
+            if rule.id in consent
+            and rule.id not in shown
+            and rule.severity is severity
+            and rule.source_status is not SourceStatus.PLACEHOLDER
+            and consent[rule.id].subjects
+        ]
         sections.append(
             {
                 "severity": severity.value,
                 "count": len(items),
-                "heading": _severity_heading(fmt, severity, items),
-                "groups": [view(g, items, draft=False) for g in tables.rule_groups(items)],
+                "heading": _severity_heading(fmt, severity, items, withheld),
+                "note": fmt.tr("report.consent.severity_note")
+                if any(rule in withheld for rule in {g["rule"] for g in groups})
+                else "",
+                "groups": sorted(groups, key=lambda group: group["rule"]),
             }
         )
-    placeholder_groups = [view(g, placeholder, draft=True) for g in tables.rule_groups(placeholder)]
+    placeholder_groups = [view(g, draft=True) for g in tables.rule_groups(placeholder)]
     return sections, placeholder_groups, len(placeholder)
 
 
@@ -944,7 +983,10 @@ def _ai_view(results: Results, fmt: _Formatter) -> dict[str, Any] | None:
 
 
 def _rule_overview(results: Results, fmt: _Formatter, titles: dict[str, str]) -> list[dict[str, Any]]:
+    """Appendix 6.1: per rule its counts per status; an M14 rule with a withheld table shows only the total of
+    its results (A-81, A-91), which the sums of its block give anyway."""
     counts = tables.rule_counts(results)
+    withheld = tables.withheld_consent_rules(results)
     rows = []
     for rule in results.rules:
         severity = fmt.label("severity", rule.severity.value)
@@ -963,10 +1005,41 @@ def _rule_overview(results: Results, fmt: _Formatter, titles: dict[str, str]) ->
                 "severity": severity,
                 "verification": fmt.label("verification", rule.verification.value),
                 "placeholder": fmt.tr("report.value.placeholder_status") if placeholder else "",
+                "withheld": fmt.tr("report.consent.overview_withheld", count=sum(counts[rule.id].values()))
+                if rule.id in withheld and not placeholder
+                else "",
                 "counts": [str(counts[rule.id][status]) for status in tables.COUNTED],
             }
         )
     return rows
+
+
+def _exception_rows(results: Results, consent: frozenset[str]) -> list[dict[str, Any]]:
+    """Appendix 6.3: one row per exception; the exceptions of an M14 rule as one row with their number only
+    (A-81, A-91): an exception names a subject, a use and the user's reason, and the rows with their 'used'
+    marks would count the excepted subjects that a withheld table hides."""
+    rows: list[dict[str, Any]] = []
+    totals: dict[str, dict[str, Any]] = {}
+    for use in results.exceptions:
+        rule = use.entry.rule
+        if rule not in consent:
+            rows.append({"use": use, "consent_total": None})
+        elif rule in totals:
+            totals[rule]["consent_total"] += 1
+        else:
+            totals[rule] = {"use": use, "consent_total": 1}
+            rows.append(totals[rule])
+    return rows
+
+
+def _passed_total(results: Results, fmt: _Formatter) -> tuple[int, str]:
+    """Section 2: the passed checks of the evaluated rules (placeholder rules are not evaluated, A-41),
+    without the M14 rules with a withheld table: beside the counts of the other rules in 6.1 their passed
+    results would tell how many subjects were not passed (A-81, A-91); then a note says so."""
+    placeholder = {r.id for r in results.rules if r.source_status is SourceStatus.PLACEHOLDER}
+    withheld = tables.withheld_consent_rules(results)
+    total = sum(p.count for p in results.passed if p.rule_id not in placeholder | withheld)
+    return total, fmt.tr("report.consent.passed_note") if withheld - placeholder else ""
 
 
 def _configuration_rows(results: Results, fmt: _Formatter) -> list[tuple[str, str]]:
@@ -1066,14 +1139,19 @@ def _static_css() -> str:
     return (TEMPLATE_DIR / "report.css").read_text(encoding="utf-8")
 
 
-def _notices(results: Results, fmt: _Formatter, known_rules: frozenset[str]) -> list[tuple[str, str]]:
+def _notices(
+    results: Results, fmt: _Formatter, known_rules: frozenset[str], consent: frozenset[str] = frozenset()
+) -> list[tuple[str, str]]:
     """Appendix 6.4: the level and the sentence of every notice. The ID of a loaded rule in it never breaks
     inside (_rule_sentence); a rule a notice names that no pack loaded (the user's text, up to 64
-    characters) wraps like any text."""
+    characters) wraps like any text. An unused exception of an M14 rule (``consent``) is not noted: beside
+    their number in 6.3 the notes would count the used ones, so the excepted subjects (A-81, A-91)."""
     rows: list[tuple[str, str]] = []
     for notice in results.notices:
         params = dict(notice.params)
         rule = params.pop("rule", None)
+        if notice.message_key == "notice.exception_unused" and rule in consent:
+            continue
         if isinstance(rule, str) and rule in known_rules:
             text: str = _rule_sentence(fmt, notice.message_key, rule, **params)
         else:
@@ -1083,12 +1161,13 @@ def _notices(results: Results, fmt: _Formatter, known_rules: frozenset[str]) -> 
 
 
 def _shown_settings(results: Results, fmt: _Formatter, consent: frozenset[str]) -> dict[str, Any]:
-    """The effective settings of appendix 6.5. An exception for a rule on the M14 check names a subject and
-    gives the user's reason for it: both are withheld as in 6.3 (D-17 option B; results.json keeps them)."""
+    """The effective settings of appendix 6.5. An exception for a rule on the M14 check names a subject, a use
+    and the user's reason for it: all three are withheld as in 6.3 (D-17 option B, A-81; results.json keeps
+    them)."""
     settings: dict[str, Any] = json.loads(json.dumps(results.config.effective_settings))
     for entry in settings.get("exceptions") or []:
         if isinstance(entry, dict) and entry.get("rule") in consent:
-            for key in ("object", "reason"):
+            for key in ("object", "subkey", "reason"):
                 if entry.get(key) is not None:
                     entry[key] = fmt.tr("report.consent.exception_withheld")
     return settings
@@ -1108,7 +1187,8 @@ def build_context(
     see_also = _see_also(results)
     severity_sections, placeholder_groups, placeholder_count = _findings(results, fmt, titles, see_also)
     failed = tables.failed_index(results)
-    placeholder_rules = {r.id for r in results.rules if r.source_status is SourceStatus.PLACEHOLDER}
+    consent = tables.consent_rules(results)
+    passed_total, passed_note = _passed_total(results, fmt)
     css = Markup(font_css) + Markup(_static_css()) + Markup(page_css(lang, results.config.as_of.isoformat()))
     cover_rows = _cover_rows(results, fmt)
     if vault is not None:
@@ -1139,16 +1219,18 @@ def build_context(
         "sampled": [rec for rec in results.recordings if rec.sample],
         "placeholder": any(p.source_status is SourceStatus.PLACEHOLDER for p in results.rulepacks),
         # checks of placeholder packs are not evaluated, so they are not counted as passed either (A-41)
-        "passed_total": sum(p.count for p in results.passed if p.rule_id not in placeholder_rules),
+        "passed_total": passed_total,
+        "passed_note": passed_note,
         "rule_overview": _rule_overview(results, fmt, titles),
         "known_rules": frozenset(titles),
-        "notices": _notices(results, fmt, frozenset(titles)),
+        "notices": _notices(results, fmt, frozenset(titles), consent),
         "counted_statuses": [status.value for status in tables.COUNTED],
         "configuration_rows": _configuration_rows(results, fmt),
         "environment_rows": _environment_rows(results, fmt),
-        "consent_rules": tables.consent_rules(results),
+        "consent_rules": consent,
+        "exception_rows": _exception_rows(results, consent),
         "settings_json": json.dumps(
-            _shown_settings(results, fmt, tables.consent_rules(results)),
+            _shown_settings(results, fmt, consent),
             ensure_ascii=False,
             sort_keys=True,
             indent=2,

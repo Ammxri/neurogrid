@@ -6,6 +6,7 @@ block. The two-runs byte-identity with a vault is the vault area's and the integ
 from __future__ import annotations
 
 import datetime as dt
+import html as html_lib
 import io
 import json
 import os
@@ -33,7 +34,7 @@ from neurogrid.report.render import render_report
 from neurogrid.report.texts import translator
 from neurogrid.vault import store
 from neurogrid.vault.consents import add_consents
-from report_html import visible_text  # type: ignore[import-not-found]
+from report_html import section, visible_text  # type: ignore[import-not-found]
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
 AS_OF = dt.date(2026, 11, 20)
@@ -521,6 +522,210 @@ def test_the_m14_block_prints(tmp_path: Path) -> None:
                 r"\s+", "", text
             )
             assert "sub-04" not in re.sub(r"\s+", "", text.split("CORE-M14-01", 1)[1].split("CORE-", 1)[0])
+
+
+# --- the small-cell rule across the whole report (A-81, A-91; P6 review) ------------------------------------
+
+WITHDRAWN = [*ALL, record("sub-03", (), version=2, date=dt.date(2026, 6, 1), withdrawn=True)]
+NOT_PERMITTED = [r if r.subject != "sub-02" else record("sub-02", ("validation",)) for r in ALL]
+EXCEPTION = (
+    '[[exceptions]]\nrule = "CORE-M14-01"\nobject = "{object}"\nsubkey = "{use}"\nreason = "{reason}"\n'
+)
+
+
+def _consent_views(results: Results, lang: str) -> dict[str, str]:
+    """The visible text of every part of the report that counts M14 results: the block with the line under
+    its heading, the rule's row in appendix 6.1, the passed checks of section 2 and the error heading of
+    section 3."""
+    html = render_report(results, lang)
+    block = re.search(r'<div class="rule-group" data-rule="CORE-M14-01">.*?</div>', html, re.S)
+    overview = re.search(r'<tr data-rule="CORE-M14-01">.*?</tr>', section(html, "appendix"), re.S)
+    passed = re.search(
+        r'<p class="passed">.*?</p>\s*(?:<p class="passed-note">.*?</p>)?', section(html, "summary"), re.S
+    )
+    heading = re.search(
+        r'<h3 class="sev-error">.*?</h3>\s*(<p class="consent-severity-note">.*?</p>)?', html, re.S
+    )
+    assert block and overview and passed and heading
+    return {
+        "block": visible_text(block.group(0)),
+        "overview": visible_text(overview.group(0)),
+        "overview_cells": overview.group(0),
+        "passed": visible_text(passed.group(0)),
+        "heading": visible_text(heading.group(0)),
+    }
+
+
+def test_no_m14_cell_of_one_to_four_subjects_can_be_read_from_the_report(tmp_path: Path) -> None:
+    """P6 review (A-81 as accepted in D-15, D-17 option B): the M14 tables count every subject that needs a
+    use, the passed ones included (results.consent gives the sums per use, results.passed the passed
+    subjects), and a withheld table shows only its sums. Nothing else in the report counts what it hides: the
+    line under the rule heading names the subjects only, appendix 6.1 the total, the passed checks of
+    section 2 leave the rule out and the severity heading counts no excepted result. So the report reads the
+    same whether all six subjects consented, one withdrew or one is excepted; only the error counts (summary,
+    light, exit code, severity heading) count the failed result, as for every rule."""
+    exception = EXCEPTION.format(object="sub-02", use="training", reason="re-consent requested")
+    for name in ("covered", "withdrawn", "excepted"):
+        (tmp_path / name).mkdir()
+    runs = {
+        "covered": _bids_results(tmp_path / "covered", ALL),
+        "withdrawn": _bids_results(tmp_path / "withdrawn", WITHDRAWN),
+        "excepted": _bids_results(tmp_path / "excepted", NOT_PERMITTED, exception),
+    }
+    assert _m14(runs["covered"]) == []
+    assert _m14(runs["withdrawn"]) == [("sub-03", "training", "failed", "consent.withdrawn")]
+    assert _m14(runs["excepted"]) == [("sub-02", "training", "excepted", "consent.use_not_permitted")]
+    for lang in ("zh", "en"):
+        tr = translator(lang).t
+        views = {name: _consent_views(results, lang) for name, results in runs.items()}
+        for name in ("block", "overview", "passed"):
+            assert views["covered"][name] == views["withdrawn"][name] == views["excepted"][name], name
+        assert views["covered"]["heading"] == views["excepted"]["heading"]  # the excepted one is not counted
+        shown = views["covered"]
+        assert tr("report.consent.aggregate", subjects=6) in shown["block"]
+        assert tr("report.consent.subjects", count=4) in shown["block"]  # training: sub-01 ... sub-04
+        assert tr("report.consent.subjects", count=2) in shown["block"]  # validation: sub-05, sub-06
+        assert shown["block"].count(tr("report.consent.withheld")) == 2
+        assert tr("report.consent.subjects", count=1) not in shown["block"]
+        assert tr("report.text.rule_aggregate", findings=1, objects=1) not in shown["block"]
+        assert tr("report.consent.overview_withheld", count=6) in shown["overview"]
+        assert '<td class="num">' not in shown["overview_cells"]  # no count per status
+        assert tr("report.consent.passed_note") in shown["passed"]
+        assert tr("report.consent.severity_note") in shown["heading"]
+    for name, results in runs.items():  # section 2: the passed checks of the other rules only
+        assert results.consent is not None and results.consent.subjects == {"training": 4, "validation": 2}
+        others = sum(p.count for p in results.passed if p.rule_id != "CORE-M14-01")
+        assert (
+            f"{translator('en').t('report.label.passed_checks')}: {others}"
+            in _consent_views(results, "en")["passed"]
+        ), name
+
+
+def test_results_consent_only_when_m14_measured_per_subject(tmp_path: Path) -> None:
+    """results.consent (A-91) exists only with results per subject: not without consent data, nor when no
+    loaded pack has the consent check; a pack of its own on the check gets the same sums."""
+    assert _check(_copy(tmp_path), tmp_path).consent is None  # no vault
+    folder = _copy(tmp_path, folder="bids_only")
+    write_vault(folder, ALL)
+    (folder / ".neurogrid" / "neurogrid.toml").write_text('[check]\nrulepacks = ["bids"]\n', "utf-8")
+    assert _check(folder, tmp_path).consent is None
+    _lab_only(folder)
+    lab = _check(folder, tmp_path)
+    assert lab.consent is not None and lab.consent.subjects == {"training": 4, "validation": 2}
+
+
+def _subject_finding(results: Results, subject: str, use: str, reason: str) -> object:
+    return _finding(
+        results,
+        object=subject,
+        subkey=use,
+        status=Status.FAILED,
+        reason=reason,
+        details={"use": use, "consent_version": 2},
+    )
+
+
+def test_a_published_m14_table_shows_the_passed_subjects_of_each_use(tmp_path: Path) -> None:
+    """A-81: a table is published when every filled cell, the passed subjects of a use included, has at least
+    5 subjects; then 6.1 and section 2 count the rule as any other. A passed cell of 1-4 subjects withholds
+    every table, and without the sums per use (results.json written before results.consent existed) only the
+    number of subjects that need a use is shown."""
+    from neurogrid.kernel.findings import PassedCount
+    from neurogrid.model.results import ConsentSummary
+
+    base = _bids_results(tmp_path, WITHDRAWN)
+    withdrawn = [_subject_finding(base, f"sub-w{n}", "training", "consent.withdrawn") for n in range(5)]
+    passed = [PassedCount(rule_id="CORE-M14-01", object=f"sub-p{n}", count=1) for n in range(55)]
+    sums = {"training": 40, "validation": 20}
+    table = tables.consent_table(withdrawn, passed, sums)  # type: ignore[arg-type]
+    assert not table.withheld and table.subjects == 60
+    assert [(r.use, r.status, r.reason, r.count) for r in table.rows] == [
+        ("training", Status.FAILED, "consent.withdrawn", 5),
+        ("training", Status.PASSED, None, 35),
+        ("validation", Status.PASSED, None, 20),
+    ]
+    small = tables.consent_table(withdrawn, passed[:23], {"training": 8, "validation": 20})  # type: ignore[arg-type]
+    assert small.withheld  # 3 subjects passed training
+    assert [(r.use, r.status, r.count) for r in small.rows] == [
+        ("training", None, 8),
+        ("validation", None, 20),
+    ]
+    for sums_given in (None, {"training": 40, "validation": 21}):  # unknown, or not matching results.passed
+        unknown = tables.consent_table(withdrawn, passed, sums_given)  # type: ignore[arg-type]
+        assert unknown.withheld and [(r.use, r.status, r.count) for r in unknown.rows] == [(None, None, 60)]
+    m14 = [f for f in base.findings if f.rule_id != "CORE-M14-01"]
+    results = base.model_copy(
+        update={
+            "findings": [*m14, *withdrawn],
+            "passed": [*(p for p in base.passed if p.rule_id != "CORE-M14-01"), *passed],
+            "consent": ConsentSummary(subjects=sums),
+        }
+    )
+    for lang in ("zh", "en"):
+        tr = translator(lang).t
+        views = _consent_views(results, lang)
+        assert tr("report.consent.withheld") not in views["block"]
+        assert (
+            tr("status.passed") in views["block"]
+            and tr("report.consent.subjects", count=35) in views["block"]
+        )
+        assert tr("report.consent.overview_withheld", count=60) not in views["overview"]
+        assert views["overview_cells"].count('<td class="num">') == len(tables.COUNTED)
+        assert tr("report.consent.passed_note") not in views["passed"]
+        assert tr("report.consent.severity_note") not in views["heading"]
+    old = results.model_copy(update={"consent": None})
+    views = _consent_views(old, "en")
+    assert translator("en").t("report.consent.all_uses") in views["block"]
+    assert translator("en").t("report.consent.withheld") in views["block"]
+
+
+def test_exceptions_of_m14_rules_are_counted_only(tmp_path: Path) -> None:
+    """6.3 shows the exceptions of an M14 rule as their number (subject, use, reason and the 'used' marks
+    would count the excepted subjects), 6.4 notes no unused one of them, and the settings in 6.5 withhold
+    object, use and reason; results.json keeps everything (D-17 option B, A-81)."""
+    exceptions = EXCEPTION.format(
+        object="sub-02", use="training", reason="re-consent requested"
+    ) + EXCEPTION.format(object="sub-05", use="validation", reason="asked again")
+    results = _bids_results(tmp_path, NOT_PERMITTED, exceptions)
+    assert [(u.entry.object, u.entry.subkey, u.used) for u in results.exceptions] == [
+        ("sub-02", "training", True),
+        ("sub-05", "validation", False),
+    ]
+    assert any(n.message_key == "notice.exception_unused" for n in results.notices)
+    for lang in ("zh", "en"):
+        tr = translator(lang).t
+        html = render_report(results, lang)
+        appendix = section(html, "appendix")
+        listed = appendix[appendix.index("<h3>6.3 ") : appendix.index("<h3>6.4 ")]
+        rows = re.findall(r'<tr><td class="mono">.*?</tr>', listed, re.S)
+        assert len(rows) == 1 and tr("report.consent.exceptions_total", count=2) in visible_text(rows[0])
+        assert "training" not in visible_text(listed) and "validation" not in visible_text(listed)
+        text = visible_text(appendix)
+        assert "re-consent" not in text and "asked again" not in text and "sub-05" not in text
+        unused = tr("notice.exception_unused", rule="CORE-M14-01")
+        assert re.sub(r"\s+", "", unused) not in re.sub(r"\s+", "", text)
+        assert '"subkey": "training"' not in html_lib.unescape(appendix)
+        assert '"subkey": "validation"' not in html_lib.unescape(appendix)
+
+
+@pytest.mark.pdf
+def test_the_withheld_m14_counts_in_the_pdf(tmp_path: Path) -> None:
+    """The same in the printed report: the sums per use and the total, never the one withdrawn subject."""
+    results = _bids_results(tmp_path, WITHDRAWN)
+    paths = write_reports(results, ["zh", "en"], ["pdf"], tmp_path / "reports", environ=os.environ)
+    for path in paths:
+        tr = translator(path.name.split(".")[1]).t
+        text = re.sub(r"\s+", "", _texts(path.read_bytes()))
+        for shown in (
+            tr("report.consent.aggregate", subjects=6),
+            tr("report.consent.subjects", count=4),
+            tr("report.consent.overview_withheld", count=6),
+            tr("report.consent.passed_note"),
+        ):
+            assert re.sub(r"\s+", "", shown) in text, shown
+        block = text.split("CORE-M14-01", 1)[1].split("CORE-", 1)[0]
+        assert re.sub(r"\s+", "", tr("report.consent.subjects", count=1)) not in block
+        assert re.sub(r"\s+", "", tr("report.text.rule_aggregate", findings=1, objects=1)) not in block
 
 
 # --- the evaluator and the language keys of the area ---------------------------------------------------

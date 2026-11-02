@@ -552,6 +552,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         duplicates=ai_outputs.duplicates,
         ai=ai_outputs.summary,
         manifest=manifest,
+        consent=consent_checks.summary(ctx, check_ids),  # M14 subjects per use, for the report (A-91)
     )
 
 

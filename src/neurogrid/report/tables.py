@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from neurogrid.kernel.findings import Finding, Severity, SourceStatus, Status
+from neurogrid.kernel.findings import Finding, PassedCount, Severity, SourceStatus, Status
 from neurogrid.model.consent import CONSENT_USES
 from neurogrid.model.results import AILabelScope, RecordingSummary, Results
 from neurogrid.report.charts import nice_ceiling
@@ -90,14 +90,27 @@ SMALL_CELL = 5  # A-51/A-81 table rule, as checks.ai_dataset.SMALL_CELL
 
 @dataclass(frozen=True)
 class ConsentRow:
-    """One row of the aggregated M14 block: a use (None: the whole dataset), a status and reason (both None
-    when the breakdown of the use is withheld) and how many subjects, recordings or the dataset."""
+    """One row of the aggregated M14 block: a use (None: the whole dataset, or every use when even the sums
+    per use are unknown), a status and reason (both None when the breakdown is withheld) and how many
+    subjects, recordings or the dataset."""
 
     use: str | None
     status: Status | None
     reason: str | None
     count: int
     unit: str  # "subjects", "recordings" or "dataset"
+
+
+@dataclass(frozen=True)
+class ConsentTable:
+    """The aggregated M14 block of one rule (D-17 option B, A-81, A-91): its rows, whether the subject table
+    is withheld, how many subjects need a use (passed ones included; 0: the rule has no result per subject)
+    and how many recordings have no known subject."""
+
+    rows: list[ConsentRow]
+    withheld: bool
+    subjects: int
+    recordings: int
 
 
 def consent_rules(results: Results) -> frozenset[str]:
@@ -114,43 +127,105 @@ def _status_order(cell: tuple[Status, str | None]) -> tuple[int, str]:
     return (STATUS_ORDER[cell[0]], cell[1] or "")
 
 
-def consent_rows(findings: Iterable[Finding]) -> tuple[list[ConsentRow], bool]:
-    """The M14 findings of one rule as counts per use, status and reason, never a subject ID or a consent
-    version (D-17 option B). The subjects of one use form a table over its (status, reason) cells; by the
-    A-81 rule a table is published only if every non-zero cell has at least SMALL_CELL subjects, and as the
-    uses of a subject are linked (a withdrawal concerns every use), one withheld table withholds all: then
-    each use shows only its total. Dataset-level findings and recordings without a known subject (no
+Cells = Counter[tuple[Status, str | None]]
+
+
+def _passed_per_use(
+    cells: dict[str, Cells], passed: int, sums: Mapping[str, int] | None
+) -> dict[str, int] | None:
+    """The passed subjects of each use: the sum of the use's table (results.consent) less its other cells,
+    checked against the passed results of the rule. Without the sums (results.json written before they
+    existed) they are known only when no subject passed a use. None: unknown."""
+    if sums is None:
+        return dict.fromkeys(cells, 0) if passed == 0 else None
+    if not set(cells) <= set(sums):
+        return None
+    per_use = {use: total - sum(cells.get(use, Counter()).values()) for use, total in sums.items()}
+    if any(count < 0 for count in per_use.values()) or sum(per_use.values()) != passed:
+        return None
+    return per_use
+
+
+def consent_table(
+    findings: Iterable[Finding], passed: Iterable[PassedCount] = (), sums: Mapping[str, int] | None = None
+) -> ConsentTable:
+    """The results of one M14 rule as counts per use, status and reason, never a subject ID or a consent
+    version (D-17 option B). The subjects that need a use form one table per use over its (status, reason)
+    cells, the passed ones included: results.passed counts a subject's passed uses without naming them, so the
+    passed cell of a use is the use's sum (``sums``, results.consent) less its other cells. By the A-81 rule a
+    table is published only if every non-zero cell has at least SMALL_CELL subjects; as the uses of a subject
+    are linked (a withdrawal concerns every use), one withheld table withholds all, and then each use shows
+    only its sum. When the passed subjects of a use are unknown, the tables are withheld and only the number
+    of subjects that need a use is shown. Dataset-level findings and recordings without a known subject (no
     subject, so no consent decision) are counted as they are."""
-    dataset: Counter[tuple[Status, str | None]] = Counter()
-    recordings: dict[str, Counter[tuple[Status, str | None]]] = defaultdict(Counter)
-    subjects: dict[str, Counter[tuple[Status, str | None]]] = defaultdict(Counter)
+    passed = list(passed)
+    dataset: Cells = Counter()
+    recordings: dict[str, Cells] = defaultdict(Counter)
+    cells: dict[str, Cells] = defaultdict(Counter)
+    subjects = {item.object for item in passed}
+    unknown_subject: set[str] = set()
     for finding in findings:
         cell = (finding.status, finding.reason)
         use = finding.details.get("use")
         listed = finding.details.get("uses")
         if isinstance(use, str):
-            subjects[use][cell] += 1
+            cells[use][cell] += 1
+            subjects.add(finding.object)
         elif isinstance(listed, list):
+            unknown_subject.add(finding.object)
             for item in listed:
                 recordings[str(item)][cell] += 1
         else:
             dataset[cell] += 1
-    withheld = any(0 < count < SMALL_CELL for cells in subjects.values() for count in cells.values())
     rows = [ConsentRow(None, status, reason, n, "dataset") for (status, reason), n in _sorted(dataset)]
-    for use in sorted(set(subjects) | set(recordings), key=_use_order):
-        cells = subjects.get(use, Counter())
-        if cells and withheld:
-            rows.append(ConsentRow(use, None, None, sum(cells.values()), "subjects"))
-        elif cells:
-            rows += [ConsentRow(use, status, reason, n, "subjects") for (status, reason), n in _sorted(cells)]
+    per_use = _passed_per_use(cells, sum(item.count for item in passed), sums) if subjects else {}
+    withheld = per_use is None
+    if per_use is None:  # the sums per use are unknown too: the number of subjects only
+        rows.append(ConsentRow(None, None, None, len(subjects), "subjects"))
+    else:
+        for use, count in per_use.items():
+            if count:
+                cells[use][(Status.PASSED, None)] += count
+        withheld = any(0 < n < SMALL_CELL for table in cells.values() for n in table.values())
+    for use in sorted(set(cells) | set(recordings), key=_use_order):
+        table = cells.get(use, Counter())
+        if table and per_use is not None and withheld:
+            rows.append(ConsentRow(use, None, None, sum(table.values()), "subjects"))
+        elif table and per_use is not None:
+            rows += [ConsentRow(use, status, reason, n, "subjects") for (status, reason), n in _sorted(table)]
         rows += [
             ConsentRow(use, status, reason, n, "recordings")
             for (status, reason), n in _sorted(recordings.get(use, Counter()))
         ]
-    return rows, withheld
+    return ConsentTable(rows, withheld, len(subjects), len(unknown_subject))
 
 
-def _sorted(cells: Counter[tuple[Status, str | None]]) -> list[tuple[tuple[Status, str | None], int]]:
+def consent_rows(
+    findings: Iterable[Finding], passed: Iterable[PassedCount] = (), sums: Mapping[str, int] | None = None
+) -> tuple[list[ConsentRow], bool]:
+    """The rows of consent_table and whether the subject table is withheld."""
+    table = consent_table(findings, passed, sums)
+    return table.rows, table.withheld
+
+
+def rule_consent_table(results: Results, rule_id: str) -> ConsentTable:
+    """consent_table for one rule of ``results``: its findings, its passed results and results.consent."""
+    return consent_table(
+        (f for f in results.findings if f.rule_id == rule_id),
+        (p for p in results.passed if p.rule_id == rule_id),
+        results.consent.subjects if results.consent is not None else None,
+    )
+
+
+def withheld_consent_rules(results: Results) -> frozenset[str]:
+    """The loaded rules on the M14 check whose subject table is withheld: no count of theirs that depends on
+    the consent decisions may appear elsewhere in the report either (A-81, A-91)."""
+    return frozenset(
+        rule_id for rule_id in consent_rules(results) if rule_consent_table(results, rule_id).withheld
+    )
+
+
+def _sorted(cells: Cells) -> list[tuple[tuple[Status, str | None], int]]:
     return sorted(cells.items(), key=lambda item: _status_order(item[0]))
 
 

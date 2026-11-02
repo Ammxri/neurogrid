@@ -726,6 +726,12 @@ report:
     withheld: "breakdown withheld: a reason or status has fewer than 5 subjects (small-cell rule)"
     note: "Consent findings per subject are listed only in results.json; this report shows them aggregated per use and reason, without subject IDs and consent versions."
     exception_withheld: "withheld: consent findings and their exceptions are listed per subject only in results.json"
+    aggregate: "Subjects with a use that their consent must cover: {subjects}"
+    aggregate_recordings: "recordings without a known subject: {recordings}"
+    overview_withheld: "breakdown withheld (small-cell rule); {count} result(s) in total"
+    exceptions_total: "{count} exception(s) for consent findings; subjects, uses and justifications are listed only in results.json"
+    passed_note: "Not included: the passed results of consent rules whose breakdown is withheld (small-cell rule)."
+    severity_note: "For consent rules whose breakdown is withheld, only the results that are not passed are counted here (small-cell rule)."
   title: "NeuroGrid pre-check report"
   placeholder_banner: "This report contains rule packs marked as placeholders. Their rules are not based on the norm text, are shown without clause reference and are not counted."
   section:

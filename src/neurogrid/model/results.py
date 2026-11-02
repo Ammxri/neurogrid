@@ -207,6 +207,17 @@ class AISummary(BaseModel):
     splits: AISplits | None = None
 
 
+class ConsentSummary(BaseModel):
+    """The sums of the per-use M14 tables of the report (D-17 option B, A-81, A-91): per use, the subjects
+    whose signal recordings need it. results.passed counts passed results per rule and subject without the
+    use, so the report needs these sums to tell the passed subjects of each use; they are public counts like
+    the subjects per split (A-81). Present only when M14 measured per subject; counts only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    subjects: dict[str, int] = Field(default_factory=dict)
+
+
 class Results(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -231,6 +242,7 @@ class Results(BaseModel):
     duplicates: list[list[str]] | None = None
     ai: AISummary | None = None  # M11/M12 aggregates (A-81)
     manifest: ManifestInfo | None = None  # optional: results.json of P1-P3 have none (C1)
+    consent: ConsentSummary | None = None  # M14 subjects per use (A-91); optional like every later block (C1)
 
 
 class ScanFile(BaseModel):

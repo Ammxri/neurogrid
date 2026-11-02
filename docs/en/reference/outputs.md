@@ -29,6 +29,7 @@ Written by `check` (`--out`, default `results.json`); `report` reads only this f
 | `ai` | Aggregated label, demography and split counts (withheld below 5 subjects per cell), or `null`. |
 | `summary` | Per phase light, errors, warnings, open evidence; coverage per pack; totals and the exit code. |
 | `manifest` | Result of the manifest comparison, or `null`. |
+| `consent` | M14: per use the number of subjects that need it (the sums of the report's consent tables), or `null`. |
 
 Not contained: time of day, computer or user name, absolute paths, signal hashes, raw ages, and nothing of the
 vault's access log but the findings of CORE-NV03-01/02: no head hash, no number or time of events. The run's own

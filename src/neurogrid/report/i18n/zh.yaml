@@ -727,6 +727,12 @@ report:
     withheld: "已隐去细分：某一原因或状态少于 5 名受试者（小单元格规则）"
     note: "按受试者的知情同意检查结果只列于 results.json；本报告按用途和原因汇总显示，不含受试者 ID 和知情同意版本。"
     exception_withheld: "已隐去：知情同意检查结果及其例外只在 results.json 中按受试者列出"
+    aggregate: "其用途须由知情同意覆盖的受试者：{subjects} 名"
+    aggregate_recordings: "受试者未知的记录：{recordings} 条"
+    overview_withheld: "已隐去细分（小单元格规则）；共 {count} 项结果"
+    exceptions_total: "知情同意检查结果的例外共 {count} 项；受试者、用途和理由只在 results.json 中列出"
+    passed_note: "不含细分已隐去的知情同意规则的通过结果（小单元格规则）。"
+    severity_note: "细分已隐去的知情同意规则在此只计未通过的结果（小单元格规则）。"
   title: "NeuroGrid 预检报告"
   placeholder_banner: "本报告包含标记为占位的规则包。其规则并非依据标准原文，显示时不附条款号，且不计入统计。"
   section:
