@@ -361,7 +361,7 @@
 | 参数 | `min_hz`（number，默认 500） |
 | 通过条件 | 采样率不低于 `min_hz`，且各采样率一致或混合采样率已有记录 |
 | 测量对象 | 每条记录 |
-| 内置规则 | – |
+| 内置规则 | [YYT2029-ACQ-001](rules.md#YYT2029-ACQ-001)（占位） |
 
 ## signal.sampling_rate_min {#signal.sampling_rate_min}
 

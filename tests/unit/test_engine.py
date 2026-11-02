@@ -242,6 +242,20 @@ def test_placeholder_findings_do_not_count() -> None:
     assert result.coverage["demo"] == "n/a"
 
 
+def test_placeholder_norm_pack_error_rule_has_no_coverage_and_no_light() -> None:
+    """A-41, A-92 (the shape of the built-in placeholder scaffold: norm true, an error rule): as a placeholder
+    its failure counts nowhere; the same pack as an inventory gives a numeric coverage and a red light."""
+    failing = {"test.max": [m("test.max", "a", 9.0)]}
+    placeholder = run([pack(RULE_MAX, status="placeholder", norm=True)], failing)
+    assert placeholder.findings[0].status is Status.FAILED
+    assert placeholder.coverage == {"demo": "n/a"} and placeholder.exit_code == 0
+    assert all(p.light is Light.GREY and not p.errors and not p.warnings for p in placeholder.phases.values())
+    inventory = run([pack(RULE_MAX, status="inventory", norm=True)], failing)
+    assert inventory.coverage == {"demo": 1.0} and inventory.exit_code == 1
+    assert inventory.phases[Phase.ACQUISITION].light is Light.RED
+    assert inventory.phases[Phase.ACQUISITION].errors == 1
+
+
 def test_coverage_for_norm_packs() -> None:
     norm = pack(RULE_MAX + RULE_MANUAL, status="inventory", norm=True)
     assert run([norm], {}).coverage["demo"] == 0.5

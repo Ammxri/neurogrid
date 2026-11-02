@@ -63,12 +63,12 @@
 | 参数 / 选项 | 含义 |
 |---|---|
 | `PATH` | 数据集文件夹或单个数据文件。 |
-| `--rulepack NAME_OR_PATH` | 内置规则包（`core`、`bids`、`gxdsl008`）或 YAML 文件；可重复指定。 |
+| `--rulepack NAME_OR_PATH` | 内置规则包（`core`、`bids`、`gxdsl008`、`yyt2029`）或 YAML 文件；可重复指定。`yyt2029` 是占位规则包，在基于条款的版本提供之前只有使用 `--allow-draft-rulepacks` 时才会加载（[占位规则包](rulepacks.md#placeholder)）。 |
 | `--config FILE` | `neurogrid.toml`（默认：数据集中的 `.neurogrid/neurogrid.toml`）。 |
 | `--out FILE` | 结果文件（默认 `results.json`）。 |
 | `--strict` | 严格模式：缺少清单即为错误（CORE-M13-01）。 |
 | `--as-of YYYY-MM-DD` | 判断例外和日期所用的基准日期（默认：今天）；它是结果的一部分。 |
-| `--allow-draft-rulepacks` | 允许加载占位规则包；其规则会显示，但从不计入统计。 |
+| `--allow-draft-rulepacks` | 允许加载占位规则包；其规则会显示，但从不计入统计。`neurogrid.toml` 中没有相应的设置：每次运行单独决定。 |
 | `--show-paths` | 显示真实路径，而非假名 ID（原始文件夹）。 |
 | `--jobs N` | 计算信号指标所用的进程数，1–64；结果与 `--jobs 1` 逐字节相同。 |
 | `--evidence FILE` | `evidence.yaml`（默认：数据集中的 `.neurogrid/evidence.yaml`）。 |
@@ -83,7 +83,9 @@
 |---|---|
 | 0 | 没有未通过的错误级规则，错误级规则也没有待补的证明材料（占位规则包不计） |
 | 1 | 至少有一项上述情况；或有无法读取、不受支持的数据文件，或数据集中没有可读取的记录 |
-| 2 | 工具错误：配置、规则包、验证器、不允许的路径、vault 路径中有链接、`--role` 无效、内部错误 |
+| 2 | 工具错误：配置、规则包（包括未使用 `--allow-draft-rulepacks` 的占位规则包）、验证器、不允许的路径、vault 路径中有链接、`--role` 无效、内部错误 |
+
+控制台的结论句只列出已评价的规则包，从不列出占位规则包。如果只加载了占位规则包，结论句会说明未评价任何规则包，退出码为 0。
 
 ## report {#report}
 

@@ -1,0 +1,24 @@
+# Interpretation questions of the rule packs (RP-08, A-92): read by tools/gen_docs.py into the section
+# "Feedback on clause interpretations" of docs/<lang>/rulepacks.md. Not published as a file; the format names
+# no rule pack, so every pack with a norm behind it uses this one file.
+#
+# One entry per clause that can be read in more than one way, in own words, never quoting a norm text:
+#   id                      IQ-NNN, unique
+#   rulepack                name of a built-in rule pack
+#   clause                  the clause; TBD as long as the pack is a placeholder (no norm text read)
+#   rules                   IDs of the rules of that pack that depend on the reading (may be empty)
+#   topic_en, topic_zh      a short topic (at most 120 characters)
+#   question_en, question_zh  the question (at most 600 characters)
+#   readings                at least two possible readings: {id: a..z, en: ..., zh: ...}
+#   chosen                  id of the reading the rules implement now
+#   rationale_en, rationale_zh  why that reading
+#   status                  open | asked | answered | withdrawn
+#   asked                   whom it was put to: [{role: author | test_institute | regulator | other,
+#                           date: YYYY-MM-DD}]; roles only, never names
+#   answer_en, answer_zh    own summary of the answer; required when the status is answered
+#   effect                  none | params | rule_text | new_rule | removed_rule
+#   changed_in              the pack version that carries the change (optional)
+# Chinese text belongs only in the *_zh fields (and zh of a reading); no word of the wording list
+# (src/neurogrid/report/wording/forbidden.yaml).
+format_version: 1
+questions: []

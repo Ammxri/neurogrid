@@ -1,8 +1,9 @@
 # 规则包 {#rulepacks}
 
 规则包是一个 YAML 文件，它把测量结果变成检查结果：每条规则引用一个已注册的检查项，并给出其参数、阶段、严重程度
-和核验方式。NeuroGrid 内置 `core`、`bids` 和 `gxdsl008`（[内置规则](reference/rules.md)）；检验机构、制造商或
-标准起草人无需修改代码即可编写自己的规则包，并通过 `--rulepack <file>` 或 `[check] rulepacks` 加载。
+和核验方式。NeuroGrid 内置四个规则包：`core`、`bids`、`gxdsl008` 和占位规则包 `yyt2029`
+（[内置规则](reference/rules.md)、[占位规则包](#placeholder)）；检验机构、制造商或标准起草人无需修改代码即可编写
+自己的规则包，并通过 `--rulepack <file>` 或 `[check] rulepacks` 加载。
 
 ## 格式 {#format}
 
@@ -51,7 +52,15 @@ YAML 读取器（不允许别名和重复键，有大小限制）。
 `source_status: placeholder` 的规则包只有在使用 `--allow-draft-rulepacks` 时才会加载。其检查结果显示在报告中单独的
 “未评价”部分，条款标记为占位，从不计入退出码、信号灯或覆盖率。
 
-0.1 版不包含 YY/T 2029-2026 的任何内容。yyt2029 规则包将在研读标准文本后提供。
+本版本不包含 YY/T 2029-2026 的任何内容。占位规则包 yyt2029（仅含一条无条款号的示例规则，须使用 `--allow-draft-rulepacks` 加载，不计入统计）同样并非依据标准原文；基于条款的规则包将在研读标准文本后提供。
+
+```bash
+neurogrid check DATA --rulepack yyt2029 --allow-draft-rulepacks
+```
+
+未使用 `--allow-draft-rulepacks` 时，无论该规则包是通过 `--rulepack`、文件路径还是 `[check] rulepacks` 指定，命令都会
+在读取任何数据之前以退出码 2 结束；`neurogrid.toml` 中没有相应的开关。使用该选项时，控制台的结论句只列出已评价的
+规则包；如果只加载了占位规则包，控制台和报告都会说明未评价任何规则包（退出码 0）。
 
 ## 示例 {#example}
 
@@ -102,7 +111,15 @@ neurogrid check tests/fixtures/synthetic/edf_ok --config tests/fixtures/document
 ## 关于条款解读的反馈 {#feedback}
 
 当一个条款可以有多种解读时，NeuroGrid 会在决策记录以及规则的名称或参数中写明所采用的解读。问题和其他解读的建议请
-提交到公开仓库的问题跟踪系统；解读问题清单将在 0.2 版中随 yyt2029 规则包提供。
+提交到公开仓库的问题跟踪系统；下方的解读问题清单逐条记录这类条款。
 
 !!! warning "占位"
     公开仓库的地址为 `<REPO_URL>`，将在仓库发布时填写。
+
+<!-- BEGIN GENERATED interpretation questions -->
+### 解读问题 {#questions}
+
+可以有多种解读的条款，列出可能的解读、NeuroGrid 采用的解读，以及已向哪类角色提出（只写角色，从不写姓名）。本清单由 `docs/_data/interpretation_questions.yaml` 生成；它不专属于某个规则包，凡对应一项标准的规则包均使用它。
+
+目前尚未记录解读问题。将标准文本转化为规则时会补充条目；每个条目注明条款、可能的解读、NeuroGrid 采用的解读以及已向哪类角色提出。
+<!-- END GENERATED -->

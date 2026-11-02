@@ -1,0 +1,26 @@
+### {{ L.title }} {#questions}
+
+{{ L.intro }}
+{% if not questions %}
+
+{{ L.empty }}
+{% endif %}
+{% for q in questions %}
+
+#### {{ q.id }} {#{{ q.id }}}
+
+| | |
+|---|---|
+| {{ L.id }} | {{ q.id }} |
+| {{ L.topic }} | {{ q.topic }} |
+| {{ L.rulepack }} | {{ q.rulepack }} |
+| {{ L.clause }} | {{ q.clause }} |
+| {{ L.rules }} | {{ q.rules }} |
+| {{ L.question }} | {{ q.question }} |
+| {{ L.readings }} | {{ q.readings }} |
+| {{ L.chosen }} | {{ q.chosen }} |
+| {{ L.status }} | {{ q.status }} |
+| {{ L.asked }} | {{ q.asked }} |
+| {{ L.answer }} | {{ q.answer }} |
+| {{ L.effect }} | {{ q.effect }} |
+{% endfor %}

@@ -1,9 +1,10 @@
 # Rule packs {#rulepacks}
 
 A rule pack is a YAML file that turns measurements into findings: each rule names a registered check, its
-parameters, a phase, a severity and how it is verified. NeuroGrid ships `core`, `bids` and `gxdsl008`
-([Built-in rules](reference/rules.md)); a test institute, a manufacturer or the author of a standard can write
-their own pack without changing code and load it with `--rulepack <file>` or `[check] rulepacks`.
+parameters, a phase, a severity and how it is verified. NeuroGrid ships four packs: `core`, `bids`, `gxdsl008`
+and the placeholder pack `yyt2029` ([Built-in rules](reference/rules.md), [Placeholder packs](#placeholder)); a
+test institute, a manufacturer or the author of a standard can write their own pack without changing code and
+load it with `--rulepack <file>` or `[check] rulepacks`.
 
 ## Format {#format}
 
@@ -56,7 +57,16 @@ A pack with `source_status: placeholder` loads only with `--allow-draft-rulepack
 separate report section "not evaluated", with the clause marked as a placeholder, and never count for the exit
 code, the traffic light or the coverage.
 
-Version 0.1 contains no content from YY/T 2029-2026. A yyt2029 rule pack follows once the norm text has been read.
+This version contains no content from YY/T 2029-2026. The placeholder pack yyt2029 (one example rule without clause, loaded only with `--allow-draft-rulepacks`, never counted) is not based on the norm text either; the clause-based pack follows once the norm text has been read.
+
+```bash
+neurogrid check DATA --rulepack yyt2029 --allow-draft-rulepacks
+```
+
+Without `--allow-draft-rulepacks` the command ends with exit code 2 before any data are read, whether the pack
+is named with `--rulepack`, by its file path or in `[check] rulepacks`; there is no switch in `neurogrid.toml`.
+With it, the result sentence on the console names only the packs that were evaluated, and when only placeholder
+packs are loaded, the console and the report say that no rule pack was evaluated (exit code 0).
 
 ## Example {#example}
 
@@ -109,7 +119,15 @@ neurogrid check tests/fixtures/synthetic/edf_ok --config tests/fixtures/document
 
 When a clause can be read in more than one way, NeuroGrid records the reading in the decision log and in the
 rule's title or parameters. Questions and proposals for another reading go to the issue tracker of the public
-repository; the list of interpretation questions follows in version 0.2 with the yyt2029 pack.
+repository; the list of interpretation questions below records each such clause.
 
 !!! warning "Placeholder"
     The address of the public repository is `<REPO_URL>`; it is filled in when the repository is published.
+
+<!-- BEGIN GENERATED interpretation questions -->
+### Interpretation questions {#questions}
+
+Clauses that can be read in more than one way, with the possible readings, the reading NeuroGrid implements and whom the question was put to (by role, never by name). The list is generated from `docs/_data/interpretation_questions.yaml`; it names no pack of its own, so every rule pack that maps a norm uses it.
+
+No interpretation questions are recorded yet. Entries are added when a norm text is turned into rules; each one names the clause, the possible readings, the reading NeuroGrid implements and whom it was asked (by role).
+<!-- END GENERATED -->

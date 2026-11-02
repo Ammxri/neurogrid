@@ -41,6 +41,7 @@ rules:
   none: "–"
   default_param: "{name} = {value} (check default)"
   pack_param: "{name} = {value} (rule pack)"
+  placeholder_suffix: " (placeholder)"
 thresholds:
   rule: "Rule"
   severity: "Severity"
@@ -62,3 +63,39 @@ calibration:
   format: "Format"
   recordings: "Recordings"
   channels: "Channels (M07)"
+questions:
+  title: "Interpretation questions"
+  intro: >-
+    Clauses that can be read in more than one way, with the possible readings, the reading NeuroGrid implements
+    and whom the question was put to (by role, never by name). The list is generated from
+    `docs/_data/interpretation_questions.yaml`; it names no pack of its own, so every rule pack that maps a
+    norm uses it.
+  empty: >-
+    No interpretation questions are recorded yet. Entries are added when a norm text is turned into rules;
+    each one names the clause, the possible readings, the reading NeuroGrid implements and whom it was asked
+    (by role).
+  id: "ID"
+  rulepack: "Rule pack"
+  clause: "Clause"
+  rules: "Rules"
+  topic: "Topic"
+  question: "Question"
+  readings: "Possible readings"
+  chosen: "Reading implemented"
+  status: "Status"
+  asked: "Asked (role, date)"
+  answer: "Answer"
+  effect: "Effect on the rules"
+  status_open: "open"
+  status_asked: "asked"
+  status_answered: "answered"
+  status_withdrawn: "withdrawn"
+  role_author: "author of the standard"
+  role_test_institute: "test institute"
+  role_regulator: "regulator"
+  role_other: "other"
+  effect_none: "no change"
+  effect_params: "parameters changed"
+  effect_rule_text: "rule title or description changed"
+  effect_new_rule: "new rule"
+  effect_removed_rule: "rule removed"

@@ -288,6 +288,22 @@ def test_statement_lists_catch_examples(group: str, text: str, caught: bool) -> 
     assert any(p.search(_without_allowed(text)) for p in patterns) is caught
 
 
+@pytest.mark.parametrize(
+    ("key", "params"),
+    [("cli.check.none_evaluated", {"packs"}), ("report.text.overall_none_evaluated", set())],
+)
+def test_none_evaluated_sentences_exist_and_claim_nothing(key: str, params: set[str]) -> None:
+    """A-92 (POS-01): the sentences for a run with placeholder packs only, in zh/en/de, with the same
+    parameters, no word of the wording list and no 'passes' claim."""
+    patterns = [p for group in _forbidden().values() for p in group]
+    for lang in LANGUAGES:
+        text = tables()[lang][key]
+        assert set(re.findall(r"\{(\w+)\}", text)) == params, lang
+        assert not any(p.search(text) for p in patterns), lang
+    assert "pass" not in tables()["en"][key] and "通过" not in tables()["zh"][key]
+    assert "besteht" not in tables()["de"][key]
+
+
 def test_scope_note_is_the_allowed_negation_in_every_language() -> None:
     """The allowed phrases are exactly the negations in the scope note (ARC-05), so nothing else is exempt."""
     allowed = _statements()["allowed"]

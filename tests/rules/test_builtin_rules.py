@@ -93,6 +93,9 @@ BIDS = ("bids",)
 LINE_60_HZ = "[metadata.defaults]\nline_frequency_hz = 60\n"
 GX = ("gxdsl008",)
 GX_ONLY = '[check]\nrulepacks = ["gxdsl008"]\n'  # gxdsl008 without core (A-02): evaluated on its own (A-40)
+YYT = ("yyt2029",)  # the placeholder scaffold, with the flag (A-92)
+YYT_RULE = "YYT2029-ACQ-001"
+DRAFT = (("allow_draft_rulepacks", True),)  # placeholder packs load only with --allow-draft-rulepacks (A-41)
 
 
 def _evidence_setup(entry: str) -> Callable[[Path, Path], tuple[Path, dict[str, object]]]:
@@ -392,6 +395,10 @@ CASES = [
     Case("GXDSL008-STO-002", "edf_ok", Status.FAILED, rulepacks=GX),  # no manifest: the warning
     Case("GXDSL008-STO-002", "edf_ok", Status.FAILED, rulepacks=GX, setup="manifest_changed"),
     Case("GXDSL008-STO-002", "edf_ok", Status.FAILED, rulepacks=GX, setup="manifest_invalid"),
+    # P6 placeholder scaffold (RP-10, A-41, A-92): the evaluated status is recorded although it never counts
+    Case(YYT_RULE, "edf_ok", Status.PASSED, rulepacks=YYT, options=DRAFT),  # 512 Hz, uniform
+    Case(YYT_RULE, "edf_lowrate", Status.FAILED, rulepacks=YYT, options=DRAFT),  # 256 Hz < 500
+    Case(YYT_RULE, "edf_mixed", Status.FAILED, rulepacks=YYT, options=DRAFT),  # mixed rates, undocumented
     # P4 ai: M11/M12 (tools/gen_fixtures.py). bids_ai_ok passes every rule: classes A/B/C at 0.4/0.3/0.3 in
     # every scope, age and sex for all six subjects, subject-disjoint splits, seven different signals.
     # bids_ai_issues has one problem per rule.

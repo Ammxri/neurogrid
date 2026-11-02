@@ -21,7 +21,7 @@
 
 | 键 | 含义 |
 |---|---|
-| `rulepacks` | 要加载的规则包（名称或相对路径）；它会取代默认的 `core`，因此请同时列出 `core`。`--rulepack` 可再添加规则包。空列表无效。 |
+| `rulepacks` | 要加载的规则包（名称或相对路径）；它会取代默认的 `core`，因此请同时列出 `core`。`--rulepack` 可再添加规则包。空列表无效。此处列出的占位规则包只有使用 `--allow-draft-rulepacks` 时才会加载，否则以退出码 2 结束（[占位规则包](rulepacks.md#placeholder)）。 |
 | `strict` | 严格模式，与 `--strict` 相同（默认 `false`）。 |
 | `seed` | 抽样指标的随机种子（默认 20261011，取值 0 至 2^63−1）。 |
 | `as_of` | 基准日期 `YYYY-MM-DD`（默认：今天）；`--as-of` 优先。 |

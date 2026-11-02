@@ -7,16 +7,19 @@ import hashlib
 import json
 import re
 import shutil
+import typing
 from pathlib import Path
 from typing import Any
 
 import docs_site  # type: ignore[import-not-found]
+import jinja2
 import pytest
 import yaml
 
 import build_docs  # type: ignore[import-not-found]
 import gen_docs  # type: ignore[import-not-found]
 import notices  # type: ignore[import-not-found]
+from neurogrid.kernel.findings import SourceStatus
 from neurogrid.report.texts import tables
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -91,6 +94,286 @@ def test_generated_pages_say_so_and_render_the_registry() -> None:
         assert (
             "### CORE-M07-01 {#CORE-M07-01}" in rules and "### GXDSL008-ACQ-001 {#GXDSL008-ACQ-001}" in rules
         )
+
+
+def test_generator_documents_every_builtin_pack_and_marks_placeholders() -> None:
+    """NG-F11, A-41, A-92: the generated pages cover every built-in pack; a placeholder pack's clause is the
+    report's placeholder text and its rule IDs carry the placeholder marker on the check registry page."""
+    folder = ROOT / "src" / "neurogrid" / "rulepacks"
+    shipped = {p.name.removesuffix(".yaml") for p in folder.glob("*.yaml")}
+    assert shipped == set(gen_docs.PACKS)
+    placeholders = [p.pack for p in gen_docs.builtin_packs() if p.pack.source_status.value == "placeholder"]
+    assert placeholders, "the scaffold is a built-in placeholder pack"
+    for lang in LANGUAGES:
+        labels = gen_docs.context(lang).labels["rules"]
+        rules = (DOCS / lang / "reference" / "rules.md").read_text(encoding="utf-8")
+        checks = (DOCS / lang / "reference" / "checks.md").read_text(encoding="utf-8")
+        clause_row = f"| {labels['clause']} | {tables()[lang]['report.value.placeholder_clause']} |"
+        for pack in placeholders:
+            start = rules.index(f"{{#pack-{pack.rulepack}}}")
+            end = rules.find("\n## ", start)
+            section = rules[start : end if end >= 0 else len(rules)]
+            assert section.count(clause_row) == len(pack.rules), lang
+            assert f"| {labels['version']} | {pack.version} |" in section  # the version in a row of its own
+            for rule in pack.rules:
+                assert f"[{rule.id}](rules.md#{rule.id}){labels['placeholder_suffix']}" in checks, lang
+        # no other pack gets the marker
+        assert checks.count(labels["placeholder_suffix"]) == sum(len(p.rules) for p in placeholders)
+
+
+def test_placeholder_flag_is_documented_where_packs_are_chosen() -> None:
+    """RP-10, A-41: every place that loads rule packs (the --rulepack option, [check] rulepacks) says that a
+    placeholder pack needs --allow-draft-rulepacks and links the placeholder section."""
+    flag, link = "`--allow-draft-rulepacks`", "#placeholder)"
+    for lang in LANGUAGES:
+        commands = (DOCS / lang / "commands.md").read_text(encoding="utf-8")
+        (option,) = [
+            line for line in commands.splitlines() if line.startswith("| `--rulepack NAME_OR_PATH` |")
+        ]
+        configuration = (DOCS / lang / "configuration.md").read_text(encoding="utf-8")
+        check = configuration[configuration.index("{#check}") :]
+        (key,) = [line for line in check.splitlines() if line.startswith("| `rulepacks` |")]
+        for row in (option, key):
+            assert flag in row and f"rulepacks.md{link}" in row, (lang, row)
+        assert "{#placeholder}" in (DOCS / lang / "rulepacks.md").read_text(encoding="utf-8")
+
+
+# --- interpretation questions (RP-08 template, A-92) -------------------------------------------------------
+
+
+def _placeholder_pack() -> Any:
+    (pack,) = [p.pack for p in gen_docs.builtin_packs() if p.pack.source_status.value == "placeholder"]
+    return pack
+
+
+def _builtin() -> dict[str, Any]:
+    return {loaded.pack.rulepack: loaded.pack for loaded in gen_docs.builtin_packs()}
+
+
+def _entry(**changes: Any) -> dict[str, Any]:
+    """A valid entry for the placeholder pack, in own words (test data, not shipped)."""
+    pack = _placeholder_pack()
+    entry: dict[str, Any] = {
+        "id": "IQ-001",
+        "rulepack": pack.rulepack,
+        "clause": "TBD",
+        "rules": [pack.rules[0].id],
+        "topic_en": "Which recordings the minimum rate applies to",
+        "topic_zh": "最低采样率适用于哪些记录",
+        "question_en": "Does the minimum rate apply to every EEG channel or to the recording as a whole?",
+        "question_zh": "最低采样率是适用于每个 EEG 通道，还是适用于整条记录？",
+        "readings": [
+            {"id": "a", "en": "every EEG channel", "zh": "每个 EEG 通道"},
+            {"id": "b", "en": "the recording as a whole", "zh": "整条记录"},
+        ],
+        "chosen": "a",
+        "rationale_en": "The stricter reading until the text is read.",
+        "rationale_zh": "在研读文本之前采用较严格的解读。",
+        "status": "asked",
+        "asked": [{"role": "test_institute", "date": "2026-11-02"}],
+        "effect": "none",
+    }
+    entry.update(changes)
+    return entry
+
+
+def test_interpretation_questions_template() -> None:
+    """The shipped file is empty and valid; its block in rulepacks.md shows the empty text (en/zh). A valid
+    entry renders its clause, readings and role, never a person."""
+    shipped = gen_docs.load_questions(gen_docs.QUESTIONS)
+    assert shipped.format_version == 1 and shipped.questions == []
+    raw = yaml.safe_load(gen_docs.QUESTIONS.read_text(encoding="utf-8"))
+    assert raw == {"format_version": 1, "questions": []}
+    for lang in LANGUAGES:
+        labels = gen_docs.context(lang).labels["questions"]
+        page = (DOCS / lang / "rulepacks.md").read_text(encoding="utf-8")
+        block = page[page.index("<!-- BEGIN GENERATED interpretation questions -->") :]
+        block = block[: block.index("<!-- END GENERATED -->")]
+        assert " ".join(str(labels["empty"]).split()) in block and str(labels["title"]) in block
+        assert page.index("{#feedback}") < page.index("<!-- BEGIN GENERATED interpretation questions -->")
+        for name in (*gen_docs.QUESTION_STATUSES, *(f"role_{r}" for r in gen_docs.ASKED_ROLES)):
+            key = name if name.startswith("role_") else f"status_{name}"
+            assert str(labels[key]).strip(), (lang, key)
+        for effect in gen_docs.EFFECTS:
+            assert str(labels[f"effect_{effect}"]).strip(), (lang, effect)
+    for field, values in (
+        ("status", gen_docs.QUESTION_STATUSES),
+        ("effect", gen_docs.EFFECTS),
+    ):
+        assert typing.get_args(gen_docs.Question.model_fields[field].annotation) == values
+    assert typing.get_args(gen_docs.Asked.model_fields["role"].annotation) == gen_docs.ASKED_ROLES
+    valid = gen_docs.validate_questions({"format_version": 1, "questions": [_entry()]}, _builtin())
+    assert valid.questions[0].asked[0].role == "test_institute"
+
+
+def test_interpretation_question_block_renders_an_entry(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    path = tmp_path / "interpretation_questions.yaml"
+    path.write_text(yaml.safe_dump({"format_version": 1, "questions": [_entry()]}), encoding="utf-8")
+    monkeypatch.setattr(gen_docs, "QUESTIONS", path)
+    env = gen_docs.environment()
+    for lang in LANGUAGES:
+        ctx = gen_docs.context(lang)
+        labels = ctx.labels["questions"]
+        block = gen_docs.questions_block(ctx, env)
+        assert "#### IQ-001 {#IQ-001}" in block and str(labels["empty"]) not in block
+        assert f"| {labels['clause']} | TBD |" in block
+        assert f"| {labels['asked']} | {labels['role_test_institute']} (2026-11-02) |" in block
+        assert f"| {labels['status']} | {labels['status_asked']} |" in block
+        reading = "每个 EEG 通道" if lang == "zh" else "every EEG channel"
+        assert f"(a) {reading}; (b)" in block
+
+
+@pytest.mark.parametrize(
+    ("case", "message"),
+    [
+        ("unknown_rule", "rules not in"),
+        ("unknown_pack", "no built-in rule pack"),
+        ("chosen_not_in_readings", "chosen reading"),
+        ("one_reading", "readings"),
+        ("answered_without_answer", "needs answer_en and answer_zh"),
+        ("clause_number_while_placeholder", "clause of a placeholder pack is TBD"),
+        ("han_in_en", "Chinese text in question_en"),
+        ("han_in_reading_en", "Chinese text in readings.1.en"),
+        ("forbidden_word", "wording list"),
+        ("forbidden_word_zh", "wording list"),
+        ("asked_with_name", "asked.0.role"),
+        ("asked_bad_date", "asked.0.date"),
+        ("duplicate_id", "duplicate id"),
+        ("duplicate_rule", "duplicate rule id"),
+        ("ideograph_ext_b_in_en", "Chinese text in topic_en"),
+        ("compatibility_ideograph_in_en", "Chinese text in rationale_en"),
+        ("fullwidth_comma_in_en", "Chinese text in question_en"),
+        ("ideographic_full_stop_in_reading_en", "Chinese text in readings.0.en"),
+        ("norm_in_topic_en", "topic_en names the norm or the pack"),
+        ("pack_and_clause_in_topic_en", "topic_en names the norm or the pack"),
+        ("norm_in_question_zh", "question_zh names the norm or the pack"),
+        ("pack_in_reading_zh", "readings.1.zh names the norm or the pack"),
+        ("bad_id", "questions.0.id"),
+        ("extra_field", "questions.0.reviewer"),
+        ("format_version", "format_version"),
+    ],
+)
+def test_interpretation_questions_rejects(
+    case: str, message: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Every rule of the format is enforced; an invalid file ends the generator with exit 2."""
+    pack = _placeholder_pack()
+    entries = [_entry()]
+    version: object = 1
+    if case == "unknown_rule":
+        entries = [_entry(rules=["NOPE-ACQ-001"])]
+    elif case == "unknown_pack":
+        entries = [_entry(rulepack="nosuch")]
+    elif case == "chosen_not_in_readings":
+        entries = [_entry(chosen="c")]
+    elif case == "one_reading":
+        entries = [_entry(readings=[{"id": "a", "en": "every EEG channel", "zh": "每个 EEG 通道"}])]
+    elif case == "answered_without_answer":
+        entries = [_entry(status="answered", answer_en="Every channel.")]
+    elif case == "clause_number_while_placeholder":
+        entries = [_entry(clause="4.2")]
+    elif case == "han_in_en":
+        entries = [_entry(question_en="Does 最低采样率 apply to every channel?")]
+    elif case == "han_in_reading_en":
+        readings = [
+            {"id": "a", "en": "every channel", "zh": "每个通道"},
+            {"id": "b", "en": "整条", "zh": "整条"},
+        ]
+        entries = [_entry(readings=readings)]
+    elif case == "forbidden_word":
+        entries = [_entry(rationale_en="A dataset with this rate is compliant.")]
+    elif case == "forbidden_word_zh":
+        entries = [_entry(answer_zh="数据合格。", answer_en="Answered.", status="answered")]
+    elif case == "asked_with_name":
+        entries = [_entry(asked=[{"role": "Dr. Wang", "date": "2026-11-02"}])]
+    elif case == "asked_bad_date":
+        entries = [_entry(asked=[{"role": "regulator", "date": "02.11.2026"}])]
+    elif case == "duplicate_rule":
+        entries = [_entry(rules=[pack.rules[0].id, pack.rules[0].id])]
+    elif case == "ideograph_ext_b_in_en":
+        entries = [_entry(topic_en="Which recordings \U00020000 applies to")]
+    elif case == "compatibility_ideograph_in_en":
+        entries = [_entry(rationale_en="The stricter reading 豈 until the text is read.")]
+    elif case == "fullwidth_comma_in_en":
+        entries = [_entry(question_en="Every EEG channel， or the recording as a whole?")]
+    elif case == "ideographic_full_stop_in_reading_en":
+        readings = [
+            {"id": "a", "en": "every EEG channel。", "zh": "每个 EEG 通道"},
+            {"id": "b", "en": "the recording as a whole", "zh": "整条记录"},
+        ]
+        entries = [_entry(readings=readings)]
+    elif case == "norm_in_topic_en":
+        entries = [_entry(topic_en="What " + "YY/T " + "2029 means by the minimum rate")]
+    elif case == "pack_and_clause_in_topic_en":
+        entries = [_entry(topic_en=pack.rulepack + " " + "4.2" + " minimum rate")]
+    elif case == "norm_in_question_zh":
+        entries = [_entry(question_zh="YY/T" + "2029 中的最低采样率是否适用于每个通道？")]
+    elif case == "pack_in_reading_zh":
+        readings = [
+            {"id": "a", "en": "every EEG channel", "zh": "每个 EEG 通道"},
+            {"id": "b", "en": "the recording as a whole", "zh": pack.rulepack.upper() + " 的整条记录"},
+        ]
+        entries = [_entry(readings=readings)]
+    elif case == "duplicate_id":
+        entries = [_entry(), _entry()]
+    elif case == "bad_id":
+        entries = [_entry(id="Q1")]
+    elif case == "extra_field":
+        entries = [_entry(reviewer="someone")]
+    elif case == "format_version":
+        version = 2
+    data = {"format_version": version, "questions": entries}
+    with pytest.raises(gen_docs.DocsError) as info:
+        gen_docs.validate_questions(data, _builtin())
+    assert message in str(info.value), str(info.value)
+    assert pack.rulepack  # the cross-checks ran against the built-in packs
+    # the same file through the generator: exit 2, nothing written
+    path = tmp_path / "interpretation_questions.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    monkeypatch.setattr(gen_docs, "QUESTIONS", path)
+    assert gen_docs.main(["--check"]) == 2
+
+
+def test_interpretation_questions_accept_latin_typography_in_en() -> None:
+    """Negative of the script rule: dashes, typographic quotes, micro sign and comparison signs are no
+    Chinese; the rule IDs and the pack name may name the pack (only the texts may not)."""
+    text = "Does “minimum” mean ≥ 500 Hz – for every channel (µV scale)?"
+    parsed = gen_docs.validate_questions(
+        {"format_version": 1, "questions": [_entry(question_en=text)]}, _builtin()
+    )
+    entry = parsed.questions[0]
+    assert entry.question_en == text and gen_docs.NORM_MENTION.search(entry.rules[0] + entry.rulepack)
+
+
+def test_interpretation_question_block_refuses_a_clause_line(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """No generated line names the pack with a dotted number after it (V-06), whatever the template puts on
+    one line: here the pack and the version of the change."""
+    path = tmp_path / "interpretation_questions.yaml"
+    entry = _entry(effect="params", changed_in="0.3.0")
+    path.write_text(yaml.safe_dump({"format_version": 1, "questions": [entry]}), encoding="utf-8")
+    monkeypatch.setattr(gen_docs, "QUESTIONS", path)
+    one_line = "{% for q in questions %}{{ q.rulepack }}: {{ q.effect }}\n{% endfor %}"
+    env = gen_docs.environment()
+    env.loader = jinja2.DictLoader({"questions.md.j2": one_line})
+    with pytest.raises(gen_docs.DocsError, match="cites a clause number"):
+        gen_docs.questions_block(gen_docs.context("en"), env)
+    # the shipped template keeps the pack and the version in rows of their own
+    block = gen_docs.questions_block(gen_docs.context("en"), gen_docs.environment())
+    assert "(0.3.0)" in block and not any(gen_docs.NORM_CLAUSE.search(line) for line in block.splitlines())
+
+
+def test_interpretation_questions_accept_a_clause_for_an_inventory_pack() -> None:
+    """Negative of the placeholder rule: once a pack is no placeholder, its clause may be a number (P8)."""
+    pack = _placeholder_pack()
+    inventory = pack.model_copy(update={"source_status": SourceStatus.INVENTORY})
+    parsed = gen_docs.validate_questions(
+        {"format_version": 1, "questions": [_entry(clause="4.2")]}, {pack.rulepack: inventory}
+    )
+    assert parsed.questions[0].clause == "4.2"
 
 
 def test_generator_refuses_an_outdated_or_incomplete_source(

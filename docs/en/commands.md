@@ -63,12 +63,12 @@ Checks a dataset against the loaded rule packs and writes `results.json`. The pa
 | Argument / option | Meaning |
 |---|---|
 | `PATH` | Dataset folder or single data file. |
-| `--rulepack NAME_OR_PATH` | Built-in pack (`core`, `bids`, `gxdsl008`) or a YAML file; repeatable. |
+| `--rulepack NAME_OR_PATH` | Built-in pack (`core`, `bids`, `gxdsl008`, `yyt2029`) or a YAML file; repeatable. `yyt2029` is a placeholder pack and loads only with `--allow-draft-rulepacks` until its clause-based version follows ([Placeholder packs](rulepacks.md#placeholder)). |
 | `--config FILE` | `neurogrid.toml` (default: `.neurogrid/neurogrid.toml` in the dataset). |
 | `--out FILE` | Results file (default `results.json`). |
 | `--strict` | Strict mode: a missing manifest is an error (CORE-M13-01). |
 | `--as-of YYYY-MM-DD` | Reference date for exceptions and dates (default: today); it is part of the result. |
-| `--allow-draft-rulepacks` | Allow placeholder rule packs; their rules are shown but never counted. |
+| `--allow-draft-rulepacks` | Allow placeholder rule packs; their rules are shown but never counted. There is no setting for it in `neurogrid.toml`: each run decides. |
 | `--show-paths` | Show real paths instead of pseudonymous IDs (raw folders). |
 | `--jobs N` | Processes for the signal metrics, 1–64; the result is byte-identical to `--jobs 1`. |
 | `--evidence FILE` | `evidence.yaml` (default: `.neurogrid/evidence.yaml` in the dataset). |
@@ -83,7 +83,9 @@ object `**`) after `results.json` is written; it never reaches `results.json`. A
 |---|---|
 | 0 | no failed error rule and no open evidence for an error rule (placeholder packs do not count) |
 | 1 | at least one; also an unreadable or unsupported data file, or a dataset without a readable recording |
-| 2 | tool error: configuration, rule pack, validator, path not allowed, a link in the vault path, an invalid `--role`, internal error |
+| 2 | tool error: configuration, rule pack (also a placeholder pack without `--allow-draft-rulepacks`), validator, path not allowed, a link in the vault path, an invalid `--role`, internal error |
+
+The result sentence on the console names only the packs that were evaluated, never a placeholder pack. When only placeholder packs are loaded, it says that no rule pack was evaluated, and the exit code is 0.
 
 ## report {#report}
 
