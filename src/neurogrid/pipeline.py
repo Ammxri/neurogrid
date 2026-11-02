@@ -1137,17 +1137,35 @@ def vault_view(location: VaultLocation) -> VaultView:
     )
 
 
+def config_dataset(config_path: Path, vault_path: str) -> Path:
+    """The dataset a neurogrid.toml lies in, for ``report --config``, which is given no dataset (A-66): the
+    nearest folder at or above the file's folder that holds NeuroGrid's folder ``.neurogrid``, a BIDS
+    dataset_description.json or the vault at [vault] path; else the file's folder (a file outside any
+    dataset). With it config.project_root_for gives the project root check and the vault commands use for the
+    same file inside that dataset: the folder above ``.neurogrid`` for a file in such a folder, else this
+    folder; for a file outside the dataset its own folder, unless a folder above it is marked so."""
+    folder = config_path.resolve().parent
+    for candidate in (folder, *folder.parents):
+        if (
+            os.path.lexists(candidate / config_module.CONFIG_DIR)
+            or is_bids_folder(candidate)
+            or vault_store.locate(candidate, vault_path).state != "absent"
+        ):
+            return candidate
+    return folder
+
+
 def report_vault(config_path: Path) -> tuple[PendingAccess | None, VaultView]:
-    """``report --config FILE`` (A-30): the vault of that neurogrid.toml (its project root after A-66: the
-    folder above ``.neurogrid`` for a file in such a folder, else the file's folder; the report knows no
-    dataset) and how the report shows it; the report event (action report, objects ``**``) when a vault is
-    present. Without --config the report finds no vault and records nothing."""
+    """``report --config FILE`` (A-30): the vault of that neurogrid.toml, at the project root check uses for
+    the file (A-66; the report knows no dataset, config_dataset finds the one the file lies in), and how the
+    report shows it; the report event (action report, objects ``**``) when a vault is present. Without
+    --config the report finds no vault and records nothing."""
     path = check_operator_path(config_path)
     if not path.is_file():
         raise ConfigError("config.not_found")
-    loaded = config_module.load(path, path.resolve().parent)
-    cfg = loaded.config
-    location = _run_vault(loaded.project_root, cfg)
+    cfg = config_module.load(path, path.resolve().parent).config
+    project_root = config_module.project_root_for(path, config_dataset(path, cfg.vault.path))
+    location = _run_vault(project_root, cfg)
     pending = _pending(location, cfg, cfg.vault.role, "report") if location.state == "present" else None
     return pending, vault_view(location)
 

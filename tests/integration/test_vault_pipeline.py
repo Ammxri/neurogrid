@@ -633,6 +633,54 @@ def test_report_with_config_shows_head_and_appends_event(
         assert events[1]["hash"] not in html  # the report's own event comes after the files
 
 
+@pytest.mark.parametrize(
+    ("place", "toml", "vault"),
+    [
+        (
+            "data/conf/neurogrid.toml",
+            '[vault]\nrole = "QA"\n',
+            "data/.neurogrid/vault",
+        ),  # inside, default path
+        ("data/conf/neurogrid.toml", '[vault]\npath = "audit/vault"\nrole = "QA"\n', "data/audit/vault"),
+        (
+            "configs/neurogrid.toml",
+            '[vault]\nrole = "QA"\n',
+            "configs/.neurogrid/vault",
+        ),  # outside the dataset
+    ],
+)
+def test_report_config_finds_the_vault_of_check(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], place: str, toml: str, vault: str
+) -> None:
+    """P6 review (A-66): report --config resolves the project root of the file as check and the vault commands
+    do for it: a file inside the dataset that is not in .neurogrid has the dataset root, which the report
+    finds as the nearest folder above the file with .neurogrid, dataset_description.json or the vault path;
+    a file outside the dataset has its own folder. So the report shows and extends the log check appended to,
+    and never looks for a vault next to the file."""
+    folder = tmp_path / "data"
+    shutil.copytree(FIX / "edf_ok", folder)
+    config = tmp_path / place
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(DOCUMENTED_TOML + toml, encoding="utf-8")
+    assert run(["vault", "init", str(folder), "--config", str(config)], capsys)[0] == 0
+    log = tmp_path / vault / "access.jsonl"
+    assert log.is_file()
+    results = tmp_path / "results.json"
+    code, out, err = _check(folder, results, capsys, "--config", str(config))
+    assert code == 0, out + err
+    head = json.loads(log.read_bytes().splitlines()[-1])["hash"]
+    code, out, err = run(
+        ["report", str(results), "--lang", "en", "--out", str(tmp_path / "rep"), "--config", str(config)],
+        capsys,
+    )
+    assert code == 0, out + err
+    assert [json.loads(line)["action"] for line in log.read_bytes().splitlines()] == ["check", "report"]
+    html = (tmp_path / "rep" / "report.en.html").read_text(encoding="utf-8")
+    assert f'<span class="mono">{head}</span>' in html
+    assert _t("report.value.access_log_state.intact") in visible_text(html)
+    assert not (config.parent / ".neurogrid").exists() or config.parent == tmp_path / "configs"
+
+
 def test_report_with_config_without_vault(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     folder = _dataset(tmp_path, vault=False)
     results = tmp_path / "results.json"

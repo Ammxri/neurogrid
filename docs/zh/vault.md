@@ -44,7 +44,7 @@ vault 路径中任何位置的链接或目录联接，以及访问日志、其�
 |---|---|---|
 | `check` | 操作 `check` | 其 `neurogrid.toml` 的 vault |
 | `convert` | 操作 `convert` | 源文件夹 `neurogrid.toml` 的 vault |
-| `report --config FILE` | 操作 `report` | 该 `neurogrid.toml` 的 vault |
+| `report --config FILE` | 操作 `report` | 该 `neurogrid.toml` 的 vault，位于 `check` 对该文件使用的项目根目录下（[配置](configuration.md#configuration)） |
 | `scan`、`manifest`、`verify` | 操作 `read`，不含角色、目的和批准编号 | 只用默认位置 `.neurogrid/vault` 的 vault |
 | `vault consent add` | 操作 `consent_manage`，对象 `.neurogrid/vault/consents.yaml` | 其 `neurogrid.toml` 的 vault |
 | `vault log` | 给定的操作 | 其 `neurogrid.toml` 的 vault |

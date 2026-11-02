@@ -7,6 +7,9 @@ field.
 
 **Project root.** Paths inside the file are relative to the project root: for a file in a `.neurogrid` folder
 the folder above it, for another file inside the dataset the dataset root, otherwise the folder of the file.
+`report --config` is given no dataset: it takes as the dataset the nearest folder at or above the file that
+holds `.neurogrid`, a `dataset_description.json` or the vault at `[vault] path`, so it finds the vault that
+`check` uses with the same file.
 Paths must be plain relative paths (no `..`, no drive, network or device path). Links are never followed.
 
 **Precedence.** Metadata: `neurogrid.toml` > BIDS sidecars > file header > not documented (a finding, no stop).

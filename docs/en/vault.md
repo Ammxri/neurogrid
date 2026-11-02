@@ -48,7 +48,7 @@ the default location when an older manifest lists them, and CORE-M13-02 those of
 |---|---|---|
 | `check` | action `check` | the vault of its `neurogrid.toml` |
 | `convert` | action `convert` | the vault of the source folder's `neurogrid.toml` |
-| `report --config FILE` | action `report` | the vault of that `neurogrid.toml` |
+| `report --config FILE` | action `report` | the vault of that `neurogrid.toml`, at the project root `check` uses for it ([Configuration](configuration.md#configuration)) |
 | `scan`, `manifest`, `verify` | action `read`, no role, purpose or approval reference | only the vault at the default location `.neurogrid/vault` |
 | `vault consent add` | action `consent_manage`, object `.neurogrid/vault/consents.yaml` | the vault of its `neurogrid.toml` |
 | `vault log` | the given action | the vault of its `neurogrid.toml` |
