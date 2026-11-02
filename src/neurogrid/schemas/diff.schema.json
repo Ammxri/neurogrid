@@ -1,0 +1,504 @@
+{
+  "$defs": {
+    "DiffChange": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "new": {
+          "$ref": "#/$defs/DiffState"
+        },
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "old": {
+          "$ref": "#/$defs/DiffState"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "subkey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkey"
+        }
+      },
+      "required": [
+        "key",
+        "rule_id",
+        "object",
+        "old",
+        "new"
+      ],
+      "title": "DiffChange",
+      "type": "object"
+    },
+    "DiffCount": {
+      "additionalProperties": false,
+      "description": "The number of findings of one consent rule in one category (D-17 option B).",
+      "properties": {
+        "category": {
+          "enum": [
+            "new",
+            "fixed",
+            "removed",
+            "changed"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule_id",
+        "category",
+        "count"
+      ],
+      "title": "DiffCount",
+      "type": "object"
+    },
+    "DiffDataset": {
+      "additionalProperties": false,
+      "description": "The dataset fields that tell whether both runs looked at the same dataset.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DiffDataset",
+      "type": "object"
+    },
+    "DiffFinding": {
+      "additionalProperties": false,
+      "description": "A finding that is new (its state in the new run), fixed or removed (its state in the old run).",
+      "properties": {
+        "channel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channel"
+        },
+        "file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "File"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "measured_value": {
+          "default": null,
+          "title": "Measured Value"
+        },
+        "object": {
+          "title": "Object",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "rulepack": {
+          "title": "Rulepack",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "subkey": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subkey"
+        }
+      },
+      "required": [
+        "key",
+        "rule_id",
+        "rulepack",
+        "severity",
+        "status",
+        "object"
+      ],
+      "title": "DiffFinding",
+      "type": "object"
+    },
+    "DiffFindings": {
+      "additionalProperties": false,
+      "description": "The listed findings per category, in the order of results.json (A-61): severity, rule, object,\nsub-key, then the key. Findings of consent rules are only counted (DiffResult.aggregated).",
+      "properties": {
+        "changed": {
+          "items": {
+            "$ref": "#/$defs/DiffChange"
+          },
+          "title": "Changed",
+          "type": "array"
+        },
+        "fixed": {
+          "items": {
+            "$ref": "#/$defs/DiffFinding"
+          },
+          "title": "Fixed",
+          "type": "array"
+        },
+        "new": {
+          "items": {
+            "$ref": "#/$defs/DiffFinding"
+          },
+          "title": "New",
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "$ref": "#/$defs/DiffFinding"
+          },
+          "title": "Removed",
+          "type": "array"
+        }
+      },
+      "title": "DiffFindings",
+      "type": "object"
+    },
+    "DiffRulepack": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "sha256"
+      ],
+      "title": "DiffRulepack",
+      "type": "object"
+    },
+    "DiffRules": {
+      "additionalProperties": false,
+      "description": "Rule IDs loaded in only one of the runs, sorted.",
+      "properties": {
+        "added": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Added",
+          "type": "array"
+        },
+        "removed": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Removed",
+          "type": "array"
+        }
+      },
+      "title": "DiffRules",
+      "type": "object"
+    },
+    "DiffRun": {
+      "additionalProperties": false,
+      "description": "One of the two results.json files: the NeuroGrid version, dataset, reference date, configuration hash\nand rule packs of its run. No path of the file (A-51).",
+      "properties": {
+        "as_of": {
+          "format": "date",
+          "title": "As Of",
+          "type": "string"
+        },
+        "config_sha256": {
+          "title": "Config Sha256",
+          "type": "string"
+        },
+        "dataset": {
+          "$ref": "#/$defs/DiffDataset"
+        },
+        "rulepacks": {
+          "items": {
+            "$ref": "#/$defs/DiffRulepack"
+          },
+          "title": "Rulepacks",
+          "type": "array"
+        },
+        "tool_version": {
+          "title": "Tool Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool_version",
+        "dataset",
+        "as_of",
+        "config_sha256",
+        "rulepacks"
+      ],
+      "title": "DiffRun",
+      "type": "object"
+    },
+    "DiffState": {
+      "additionalProperties": false,
+      "description": "What can change of a finding whose key is in both runs.",
+      "properties": {
+        "measured_value": {
+          "default": null,
+          "title": "Measured Value"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        }
+      },
+      "required": [
+        "status",
+        "severity"
+      ],
+      "title": "DiffState",
+      "type": "object"
+    },
+    "DiffSummary": {
+      "additionalProperties": false,
+      "description": "Counts of every compared key, the aggregated consent rules included. ``new_errors`` counts the keys\nthat are a counted error finding of the new run and none of the old run; it alone sets the exit code.",
+      "properties": {
+        "changed": {
+          "default": 0,
+          "title": "Changed",
+          "type": "integer"
+        },
+        "exit_code": {
+          "default": 0,
+          "title": "Exit Code",
+          "type": "integer"
+        },
+        "fixed": {
+          "default": 0,
+          "title": "Fixed",
+          "type": "integer"
+        },
+        "new": {
+          "default": 0,
+          "title": "New",
+          "type": "integer"
+        },
+        "new_errors": {
+          "default": 0,
+          "title": "New Errors",
+          "type": "integer"
+        },
+        "placeholder_skipped": {
+          "default": 0,
+          "title": "Placeholder Skipped",
+          "type": "integer"
+        },
+        "removed": {
+          "default": 0,
+          "title": "Removed",
+          "type": "integer"
+        },
+        "unchanged": {
+          "default": 0,
+          "title": "Unchanged",
+          "type": "integer"
+        }
+      },
+      "title": "DiffSummary",
+      "type": "object"
+    },
+    "Disclaimer": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "zh": {
+          "title": "Zh",
+          "type": "string"
+        }
+      },
+      "required": [
+        "zh",
+        "en"
+      ],
+      "title": "Disclaimer",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Status": {
+      "enum": [
+        "passed",
+        "failed",
+        "excepted",
+        "not_applicable",
+        "not_checkable",
+        "evidence_open"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "ToolInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "neurogrid",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "ToolInfo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aggregated": {
+      "items": {
+        "$ref": "#/$defs/DiffCount"
+      },
+      "title": "Aggregated",
+      "type": "array"
+    },
+    "disclaimer": {
+      "$ref": "#/$defs/Disclaimer"
+    },
+    "findings": {
+      "$ref": "#/$defs/DiffFindings"
+    },
+    "new": {
+      "$ref": "#/$defs/DiffRun"
+    },
+    "old": {
+      "$ref": "#/$defs/DiffRun"
+    },
+    "rules": {
+      "$ref": "#/$defs/DiffRules"
+    },
+    "schema_version": {
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "summary": {
+      "$ref": "#/$defs/DiffSummary"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolInfo"
+    }
+  },
+  "required": [
+    "disclaimer",
+    "tool",
+    "old",
+    "new",
+    "rules",
+    "summary",
+    "findings"
+  ],
+  "title": "DiffResult",
+  "type": "object"
+}

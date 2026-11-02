@@ -77,13 +77,13 @@ def test_every_command_and_parameter_has_its_help_text() -> None:
     unused = sorted(
         key
         for key in tables()["en"]
-        if re.fullmatch(r"cli\.help\.(app|global|scan|check|convert|report|manifest|verify)(\..+)?", key)
+        if re.fullmatch(r"cli\.help\.(app|global|scan|check|convert|report|manifest|verify|diff)(\..+)?", key)
         and key not in keys
     )
     assert not unused, unused  # a text without a parameter is a sign of a renamed option
 
 
-@pytest.mark.parametrize("command", ["scan", "check", "convert", "report", "manifest", "verify"])
+@pytest.mark.parametrize("command", ["scan", "check", "convert", "report", "manifest", "verify", "diff"])
 def test_command_help_follows_the_language(command: str, capsys: pytest.CaptureFixture[str]) -> None:
     zh, en = translator("zh").t, translator("en").t
     code, out, err = run(["--lang", "zh", command, "--help"], capsys)

@@ -71,6 +71,16 @@ impact assessment ([NeuroVault](vault.md)). The export follows in a later versio
   retention entry is NeuroGrid's reading of the PIPL. NeuroGrid deletes nothing and sets no retention period
   for EEG data.
 
+## CI integration {#ci}
+
+- The GitHub Action and the GitLab template are meant for self-hosted runners only. The action tells a
+  self-hosted runner from a GitHub-hosted one by GitHub's `runner.environment`; the template relies on the
+  runner tag alone ([CI integration](ci.md#self-hosted)).
+- The repository's workflow `ci-integration.yml` runs the action on GitHub-hosted runners with synthetic data;
+  a run on a self-hosted runner is not verified yet.
+- The GitLab template has not run on GitLab: not verified, also not whether GitLab expands the variable in
+  `tags`.
+
 ## Not part of version 0.1 {#not-in-v01}
 
 - `diff` (comparison of two results), NeuroVault (consent, roles, access log, M14) and the evidence dossier

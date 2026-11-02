@@ -168,3 +168,9 @@ weitergabe → `sharing`，kommerziell → `commercial`。
 `results.json` 包含上述对象以及本次运行的上下文：规则包和规则、生效配置、各记录及其指标和抽样、检查结果
 及按次数统计的通过项、提示、证明材料记录、例外、重复组、汇总的 AI 结构（`ai`）和清单比对结果。字段列于
 [输出文件](reference/outputs.md#results-json)；JSON 模式为 [`results.schema.json`](../schemas/results.schema.json)。
+
+## DiffResult（版本比较） {#diff-result}
+
+`neurogrid diff` 对两次运行的比较（[命令](commands.md#diff)）；不属于规范中的对象。它列出两次运行、只在其中一次
+运行中加载的规则、各类别的数量以及新增、已消除、已移除或已变化的检查结果；针对知情同意记录的规则只按规则和类别
+计数。字段列于[输出文件](reference/outputs.md#diff-json)；JSON 模式为 [`diff.schema.json`](../schemas/diff.schema.json)。

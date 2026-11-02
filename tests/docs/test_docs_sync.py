@@ -334,7 +334,13 @@ def test_rulepack_tutorial_example_runs(tmp_path: Path) -> None:
 @pytest.mark.parametrize("lang", LANGUAGES)
 def test_output_page_names_every_results_field(lang: str) -> None:
     sections = _anchored(_page(lang, "reference/outputs.md"))
-    for anchor, schema in (("results-json", "results"), ("scan-json", "scan"), ("manifest", "manifest")):
+    pages = (
+        ("results-json", "results"),
+        ("scan-json", "scan"),
+        ("manifest", "manifest"),
+        ("diff-json", "diff"),
+    )
+    for anchor, schema in pages:
         path = ROOT / "src" / "neurogrid" / "schemas" / f"{schema}.schema.json"
         properties = json.loads(path.read_text(encoding="utf-8"))["properties"]
         missing = [name for name in properties if f"`{name}`" not in sections[anchor]]
@@ -349,6 +355,7 @@ EXIT_CODES = {
     "report": {0, 2},
     "manifest": {0, 1, 2},
     "verify": {0, 1, 2},
+    "diff": {0, 1, 2},  # 1: new error findings (CLI-07, A-97)
     "vault": {0, 1, 2},  # the NeuroVault group; 1 only for vault verify (CLI-09)
 }
 

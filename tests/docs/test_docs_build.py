@@ -66,8 +66,9 @@ def test_docs_build_strict_offline(built_site: Any) -> None:
 def test_docs_pages_exist_in_both_languages() -> None:
     en, zh = _pages("en"), _pages("zh")
     assert en == zh, sorted(en ^ zh)
-    # the page set of the documentation spec (16 per language), since P6 with vault.md (A-90)
-    assert len(en) == 17 and "vault.md" in en, sorted(en)
+    # the page set of the documentation spec (16 per language), since P6 with vault.md (A-90), since P9 with
+    # ci.md (A-98)
+    assert len(en) == 18 and {"vault.md", "ci.md"} <= en, sorted(en)
 
 
 def test_explicit_anchors_match_between_languages() -> None:

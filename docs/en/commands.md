@@ -3,8 +3,8 @@
 `neurogrid [global options] <command> [arguments and options]`. Without arguments `neurogrid` shows the help
 and ends with exit code 2. `neurogrid <command> --help` shows the help of one command in the selected language.
 
-Paths on the command line refer to the current folder. Comma lists are accepted only by `report --lang` and
-`report --format`; quote them in PowerShell (`--lang "zh,en"`) or repeat the option.
+Paths on the command line refer to the current folder. Comma lists are accepted only by `report --lang`,
+`report --format` and `diff --format`; quote them in PowerShell (`--lang "zh,en"`) or repeat the option.
 
 ## Global options {#global}
 
@@ -145,6 +145,40 @@ files that cannot be read.
 | 1 | at least one deviation |
 | 2 | tool error: the manifest is invalid |
 
+## diff {#diff}
+
+`neurogrid diff OLD NEW [--format text|json|text,json] [--out FILE]`
+
+Compares two `results.json` files of the same dataset by the stable key of each finding (rule × object ×
+sub-key). It reads only these two files, no dataset and no vault, and records no access event.
+
+| Category | Meaning |
+|---|---|
+| new | the key is only in `NEW` |
+| fixed | the key is only in `OLD`, and its rule counts a passed result for the same object in `NEW` |
+| removed | the key is only in `OLD` otherwise: the rule is no longer loaded or the object is gone |
+| changed | the key is in both, with another status, effective severity or measured value (numbers rounded to 6 significant digits) |
+
+Findings of placeholder rule packs are not compared, only counted. Findings of rules on the consent records
+(checks `consent.*`, such as CORE-M14-01) are counted per rule and category and never listed, so that no subject
+reaches a comparison. The text shows both runs (NeuroGrid version, reference date, rule packs), whether the
+configuration changed and a warning when dataset ID or name differ, then at most 200 lines per category (the
+JSON lists all), the counted consent rules, a summary and the reason of the exit code. Objects appear as in
+`results.json`: pseudonymous in raw folders unless the check ran with `--show-paths`.
+
+| Argument / option | Meaning |
+|---|---|
+| `OLD` | `results.json` of the earlier run. |
+| `NEW` | `results.json` of the later run. |
+| `--format` | `text` (default), `json` or `text,json`. `json` alone without `--out` goes to the console instead of the text (the fixed sentence is its field `disclaimer`); `text,json` needs `--out`. |
+| `--out FILE` | File for the JSON ([Output files](reference/outputs.md#diff-json)); only with `json` in `--format`. |
+
+| Code | Meaning |
+|---|---|
+| 0 | no new error finding |
+| 1 | at least one key is a counted error finding (not passed or evidence open, severity error) in `NEW` and was none in `OLD`: a new finding or a change into an error, also of a consent rule |
+| 2 | tool error: a file is no readable `results.json` (the message names `OLD` or `NEW`), an unknown format, `text,json` without `--out`, `--out` without `json` |
+
 ## vault {#vault}
 
 `neurogrid vault <command> [arguments and options]`
@@ -282,6 +316,7 @@ ethics reference. Exit code 0 when recorded, 2 on any refusal.
 
 - **0** – no failed error rule and no open evidence for an error rule; warnings alone never change it.
 - **1** – findings: a failed error rule, open evidence for an error rule, an unreadable or unsupported data
-  file, no readable recording; for `verify` and `vault verify` a deviation, for `convert` a file not converted.
+  file, no readable recording; for `verify` and `vault verify` a deviation, for `convert` a file not converted, for `diff` a new error
+  finding.
 - **2** – tool errors only: configuration, rule pack, validator, PDF browser, path not allowed, internal error,
   an explicitly given single file of unknown format. Data in the dataset never cause exit code 2.
