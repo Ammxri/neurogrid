@@ -113,7 +113,7 @@ On Windows the install folder needs a short path: Windows cannot start programs 
 longer paths, even with long paths enabled (`LongPathsEnabled`), so every installed file stays within 250
 characters. The installer accepts a prefix of at most 249 characters minus the longest relative path below it,
 which `BUNDLE.json` records as `max_relative_install_path`; a longer prefix stops it with exit code 2 before it
-creates anything. For NeuroGrid 0.2.0.dev0 that path has 148 characters, so the limit is 101 characters. The
+creates anything. For NeuroGrid 1.0.0.dev0 that path has 148 characters, so the limit is 101 characters. The
 default prefix `%LOCALAPPDATA%\NeuroGrid\<version>` is much shorter.
 
 The Python of the Linux bundle lacks the module `dbm.ndbm` (`_dbm`): it links Berkeley DB, which is under the

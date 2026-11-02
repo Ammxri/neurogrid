@@ -105,7 +105,7 @@ sha256sum --check --ignore-missing SHA256SUMS
 Windows 也无法从更长的路径启动程序或加载部分模块，因此每个已安装文件的路径都不超过 250 个字符。
 安装程序接受的安装目录最多为 249 个字符减去其下最长的相对路径（`BUNDLE.json` 中记录为
 `max_relative_install_path`）；安装目录更长时，安装程序在创建任何内容之前以退出码 2 停止。
-NeuroGrid 0.2.0.dev0 的最长相对路径为 148 个字符，因此上限为 101 个字符。默认安装目录
+NeuroGrid 1.0.0.dev0 的最长相对路径为 148 个字符，因此上限为 101 个字符。默认安装目录
 `%LOCALAPPDATA%\NeuroGrid\<version>` 远短于此。
 
 Linux 安装包内置的 Python 不含 `dbm.ndbm` 模块（`_dbm`）：该模块链接 Berkeley DB（Sleepycat 许可），
