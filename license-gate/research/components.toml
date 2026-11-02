@@ -85,7 +85,7 @@ platform = "win_amd64"
 spdx = "NOASSERTION"
 kind = "native"
 notice = ""
-note = "libiomp5md.dll and libiompstubs5md.dll: Intel OpenMP runtime 5.0.20260828 (Intel oneAPI build, 'All Rights Reserved' in the DLLs); no licence text in the wheel. Pending exception in license-gate/research/exceptions.toml (owner's decision)."
+note = "libiomp5md.dll and libiompstubs5md.dll: Intel OpenMP runtime 5.0.20260828 (Intel oneAPI build, 'All Rights Reserved' in the DLLs); no licence text in the wheel. Exception accepted by the owner on 2026-11-02 (D-20) in license-gate/research/exceptions.toml."
 
 [[component]]
 dist = "torch"
@@ -233,7 +233,7 @@ platform = "any"
 spdx = "EPL-1.0"
 kind = "bundled"
 notice = "debugpy/ThirdPartyNotices.txt"
-note = "PyDev.Debugger vendored by debugpy, Python code and native attach helpers (EPL-1.0 per debugpy/ThirdPartyNotices.txt). Pending exception in license-gate/research/exceptions.toml (owner's decision)."
+note = "PyDev.Debugger vendored by debugpy, Python code and native attach helpers (EPL-1.0 per debugpy/ThirdPartyNotices.txt). Exception accepted by the owner on 2026-11-02 (D-20) in license-gate/research/exceptions.toml."
 
 # --- soundfile 0.14.0 (wfdb, braindecode) -------------------------------------------------------------------
 

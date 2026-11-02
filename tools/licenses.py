@@ -72,7 +72,7 @@ RESEARCH_PLATFORMS = {
         "manylinux1_x86_64",
     ],
 }
-# The only copyleft a research exception may have (F10 B); GPL and AGPL stay forbidden.
+# GPL and AGPL stay forbidden in research exceptions (F10 B); LGPL is the only member of the family allowed.
 LGPL = re.compile(r"^LGPL-(?:2\.0|2\.1|3\.0)-(?:only|or-later)$")
 STATUSES = ("accepted", "pending")
 

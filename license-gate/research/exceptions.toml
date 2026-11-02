@@ -6,10 +6,11 @@
 # [[component]]: a native or bundled part of a locked wheel (license-gate/research/components.toml) whose
 # licence is not on the research native allowlist; it passes for exactly this wheel version, pattern and
 # platform, and names the licence of its entry.
-# Rules (checked by the tool): exact versions; LGPL is the only copyleft an exception may have (F10 B: only
-# for dependencies used unmodified and never shipped; the research part ships code, lock, notebook, report,
-# figures and CSV only, F8 A); GPL and AGPL are forbidden, also as an exception. Another version of a package
-# fails the gate until it is reviewed again.
+# Rules (checked by the tool): exact versions; GPL and AGPL are forbidden, also as an exception. Every entry
+# names the decision that covers it: LGPL after F10 B, EPL-1.0 (debugpy) and the Intel OpenMP runtime (torch on
+# Windows) after the owner's answer of 2026-11-02 (D-20); all only for dependencies used unmodified and never
+# shipped (the research part ships code, lock, notebook, report, figures and CSV only, F8 A). Another version of
+# a package fails the gate until it is reviewed again.
 # status: accepted (covered by a decision) | pending (passes, printed by every gate run, waits for the
 # owner's decision; to be settled with D-20).
 
@@ -81,8 +82,8 @@ version = "2.15.0+cpu"
 pattern = "torch/lib/libiomp*.dll"
 platform = "win_amd64"
 licence = "NOASSERTION"
-status = "pending"
-decision = "pending: owner (D-20); not covered by D-05, D-08 or F10 B"
+status = "accepted"
+decision = "owner 2026-11-02 (D-20): version-bound exception for this wheel only, used locally and never shipped; the missing licence text is recorded here"
 reason = "libiomp5md.dll and libiompstubs5md.dll of the Windows CPU wheel: Intel OpenMP runtime 5.0.20260828 built with Intel oneAPI DPC++/C++ 2024.2.0, 'Copyright (C) 1997-2025, Intel Corporation. All Rights Reserved.' in the DLLs. The wheel carries no licence text for them (its third_party/llvm-openmp text names the libomp of the macOS wheels only), so the licence is not stated: proprietary redistributable runtime, terms not verified. torch loads it unmodified for its CPU threads; never shipped. Found 2026-11-02."
 
 [[component]]
@@ -91,6 +92,6 @@ version = "1.8.22"
 pattern = "debugpy/_vendored/pydevd/*"
 platform = "any"
 licence = "EPL-1.0"
-status = "pending"
-decision = "pending: owner (D-20); EPL-1.0 is a weak copyleft outside D-05 (permissive and MPL-2.0), D-08 and F10 B (LGPL only)"
+status = "accepted"
+decision = "owner 2026-11-02 (D-20): version-bound exception; EPL-1.0 is a weak copyleft outside D-05, D-08 and F10 B"
 reason = "PyDev.Debugger vendored by debugpy (debugpy/ThirdPartyNotices.txt: Eclipse Public License 1.0), its Python code and its native attach helpers (attach_*.dll, inject_dll_*.exe, run_code_on_dllmain_*.dll, attach_linux_amd64.so); pip-licenses sees only debugpy's own MIT licence. debugpy is a hard dependency of ipykernel 7.4.0, which nbclient needs to run the notebook headless (F11 B); NeuroArena never starts the debugger. Used unmodified, never shipped. Found 2026-11-02."
