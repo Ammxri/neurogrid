@@ -46,6 +46,9 @@ synchronised if that matters to you.
   references or permitted uses; the report shows M14 only aggregated per use and reason, without subject IDs and
   versions, and withholds a breakdown with fewer than 5 subjects in a cell. The later vault export leaves the
   consent records out.
+- `neurogrid diff` lists findings as `results.json` names them, but the findings of rules on the consent
+  records (checks `consent.*`) only as a count per rule and category: no subject of the consent records
+  appears in a comparison, whose text often ends up in the log of a CI job.
 - No user accounts; access rights to the files are governed by the operating system. With a vault, NeuroGrid
   keeps one log: the access log `access.jsonl` of [NeuroVault](vault.md). Each entry holds the time (UTC), the
   role (a role name or initials), the action, the objects (`**` for the whole dataset; files of raw folders by

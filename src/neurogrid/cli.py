@@ -774,6 +774,44 @@ def verify(
     raise typer.Exit(code=run.exit_code)
 
 
+@app.command("diff", cls=_HelpCommand)
+def diff_runs(
+    old: Annotated[str, typer.Argument()],
+    new: Annotated[str, typer.Argument()],
+    fmt: Annotated[list[str] | None, typer.Option("--format")] = None,
+    out: Annotated[str | None, typer.Option("--out")] = None,
+) -> None:
+    """Compare two results.json files (NG-F15, CLI-07, A-97): new, fixed, removed and changed findings. Exit 0
+    no new error finding, 1 new error findings, 2 tool error. The text goes to stdout; the JSON to stdout when
+    it is the only format and --out is missing, else into --out. Reads no dataset, writes no access event."""
+    from neurogrid import diff
+
+    formats = _split_list(fmt or ["text"])
+    if not formats:
+        raise NeuroGridError("errors.report.format_unavailable", format="")
+    for name in formats:
+        if name not in diff.FORMATS:
+            raise NeuroGridError("errors.report.format_unavailable", format=name)
+    if out is not None and "json" not in formats:
+        raise InputError("diff.out_needs_json")
+    if out is None and len(formats) > 1:  # text and json: the console takes the text, the JSON needs a file
+        raise InputError("diff.json_needs_out")
+    target = _output_file(out) if out is not None else None
+    result = diff.compare(diff.load(old, "OLD"), diff.load(new, "NEW"))
+    if "text" in formats:
+        for line in diff.text_lines(result, _lang()):
+            typer.echo(line)
+    if "json" in formats:
+        data = canonical.dumps(result)
+        if target is None:  # the JSON alone on stdout: its field disclaimer is the fixed sentence (A-08)
+            typer.echo(data.decode("utf-8"), nl=False)
+            raise typer.Exit(code=result.summary.exit_code)
+        _write_atomic(target, data)
+        _say("cli.diff.written", path=_display_path(target))
+    _say("disclaimer")
+    raise typer.Exit(code=result.summary.exit_code)
+
+
 # --- vault (CLI-08, CLI-09, NV-F03; A-30, A-31, D-10) -------------------------------------------------------
 # The NeuroVault commands live in the nested groups 'vault' and 'vault consent'; their help scopes are
 # "vault.<command>" and "vault.consent.<command>" (_help_scope). The commands are added to these groups.

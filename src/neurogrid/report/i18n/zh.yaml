@@ -78,6 +78,29 @@ cli:
     unreadable: "当前无法读取：{count}"
     matches: "数据集与清单一致。"
     differs: "数据集与清单不一致。"
+  diff:
+    title: "两次检查运行的版本比较"
+    run:
+      old: "旧运行：NeuroGrid {version}，基准日期 {as_of}，规则包 {packs}"
+      new: "新运行：NeuroGrid {version}，基准日期 {as_of}，规则包 {packs}"
+    config_changed: "两次运行的有效配置不同（配置哈希值）。"
+    config_unchanged: "两次运行的有效配置相同（配置哈希值）。"
+    dataset_differs: "警告：两次运行针对不同的数据集（数据集 ID 或名称不同）；只有同一数据集的运行之间的比较才有意义。"
+    rules: "仅在新运行中加载的规则：{added}；仅在旧运行中加载的规则：{removed}"
+    section:
+      new: "新增结果：{count}"
+      fixed: "已消除的结果（该规则现在对该对象通过）：{count}"
+      removed: "已移除的结果（规则未加载或对象已不存在）：{count}"
+      changed: "已变化的结果：{count}"
+      aggregated: "针对知情同意记录的规则（仅计数，不列出任何受试者）："
+    line: "  - {rule} [{severity}] {object}：{status}；测量值：{value}"
+    changed_line: "  - {rule} {object}：状态 {status}；严重程度 {severity}；测量值 {value}"
+    more: "  ……另有 {count} 项（JSON 输出列出全部）"
+    aggregated: "  - {rule}，{category}：{count}"
+    summary: "汇总：新增 {new}，已消除 {fixed}，已移除 {removed}，已变化 {changed}，未变化 {unchanged}；占位规则包的 {placeholder} 项结果未参与比较。"
+    exit_new_errors: "退出码 1：新运行中有 {count} 项错误级结果在旧运行中不是错误级结果。"
+    exit_no_new_errors: "退出码 0：新运行没有新增的错误级结果。"
+    written: "版本比较已写入 {path}"
   vault:
     role_looks_identifying: "提示：该角色看起来像人名或身份编号。请使用角色或姓名缩写；访问日志按原样记录。"
     consent:
@@ -186,6 +209,12 @@ cli:
       path: "数据集文件夹。"
       manifest: "由 'manifest' 写入的 manifest.json。"
       show_paths: "显示真实路径，而非假名 ID。"
+    diff:
+      about: "比较两个 results.json 文件（版本比较）：新增、已消除、已移除和已变化的结果（出现新的错误级结果时退出码为 1）。"
+      old: "较早运行的 results.json。"
+      new: "较晚运行的 results.json。"
+      format: "输出：text、json 或 text,json（默认：text）；未给出 --out 时 json 输出到标准输出。"
+      out: "版本比较的 JSON 文件（text,json 时必需）。"
     vault:
       about: "NeuroVault：数据集的知情同意记录和哈希链访问日志。"
       consent:
@@ -408,6 +437,10 @@ errors:
     encoding: "consents.tsv 不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
     not_a_file: "导入表（--from）不是普通文件。"
     unreadable: "无法读取导入表（--from）。"
+  diff:
+    results_invalid: "{file} 不是可读取的 NeuroGrid 结果文件（由 'neurogrid check' 写入的 results.json）。"
+    json_needs_out: "--format text,json 需要用 --out 指定 JSON 文件（控制台显示文本）。"
+    out_needs_json: "--out 指定版本比较的 JSON 文件；请在 --format 中加入 json。"
 
 notice:
   splits_both_sources: "数据划分取自 splits.tsv；未使用 participants.tsv 中的 'split' 列。"
@@ -1017,3 +1050,8 @@ terms:
     insert: "插入"
     delete: "删除"
     reorder: "重新排序"
+  diff_category:
+    new: "新增"
+    fixed: "已消除"
+    removed: "已移除"
+    changed: "已变化"

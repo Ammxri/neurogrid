@@ -156,3 +156,11 @@ effective configuration, the recordings with their metrics and sample, the findi
 checks, notices, the evidence records, the exceptions, the duplicate groups, the aggregated AI structure
 (`ai`) and the manifest comparison. The fields are listed on [Output files](reference/outputs.md#results-json);
 the JSON schema is [`results.schema.json`](../schemas/results.schema.json).
+
+## DiffResult {#diff-result}
+
+The comparison of two runs by `neurogrid diff` ([Commands](commands.md#diff)); not an object of the
+specification. It names both runs, the rules loaded in only one of them, the counts per category and the
+findings that are new, fixed, removed or changed; findings of rules on the consent records only as counts per
+rule and category. The fields are listed on [Output files](reference/outputs.md#diff-json); the JSON schema is
+[`diff.schema.json`](../schemas/diff.schema.json).

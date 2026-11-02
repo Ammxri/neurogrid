@@ -44,6 +44,24 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 每种语言 `zh`、`en` 的 `report.<lang>.html` 和 `report.<lang>.pdf`，位于 `--out` 指定的文件夹（默认：`results.json`
 旁边），见[阅读报告](../report.md)。
 
+## diff JSON {#diff-json}
+
+由 `diff --format json` 写入（输出到控制台或 `--out`；模式 [`diff.schema.json`](../../schemas/diff.schema.json)）。
+对相同文件的两次比较逐字节相同。
+
+| 字段 | 内容 |
+|---|---|
+| `schema_version` | 格式版本。 |
+| `disclaimer` | 中英文固定声明。 |
+| `tool` | 执行比较的 NeuroGrid 的名称和版本。 |
+| `old`、`new` | 每次运行：`tool_version`、`dataset`（`id`、`name`、`version`）、`as_of`、`config_sha256`（规范化配置的哈希值）、`rulepacks`（名称、版本、SHA-256）。 |
+| `rules` | `added` 和 `removed`：只在其中一次运行中加载的规则 ID。 |
+| `summary` | `new`、`fixed`、`removed`、`changed` 和 `unchanged` 的键数（含知情同意规则）、`new_errors`、`placeholder_skipped`（占位规则包的键，不参与比较）和 `exit_code`。 |
+| `findings` | `new`、`fixed`、`removed`：每项检查结果的 `key`、`rule_id`、`rulepack`、`severity`、`status`、`object`、`subkey`、`file`、`channel`、`measured_value`、`reason`（新增为其在 `NEW` 中的状态，其余为在 `OLD` 中的状态）；`changed`：`key`、`rule_id`、`object`、`subkey` 以及 `old` 和 `new` 的 `status`、`severity`、`measured_value`。排序与 `results.json` 相同。 |
+| `aggregated` | 针对知情同意记录的规则（`consent.*` 检查）的检查结果：`rule_id`、`category`、`count`，从不按受试者列出。 |
+
+不包含：两个文件的路径，检查结果的详细信息、阈值和时间范围，时间，计算机名或用户名。
+
 ## manifest.json {#manifest}
 
 由 `manifest` 写入（默认 `.neurogrid/manifest.json`；模式 [`manifest.schema.json`](../../schemas/manifest.schema.json)）：
@@ -109,7 +127,7 @@ vault（`[vault] path`，默认 `.neurogrid/vault`）中的 `access.jsonl`，由
 | 退出码 | 含义 |
 |---|---|
 | 0 | 没有未通过的错误级规则，错误级规则也没有待补的证明材料 |
-| 1 | 有检查结果，或存在不一致（`verify`），或有文件未转换（`convert`） |
+| 1 | 有检查结果，或存在不一致（`verify`），或有文件未转换（`convert`），或有新的错误级结果（`diff`） |
 | 2 | 工具错误 |
 
 各命令的详细说明见[命令](../commands.md)。

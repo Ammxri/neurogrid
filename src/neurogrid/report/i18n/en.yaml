@@ -77,6 +77,29 @@ cli:
     unreadable: "Cannot be read now: {count}"
     matches: "The dataset matches the manifest."
     differs: "The dataset differs from the manifest."
+  diff:
+    title: "Comparison of two check runs (version comparison)"
+    run:
+      old: "Old run: NeuroGrid {version}, reference date {as_of}, rule packs {packs}"
+      new: "New run: NeuroGrid {version}, reference date {as_of}, rule packs {packs}"
+    config_changed: "The effective configuration differs between the runs (configuration hash)."
+    config_unchanged: "The effective configuration is the same in both runs (configuration hash)."
+    dataset_differs: "Warning: the two runs are of different datasets (dataset ID or name differ); a comparison is meaningful for runs of the same dataset."
+    rules: "Rules only in the new run: {added}; only in the old run: {removed}"
+    section:
+      new: "New findings: {count}"
+      fixed: "Fixed findings (the rule passes for the object now): {count}"
+      removed: "Removed findings (rule not loaded or object no longer present): {count}"
+      changed: "Changed findings: {count}"
+      aggregated: "Rules on the consent records (counted only; no subject is listed):"
+    line: "  - {rule} [{severity}] {object}: {status}; measured value: {value}"
+    changed_line: "  - {rule} {object}: status {status}; severity {severity}; measured value {value}"
+    more: "  … and {count} more (the JSON output lists all of them)"
+    aggregated: "  - {rule}, {category}: {count}"
+    summary: "Summary: {new} new, {fixed} fixed, {removed} removed, {changed} changed, {unchanged} unchanged; {placeholder} finding(s) of placeholder rule packs not compared."
+    exit_new_errors: "Exit code 1: {count} error finding(s) of the new run were no error finding in the old run."
+    exit_no_new_errors: "Exit code 0: the new run has no new error finding."
+    written: "Comparison written to {path}"
   vault:
     role_looks_identifying: "Note: the role looks like a personal name or an identification number. Use a role name or initials; the access log records it as given."
     consent:
@@ -185,6 +208,12 @@ cli:
       path: "Dataset folder."
       manifest: "manifest.json written by 'manifest'."
       show_paths: "Show real paths instead of pseudonymous IDs."
+    diff:
+      about: "Compare two results.json files: new, fixed, removed and changed findings (exit 1 on new error findings)."
+      old: "results.json of the earlier run."
+      new: "results.json of the later run."
+      format: "Output: text, json or text,json (default: text); json goes to stdout unless --out is given."
+      out: "JSON file of the comparison (needed for text,json)."
     vault:
       about: "NeuroVault: consent records and the hash-chained access log of a dataset."
       consent:
@@ -407,6 +436,10 @@ errors:
     encoding: "consents.tsv is not UTF-8 text (UTF-8 with or without BOM is accepted)."
     not_a_file: "The import table (--from) is not a regular file."
     unreadable: "The import table (--from) cannot be read."
+  diff:
+    results_invalid: "{file} is not a readable NeuroGrid results file (results.json written by 'neurogrid check')."
+    json_needs_out: "--format text,json needs --out for the JSON file (the console shows the text)."
+    out_needs_json: "--out names the JSON file of the comparison; add json to --format."
 
 notice:
   splits_both_sources: "Splits come from splits.tsv; the 'split' column of participants.tsv is not used."
@@ -1016,3 +1049,8 @@ terms:
     insert: "inserted"
     delete: "deleted"
     reorder: "reordered"
+  diff_category:
+    new: "new"
+    fixed: "fixed"
+    removed: "removed"
+    changed: "changed"

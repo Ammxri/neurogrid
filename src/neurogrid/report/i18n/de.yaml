@@ -77,6 +77,29 @@ cli:
     unreadable: "Derzeit nicht lesbar: {count}"
     matches: "Der Datensatz entspricht dem Manifest."
     differs: "Der Datensatz weicht vom Manifest ab."
+  diff:
+    title: "Vergleich zweier Prüfläufe (Versionsvergleich)"
+    run:
+      old: "Alter Lauf: NeuroGrid {version}, Stichtag {as_of}, Regelpakete {packs}"
+      new: "Neuer Lauf: NeuroGrid {version}, Stichtag {as_of}, Regelpakete {packs}"
+    config_changed: "Die wirksame Konfiguration unterscheidet sich zwischen den Läufen (Konfigurations-Hash)."
+    config_unchanged: "Die wirksame Konfiguration ist in beiden Läufen gleich (Konfigurations-Hash)."
+    dataset_differs: "Warnung: Die beiden Läufe betreffen verschiedene Datensätze (Datensatz-ID oder Name verschieden); sinnvoll ist ein Vergleich von Läufen desselben Datensatzes."
+    rules: "Regeln nur im neuen Lauf: {added}; nur im alten Lauf: {removed}"
+    section:
+      new: "Neue Befunde: {count}"
+      fixed: "Behobene Befunde (die Regel ist für das Objekt jetzt bestanden): {count}"
+      removed: "Entfallene Befunde (Regel nicht geladen oder Objekt nicht mehr vorhanden): {count}"
+      changed: "Veränderte Befunde: {count}"
+      aggregated: "Regeln zu den Einwilligungsdaten (nur gezählt, kein Proband aufgeführt):"
+    line: "  - {rule} [{severity}] {object}: {status}; Messwert: {value}"
+    changed_line: "  - {rule} {object}: Status {status}; Schweregrad {severity}; Messwert {value}"
+    more: "  … und {count} weitere (die JSON-Ausgabe listet alle)"
+    aggregated: "  - {rule}, {category}: {count}"
+    summary: "Zusammenfassung: {new} neu, {fixed} behoben, {removed} entfallen, {changed} verändert, {unchanged} unverändert; {placeholder} Befund(e) aus Platzhalter-Regelpaketen nicht verglichen."
+    exit_new_errors: "Exit-Code 1: {count} Fehlerbefund(e) des neuen Laufs waren im alten Lauf kein Fehlerbefund."
+    exit_no_new_errors: "Exit-Code 0: Der neue Lauf hat keinen neuen Fehlerbefund."
+    written: "Vergleich geschrieben nach {path}"
   vault:
     role_looks_identifying: "Hinweis: Die Rolle sieht wie ein Personenname oder eine Kennnummer aus. Verwenden Sie eine Rollenbezeichnung oder ein Kürzel; das Zugriffsprotokoll speichert sie wie angegeben."
     consent:
@@ -185,6 +208,12 @@ cli:
       path: "Datensatzordner."
       manifest: "Von 'manifest' geschriebene manifest.json."
       show_paths: "Echte Pfade statt pseudonymer IDs zeigen."
+    diff:
+      about: "Zwei results.json-Dateien vergleichen: neue, behobene, entfallene und veränderte Befunde (Exit 1 bei neuen Fehlerbefunden)."
+      old: "results.json des früheren Laufs."
+      new: "results.json des späteren Laufs."
+      format: "Ausgabe: text, json oder text,json (Standard: text); json geht ohne --out auf die Standardausgabe."
+      out: "JSON-Datei des Vergleichs (nötig für text,json)."
     vault:
       about: "NeuroVault: Einwilligungen und das hashverkettete Zugriffsprotokoll eines Datensatzes."
       consent:
@@ -407,6 +436,10 @@ errors:
     encoding: "consents.tsv ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
     not_a_file: "Die Importtabelle (--from) ist keine reguläre Datei."
     unreadable: "Die Importtabelle (--from) kann nicht gelesen werden."
+  diff:
+    results_invalid: "{file} ist keine lesbare NeuroGrid-Ergebnisdatei (results.json von 'neurogrid check')."
+    json_needs_out: "--format text,json braucht --out für die JSON-Datei (die Konsole zeigt den Text)."
+    out_needs_json: "--out nennt die JSON-Datei des Vergleichs; json zu --format hinzufügen."
 
 notice:
   splits_both_sources: "Die Splits stammen aus splits.tsv; die Spalte 'split' in participants.tsv wird nicht verwendet."
@@ -1016,3 +1049,8 @@ terms:
     insert: "eingefügt"
     delete: "gelöscht"
     reorder: "umsortiert"
+  diff_category:
+    new: "neu"
+    fixed: "behoben"
+    removed: "entfallen"
+    changed: "verändert"

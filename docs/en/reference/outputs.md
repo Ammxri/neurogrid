@@ -46,6 +46,25 @@ Written by `scan --out` (schema [`scan.schema.json`](../../schemas/scan.schema.j
 `report.<lang>.html` and `report.<lang>.pdf` per language `zh`, `en` in the folder `--out` (default: next to
 `results.json`), see [Reading the report](../report.md).
 
+## diff JSON {#diff-json}
+
+Written by `diff --format json` (to the console, or to `--out`; schema
+[`diff.schema.json`](../../schemas/diff.schema.json)). Two comparisons of the same files are byte-identical.
+
+| Field | Content |
+|---|---|
+| `schema_version` | Version of the format. |
+| `disclaimer` | The fixed sentence in zh and en. |
+| `tool` | Name and version of the NeuroGrid that compared. |
+| `old`, `new` | Per run: `tool_version`, `dataset` (`id`, `name`, `version`), `as_of`, `config_sha256` (hash of the canonical configuration), `rulepacks` (name, version, SHA-256). |
+| `rules` | `added` and `removed`: IDs of rules loaded in only one of the runs. |
+| `summary` | Counts of `new`, `fixed`, `removed`, `changed` and `unchanged` keys (consent rules included), `new_errors`, `placeholder_skipped` (keys of placeholder packs, not compared) and the `exit_code`. |
+| `findings` | `new`, `fixed`, `removed`: per finding `key`, `rule_id`, `rulepack`, `severity`, `status`, `object`, `subkey`, `file`, `channel`, `measured_value`, `reason` (new: its state in `NEW`, else in `OLD`); `changed`: `key`, `rule_id`, `object`, `subkey` and the `old` and `new` `status`, `severity`, `measured_value`. Sorted like `results.json`. |
+| `aggregated` | Findings of rules on the consent records (checks `consent.*`): `rule_id`, `category`, `count`, never per subject. |
+
+Not contained: paths of the two files, details, thresholds and time ranges of the findings, time of day,
+computer or user name.
+
 ## manifest.json {#manifest}
 
 Written by `manifest` (default `.neurogrid/manifest.json`; schema
@@ -118,7 +137,7 @@ are left out of the manifest.
 | Code | Meaning |
 |---|---|
 | 0 | no failed error rule and no open evidence for an error rule |
-| 1 | findings, or a deviation (`verify`), or files not converted (`convert`) |
+| 1 | findings, or a deviation (`verify`), or files not converted (`convert`), or new error findings (`diff`) |
 | 2 | tool error |
 
 Details per command: [Commands](../commands.md).
