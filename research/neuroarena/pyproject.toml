@@ -1,0 +1,78 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+# NeuroArena (NG-F17, NA-01 to NA-05): its own uv project with its own lock outside the NeuroGrid package (A-36,
+# A-100). It never imports neurogrid: NeuroGrid runs as the command line of the main project (A-101).
+[project]
+name = "neuroarena"
+dynamic = ["version"]
+description = "NeuroArena (NG-F17): decoder accuracy over the NeuroGrid quality level on public MOABB datasets; research part outside the NeuroGrid package."
+authors = [{ name = "Ammar Ahad" }]
+license = "Apache-2.0"
+requires-python = ">=3.12,<3.13"
+# Every library that influences results is pinned exactly, as in the main project (A-48, A-106: equality is
+# promised per machine and lock). torch is the CPU build of the PyTorch index (A-36, F3 A).
+dependencies = [
+    "braindecode==1.8.1",
+    "ipykernel==7.4.0",
+    "matplotlib==3.11.2",
+    "mne==1.13.2",
+    "moabb==1.7.2",
+    "nbclient==0.11.0",
+    "numpy==2.5.4",
+    "pandas==3.1.0",
+    "pyriemann==0.12",
+    "scikit-learn==1.9.1",
+    "scipy==1.18.1",
+    "skorch==1.4.0",
+    "torch==2.15.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "ruff==0.17.0",
+]
+
+[tool.hatch.version]
+path = "src/neuroarena/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/neuroarena"]
+
+[tool.uv]
+# Supply chain as in the main project (A-48): wheels only, never a source build of a dependency.
+no-build = true
+# The two targets of the research run and of its CI: Windows (full runs, A-109) and Linux (research.yml).
+environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+required-environments = [
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+# torch only from the CPU index (explicit: no other package is taken from it).
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[tool.ruff]
+# The rules of the main project (root pyproject.toml); `ruff check .` in the repository root and in this
+# folder both use this table for the files below it.
+extend = "../../pyproject.toml"
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-markers", "-p", "no:cacheprovider"]
+markers = [
+    "smoke: short run on synthetic data without any download (research.yml smoke step; areas C and D)",
+]
