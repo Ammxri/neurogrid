@@ -173,6 +173,7 @@ _SUBSET_FONT = re.compile(r"^/?[A-Z]{6}\+(.+)$")
 IDENTITY_ENCODINGS = frozenset({"/Identity-H", "/Identity-V"})
 INFO_KEYS = frozenset({"/Title", "/Creator", "/Producer", "/CreationDate", "/ModDate"})
 _DATE_FIELD = re.compile(rb"/(CreationDate|ModDate) ?\(D:\d{14}[+-]\d{2}'\d{2}'\)")
+_REFERENCE_STAMP = re.compile(r"D:([0-9]{4})([0-9]{2})([0-9]{2})000000\+00'00'")
 _HEAD_END = re.compile(r"</head\s*>", re.IGNORECASE)
 _WHITESPACE = re.compile(r"\s+")
 
@@ -1142,6 +1143,29 @@ def merge_pdfs(parts: Sequence[bytes], meta: PdfMeta, *, producer: str) -> bytes
     except (PyPdfError, ValueError, KeyError, TypeError):
         raise PdfError("pdf.qa_failed", checks="unreadable") from None
     return buffer.getvalue()
+
+
+def document_info(data: bytes) -> dict[str, str]:
+    """The /Info entries of a PDF as text ({} when the PDF cannot be read or has none): the product tells
+    its own PDFs apart by them (report.identify, A-96)."""
+    try:
+        info = pypdf.PdfReader(io.BytesIO(data)).metadata
+    except (PyPdfError, ValueError, KeyError, TypeError):
+        return {}
+    if info is None:
+        return {}
+    return {str(key): str(value) for key, value in info.items() if isinstance(value, str)}
+
+
+def reference_date(stamp: str) -> date | None:
+    """The reference date of a date field as pdf_date writes it (D:YYYYMMDD000000+00'00'), else None."""
+    match = _REFERENCE_STAMP.fullmatch(stamp)
+    if match is None:
+        return None
+    try:
+        return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    except ValueError:
+        return None
 
 
 def page_count(data: bytes) -> int:

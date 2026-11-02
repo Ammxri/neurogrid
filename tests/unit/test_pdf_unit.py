@@ -1252,6 +1252,12 @@ def test_qa_gate_every_page_any_and_the_merge_of_parts() -> None:
         assert (info.value.message_key, info.value.params) == ("pdf.qa_failed", {"checks": "unreadable"})
     with pytest.raises(PdfError):
         pdf.page_count(b"not a pdf")
+    # how the product tells its own PDFs apart (report.identify, A-96): the /Info texts and the stamp form
+    assert pdf.document_info(merged)["/Title"] == "NeuroGrid dossier"
+    assert pdf.document_info(b"not a pdf") == {}
+    assert pdf.reference_date(STAMP) == AS_OF == pdf.reference_date(pdf.pdf_date(AS_OF))
+    for stamp in ("D:20261011183612+00'00'", "D:20261311000000+00'00'", "D:２０２６1011000000+00'00'", ""):
+        assert pdf.reference_date(stamp) is None, stamp
 
 
 def _shows(codes: str, font: str = "/F1") -> bytes:

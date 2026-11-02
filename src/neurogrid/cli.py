@@ -12,6 +12,7 @@ command end with exit 2 on a link in the vault path (A-30, p6 decisions 2 and 4)
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import sys
@@ -670,16 +671,18 @@ def report(
     out: Annotated[str | None, typer.Option("--out")] = None,
     config: Annotated[str | None, typer.Option("--config")] = None,
 ) -> None:
-    """Render the report for each language and format (HTML; PDF with the PDF browser). With --config the
-    report finds the vault of that neurogrid.toml: the cover shows its access log, and the report appends
-    its access event after the files are written (A-30); without it no vault is read or written."""
+    """Render the report for each language and format (HTML; PDF with the PDF browser; the dossier, A-99:
+    dossier.pdf with the zh and en report whatever --lang says). With --config the report finds the vault of
+    that neurogrid.toml: the cover shows its access log, and the report appends its access event after the
+    files are written (A-30); without it no vault is read or written."""
     from neurogrid.report.output import FORMATS, write_reports
 
     source = check_operator_path(results_file)
     if not source.is_file():
         raise InputError("input.not_found")
+    data = read_limited(source, MAX_RESULTS_BYTES)
     try:
-        results = Results.model_validate_json(read_limited(source, MAX_RESULTS_BYTES))
+        results = Results.model_validate_json(data)
     except ValueError:
         raise InputError("input.results_invalid") from None
     languages = list(dict.fromkeys(normalize_language(item) for item in _split_list(lang or ["zh,en"])))
@@ -698,8 +701,13 @@ def report(
     access, view = None, None
     if config is not None:  # a link in the vault path ends here, before anything is rendered (exit 2)
         access, view = pipeline.report_vault(check_operator_path(config))
-    # all files or none (A-26); with pdf the PDF browser is checked before anything is rendered
-    for target in write_reports(results, languages, formats, folder, environ=os.environ, vault=view):
+    # all files or none (A-26); with pdf the PDF browser is checked before anything is rendered; the dossier
+    # names the SHA-256 of the results.json bytes it was made from (A-99)
+    sha256 = hashlib.sha256(data).hexdigest()
+    written = write_reports(
+        results, languages, formats, folder, environ=os.environ, vault=view, results_sha256=sha256
+    )
+    for target in written:
         _say("cli.report.written", path=_display_path(target))
     _access_messages(access, _commit(access))
     _say("disclaimer")
