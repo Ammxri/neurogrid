@@ -31,7 +31,7 @@ from neurogrid.kernel.findings import Phase, Severity, SourceStatus, Status, Tim
 from neurogrid.kernel.i18n import LANGUAGES
 from neurogrid.kernel.safety import load_yaml
 from neurogrid.model.results import AILabelScope, Results
-from neurogrid.report import charts, render, texts
+from neurogrid.report import charts, render, tables, texts
 from neurogrid.report.render import (
     EXPLAINED_EMPTY,
     FINDING_CELLS,
@@ -242,12 +242,15 @@ def test_coverage_note_when_na(rich: Results, lang: str) -> None:
 
 def test_access_phase_is_grey_without_rules(quality: Results) -> None:
     """No access rule is evaluated: the light is grey, shown with its text (A-16). Since P6 core has the
-    access log rules CORE-NV03-01/02 (A-90); without a vault both are not checkable, so nothing in the access
-    phase is evaluated, as before P6."""
+    access log rules CORE-NV03-01/02 (A-90) and CORE-M14-01 (A-91); without a vault the first two are not
+    checkable, and without a split no use needs consent, so nothing in the access phase is evaluated, as
+    before P6."""
     access = {rule.id for rule in quality.rules if rule.phase is Phase.ACCESS}
-    assert access == {"CORE-NV03-01", "CORE-NV03-02"}
+    assert access == {"CORE-M14-01", "CORE-NV03-01", "CORE-NV03-02"}
     findings = [f for f in quality.findings if f.rule_id in access]
-    assert {f.rule_id for f in findings} == access and {f.status for f in findings} == {Status.NOT_CHECKABLE}
+    assert {f.rule_id for f in findings} == access
+    assert {f.status for f in findings if f.rule_id != "CORE-M14-01"} == {Status.NOT_CHECKABLE}
+    assert {f.status for f in findings if f.rule_id == "CORE-M14-01"} == {Status.NOT_APPLICABLE}
     assert not any(p.rule_id in access for p in quality.passed)
     summary = section(render_report(quality, "en"), "summary")
     row = re.search(r'<tr data-phase="access">(.*?)</tr>', summary, flags=re.S)
@@ -280,6 +283,7 @@ def test_findings_grouped_by_severity_then_rule(rich: Results, lang: str) -> Non
     headings = re.findall(r'<h3 class="sev-(\w+)">', findings)
     assert headings == [s.value for s in Severity]  # error > warning > info (A-61)
     severity_of = {f.rule_id: f.severity.value for f in rich.findings}
+    consent = tables.consent_rules(rich)
     parts = re.split(r'<h3 class="sev-(\w+)">', findings)[1:]
     for severity, part in zip(parts[0::2], parts[1::2], strict=True):
         rules = re.findall(r'<div class="rule-group" data-rule="([^"]+)">', part)
@@ -287,6 +291,9 @@ def test_findings_grouped_by_severity_then_rule(rich: Results, lang: str) -> Non
         for rule in rules:
             group = part[part.index(f'data-rule="{rule}"') :]
             group = group[: group.index("</table>")]
+            if rule in consent:  # one aggregated block instead of finding rows (D-17 option B, A-91)
+                assert finding_rows(group) == [] and '<table class="consent">' in group
+                continue
             assert {row["rule"] for row in finding_rows(group)} == {rule}
 
 
@@ -416,7 +423,8 @@ def test_empty_cells_name_their_reason(rich: Results, ai: Results, lang: str) ->
     seen: set[str] = set()
     for results in (rich, ai):
         rows = finding_rows(render_report(results, lang))
-        assert len(rows) == len(results.findings)
+        consent = tables.consent_rules(results)  # the M14 block has no finding rows (D-17 option B, A-91)
+        assert len(rows) == len([f for f in results.findings if f.rule_id not in consent])
         by_key = {f.key: f for f in results.findings}
         for row in rows:
             assert all(row[cell].strip() for cell in FINDING_CELLS)
@@ -1570,9 +1578,11 @@ def test_uf01_uf07_check_then_report(tmp_path: Path) -> None:
     for lang in REPORT_LANGS:
         html = (out / f"report.{lang}.html").read_text(encoding="utf-8")
         rows = finding_rows(html)
-        assert {row["key"] for row in rows} == {f.key for f in results.findings}  # below 50 per rule
+        consent = tables.consent_rules(results)  # M14: aggregated, no finding rows (D-17 option B, A-91)
+        shown = [f for f in results.findings if f.rule_id not in consent]
+        assert {row["key"] for row in rows} == {f.key for f in shown}  # below 50 per rule
         fmt = render._Formatter(lang)
-        for finding in results.findings:
+        for finding in shown:
             row = next(r for r in rows if r["key"] == finding.key)
             assert row["rule"] == finding.rule_id and row["clause"] == fmt.clause(finding)
         text = visible_text(html)

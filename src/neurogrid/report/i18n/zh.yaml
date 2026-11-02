@@ -704,6 +704,10 @@ check:
     log_writable: "访问日志可写入"
 
 report:
+  access:
+    first_line: "第一处不一致：第 {line} 行。"
+    kind: "类型：{kind}。"
+    deviations: "不一致总数：{count}。"
   ai:
     share: "{count} / {total}（{unit}）"
     unit_events: "事件"
@@ -994,11 +998,6 @@ terms:
     publication: "发表"
     sharing: "共享"
     commercial: "商业用途"
-  access:
-    first_line: "第一处不一致：第 {line} 行。"
-    kind: "类型：{kind}。"
-    deviations: "不一致总数：{count}。"
-
   access_kind:
     malformed: "无法读取的条目"
     hash_mismatch: "条目已更改（其哈希值与内容不符）"

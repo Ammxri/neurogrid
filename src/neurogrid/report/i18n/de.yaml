@@ -703,6 +703,10 @@ check:
     log_writable: "Zugriffsprotokoll beschreibbar"
 
 report:
+  access:
+    first_line: "Erste Abweichung: Zeile {line}."
+    kind: "Art: {kind}."
+    deviations: "Abweichungen insgesamt: {count}."
   ai:
     share: "{count} von {total} ({unit})"
     unit_events: "Ereignisse"
@@ -993,11 +997,6 @@ terms:
     publication: "Veröffentlichung"
     sharing: "Weitergabe"
     commercial: "Kommerzielle Nutzung"
-  access:
-    first_line: "Erste Abweichung: Zeile {line}."
-    kind: "Art: {kind}."
-    deviations: "Abweichungen insgesamt: {count}."
-
   access_kind:
     malformed: "unlesbarer Eintrag"
     hash_mismatch: "Eintrag geändert (sein Hash passt nicht zu seinem Inhalt)"
