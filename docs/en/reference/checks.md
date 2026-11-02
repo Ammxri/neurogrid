@@ -193,6 +193,16 @@ Every check a rule pack may name in `check`, generated from the registry of this
 | Measured on | each subject and needed use; each recording with an unknown subject; the dataset without consent data |
 | Built-in rules | [CORE-M14-01](rules.md#CORE-M14-01) |
 
+## consent.reconsent {#consent.reconsent}
+
+| | |
+|---|---|
+| Title | Consent version at least the one a risk requires |
+| Parameters | – |
+| Passes when | the version of the subject's effective consent is at least the min_consent_version of the risk (without consent data: not checkable, also with --strict or a configured [consent]; a subject without a valid consent is left to consent.covered) |
+| Measured on | each risk of risks.yaml dated on or before the reference date and each subject whose recordings need a use it affects and whose consent is valid; the dataset for a risk without such a subject; the dataset without risks or without consent data |
+| Built-in rules | [CORE-M14-02](rules.md#CORE-M14-02) |
+
 ## evidence.document {#evidence.document}
 
 | | |

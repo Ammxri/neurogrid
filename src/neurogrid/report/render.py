@@ -706,6 +706,7 @@ def _group_view(
         "aggregate": _aggregate(group, fmt, placeholder=placeholder),
         "rows": [_finding_row(f, fmt, title, see_also.get(f.key)) for f in group.shown],
         "consent": None,  # the aggregated M14 block of _consent_view
+        "reconsent": False,  # the line of _reconsent_group
         "more": _rule_sentence(fmt, "report.text.rule_more", group.rule_id, count=group.remainder)
         if group.remainder
         else "",
@@ -761,6 +762,7 @@ def _consent_view(
         "aggregate": aggregate,
         "rows": [],
         "consent": {"rows": shown, "note": tr("report.consent.note")},
+        "reconsent": False,
         "more": "",
     }
 
@@ -792,19 +794,41 @@ def _severity_heading(
     )
 
 
+def _reconsent_group(rule_id: str, fmt: _Formatter, titles: dict[str, str]) -> dict[str, Any]:
+    """CORE-M14-02 in its severity group (A-95, D-17 option B): one line that points to the re-consent
+    section at the end of section 3, no finding rows, no table and no count."""
+    pointer = fmt.tr("report.reconsent.pointer", heading=fmt.tr("report.reconsent.heading"))
+    return {
+        "rule": rule_id,
+        "title": titles.get(rule_id, ""),
+        "aggregate": pointer,
+        "rows": [],
+        "consent": None,
+        "reconsent": True,
+        "more": "",
+    }
+
+
 def _findings(
     results: Results, fmt: _Formatter, titles: dict[str, str], see_also: dict[str, list[str]]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     evaluated = [f for f in results.findings if f.source_status is not SourceStatus.PLACEHOLDER]
     placeholder = [f for f in results.findings if f.source_status is SourceStatus.PLACEHOLDER]
     consent = {
-        rule_id: tables.rule_consent_table(results, rule_id) for rule_id in tables.consent_rules(results)
+        rule_id: tables.rule_consent_table(results, rule_id) for rule_id in tables.covered_rules(results)
     }
-    withheld = frozenset(rule_id for rule_id, table in consent.items() if table.withheld)
+    reconsent = {
+        rule_id: tables.rule_reconsent_table(results, rule_id) for rule_id in tables.reconsent_rules(results)
+    }
+    withheld = frozenset(rule_id for rule_id, table in consent.items() if table.withheld) | frozenset(
+        rule_id for rule_id, table in reconsent.items() if table is not None and table.withheld
+    )
 
     def view(group: tables.RuleGroup, *, draft: bool) -> dict[str, Any]:
         if group.rule_id in consent:  # M14: aggregated, never per subject (D-17 option B)
             return _consent_view(group.rule_id, consent[group.rule_id], group, fmt, titles, placeholder=draft)
+        if group.rule_id in reconsent:  # M14-02: counted per risk in the re-consent section (A-95)
+            return _reconsent_group(group.rule_id, fmt, titles)
         return _group_view(group, fmt, titles, see_also, placeholder=draft)
 
     sections = []
@@ -821,6 +845,15 @@ def _findings(
             and rule.source_status is not SourceStatus.PLACEHOLDER
             and consent[rule.id].subjects
         ]
+        groups += [  # M14-02 rules whose results all passed: their line all the same
+            _reconsent_group(rule.id, fmt, titles)
+            for rule in results.rules
+            if rule.id in reconsent
+            and rule.id not in shown
+            and rule.severity is severity
+            and rule.source_status is not SourceStatus.PLACEHOLDER
+            and reconsent[rule.id] is not None
+        ]
         sections.append(
             {
                 "severity": severity.value,
@@ -834,6 +867,87 @@ def _findings(
         )
     placeholder_groups = [view(g, draft=True) for g in tables.rule_groups(placeholder)]
     return sections, placeholder_groups, len(placeholder)
+
+
+MAX_RISKS_SHOWN = tables.MAX_ROWS_PER_RULE  # risks per rule in the re-consent section (A-59 bound)
+# The short texts of the re-consent cells; another reason (from another version) shows its full text
+_RECONSENT_CELLS = {
+    tables.NO_VALID_CONSENT: "report.reconsent.no_valid_consent",
+    "reconsent.version_below": "report.reconsent.version_below",
+}
+
+
+def _reconsent_cell(cell: tables.ReconsentCell, fmt: _Formatter, *, placeholder: bool) -> str:
+    """One line of a risk's breakdown: the result (status and short reason, or no valid consent) and its
+    number of subjects. Placeholder rules carry no verdict (A-41)."""
+    tr = fmt.tr
+    reason = _RECONSENT_CELLS.get(cell.reason or "")
+    reason_text = tr(reason) if reason else fmt.label("reason", cell.reason) if cell.reason else ""
+    if cell.status is None:
+        result = reason_text
+    else:
+        status = tr("report.value.placeholder_status") if placeholder else tr(f"status.{cell.status.value}")
+        result = (
+            tr("report.reconsent.with_reason", status=status, reason=reason_text) if reason_text else status
+        )
+    return tr("report.reconsent.cell", result=result, count=tr("report.consent.subjects", count=cell.count))
+
+
+def _reconsent_state(results: Results, rule_id: str, fmt: _Formatter) -> str:
+    """Why a rule on the re-consent check has no table: a single file, no consent data, or no risk judged."""
+    reasons = {f.reason for f in results.findings if f.rule_id == rule_id and f.object == tables.DATASET}
+    if "consent.single_file" in reasons:
+        return fmt.tr("reason.consent.single_file")
+    if reasons & {"consent.no_vault", "consent.no_consents"}:
+        return fmt.tr("report.reconsent.no_consents")
+    return fmt.tr("report.reconsent.no_risks")
+
+
+def _reconsent_view(results: Results, fmt: _Formatter, titles: dict[str, str]) -> dict[str, Any] | None:
+    """The re-consent section at the end of section 3 (NV-F06; A-30, A-95; D-17 option B for CORE-M14-02):
+    per loaded rule on the re-consent check one row per judged risk (ID, date, affected uses, the subjects
+    whose signal recordings need an affected use) with its subjects by result, or that total alone when the
+    A-81 rule withholds the tables (tables.reconsent_table); the fixed text of A-30 above them. Never a
+    subject ID, a consent version, min_consent_version or a risk description: the list per subject is the
+    rule's findings in results.json. Without a table a sentence says why. None when no rule on the check is
+    loaded."""
+    rules = [rule for rule in results.rules if rule.check == tables.RECONSENT_CHECK]
+    if not rules:
+        return None
+    tr = fmt.tr
+    shown = []
+    for rule in rules:
+        table = tables.rule_reconsent_table(results, rule.id)
+        placeholder = rule.source_status is SourceStatus.PLACEHOLDER
+        entry: dict[str, Any] = {"rule": rule.id, "title": titles.get(rule.id, ""), "rows": [], "more": ""}
+        entry["state"] = _reconsent_state(results, rule.id, fmt) if table is None else ""
+        for row in table.rows[:MAX_RISKS_SHOWN] if table is not None else []:
+            if not row.risk.subjects:  # nothing to withhold: the subjects of a risk are public
+                cells = [tr("report.reconsent.no_subjects")]
+            elif table is not None and table.withheld:
+                cells = [tr("report.reconsent.withheld")]
+            else:
+                cells = [_reconsent_cell(cell, fmt, placeholder=placeholder) for cell in row.cells]
+            entry["rows"].append(
+                {
+                    "risk": row.risk.id,
+                    "date": row.risk.date.isoformat(),
+                    "uses": ", ".join(fmt.label("terms.consent_use", use) for use in row.risk.affected_uses),
+                    "subjects": tr("report.consent.subjects", count=row.risk.subjects),
+                    "cells": cells,
+                }
+            )
+        if table is not None and len(table.rows) > MAX_RISKS_SHOWN:
+            entry["more"] = tr("report.reconsent.more", count=len(table.rows) - MAX_RISKS_SHOWN)
+        shown.append(entry)
+    return {
+        "heading": tr("report.reconsent.heading"),
+        # the sentence of A-30 frames a list of risks; without a judged risk it would claim one
+        "text": tr("report.reconsent.text") if any(entry["rows"] for entry in shown) else "",
+        "legend": tr("report.reconsent.legend"),
+        "note": tr("report.reconsent.note"),
+        "rules": shown,
+    }
 
 
 # --- section 4: metrics (REP-04) -----------------------------------------------------------------------
@@ -1027,9 +1141,12 @@ def _ai_view(results: Results, fmt: _Formatter) -> dict[str, Any] | None:
 
 def _rule_overview(results: Results, fmt: _Formatter, titles: dict[str, str]) -> list[dict[str, Any]]:
     """Appendix 6.1: per rule its counts per status; an M14 rule with a withheld table shows only the total of
-    its results (A-81, A-91), which the sums of its block give anyway."""
+    its results (A-81, A-91), which the sums of its block give anyway. An M14-02 rule with withheld tables
+    shows not even its total: its results are its candidates, which beside the subjects of the re-consent
+    section would tell how many subjects have no valid consent (A-95)."""
     counts = tables.rule_counts(results)
     withheld = tables.withheld_consent_rules(results)
+    reconsent = tables.reconsent_rules(results)
     rows = []
     for rule in results.rules:
         severity = fmt.label("severity", rule.severity.value)
@@ -1038,6 +1155,13 @@ def _rule_overview(results: Results, fmt: _Formatter, titles: dict[str, str]) ->
                 "report.text.strict_severity", severity=fmt.label("severity", rule.strict_severity.value)
             )
         placeholder = rule.source_status is SourceStatus.PLACEHOLDER
+        hidden = ""
+        if rule.id in withheld and not placeholder:
+            hidden = (
+                fmt.tr("report.reconsent.overview_withheld")
+                if rule.id in reconsent
+                else fmt.tr("report.consent.overview_withheld", count=sum(counts[rule.id].values()))
+            )
         rows.append(
             {
                 "id": rule.id,
@@ -1048,9 +1172,7 @@ def _rule_overview(results: Results, fmt: _Formatter, titles: dict[str, str]) ->
                 "severity": severity,
                 "verification": fmt.label("verification", rule.verification.value),
                 "placeholder": fmt.tr("report.value.placeholder_status") if placeholder else "",
-                "withheld": fmt.tr("report.consent.overview_withheld", count=sum(counts[rule.id].values()))
-                if rule.id in withheld and not placeholder
-                else "",
+                "withheld": hidden,
                 "counts": [str(counts[rule.id][status]) for status in tables.COUNTED],
             }
         )
@@ -1251,6 +1373,7 @@ def build_context(
         "vault": vault,
         "overall": fmt.overall(results.summary, results.rulepacks),
         "severity_sections": severity_sections,
+        "reconsent": _reconsent_view(results, fmt, titles),
         "placeholder_groups": placeholder_groups,
         "placeholder_count": placeholder_count,
         "finding_cells": FINDING_CELLS,

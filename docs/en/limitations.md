@@ -40,6 +40,9 @@ and it is not a medical device. It gives no legal advice.
   withdrawal); treat `results.json` like the data it describes. The report shows them only aggregated.
 - `vault consent add` rewrites `consents.yaml` in a canonical form; comments added by hand are lost.
 - Without a split and without `[consent] dataset_uses`, M14 is not applicable, also with `--strict`.
+- CORE-M14-02 compares consent versions with the risk register; whether a new consent is needed is decided by
+  the ethics committee. A risk is judged from its date on; a subject without a valid consent is left to
+  CORE-M14-01.
 
 ## Platforms {#platforms}
 

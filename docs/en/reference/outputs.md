@@ -30,6 +30,7 @@ Written by `check` (`--out`, default `results.json`); `report` reads only this f
 | `summary` | Per phase light, errors, warnings, open evidence; coverage per pack; totals and the exit code. |
 | `manifest` | Result of the manifest comparison, or `null`. |
 | `consent` | M14: per use the number of subjects that need it (the sums of the report's consent tables), or `null`. |
+| `reconsent` | CORE-M14-02: per risk dated on or before `as_of` its ID, date and affected uses, the number of subjects whose recordings need an affected use and how many of them have a valid consent (the sums of the report's re-consent tables; never the description), or `null`. |
 
 Not contained: time of day, computer or user name, absolute paths, signal hashes, raw ages, and nothing of the
 vault's access log but the findings of CORE-NV03-01/02: no head hash, no number or time of events. The run's own

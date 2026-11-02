@@ -11,7 +11,7 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Source | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | Source status | final |
 | Maps a norm (coverage measure) | no |
-| SHA-256 | `ea07895be3486850e4339cab1a11dc2c94f0204a25d04ea3939b1f454f0ce1a8` |
+| SHA-256 | `db732c77f9c9704335214f6f765ee3dc37a07da6dc7a9ea2f8760280e08e8052` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -427,6 +427,19 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Parameters | – |
 | Severity | Error |
 | Severity with --strict | Error |
+| Verification | automatic |
+
+### CORE-M14-02 {#CORE-M14-02}
+
+| | |
+|---|---|
+| Title | Re-consent possibly needed (risk register) |
+| Clause | [M14](../metrics.md#M14) |
+| Phase | Access |
+| Check | [consent.reconsent](checks.md#consent.reconsent) |
+| Parameters | – |
+| Severity | Warning |
+| Severity with --strict | Warning |
 | Verification | automatic |
 
 ### CORE-NV03-01 {#CORE-NV03-01}

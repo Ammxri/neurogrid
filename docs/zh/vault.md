@@ -270,10 +270,12 @@ CORE-NV05-02 报告以下情况：vault 中没有 PIA 文件；PIA 文件仍是�
 已编辑的文件中仍留有占位标记。只要有一个已编辑且不含占位标记的文件即可。NeuroGrid 不评判其内容，也从不将其写入任何
 输出。
 
-## 风险登记册 {#risks}
+## 风险与重新取得知情同意 {#risks}
 
-风险登记册 `risks.yaml` 列出在取得知情同意之后发现的风险：受影响的用途，以及从哪个知情同意版本起该风险被覆盖。
-`vault init` 写入的文件包含 `risks: []`，并以注释形式附上以下示例：
+vault 中的 `risks.yaml` 是风险登记册：在取得知情同意之后发现的风险，每项风险记录其所涉用途，以及自哪个知情同意版本起
+知情同意覆盖该风险。`neurogrid vault init` 创建该文件，其中为 `risks: []`，并以注释形式附上以下示例；NeuroGrid 从不
+改写它。JSON
+schema：[`risks.schema.json`](../schemas/risks.schema.json)。
 
 <!-- example: risks-yaml -->
 ```yaml
@@ -288,14 +290,19 @@ risks:
 
 | 字段 | 内容 |
 |---|---|
-| `id` | 以字母开头，后跟字母、数字、`_`、`.` 或 `-`，最多 40 个字符；每个 ID 只能出现一次。 |
-| `date` | 记录该风险的日期（YYYY-MM-DD）。 |
-| `description` | 1 至 500 个可打印字符。只保存在该文件中：从不出现在 `results.json`、报告、导出或控制台中。 |
-| `affected_uses` | `training`、`validation`、`publication`、`sharing` 和 `commercial` 中的 1 至 5 项，每项只能出现一次。 |
-| `min_consent_version` | 从该知情同意版本起，知情同意覆盖该风险（1 至 1,000,000）。 |
+| `id` | 一个字母，后接字母、数字、`_`、`.` 或 `-`，最多 40 个字符；不得重复。绝不使用人名：该 ID 会出现在报告中。 |
+| `date` | 风险的日期，`YYYY-MM-DD`；CORE-M14-02 自该日期起判断该风险。 |
+| `description` | 1 至 500 个可打印字符。它只保留在本文件中：从不出现在 `results.json`、报告、导出或控制台中。 |
+| `affected_uses` | `training`、`validation`、`publication`、`sharing`、`commercial` 中的 1 至 5 项，每项一次。 |
+| `min_consent_version` | 整数 1 至 1000000：该版本或更高版本的知情同意覆盖该风险。 |
 
-风险登记册最多包含 1,000 项风险、1,000,000 字节；当有规则读取它时，无效的文件会使 `check` 以退出码 2 结束。读取它的
-重新取得知情同意检查在 M14 中说明（[指标](metrics.md#M14)）。
+最多 1,000 项风险、1,000,000 字节。当有规则读取它时，文件无效会使 `check` 以退出码 2 结束，并指出风险和字段，从不
+显示值；不跟随位于其位置的链接。
+
+CORE-M14-02 判断日期在基准日期（`--as-of`）当日或之前的每项风险：其信号记录需要所涉用途、有效知情同意的版本却低于
+`min_consent_version` 的受试者会得到一条警告；日期更晚的风险由一条提示计数。按受试者的名单在 `results.json` 中；报告
+按风险统计受试者人数（[指标](metrics.md#M14)、[阅读报告](report.md#findings)）。是否需要重新取得知情同意由伦理委员会
+决定，而不是由 NeuroGrid 决定。
 
 ## 检查 {#checks}
 

@@ -193,6 +193,16 @@
 | 测量对象 | 每名受试者的每个所需用途；受试者未知的每条记录；没有知情同意数据时为数据集 |
 | 内置规则 | [CORE-M14-01](rules.md#CORE-M14-01) |
 
+## consent.reconsent {#consent.reconsent}
+
+| | |
+|---|---|
+| 名称 | 知情同意版本不低于风险要求的版本 |
+| 参数 | – |
+| 通过条件 | 受试者有效知情同意的版本不低于该风险的 min_consent_version（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时亦然；没有有效知情同意的受试者由 consent.covered 处理） |
+| 测量对象 | risks.yaml 中日期在基准日期当日或之前的每项风险，以及其记录需要该风险所涉用途且知情同意有效的每名受试者；没有此类受试者的风险为数据集；没有风险或没有知情同意数据时为数据集 |
+| 内置规则 | [CORE-M14-02](rules.md#CORE-M14-02) |
+
 ## evidence.document {#evidence.document}
 
 | | |

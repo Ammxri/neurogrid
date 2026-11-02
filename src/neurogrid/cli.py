@@ -54,6 +54,7 @@ from neurogrid.model.consent import (
     version_from_text,
 )
 from neurogrid.model.results import Results
+from neurogrid.report.tables import reconsent_subjects
 from neurogrid.report.texts import REPORT_LANGUAGES, translator
 from neurogrid.vault.ledger import AppendOutcome, Deviation, Entry
 
@@ -621,6 +622,8 @@ def check(
     _say("cli.check.counts", errors=results.summary.errors, warnings=results.summary.warnings)
     if results.summary.open_evidence:
         _say("cli.check.open_evidence", count=results.summary.open_evidence)
+    if reconsent := reconsent_subjects(results):  # a number only: the list is in results.json (A-95)
+        _say("cli.check.reconsent", count=reconsent)
     if placeholder:
         _say("cli.check.placeholder")
     for notice in results.notices:

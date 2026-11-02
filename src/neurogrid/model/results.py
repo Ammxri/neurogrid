@@ -224,6 +224,33 @@ class ConsentSummary(BaseModel):
     subjects: dict[str, int] = Field(default_factory=dict)
 
 
+class ReconsentRisk(BaseModel):
+    """One risk that CORE-M14-02 judged (A-95): its ID, date and affected uses from risks.yaml (never its
+    description, A-51), the subjects whose signal recordings need an affected use (``subjects``) and how many
+    of them have a valid consent at the reference date (``candidates``: one result per subject, passed when
+    its consent version reaches the risk's). Counts only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    date: date
+    affected_uses: list[str]
+    subjects: int
+    candidates: int
+
+
+class ReconsentSummary(BaseModel):
+    """The sums of the re-consent tables of the report (D-17 option B for CORE-M14-02, A-81, A-95): per
+    judged risk in ID order. results.passed counts a subject's passed risks without naming them, so the report
+    needs the candidates of each risk to tell its passed subjects, and its subjects to tell those without a
+    valid consent (left to CORE-M14-01); the subjects of a risk are public counts like those of a use
+    (ConsentSummary). Present only when CORE-M14-02 judged risks per subject."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    risks: list[ReconsentRisk] = Field(default_factory=list)
+
+
 class Results(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -249,6 +276,7 @@ class Results(BaseModel):
     ai: AISummary | None = None  # M11/M12 aggregates (A-81)
     manifest: ManifestInfo | None = None  # optional: results.json of P1-P3 have none (C1)
     consent: ConsentSummary | None = None  # M14 subjects per use (A-91); optional like every later block (C1)
+    reconsent: ReconsentSummary | None = None  # CORE-M14-02 subjects per risk (A-95); optional (C1)
 
 
 class ScanFile(BaseModel):

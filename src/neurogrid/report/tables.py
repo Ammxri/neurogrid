@@ -15,7 +15,13 @@ from typing import Any
 
 from neurogrid.kernel.findings import Finding, PassedCount, Severity, SourceStatus, Status
 from neurogrid.model.consent import CONSENT_USES
-from neurogrid.model.results import AILabelScope, RecordingSummary, Results
+from neurogrid.model.results import (
+    AILabelScope,
+    ReconsentRisk,
+    ReconsentSummary,
+    RecordingSummary,
+    Results,
+)
 from neurogrid.report.charts import nice_ceiling
 
 MAX_ROWS_PER_RULE = 50  # A-59: the complete list of findings stays in results.json
@@ -85,6 +91,11 @@ def rule_groups(findings: Iterable[Finding], max_rows: int = MAX_ROWS_PER_RULE) 
 # --- M14 consent findings, aggregated (D-17 option B, A-81) ---------------------------------------------
 
 CONSENT_CHECK = "consent.covered"  # checks.consent.COVERED (tests/integration/test_consent_pipeline.py)
+RECONSENT_CHECK = (
+    "consent.reconsent"  # checks.consent.RECONSENT (tests/integration/test_reconsent_pipeline.py)
+)
+CONSENT_CHECKS = "consent."  # every check on the consent records: its rules are aggregated (D-17 option B)
+DATASET = "dataset"  # the object of a dataset-level result, as checks.ai_dataset.DATASET
 SMALL_CELL = 5  # A-51/A-81 table rule, as checks.ai_dataset.SMALL_CELL
 
 
@@ -114,22 +125,35 @@ class ConsentTable:
 
 
 def consent_rules(results: Results) -> frozenset[str]:
-    """The rules on the M14 check, whatever pack they come from: their per-subject findings stay in
-    results.json, the report shows them aggregated only (D-17 option B)."""
+    """The rules on a check of the consent records (its ID starts with ``consent.``: M14-01 consent.covered,
+    M14-02 consent.reconsent), whatever pack they come from: their per-subject findings stay in results.json,
+    the report shows them aggregated only (D-17 option B; for CORE-M14-02 owner answer 4 of P9)."""
+    return frozenset(rule.id for rule in results.rules if rule.check.startswith(CONSENT_CHECKS))
+
+
+def covered_rules(results: Results) -> frozenset[str]:
+    """The rules on the M14-01 check: one block of counts per use, status and reason each (consent_table)."""
     return frozenset(rule.id for rule in results.rules if rule.check == CONSENT_CHECK)
+
+
+def reconsent_rules(results: Results) -> frozenset[str]:
+    """The rules on the M14-02 check: counts per risk in the re-consent section (reconsent_table)."""
+    return frozenset(rule.id for rule in results.rules if rule.check == RECONSENT_CHECK)
 
 
 # The rules on the M14 check in the built-in packs (tests/integration/test_consent_pipeline.py compares them
 # with the packs): an exception for one of them names a subject also when no loaded pack has the rule.
 BUILTIN_CONSENT_RULES = frozenset({"CORE-M14-01"})
+# The same for the re-consent check (tests/integration/test_reconsent_pipeline.py).
+BUILTIN_RECONSENT_RULES = frozenset({"CORE-M14-02"})
 
 
 def consent_exception_rules(results: Results) -> frozenset[str]:
     """The rules whose exceptions the report shows only as their number, never with object, use or reason
-    (D-17 option B, A-81): the loaded rules on the M14 check and the built-in M14 rules, loaded or not. An
-    [[exceptions]] entry for CORE-M14-01 names a subject and gives the user's reason for it also in a run with
-    the BIDS pack alone, where it has no effect."""
-    return consent_rules(results) | BUILTIN_CONSENT_RULES
+    (D-17 option B, A-81): the loaded rules on a consent check and the built-in M14 rules, loaded or not. An
+    [[exceptions]] entry for CORE-M14-01 or CORE-M14-02 names a subject and gives the user's reason for it
+    also in a run with the BIDS pack alone, where it has no effect."""
+    return consent_rules(results) | BUILTIN_CONSENT_RULES | BUILTIN_RECONSENT_RULES
 
 
 def _use_order(use: str) -> tuple[int, str]:
@@ -231,10 +255,124 @@ def rule_consent_table(results: Results, rule_id: str) -> ConsentTable:
 
 
 def withheld_consent_rules(results: Results) -> frozenset[str]:
-    """The loaded rules on the M14 check whose subject table is withheld: no count of theirs that depends on
-    the consent decisions may appear elsewhere in the report either (A-81, A-91)."""
-    return frozenset(
-        rule_id for rule_id in consent_rules(results) if rule_consent_table(results, rule_id).withheld
+    """The loaded rules on a consent check whose subject tables are withheld: no count of theirs that depends
+    on the consent decisions may appear elsewhere in the report either (A-81, A-91, A-95)."""
+    covered = (rule_id for rule_id in covered_rules(results) if rule_consent_table(results, rule_id).withheld)
+    reconsent = (rule_id for rule_id in reconsent_rules(results) if rule_reconsent_withheld(results, rule_id))
+    return frozenset((*covered, *reconsent))
+
+
+# --- M14-02 re-consent findings, aggregated per risk (D-17 option B, A-81, A-95) ------------------------
+
+NO_VALID_CONSENT = "no_valid_consent"  # the reason of the cell of the subjects that M14-01 judges
+
+
+@dataclass(frozen=True)
+class ReconsentCell:
+    """One cell of a risk's table: a status and reason of the rule's results per subject, or (status None,
+    reason NO_VALID_CONSENT) the subjects without a valid consent at the reference date, whom CORE-M14-01
+    judges; and how many subjects."""
+
+    status: Status | None
+    reason: str | None
+    count: int
+
+
+@dataclass(frozen=True)
+class ReconsentRow:
+    """A judged risk of the re-consent section: ID, date and affected uses (results.reconsent), the subjects
+    whose signal recordings need an affected use (always shown) and its cells (empty when withheld)."""
+
+    risk: ReconsentRisk
+    cells: list[ReconsentCell]
+
+
+@dataclass(frozen=True)
+class ReconsentTable:
+    """The re-consent section of one rule: a row per judged risk in ID order, whether the cells are
+    withheld."""
+
+    rows: list[ReconsentRow]
+    withheld: bool
+
+
+def reconsent_table(
+    findings: Iterable[Finding], passed: Iterable[PassedCount], summary: ReconsentSummary
+) -> ReconsentTable:
+    """The results of one M14-02 rule as counts per risk, never a subject ID, a consent version or a risk
+    description (D-17 option B, A-95). A risk's table distributes the subjects whose signal recordings need
+    an affected use (results.reconsent ``subjects``, public like the subjects of a use) over cells: the
+    statuses and reasons of the rule's results per subject, the passed ones (the risk's candidates less its
+    other results: results.passed counts a subject's passed risks without naming them) and the subjects
+    without a valid consent (subjects less candidates), so no cell can be computed from the others and the
+    total. By the A-81 rule the tables are published only if every non-zero cell has at least SMALL_CELL
+    subjects; the subjects of the risks overlap, so one withheld table withholds all, and each risk then shows
+    only its subjects. Results that do not match results.reconsent (a result for a risk it does not name, more
+    results than candidates, passed results that do not add up) withhold the tables too. Dataset-level
+    results (a risk without candidates) count no subject."""
+    cells: dict[str, Cells] = {risk.id: Counter() for risk in summary.risks}
+    consistent = True
+    for finding in findings:
+        if finding.object == DATASET:
+            continue
+        table = cells.get(finding.subkey or "")
+        if table is None:
+            consistent = False
+        else:
+            table[(finding.status, finding.reason)] += 1
+    rows = []
+    passed_total = 0
+    for risk in summary.risks:
+        table = cells[risk.id]
+        passed_count = risk.candidates - sum(table.values())
+        no_valid = risk.subjects - risk.candidates
+        consistent = consistent and passed_count >= 0 and no_valid >= 0
+        passed_total += passed_count
+        shown = [ReconsentCell(status, reason, n) for (status, reason), n in _sorted(table)]
+        if passed_count > 0:
+            shown.append(ReconsentCell(Status.PASSED, None, passed_count))
+        if no_valid > 0:
+            shown.append(ReconsentCell(None, NO_VALID_CONSENT, no_valid))
+        rows.append(ReconsentRow(risk, shown))
+    consistent = consistent and passed_total == sum(p.count for p in passed if p.object != DATASET)
+    withheld = not consistent or any(0 < cell.count < SMALL_CELL for row in rows for cell in row.cells)
+    if withheld:
+        rows = [ReconsentRow(row.risk, []) for row in rows]
+    return ReconsentTable(rows, withheld)
+
+
+def rule_reconsent_table(results: Results, rule_id: str) -> ReconsentTable | None:
+    """reconsent_table for one rule of ``results``; None without results.reconsent (no risk judged per
+    subject: a single file, no risk, no consent data)."""
+    if results.reconsent is None:
+        return None
+    return reconsent_table(
+        (f for f in results.findings if f.rule_id == rule_id),
+        (p for p in results.passed if p.rule_id == rule_id),
+        results.reconsent,
+    )
+
+
+def rule_reconsent_withheld(results: Results, rule_id: str) -> bool:
+    table = rule_reconsent_table(results, rule_id)
+    return table is not None and table.withheld
+
+
+def reconsent_subjects(results: Results) -> int:
+    """How many subjects have a failed result of an evaluated rule on the re-consent check: the line of the
+    console of check (cli.check.reconsent; the local console is the team's, like results.json). Placeholder
+    rules are not evaluated (A-41)."""
+    rules = {
+        rule.id
+        for rule in results.rules
+        if rule.check == RECONSENT_CHECK and rule.source_status is not SourceStatus.PLACEHOLDER
+    }
+    return len(
+        {
+            f.object
+            for f in results.findings
+            if f.rule_id in rules and f.status is Status.FAILED and f.object != DATASET
+        }
     )
 
 

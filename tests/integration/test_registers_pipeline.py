@@ -2,9 +2,8 @@
 interface freeze): pipeline._load_vault_files reads roles.yaml, retention.yaml and risks.yaml before the
 signal pass, each only when a loaded rule needs it; an invalid register ends the run with exit 2 before the
 data are read; results.json carries config.roles_sha256, retention_sha256 and risks_sha256 (None without a
-file or rule) and validates against its schema. The check IDs of the rules that follow (roles.permitted,
-retention.*, consent.reconsent) are not registered yet, so the tests let a registered vault check stand for
-them."""
+file or rule) and validates against its schema. The loading tests of the freeze let a registered vault check
+stand for the check IDs roles.permitted, retention.* and consent.reconsent, which were registered after it."""
 
 from __future__ import annotations
 

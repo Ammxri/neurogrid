@@ -41,6 +41,9 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
 - vault 中的登记册（`roles.yaml`、`risks.yaml`、`retention.yaml`）和个人信息保护影响评估保留在 vault 中：
   `results.json` 和报告只显示角色、操作和日志中的首行（CORE-NV04-01）、`retention.yaml` 中的对象和日期以及计数，从不显示
   说明、伦理审批编号或个人信息保护影响评估中的文字。看起来像人名或身份编号的说明和编号只在提示中计数。
+- vault 中的风险登记册 `risks.yaml` 含风险 ID、日期、用途、版本和描述；描述从不离开该文件。`results.json` 按假名受试者
+  列出 CORE-M14-02 的结果（风险 ID、知情同意版本、风险要求的版本）；报告只按风险计数，适用同一小单元格规则，`check` 的
+  控制台给出其数量。
 - `neurogrid diff` 按 `results.json` 中的名称列出检查结果，但针对知情同意记录的规则（`consent.*` 检查）的检查结果
   只按规则和类别计数：版本比较中不会出现知情同意记录中的任何受试者，而版本比较的文本常常会进入 CI 作业的日志。
 - GitHub Action 和 GitLab 模板在您自有的运行器上运行 NeuroGrid，不上传任何内容；结果作为作业的文件保留在运行器上

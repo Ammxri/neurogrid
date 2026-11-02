@@ -28,6 +28,7 @@ cli:
     none_evaluated: "Kein Regelpaket wurde bewertet: Es sind nur Platzhalter-Regelpakete geladen ({packs})."
     open_evidence: "{count} offene(r) Nachweis(e), in den Fehlern und Warnungen oben enthalten."
     recomputed: "Hinweis: Mindestens ein Hilfsprozess von --jobs brach unerwartet ab (z. B. zu wenig Speicher); die Arbeit für {count} Aufnahme(n) wird ohne ihn erledigt."
+    reconsent: "{count} Proband(en) haben eine gültige Einwilligung mit niedrigerer Version, als ein Risiko des Risikoregisters verlangt; möglicherweise Neueinwilligung erforderlich – Entscheidung durch die Ethikkommission (Liste je Proband: results.json)."
   report:
     written: "Bericht geschrieben nach {path}"
   convert:
@@ -529,6 +530,7 @@ notice:
   roles_without_ethics_ref: "{count} Rolle(n) des Rollenregisters nennen keine Referenz eines Ethikvotums (ethics_approval_ref)."
   registers_look_identifying: "{count} Beschreibung(en) oder Referenz(en) eines Ethikvotums in den Registern des Vaults (roles.yaml, risks.yaml) können Personen erkennbar machen (ein Name, Buchstaben außerhalb von ASCII oder sechs oder mehr Ziffern in Folge); die Werte werden nicht gezeigt."
   retention_reminder: "Erinnerung: Für {count} Objekt(e) in retention.yaml endet die Mindestaufbewahrung bald oder ist beendet, oder das Prüfdatum ist erreicht (CORE-NV05-03). Entscheiden Sie über Weiteraufbewahrung oder Löschung nach eigener Rechtsprüfung."
+  risks_future: "{count} Risiko/Risiken des Risikoregisters sind nach dem Stichtag datiert; CORE-M14-02 beurteilt ein Risiko ab seinem Datum."
 
 severity:
   error: "Fehler"
@@ -684,6 +686,9 @@ reason:
     not_yet_valid: "Jede Einwilligung dieses Probanden ist nach dem Stichtag datiert."
     withdrawn: "Die wirksame Einwilligung dieses Probanden ist ein Widerruf."
     use_not_permitted: "Die wirksame Einwilligung dieses Probanden erlaubt diese Nutzung nicht."
+  reconsent:
+    no_risks: "Kein Risikoregister im Vault (risks.yaml) oder kein Risiko mit Datum am oder vor dem Stichtag."
+    version_below: "Die wirksame Einwilligung dieses Probanden hat eine niedrigere Version, als das Risiko verlangt (min_consent_version in risks.yaml); ob eine neue Einwilligung nötig ist, entscheidet die Ethikkommission."
   vault:
     not_found: "Kein Vault am Vault-Pfad ([vault] path, Standard .neurogrid/vault); legen Sie ihn mit 'neurogrid vault init' an."
     single_file: "Eine einzelne Datei hat keinen Vault; das Zugriffsprotokoll gehört zu einem Datensatzordner."
@@ -810,6 +815,7 @@ check:
     overlaps: "Keine überlappenden Annotationen"
   consent:
     covered: "Nutzung durch Einwilligung gedeckt"
+    reconsent: "Einwilligungsversion mindestens die vom Risiko verlangte"
   access:
     log_intact: "Hash-Kette des Zugriffsprotokolls intakt"
     log_writable: "Zugriffsprotokoll beschreibbar"
@@ -864,6 +870,27 @@ report:
     exceptions_total: "{count} Ausnahme(n) für Einwilligungsbefunde; Probanden, Nutzungen und Begründungen stehen nur in results.json"
     passed_note: "Nicht enthalten: die bestandenen Ergebnisse von Einwilligungsregeln mit zurückgehaltener Aufschlüsselung (Tabellenregel für kleine Zellen)."
     severity_note: "Bei Einwilligungsregeln mit zurückgehaltener Aufschlüsselung zählen hier nur nicht bestandene Ergebnisse (Tabellenregel für kleine Zellen)."
+  reconsent:
+    heading: "Neueinwilligung nach neuen Risiken (Risikoregister)"
+    text: "Laut Risikoregister möglicherweise Neueinwilligung erforderlich – Entscheidung durch die Ethikkommission."
+    legend: "Je Risiko mit Datum am oder vor dem Stichtag: die Probanden, deren Signalaufnahmen eine vom Risiko betroffene Nutzung brauchen, nach Ergebnis – die Version ihrer gültigen Einwilligung erreicht die vom Risiko verlangte (bestanden) oder liegt darunter (nicht bestanden), eine Ausnahme, oder keine gültige Einwilligung am Stichtag (beurteilt von der Einwilligungsregel von M14)."
+    pointer: "Je Risiko gezählt im Abschnitt „{heading}“ am Ende dieses Abschnitts; die Probanden stehen nur in results.json."
+    risk: "Risiko"
+    date: "Datum"
+    uses: "Betroffene Nutzungen"
+    subjects: "Probanden mit betroffener Nutzung"
+    results: "Probanden nach Ergebnis"
+    cell: "{result}: {count}"
+    with_reason: "{status} ({reason})"
+    version_below: "Einwilligungsversion unter der des Risikos"
+    no_valid_consent: "keine gültige Einwilligung am Stichtag"
+    no_subjects: "keine Aufnahme eines Probanden braucht eine betroffene Nutzung"
+    withheld: "Aufschlüsselung zurückgehalten: ein Ergebnis hat weniger als 5 Probanden (Tabellenregel für kleine Zellen)"
+    note: "Die Probanden, die möglicherweise neu einwilligen müssen, stehen nur in results.json (die Befunde der Regel, mit ihren Einwilligungsversionen); dieser Bericht zählt sie je Risiko, ohne Probanden-IDs, Einwilligungsversionen und Risikobeschreibungen."
+    no_risks: "Keine Tabelle: Der Vault hat kein Risikoregister (risks.yaml), oder kein Risiko ist am oder vor dem Stichtag datiert."
+    no_consents: "Keine Tabelle: Es gibt keine Einwilligungsdaten (kein Vault, keine consents.yaml oder keine Einwilligung)."
+    more: "{count} weitere(s) Risiko/Risiken sind in results.json gezählt (Feld reconsent); ihre Probanden stehen in den Befunden der Regel."
+    overview_withheld: "Aufschlüsselung zurückgehalten (Tabellenregel für kleine Zellen); je Risiko gezählt in Abschnitt 3"
   title: "NeuroGrid-Vorprüfungsbericht"
   placeholder_banner: "Dieser Bericht enthält Regelpakete, die als Platzhalter markiert sind. Ihre Regeln beruhen nicht auf dem Normtext, erscheinen ohne Klauselbezug und zählen nicht."
   section:

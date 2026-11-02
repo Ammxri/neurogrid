@@ -51,6 +51,10 @@ synchronised if that matters to you.
   objects and dates of `retention.yaml` and counts, never descriptions, ethics references or text of the impact
   assessment. Descriptions and references that read like a name or an identification number are only counted
   in a note.
+- The risk register `risks.yaml` in the vault holds risk IDs, dates, uses, versions and descriptions; the
+  descriptions never leave the file. `results.json` lists the CORE-M14-02 results per pseudonymous subject
+  (risk ID, consent version, the version the risk requires); the report counts them per risk only, under the
+  same small-cell rule, and the console of `check` gives their number.
 - `neurogrid diff` lists findings as `results.json` names them, but the findings of rules on the consent
   records (checks `consent.*`) only as a count per rule and category: no subject of the consent records
   appears in a comparison, whose text often ends up in the log of a CI job.

@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 from consent_setups import CONSENT_SETUPS  # type: ignore[import-not-found]
 from provenance_setups import PROVENANCE_SETUPS  # type: ignore[import-not-found]
+from reconsent_setups import RECONSENT_SETUPS  # type: ignore[import-not-found]
 from register_setups import REGISTER_SETUPS  # type: ignore[import-not-found]
 from vault_setups import VAULT_SETUPS  # type: ignore[import-not-found]
 
@@ -44,6 +45,7 @@ SETUPS.update(PROVENANCE_SETUPS)  # P4 M13: manifest, manifest_outside, manifest
 SETUPS.update(CONSENT_SETUPS)  # P6 M14: a copy with a vault and consent records (A-91)
 SETUPS.update(VAULT_SETUPS)  # P6 NV03: a vault with an intact, broken, missing, read-only or locked log
 SETUPS.update(REGISTER_SETUPS)  # P9 NV04, NV05: role register, retention periods, impact assessment
+SETUPS.update(RECONSENT_SETUPS)  # P9 M14-02: consent records and a risk register (A-95)
 
 
 def _ai_duplicate_copy(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
@@ -98,6 +100,7 @@ GX_ONLY = '[check]\nrulepacks = ["gxdsl008"]\n'  # gxdsl008 without core (A-02):
 YYT = ("yyt2029",)  # the placeholder scaffold, with the flag (A-92)
 YYT_RULE = "YYT2029-ACQ-001"
 DRAFT = (("allow_draft_rulepacks", True),)  # placeholder packs load only with --allow-draft-rulepacks (A-41)
+STRICT = (("strict", True),)
 
 
 def _evidence_setup(entry: str) -> Callable[[Path, Path], tuple[Path, dict[str, object]]]:
@@ -551,6 +554,19 @@ CASES = [
     Case(
         "CORE-M14-01", "edf_ok", Status.FAILED, setup="consent_subject_unknown", options=(("strict", True),)
     ),
+    # --- P9 re-consent (M14-02, A-30, A-95; tests/rules/reconsent_setups.py) ---
+    Case("CORE-M14-02", "bids_ai_ok", Status.PASSED, setup="reconsent_reached"),  # every version reached
+    Case("CORE-M14-02", "bids_ai_ok", Status.PASSED, setup="reconsent_no_candidates"),  # for the dataset
+    Case("CORE-M14-02", "bids_ai_ok", Status.FAILED, setup="reconsent_version_below"),
+    Case("CORE-M14-02", "bids_ai_ok", Status.EXCEPTED, setup="reconsent_excepted"),
+    # no risk judged: no vault, the empty template, only later risks, a single file
+    Case("CORE-M14-02", "bids_ai_ok", Status.NOT_APPLICABLE),
+    Case("CORE-M14-02", "bids_ai_ok", Status.NOT_APPLICABLE, setup="consent_all"),
+    Case("CORE-M14-02", "bids_ai_ok", Status.NOT_APPLICABLE, setup="reconsent_future"),
+    Case("CORE-M14-02", "edf_ok", Status.NOT_APPLICABLE, setup="consent_single_file"),
+    # without consent data: not checkable, never failed (no --strict or [consent] effect)
+    Case("CORE-M14-02", "bids_ai_ok", Status.NOT_CHECKABLE, setup="reconsent_no_consents"),
+    Case("CORE-M14-02", "bids_ai_ok", Status.NOT_CHECKABLE, setup="reconsent_no_consents", options=STRICT),
     # --- P6 NeuroVault access log (NV03, A-30, A-90; tests/rules/vault_setups.py) ---
     Case("CORE-NV03-01", "edf_ok", Status.PASSED, setup="vault_intact"),
     Case("CORE-NV03-01", "edf_ok", Status.FAILED, setup="vault_broken"),  # vault.chain_broken

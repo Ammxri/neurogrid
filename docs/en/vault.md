@@ -294,10 +294,12 @@ CORE-NV05-02 reports a vault without a PIA file, PIA files that are still the un
 byte order mark and CRLF line ends) and edited files in which placeholders are left; one edited file without a
 placeholder suffices. NeuroGrid does not judge the content and never puts it into an output.
 
-## Risks {#risks}
+## Risks and re-consent {#risks}
 
-The risk register `risks.yaml` lists risks found after consents were given: the uses they affect and the consent
-version from which a consent covers them. `vault init` writes it with `risks: []` and this example as a comment:
+`risks.yaml` in the vault is the risk register: risks found after the consents were given, each with
+the uses it affects and the consent version from which a consent covers it. `neurogrid vault init`
+creates it with `risks: []` and this example as a comment; NeuroGrid never rewrites it. JSON schema:
+[`risks.schema.json`](../schemas/risks.schema.json).
 
 <!-- example: risks-yaml -->
 ```yaml
@@ -312,14 +314,21 @@ risks:
 
 | Field | Content |
 |---|---|
-| `id` | A letter, then letters, digits, `_`, `.` or `-`, at most 40 characters; each ID once. |
-| `date` | The date the risk was recorded (YYYY-MM-DD). |
-| `description` | 1 to 500 printable characters. It stays in the file: never in `results.json`, a report, an export or on the console. |
-| `affected_uses` | 1 to 5 of `training`, `validation`, `publication`, `sharing` and `commercial`, each once. |
-| `min_consent_version` | The consent version from which a consent covers the risk (1 to 1,000,000). |
+| `id` | A letter, then letters, digits, `_`, `.` or `-`, at most 40 characters; unique. Never a personal name: the ID appears in the report. |
+| `date` | The date of the risk, `YYYY-MM-DD`; CORE-M14-02 judges the risk from this date on. |
+| `description` | 1 to 500 printable characters. It stays in this file: it never appears in `results.json`, a report, an export or the console. |
+| `affected_uses` | 1 to 5 of `training`, `validation`, `publication`, `sharing`, `commercial`, each once. |
+| `min_consent_version` | Whole number 1 to 1000000: a consent of this version or higher covers the risk. |
 
-The register holds at most 1,000 risks and 1,000,000 bytes; an invalid file ends `check` with exit code 2 when a
-rule reads it. The re-consent check that reads it is described with M14 ([Metrics](metrics.md#M14)).
+At most 1,000 risks and 1,000,000 bytes. An invalid file ends `check` with exit code 2 when a rule reads
+it and names the risk and the field, never a value; a link at its place is never followed.
+
+CORE-M14-02 judges every risk dated on or before the reference date (`--as-of`): a subject whose signal
+recordings need an affected use and whose effective consent is valid but has a lower version than
+`min_consent_version` gets a warning; a note counts the risks dated later. The list per subject is in
+`results.json`; the report counts the subjects per risk ([Metrics](metrics.md#M14),
+[Reading the report](report.md#findings)). Whether a new consent is needed is decided by the ethics
+committee, not by NeuroGrid.
 
 ## Checks {#checks}
 

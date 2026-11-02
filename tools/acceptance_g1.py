@@ -93,7 +93,7 @@ from neurogrid.kernel.pdf import PLAYWRIGHT_VERSION, SHELL_REVISION, qa_gate
 from neurogrid.model.results import Results
 from neurogrid.report.output import REQUIRED_ONCE, pdf_expectation
 from neurogrid.report.render import EXPLAINED_EMPTY, FINDING_CELLS, MAX_ROWS_PER_RULE
-from neurogrid.report.tables import consent_rules
+from neurogrid.report.tables import consent_rules, reconsent_rules
 from neurogrid.report.texts import disclaimer, tables, translator
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -705,8 +705,11 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
 
 def _consent_block_problems(document: str, results: Results, aggregated: frozenset[str]) -> list[str]:
     """D-17 option B: every rule on the M14 check that has findings has its aggregated block (the table of
-    counts per use, status and reason), and the block names none of the subjects of its findings."""
+    counts per use, status and reason), and the block names none of the subjects of its findings. A rule on
+    the re-consent check (CORE-M14-02, A-95) has instead a line in its group without a table and its part of
+    the re-consent section at the end of section 3, neither naming a subject."""
     problems = []
+    reconsent = reconsent_rules(results)
     for rule in sorted(aggregated):
         findings = [finding for finding in results.findings if finding.rule_id == rule]
         if not findings:
@@ -714,10 +717,20 @@ def _consent_block_problems(document: str, results: Results, aggregated: frozens
         block = re.search(
             rf'<div class="rule-group" data-rule="{re.escape(rule)}">(.*?)</div>', document, re.S
         )
-        if block is None or '<table class="consent">' not in block.group(1):
+        if rule in reconsent:
+            part = re.search(
+                rf'<div class="reconsent-rule" data-rule="{re.escape(rule)}">(.*?)</div>', document, re.S
+            )
+            if block is None or part is None or "<table" in block.group(1):
+                problems.append(f"{rule}: the re-consent line or section is missing")
+                continue
+            shown = block.group(1) + " " + part.group(1)
+        elif block is None or '<table class="consent">' not in block.group(1):
             problems.append(f"{rule}: the aggregated block is missing")
             continue
-        text = html_lib.unescape(re.sub(r"<[^>]*>", " ", block.group(1)))
+        else:
+            shown = block.group(1)
+        text = html_lib.unescape(re.sub(r"<[^>]*>", " ", shown))
         named = sorted({f.object for f in findings if f.object != "dataset" and f.object in text})
         if named:
             problems.append(f"{rule}: the aggregated block names {len(named)} object(s) of its findings")

@@ -162,6 +162,12 @@ weitergabe → `sharing`，kommerziell → `commercial`。
 
 `retention.yaml` 中的一个条目（[NeuroVault](vault.md#retention)）；JSON 模式为
 [`retention.schema.json`](../schemas/retention.schema.json)。字段：`object`、`created`、`min_until`、`review_at`。
+## Risk（风险） {#risk}
+
+对产品规格书中各对象的补充：vault 中风险登记册 `risks.yaml` 的一项风险（[NeuroVault](vault.md#risks)）；JSON
+schema 为 [`risks.schema.json`](../schemas/risks.schema.json)。其字段由 NeuroGrid 自行定义：`id`、`date`、
+`description`（从不输出）、`affected_uses`（取值同 `permitted_uses`）和 `min_consent_version`。CORE-M14-02 将知情同意
+版本与之比较。
 
 ## Results（结果）
 

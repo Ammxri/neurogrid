@@ -242,16 +242,18 @@ def test_coverage_note_when_na(rich: Results, lang: str) -> None:
 
 def test_access_phase_is_grey_without_rules(quality: Results) -> None:
     """No access rule is evaluated: the light is grey, shown with its text (A-16). Since P6 core has the
-    access log rules CORE-NV03-01/02 (A-90) and CORE-M14-01 (A-91), since P9 the register rules CORE-NV04-01
-    and CORE-NV05-01..03 (A-93, A-94); without a vault the vault rules are not checkable, and without a split
-    no use needs consent, so nothing in the access phase is evaluated, as before P6."""
+    access log rules CORE-NV03-01/02 (A-90) and CORE-M14-01 (A-91), since P9 CORE-M14-02 (A-95) and the
+    register rules CORE-NV04-01 and CORE-NV05-01..03 (A-93, A-94); without a vault the vault rules are not
+    checkable, without a split no use needs consent and without a vault CORE-M14-02 judges no risk (not
+    applicable), so nothing in the access phase is evaluated, as before P6."""
     access = {rule.id for rule in quality.rules if rule.phase is Phase.ACCESS}
     vault_rules = {"CORE-NV04-01", "CORE-NV05-01", "CORE-NV05-02", "CORE-NV05-03"}
-    assert access == {"CORE-M14-01", "CORE-NV03-01", "CORE-NV03-02", *vault_rules}
+    assert access == {"CORE-M14-01", "CORE-M14-02", "CORE-NV03-01", "CORE-NV03-02", *vault_rules}
     findings = [f for f in quality.findings if f.rule_id in access]
     assert {f.rule_id for f in findings} == access
-    assert {f.status for f in findings if f.rule_id != "CORE-M14-01"} == {Status.NOT_CHECKABLE}
-    assert {f.status for f in findings if f.rule_id == "CORE-M14-01"} == {Status.NOT_APPLICABLE}
+    m14 = {"CORE-M14-01", "CORE-M14-02"}  # P9: without a vault no risk is judged either (A-95)
+    assert {f.status for f in findings if f.rule_id not in m14} == {Status.NOT_CHECKABLE}
+    assert {f.status for f in findings if f.rule_id in m14} == {Status.NOT_APPLICABLE}
     assert not any(p.rule_id in access for p in quality.passed)
     summary = section(render_report(quality, "en"), "summary")
     row = re.search(r'<tr data-phase="access">(.*?)</tr>', summary, flags=re.S)
@@ -285,12 +287,18 @@ def test_findings_grouped_by_severity_then_rule(rich: Results, lang: str) -> Non
     assert headings == [s.value for s in Severity]  # error > warning > info (A-61)
     severity_of = {f.rule_id: f.severity.value for f in rich.findings}
     consent = tables.consent_rules(rich)
+    reconsent = tables.reconsent_rules(rich)
     parts = re.split(r'<h3 class="sev-(\w+)">', findings)[1:]
     for severity, part in zip(parts[0::2], parts[1::2], strict=True):
         rules = re.findall(r'<div class="rule-group" data-rule="([^"]+)">', part)
         assert rules == sorted(rules) and all(severity_of[rule] == severity for rule in rules)
         for rule in rules:
             group = part[part.index(f'data-rule="{rule}"') :]
+            if rule in reconsent:  # one line pointing to the re-consent section (A-95): no rows, no table
+                line = group[: group.index("</div>")]
+                assert finding_rows(line) == [] and "<table" not in line and 'class="aggregate"' in line
+                assert f'<div class="reconsent-rule" data-rule="{rule}">' in findings
+                continue
             group = group[: group.index("</table>")]
             if rule in consent:  # one aggregated block instead of finding rows (D-17 option B, A-91)
                 assert finding_rows(group) == [] and '<table class="consent">' in group

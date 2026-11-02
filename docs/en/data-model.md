@@ -167,6 +167,12 @@ reference to the ethics approval).
 One entry of `retention.yaml` ([NeuroVault](vault.md#retention)); the JSON schema is
 [`retention.schema.json`](../schemas/retention.schema.json). Fields: `object`, `created`, `min_until`,
 `review_at`.
+## Risk {#risk}
+
+A supplement to the objects of the product specification: one risk of the risk register `risks.yaml` in
+the vault ([NeuroVault](vault.md#risks)); JSON schema [`risks.schema.json`](../schemas/risks.schema.json).
+The fields are NeuroGrid's own: `id`, `date`, `description` (never in output), `affected_uses` (the values
+of `permitted_uses`) and `min_consent_version`. CORE-M14-02 compares the consent versions with it.
 
 ## Results
 
