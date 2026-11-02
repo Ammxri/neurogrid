@@ -220,6 +220,18 @@
           "title": "Canonical Sha256",
           "type": "string"
         },
+        "consents_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Consents Sha256"
+        },
         "effective_params": {
           "additionalProperties": {
             "additionalProperties": {

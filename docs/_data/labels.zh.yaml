@@ -53,6 +53,7 @@ thresholds:
   origin_calibrated: "已校准：公开语料库中 {n} 个{over}的第 95 百分位数（{ref}）"
   over_recordings: "记录"
   over_channels: "通道"
+  consent_note: "没有知情同意数据：无法检查；--strict 或 [consent]：错误"
 calibration:
   dataset: "数据集"
   version: "版本"

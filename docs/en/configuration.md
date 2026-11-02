@@ -103,9 +103,20 @@ Mapping of raw files to subject, session, task and run for `convert` (and subjec
 
 ## [consent] and [vault] {#consent-vault}
 
-Both sections are accepted and validated; they are evaluated from version 0.2 on (NeuroVault). Already in 0.1,
-`[vault] path` (default `.neurogrid/vault`) keeps the vault's access log out of the manifest. Keys: `[consent]`
-`split_use`, `dataset_uses`; `[vault]` `path`, `role`, `purpose`, `approval_ref`.
+`[consent]` says which uses of the consent M14 checks ([Metrics](metrics.md#M14)):
+
+| Key | Meaning |
+|---|---|
+| `split_use` | Use per split: `train`, `val`, `test`, each mapped to one use or a list of uses (`training`, `validation`, `publication`, `sharing`, `commercial`). Defaults: train → training, val → validation, test → validation; a key replaces only the default of its own split. |
+| `dataset_uses` | Uses every signal recording of the dataset needs, in a split or not, for example `["sharing"]`. |
+
+An unknown split, an unknown use, an empty list or a use named twice ends the run with exit code 2. A section with
+`split_use` or `dataset_uses` set counts as configured: M14 without consent data, or a recording without a known
+subject, is then an error, as with `--strict`. `effective_settings` in `results.json` shows the uses as lists in
+the order above.
+
+`[vault]` keys: `path` (the vault folder, relative to the project root; default `.neurogrid/vault`; it also keeps
+the vault's access log out of the manifest), `role`, `purpose`, `approval_ref`.
 
 ## Example {#example}
 

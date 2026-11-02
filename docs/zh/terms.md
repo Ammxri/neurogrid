@@ -48,6 +48,19 @@ NeuroGrid 的代码和公开格式（YAML、JSON、TOML）使用英文标识符�
 | weitergabe | sharing | 共享 | 知情同意中的用途（自 0.2 版起） |
 | kommerziell | commercial | 商业用途 | 知情同意中的用途（自 0.2 版起） |
 
+## 知情同意记录 {#consent-scope}
+
+vault 中 `consents.yaml` 的一条知情同意记录的字段（[输出文件](reference/outputs.md#consents)）。
+
+| 规格书术语 | 标识符 | 中文 | 含义 |
+|---|---|---|---|
+| subject | subject | 受试者 | 假名受试者（`sub-<标签>`） |
+| version | version | 版本 | 知情同意的版本；日期不晚于基准日期的最高版本生效 |
+| datum | date | 日期 | 知情同意或撤回的日期 |
+| erlaubte_nutzungen | permitted_uses | 允许的用途 | 知情同意允许的用途 |
+| widerruf | withdrawn | 撤回 | 自该日期起完全撤回 |
+| ethikvotum_ref | ethics_approval_ref | 伦理审批编号 | 伦理审批的编号 |
+
 ## 报告与检查结果 {#report-terms}
 
 | 规格书术语 | 标识符 | 中文 | 含义 |

@@ -110,9 +110,25 @@ Supplements: `key`, `rulepack`, `rulepack_version`, `source_status`, `phase`, `s
 `params` (effective thresholds with their origin), `time_ranges`, `time_ranges_total`, `time_ranges_duration_s`,
 `message_key`, `reason`.
 
-## ConsentScope and AccessEvent
+## ConsentScope
 
-Both objects belong to NeuroVault and are added in version 0.2.
+One consent record of `consents.yaml` in the vault ([Output files](reference/outputs.md#consents)).
+
+| Specification field | Field |
+|---|---|
+| subject | subject |
+| version | version |
+| datum | date |
+| erlaubte_nutzungen | permitted_uses |
+| widerruf | withdrawn |
+| ethikvotum_ref | ethics_approval_ref |
+
+Values of `permitted_uses`: training → `training`, validierung → `validation`, veroeffentlichung →
+`publication`, weitergabe → `sharing`, kommerziell → `commercial`.
+
+## AccessEvent
+
+The access event of the NeuroVault access log (version 0.2).
 
 ## Results
 

@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from neurogrid.kernel.findings import Finding, Severity, SourceStatus, Status
+from neurogrid.model.consent import CONSENT_USES
 from neurogrid.model.results import AILabelScope, RecordingSummary, Results
 from neurogrid.report.charts import nice_ceiling
 
@@ -79,6 +80,78 @@ def rule_groups(findings: Iterable[Finding], max_rows: int = MAX_ROWS_PER_RULE) 
             )
         )
     return groups
+
+
+# --- M14 consent findings, aggregated (D-17 option B, A-81) ---------------------------------------------
+
+CONSENT_CHECK = "consent.covered"  # checks.consent.COVERED (tests/integration/test_consent_pipeline.py)
+SMALL_CELL = 5  # A-51/A-81 table rule, as checks.ai_dataset.SMALL_CELL
+
+
+@dataclass(frozen=True)
+class ConsentRow:
+    """One row of the aggregated M14 block: a use (None: the whole dataset), a status and reason (both None
+    when the breakdown of the use is withheld) and how many subjects, recordings or the dataset."""
+
+    use: str | None
+    status: Status | None
+    reason: str | None
+    count: int
+    unit: str  # "subjects", "recordings" or "dataset"
+
+
+def consent_rules(results: Results) -> frozenset[str]:
+    """The rules on the M14 check, whatever pack they come from: their per-subject findings stay in
+    results.json, the report shows them aggregated only (D-17 option B)."""
+    return frozenset(rule.id for rule in results.rules if rule.check == CONSENT_CHECK)
+
+
+def _use_order(use: str) -> tuple[int, str]:
+    return (CONSENT_USES.index(use) if use in CONSENT_USES else len(CONSENT_USES), use)
+
+
+def _status_order(cell: tuple[Status, str | None]) -> tuple[int, str]:
+    return (STATUS_ORDER[cell[0]], cell[1] or "")
+
+
+def consent_rows(findings: Iterable[Finding]) -> tuple[list[ConsentRow], bool]:
+    """The M14 findings of one rule as counts per use, status and reason, never a subject ID or a consent
+    version (D-17 option B). The subjects of one use form a table over its (status, reason) cells; by the
+    A-81 rule a table is published only if every non-zero cell has at least SMALL_CELL subjects, and as the
+    uses of a subject are linked (a withdrawal concerns every use), one withheld table withholds all: then
+    each use shows only its total. Dataset-level findings and recordings without a known subject (no
+    subject, so no consent decision) are counted as they are."""
+    dataset: Counter[tuple[Status, str | None]] = Counter()
+    recordings: dict[str, Counter[tuple[Status, str | None]]] = defaultdict(Counter)
+    subjects: dict[str, Counter[tuple[Status, str | None]]] = defaultdict(Counter)
+    for finding in findings:
+        cell = (finding.status, finding.reason)
+        use = finding.details.get("use")
+        listed = finding.details.get("uses")
+        if isinstance(use, str):
+            subjects[use][cell] += 1
+        elif isinstance(listed, list):
+            for item in listed:
+                recordings[str(item)][cell] += 1
+        else:
+            dataset[cell] += 1
+    withheld = any(0 < count < SMALL_CELL for cells in subjects.values() for count in cells.values())
+    rows = [ConsentRow(None, status, reason, n, "dataset") for (status, reason), n in _sorted(dataset)]
+    for use in sorted(set(subjects) | set(recordings), key=_use_order):
+        cells = subjects.get(use, Counter())
+        if cells and withheld:
+            rows.append(ConsentRow(use, None, None, sum(cells.values()), "subjects"))
+        elif cells:
+            rows += [ConsentRow(use, status, reason, n, "subjects") for (status, reason), n in _sorted(cells)]
+        rows += [
+            ConsentRow(use, status, reason, n, "recordings")
+            for (status, reason), n in _sorted(recordings.get(use, Counter()))
+        ]
+    return rows, withheld
+
+
+def _sorted(cells: Counter[tuple[Status, str | None]]) -> list[tuple[tuple[Status, str | None], int]]:
+    return sorted(cells.items(), key=lambda item: _status_order(item[0]))
 
 
 def evaluated_checks(results: Results) -> dict[str, list[str]]:

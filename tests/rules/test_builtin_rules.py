@@ -15,6 +15,7 @@ from importlib import resources
 from pathlib import Path
 
 import pytest
+from consent_setups import CONSENT_SETUPS  # type: ignore[import-not-found]
 from provenance_setups import PROVENANCE_SETUPS  # type: ignore[import-not-found]
 
 from neurogrid import pipeline
@@ -38,6 +39,7 @@ class Case:
 # name -> function(fixture folder, temporary folder) -> (folder to check, further CheckOptions fields)
 SETUPS: dict[str, Callable[[Path, Path], tuple[Path, dict[str, object]]]] = {}
 SETUPS.update(PROVENANCE_SETUPS)  # P4 M13: manifest, manifest_outside, manifest_changed, manifest_invalid
+SETUPS.update(CONSENT_SETUPS)  # P6 M14: a copy with a vault and consent records (A-91)
 
 
 def _ai_duplicate_copy(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
@@ -512,6 +514,32 @@ CASES = [
         setup="annotation_split",
     ),  # "Stage 2" 1 of 29 events
     Case("CORE-M11-01", "edf_ok", Status.NOT_CHECKABLE, '[ai]\nlabels = "annotations"\n'),  # no annotation
+    # --- P6 consent (M14, A-30, A-91): vaults and records are built per case (consent_setups.py) ---
+    Case("CORE-M14-01", "bids_ai_ok", Status.PASSED, setup="consent_all"),
+    Case("CORE-M14-01", "bids_ai_ok", Status.FAILED, setup="consent_no_training"),  # use_not_permitted
+    Case("CORE-M14-01", "bids_ai_ok", Status.FAILED, setup="consent_withdrawn"),  # sub-03 withdrew
+    Case("CORE-M14-01", "bids_ai_ok", Status.PASSED, setup="consent_before_withdrawal"),
+    Case("CORE-M14-01", "bids_ai_ok", Status.FAILED, setup="consent_missing_subject"),  # sub-04 missing
+    Case("CORE-M14-01", "bids_ai_ok", Status.FAILED, setup="consent_future"),  # sub-05 not yet valid
+    Case("CORE-M14-01", "bids_ai_ok", Status.EXCEPTED, setup="consent_excepted"),  # sub-02 / training
+    # without consent data: not checkable (grey), failed with --strict or a configured [consent]
+    Case("CORE-M14-01", "bids_ai_ok", Status.NOT_CHECKABLE),  # consent.no_vault
+    Case("CORE-M14-01", "bids_ai_ok", Status.NOT_CHECKABLE, setup="consent_empty"),  # consent.no_consents
+    Case("CORE-M14-01", "bids_ai_ok", Status.FAILED, options=(("strict", True),)),
+    Case("CORE-M14-01", "bids_ai_ok", Status.FAILED, '[consent]\ndataset_uses = ["sharing"]\n'),
+    Case("CORE-M14-01", "bids_ai_ok", Status.FAILED, setup="consent_empty", options=(("strict", True),)),
+    # no needed use: not applicable, also under --strict; a single file has no vault
+    Case("CORE-M14-01", "bids_ok", Status.NOT_APPLICABLE),
+    Case("CORE-M14-01", "bids_ok", Status.NOT_APPLICABLE, options=(("strict", True),)),
+    Case("CORE-M14-01", "edf_ok", Status.NOT_APPLICABLE, setup="consent_single_file"),
+    # dataset_uses without splits
+    Case("CORE-M14-01", "bids_ok", Status.FAILED, setup="consent_sharing_missing"),
+    Case("CORE-M14-01", "bids_ok", Status.PASSED, setup="consent_sharing"),
+    # a recording that needs a use, with an unknown subject (raw folder without mapping)
+    Case("CORE-M14-01", "edf_ok", Status.NOT_CHECKABLE, setup="consent_subject_unknown"),
+    Case(
+        "CORE-M14-01", "edf_ok", Status.FAILED, setup="consent_subject_unknown", options=(("strict", True),)
+    ),
 ]
 
 
@@ -567,3 +595,35 @@ def test_every_builtin_rule_has_positive_and_negative_case() -> None:
     negative = {c.rule for c in CASES if c.expected is not Status.PASSED}
     missing = sorted((builtin_rule_ids() - positive) | (builtin_rule_ids() - negative))
     assert not missing, f"rules without positive and negative case: {missing}"
+
+
+# --- P6: M14 and CORE-M13-01 under --strict and [consent] (p6 decisions 6, A-82 note, A-91) -----------------
+
+
+def _severities(tmp_path: Path, name: str, *, strict: bool, consent: bool) -> dict[str, tuple[str, str]]:
+    """rule -> (status, effective severity) of CORE-M13-01 and CORE-M14-01 on bids_ai_ok without a manifest
+    and without a vault."""
+    config_path = None
+    if consent:
+        config_path = tmp_path / f"{name}.toml"
+        config_path.write_text('[consent]\ndataset_uses = ["sharing"]\n', encoding="utf-8")
+    results = pipeline.run_check(
+        FIX / "bids_ai_ok", pipeline.CheckOptions(config_path=config_path, strict=strict, work_base=tmp_path)
+    )
+    return {
+        f.rule_id: (f.status.value, f.severity.value)
+        for f in results.findings
+        if f.rule_id in ("CORE-M13-01", "CORE-M14-01")
+    }
+
+
+def test_consent_configuration_and_strict_mode_act_independently(tmp_path: Path) -> None:
+    """[consent] does not escalate CORE-M13-01 (it keeps its strict_severity: a warning without --strict);
+    M14 never uses strict_severity: its severity is always error, strict and [consent] change only its status
+    (no consent data: not checkable -> failed). Under --strict both apply."""
+    plain = _severities(tmp_path, "plain", strict=False, consent=False)
+    assert plain == {"CORE-M13-01": ("failed", "warning"), "CORE-M14-01": ("not_checkable", "error")}
+    configured = _severities(tmp_path, "consent", strict=False, consent=True)
+    assert configured == {"CORE-M13-01": ("failed", "warning"), "CORE-M14-01": ("failed", "error")}
+    strict = _severities(tmp_path, "strict", strict=True, consent=False)
+    assert strict == {"CORE-M13-01": ("failed", "error"), "CORE-M14-01": ("failed", "error")}

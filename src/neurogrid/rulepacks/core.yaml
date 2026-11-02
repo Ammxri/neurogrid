@@ -301,6 +301,17 @@ rules:
     severity: warning
     verification: automatic
 
+  # --- P6 consent (M14, A-30, A-91): an error; without consent data not checkable, failed only with
+  # --strict/[check] strict or a configured [consent] (the evaluator decides, no strict_severity) ---
+  - id: CORE-M14-01
+    clause: M14
+    title_zh: 数据划分中的用途在知情同意范围内
+    title_en: Use in the split covered by consent
+    phase: access
+    check: consent.covered
+    severity: error
+    verification: automatic
+
   # --- P4 annotation ---
   - id: CORE-M10-01
     clause: M10

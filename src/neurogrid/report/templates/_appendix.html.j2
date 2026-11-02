@@ -25,7 +25,7 @@
     <thead><tr><th>{{ t('report.label.rule') }}</th><th>{{ t('report.label.file') }}</th><th>{{ t('report.label.exception_reason') }}</th><th>{{ t('report.label.approved_by') }}</th><th>{{ t('report.label.valid_until') }}</th><th>{{ t('report.label.used') }}</th><th>{{ t('report.label.expired') }}</th></tr></thead>
     <tbody>
     {% for use in results.exceptions %}
-    <tr><td class="mono">{% if use.entry.rule in known_rules %}<span class="nowrap">{{ use.entry.rule }}</span>{% else %}{{ use.entry.rule }}{% endif %}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td><td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td><td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td class="own">{{ fmt.value(use.used) }}</td><td class="own">{{ fmt.value(use.expired) }}</td></tr>
+    <tr><td class="mono">{% if use.entry.rule in known_rules %}<span class="nowrap">{{ use.entry.rule }}</span>{% else %}{{ use.entry.rule }}{% endif %}{% if use.entry.subkey %} / {{ use.entry.subkey }}{% endif %}</td>{% if use.entry.rule in consent_rules %}<td colspan="2">{{ t('report.consent.exception_withheld') }}</td>{% else %}<td class="mono">{{ fmt.value(use.entry.object) }}</td><td>{{ use.entry.reason }}</td>{% endif %}<td>{{ fmt.value(use.entry.approved_by) }}</td><td>{{ fmt.value(use.entry.valid_until.isoformat() if use.entry.valid_until else None) }}</td><td class="own">{{ fmt.value(use.used) }}</td><td class="own">{{ fmt.value(use.expired) }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

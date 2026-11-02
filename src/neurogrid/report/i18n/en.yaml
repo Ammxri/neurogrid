@@ -78,6 +78,11 @@ cli:
     differs: "The dataset differs from the manifest."
   vault:
     role_looks_identifying: "Note: the role looks like a personal name or an identification number. Use a role name or initials; the access log records it as given."
+    consent:
+      added: "Consent recorded: {subject}, version {version}."
+      imported: "Consent records imported: {count}."
+      subject_hint: "Note: {count} subject label(s) contain six or more digits in a row and may be identification numbers; use pseudonymous labels."
+      date_in_future: "Note: {count} record(s) are dated after today; they take effect from their date on."
   help:
     app: "NeuroGrid – local, offline pre-check of EEG datasets. Not a conformity assessment."
     heading:
@@ -142,6 +147,20 @@ cli:
       about: "NeuroVault: consent records and the hash-chained access log of a dataset."
       consent:
         about: "Consent records in the vault (consents.yaml)."
+        add:
+          about: "Record the consent of a subject in the vault (consents.yaml), or import a table with --from; every change is recorded in the access log."
+          path: "Dataset folder."
+          subject: "Pseudonymous subject (label with or without 'sub-')."
+          version: "Version of the consent (a whole number; a higher version replaces a lower one)."
+          date: "Date of the consent or the withdrawal, YYYY-MM-DD."
+          uses: "Permitted uses: training, validation, publication, sharing, commercial (repeatable or comma-separated)."
+          withdrawn: "Full withdrawal from the date on (no use permitted)."
+          ethics_ref: "Ethics approval reference (optional, no names)."
+          from: "Import table consents.tsv (tab-separated), instead of the single fields."
+          config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset); gives the vault path and the defaults of the event fields."
+          role: "Role recorded in the access event (a role name or initials; default: [vault] role)."
+          purpose: "Purpose recorded in the access event (default: [vault] purpose)."
+          approval_ref: "Approval reference recorded in the access event (default: [vault] approval_ref)."
 
 errors:
   splits:
@@ -294,6 +313,35 @@ errors:
     object_invalid: "Object {index} is not a relative path or pattern (no absolute, drive or network path, no '..', no backslash or colon, no control characters, at most 1024 characters)."
     too_many_objects: "Too many or too long objects: at most {limit} objects, and one entry of the access log holds at most 64 KiB."
     text_invalid: "The value of {field} cannot be recorded: it is empty, too long or contains control characters or invalid text."
+    target_not_folder: "The vault commands need a dataset folder, not a single file."
+  consents:
+    invalid: "The consent records (consents.yaml in the vault) are invalid: field '{field}' ({problem})."
+    too_large: "The consent records (consents.yaml in the vault) are or would become too large (limit {limit} bytes)."
+    encoding: "The consent records (consents.yaml in the vault) are not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "consents.yaml in the vault is not a regular file."
+    unreadable: "consents.yaml in the vault cannot be read."
+  consent:
+    from_with_fields: "--from imports a table; it cannot be combined with --subject, --version, --date, --uses, --withdrawn or --ethics-ref."
+    from_not_found: "The import table (--from) was not found."
+    uses_required: "Give the permitted uses with --uses, or record a full withdrawal with --withdrawn."
+    withdrawn_with_uses: "A full withdrawal (--withdrawn) permits no use; leave out --uses (a partial withdrawal is a new version with fewer uses)."
+    unknown_use: "Unknown use; allowed: {allowed}."
+    subject_invalid: "Invalid subject: give the pseudonymous label with or without 'sub-' (letters A-Z, a-z and digits, at most 64)."
+    version_invalid: "Invalid version: a whole number from 1 to 1000000."
+    date_invalid: "Invalid date; expected YYYY-MM-DD."
+    ethics_ref_invalid: "Invalid ethics approval reference: 1 to 120 printable characters, not only spaces."
+    duplicate_version: "This subject already has a consent record with this version; record a change as a new, higher version."
+    date_order: "The dates of a subject's consent records must not decrease with the version: a higher version cannot be dated before a lower one."
+    write_failed: "consents.yaml could not be written and is unchanged. The access log records the attempt (event consent_manage)."
+  consent_tsv:
+    columns: "consents.tsv needs the columns subject, version, date and permitted_uses (or uses), optionally withdrawn and ethics_approval_ref (or ethics_ref), each once and no other column."
+    invalid_row: "consents.tsv, line {line}: the value in column '{field}' is invalid (for a date also when it lies before the date of a lower version of the same subject)."
+    duplicate: "consents.tsv, line {line}: this subject and version are already recorded (in the table or in consents.yaml)."
+    too_large: "consents.tsv is too large (limit {limit} bytes)."
+    too_many_rows: "consents.tsv has too many rows (limit {limit})."
+    encoding: "consents.tsv is not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "The import table (--from) is not a regular file."
+    unreadable: "The import table (--from) cannot be read."
 
 notice:
   splits_both_sources: "Splits come from splits.tsv; the 'split' column of participants.tsv is not used."
@@ -323,6 +371,10 @@ notice:
   annotations_ambiguous: "{count} annotation-only file(s) match several signal recordings equally well; each is checked as a recording of its own. Assign them with [[annotation.files]] in neurogrid.toml."
   annotation_files_unmatched: "{count} row(s) of [[annotation.files]] in neurogrid.toml name no annotation-only file or no signal recording of the dataset."
   events_rows_invalid: "{count} annotation(s) of events.tsv files, EEGLAB data sets or FIF files have no valid onset or duration (finite numbers, within about 31.7 years of the recording start; in FIF files within the recorded data, as MNE reads them) and were left out of the annotation checks."
+  consent_future_versions: "{count} consent record(s) of subjects of the dataset are dated after the reference date {as_of}; they are not in effect yet."
+  consents_without_recording: "{count} subject(s) of the consent records have no signal recording in the dataset."
+  consent_refs_look_identifying: "{count} ethics approval reference(s) of the consent records may identify persons (a name, non-ASCII letters or six or more digits in a row); the values are not shown."
+  consents_outside_dataset: "The vault with the consent records lies outside the dataset; a manifest of the dataset does not cover consents.yaml."
 
 severity:
   error: "Error"
@@ -468,6 +520,16 @@ reason:
     epoched: "Epoched EEGLAB data set; continuous annotation cannot be judged."
     duration_unknown: "The length of the recording is unknown."
     too_many_epochs: "The epoch grid has more epochs than the limit (5,000,000); choose a longer [annotation] epoch_s."
+  consent:
+    single_file: "A single file is no dataset: it has no vault and no consent records."
+    no_uses: "No recording needs a use: no split and no [consent] dataset_uses."
+    no_vault: "No vault, so no consent records (create it with 'neurogrid vault init' and record consents with 'neurogrid vault consent add')."
+    no_consents: "The vault holds no consent records (consents.yaml missing or without entries)."
+    subject_unknown: "The recording needs a use, but its subject is unknown (map raw files with [convert] pattern or [[convert.files]])."
+    missing: "No consent record for this subject."
+    not_yet_valid: "Every consent record of this subject is dated after the reference date."
+    withdrawn: "The effective consent of this subject is a withdrawal."
+    use_not_permitted: "The effective consent of this subject does not permit this use."
 
 issue:
   header:
@@ -562,6 +624,8 @@ check:
     codes: "Annotation codes uniform and in the vocabulary"
     gaps: "No gaps in continuous annotation"
     overlaps: "No overlapping annotations"
+  consent:
+    covered: "Use covered by consent"
 
 report:
   ai:
@@ -573,6 +637,16 @@ report:
     duplicate_of: "Same signal as: {names}"
     duplicate_splits: "Splits of the group: {names}"
     split_recordings: "{split}: {names}"
+  consent:
+    use: "Use"
+    count: "Number"
+    subjects: "{count} subject(s)"
+    recordings: "{count} recording(s)"
+    dataset: "the dataset"
+    all_uses: "all uses"
+    withheld: "breakdown withheld: a reason or status has fewer than 5 subjects (small-cell rule)"
+    note: "Consent findings per subject are listed only in results.json; this report shows them aggregated per use and reason, without subject IDs and consent versions."
+    exception_withheld: "withheld: consent findings and their exceptions are listed per subject only in results.json"
   title: "NeuroGrid pre-check report"
   placeholder_banner: "This report contains rule packs marked as placeholders. Their rules are not based on the norm text, are shown without clause reference and are not counted."
   section:
@@ -822,3 +896,11 @@ report:
     sidecar: "sidecar"
     header: "data file"
     default: "default value"
+
+terms:
+  consent_use:
+    training: "Training"
+    validation: "Validation"
+    publication: "Publication"
+    sharing: "Sharing"
+    commercial: "Commercial use"

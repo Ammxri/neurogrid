@@ -54,6 +54,7 @@ thresholds:
   origin_calibrated: "calibrated: 95th percentile over {n} {over} of the public corpus ({ref})"
   over_recordings: "recordings"
   over_channels: "channels"
+  consent_note: "no consent data: not checkable; --strict or [consent]: error"
 calibration:
   dataset: "Data set"
   version: "Version"

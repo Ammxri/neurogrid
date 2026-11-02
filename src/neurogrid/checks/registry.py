@@ -8,6 +8,7 @@ from neurogrid.checks import (
     ai_dataset,
     annotation,
     bids,
+    consent,
     metadata,
     provenance,
     quality,
@@ -19,7 +20,7 @@ from neurogrid.kernel.rules import CheckSpec, Measurement, evidence_spec
 
 Measurer = Callable[[CheckContext], list[Measurement]]
 
-_MODULES = (structure, metadata, signal, quality, bids, ai_dataset, provenance, annotation)
+_MODULES = (structure, metadata, signal, quality, bids, ai_dataset, provenance, annotation, consent)
 
 REGISTRY: dict[str, CheckSpec] = {spec.id: spec for module in _MODULES for spec in module.SPECS}
 REGISTRY[evidence_spec().id] = evidence_spec()

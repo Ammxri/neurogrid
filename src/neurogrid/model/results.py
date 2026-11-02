@@ -94,6 +94,9 @@ class ConfigInfo(BaseModel):
     effective_settings: dict[str, Any]
     # canonical SHA-256 of the parsed evidence.yaml (A-83); None without one. Never its path (A-11, A-51).
     evidence_sha256: str | None = None
+    # canonical SHA-256 of the parsed consent records <vault>/consents.yaml (M14, A-91); None without the
+    # file or when M14 is not loaded. Never their content (no dates, ethics references or uses, A-51).
+    consents_sha256: str | None = None
 
 
 class RecordingSummary(BaseModel):

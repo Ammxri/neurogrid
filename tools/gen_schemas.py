@@ -19,6 +19,7 @@ from neurogrid.kernel.evidence import EvidenceFile
 from neurogrid.kernel.provenance import Manifest
 from neurogrid.kernel.rules import Rulepack
 from neurogrid.model.access import AccessEvent
+from neurogrid.model.consent import ConsentFile
 from neurogrid.model.results import Results, ScanResult
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -31,6 +32,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "evidence": EvidenceFile,  # evidence.yaml (A-15, A-83; KONZEPT 1.2)
     "manifest": Manifest,
     "access_event": AccessEvent,  # one line of the vault access log access.jsonl (DM-09, NV-F03)
+    "consents": ConsentFile,  # the consent records <vault>/consents.yaml (DM-08, NV-F01, A-91)
 }
 
 

@@ -1,6 +1,6 @@
 # Metrics {#metrics}
 
-The rule pack `core` evaluates the metrics M01–M13; this page is its source (the clause of a core rule is the
+The rule pack `core` evaluates the metrics M01–M14; this page is its source (the clause of a core rule is the
 metric). For each metric it says what is measured, how, on which object, when a value cannot be judged, which
 rules use it with which threshold and where that threshold comes from. Every threshold can be overridden in
 `neurogrid.toml` (`[rules."ID".params]`).
@@ -234,10 +234,44 @@ it (changed, new, missing, kind changed, unreadable); processing steps and softw
 | [CORE-M13-03](reference/rules.md#CORE-M13-03) Processing steps and software versions documented | Warning | – | assumption A-22 (decision log) |
 <!-- END GENERATED -->
 
-## M14 Consent scope (from v0.2) {#M14}
+## M14 Consent scope {#M14}
 
-Whether the use of each recording in a split is covered by the consent of its subject. M14 needs NeuroVault and
-follows with version 0.2; version 0.1 has no M14 rule.
+**Measured.** Whether the use of each signal recording is covered by the consent of its subject. The consent
+records are `consents.yaml` in the vault ([Configuration](configuration.md#consent-vault),
+[Output files](reference/outputs.md#consents)); `neurogrid vault consent add` writes them
+([Commands](commands.md#vault-consent-add)).
+
+- **Needed uses.** A recording in a split needs the uses of that split, `[consent] split_use`: by default train
+  needs training, val and test need validation; a configured split replaces only its own default and may need
+  several uses. Every use of `[consent] dataset_uses` is needed by every signal recording of the dataset, in a
+  split or not. Annotation-only files (hypnograms) need no consent. Splits and subjects are those of M12.
+- **Effective consent.** For each subject the record with the highest version dated on or before the reference
+  date (`--as-of`) is in effect. A partial withdrawal is a new version with fewer uses, a full withdrawal a new
+  version with `withdrawn: true`, a renewed consent a later version with uses again.
+- **Results.** One result per subject and needed use. A use that is not covered fails with its reason: no
+  record of the subject, only records dated after the reference date, the effective record is a withdrawal, or it
+  does not permit the use. This is an error whenever consent records exist, with or without `[consent]`.
+- **Without consent data** (no vault, no `consents.yaml`, or `consents: []`) one dataset-level result is not
+  checkable (grey, not counted); so is a recording with a needed use whose subject is unknown (a raw folder
+  without mapping). With `--strict` or `[check] strict`, or with a configured `[consent]` section (`split_use` or
+  `dataset_uses` set), these results fail instead. Unlike CORE-M13-01 the severity does not change: strict mode
+  and `[consent]` change only the status of these results.
+- **No needed use** (no split and no `dataset_uses`): not applicable, also without a vault and with `--strict`,
+  because there is nothing to cover.
+
+**Output.** `results.json` lists the results per subject: the pseudonymous subject ID, the use, the reason, the
+effective version and up to 20 recording IDs; consent dates, ethics references and the permitted uses never
+appear. The report shows M14 only aggregated per use, status and reason, without subject IDs and versions; when a
+cell has fewer than 5 subjects, only the total per use is shown ([Reading the report](report.md#findings)).
+
+<!-- BEGIN GENERATED thresholds M14 -->
+| Rule | Severity | Parameter | Origin |
+|---|---|---|---|
+| [CORE-M14-01](reference/rules.md#CORE-M14-01) Use in the split covered by consent | Error (no consent data: not checkable; --strict or [consent]: error) | – | start value of the product specification (A-30, A-91) |
+<!-- END GENERATED -->
+
+**Limits.** NeuroGrid records the user's statement about a consent and does not judge whether it is legally
+valid ([Limitations](limitations.md#consent)).
 
 ## Calibration {#calibration}
 

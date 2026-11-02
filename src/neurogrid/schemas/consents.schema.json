@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "ConsentScope": {
+      "additionalProperties": false,
+      "description": "One consent record of a subject (DM-08). ``permitted_uses`` is kept in ConsentUse order, so equal\nrecords are equal objects however the file lists the uses.",
+      "else": {
+        "properties": {
+          "permitted_uses": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "permitted_uses"
+        ]
+      },
+      "if": {
+        "properties": {
+          "withdrawn": {
+            "const": true
+          }
+        },
+        "required": [
+          "withdrawn"
+        ]
+      },
+      "properties": {
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "ethics_approval_ref": {
+          "anyOf": [
+            {
+              "maxLength": 120,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "pattern": "\\S",
+          "title": "Ethics Approval Ref"
+        },
+        "permitted_uses": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ConsentUse"
+          },
+          "maxItems": 5,
+          "title": "Permitted Uses",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "subject": {
+          "pattern": "^(sub-)?[A-Za-z0-9]{1,64}$",
+          "title": "Subject",
+          "type": "string"
+        },
+        "version": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "withdrawn": {
+          "default": false,
+          "title": "Withdrawn",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "subject",
+        "version",
+        "date"
+      ],
+      "then": {
+        "properties": {
+          "permitted_uses": {
+            "maxItems": 0
+          }
+        }
+      },
+      "title": "ConsentScope",
+      "type": "object"
+    },
+    "ConsentUse": {
+      "description": "The uses a consent may permit (KONZEPT 2.1); this order is the order of every list of uses.",
+      "enum": [
+        "training",
+        "validation",
+        "publication",
+        "sharing",
+        "commercial"
+      ],
+      "title": "ConsentUse",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The whole consents.yaml. ``format_version`` and ``consents`` are required in a file\n(parse_consents, and the schema); the defaults only serve NeuroGrid's own construction.",
+  "properties": {
+    "consents": {
+      "items": {
+        "$ref": "#/$defs/ConsentScope"
+      },
+      "maxItems": 20000,
+      "title": "Consents",
+      "type": "array"
+    },
+    "format_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Format Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "format_version",
+    "consents"
+  ],
+  "title": "ConsentFile",
+  "type": "object"
+}

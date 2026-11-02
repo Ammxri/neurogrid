@@ -129,7 +129,7 @@ def test_kernel_boundary_check_sees_relative_imports() -> None:
 # is the one import of the package itself.
 VAULT_ALLOWED = ("neurogrid.kernel", "neurogrid.model", "neurogrid.io", "neurogrid.config", "neurogrid.vault")
 PACKAGE_VERSION = {"neurogrid", "neurogrid.__version__"}
-KERNEL_ONLY_MODELS = ("access.py",)  # the consent area adds consent.py
+KERNEL_ONLY_MODELS = ("access.py", "consent.py")
 
 
 def _outside(names: set[str], allowed: tuple[str, ...]) -> list[str]:
@@ -156,6 +156,17 @@ def test_vault_imports_only_kernel_model_io_and_config() -> None:
 def test_access_and_consent_models_import_only_the_kernel(name: str) -> None:
     names = _imports(SRC / "model" / name)
     assert not _outside(names, ("neurogrid.kernel",)), f"{name}: {_outside(names, ('neurogrid.kernel',))}"
+
+
+def test_the_consent_check_reads_the_vault_as_a_supplier() -> None:
+    """ARC-01 (p6 decisions 1): the M14 check consent.covered is registered, and the vault consent module the
+    check reads imports only the kernel, the models, io and the vault (never the checks)."""
+    from neurogrid.checks.registry import MEASURERS, REGISTRY
+
+    assert "consent.covered" in REGISTRY and "consent.covered" in MEASURERS
+    names = _imports(SRC / "checks" / "consent.py")
+    assert "neurogrid.vault.consents" in {name.rsplit(".", 1)[0] for name in names} | names
+    assert not _outside(_imports(SRC / "vault" / "consents.py"), VAULT_ALLOWED)
 
 
 def test_vault_boundary_check_sees_forbidden_imports() -> None:

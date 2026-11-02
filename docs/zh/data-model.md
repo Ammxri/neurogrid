@@ -109,9 +109,25 @@ NeuroGrid 的公开格式（results.json、规则包、neurogrid.toml）使用�
 `params`（生效阈值及其来源）、`time_ranges`、`time_ranges_total`、`time_ranges_duration_s`、`message_key`、
 `reason`。
 
-## ConsentScope 与 AccessEvent
+## ConsentScope（知情同意范围）
 
-这两个对象属于 NeuroVault，将在 0.2 版中加入。
+vault 中 `consents.yaml` 的一条知情同意记录（[输出文件](reference/outputs.md#consents)）。
+
+| 规格书字段 | 字段 |
+|---|---|
+| subject | subject |
+| version | version |
+| datum | date |
+| erlaubte_nutzungen | permitted_uses |
+| widerruf | withdrawn |
+| ethikvotum_ref | ethics_approval_ref |
+
+`permitted_uses` 的取值：training → `training`，validierung → `validation`，veroeffentlichung → `publication`，
+weitergabe → `sharing`，kommerziell → `commercial`。
+
+## AccessEvent（访问事件）
+
+NeuroVault 访问日志中的访问事件（0.2 版）。
 
 ## Results（结果）
 

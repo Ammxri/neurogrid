@@ -78,6 +78,11 @@ cli:
     differs: "Der Datensatz weicht vom Manifest ab."
   vault:
     role_looks_identifying: "Hinweis: Die Rolle sieht wie ein Personenname oder eine Kennnummer aus. Verwenden Sie eine Rollenbezeichnung oder ein Kürzel; das Zugriffsprotokoll speichert sie wie angegeben."
+    consent:
+      added: "Einwilligung erfasst: {subject}, Version {version}."
+      imported: "Einwilligungen importiert: {count}."
+      subject_hint: "Hinweis: {count} Probandenkennung(en) enthalten sechs oder mehr Ziffern in Folge und können Kennnummern sein; verwenden Sie pseudonyme Kennungen."
+      date_in_future: "Hinweis: {count} Eintrag/Einträge sind nach dem heutigen Tag datiert; sie gelten ab ihrem Datum."
   help:
     app: "NeuroGrid – lokale Offline-Vorprüfung von EEG-Datensätzen (keine Bewertung im Sinne der NMPA-Vorschriften)."
     heading:
@@ -142,6 +147,20 @@ cli:
       about: "NeuroVault: Einwilligungen und das hashverkettete Zugriffsprotokoll eines Datensatzes."
       consent:
         about: "Einwilligungen im Vault (consents.yaml)."
+        add:
+          about: "Einwilligung eines Probanden im Vault erfassen (consents.yaml) oder mit --from eine Tabelle importieren; jede Änderung steht im Zugriffsprotokoll."
+          path: "Datensatzordner."
+          subject: "Pseudonymer Proband (Kennung mit oder ohne 'sub-')."
+          version: "Version der Einwilligung (eine ganze Zahl; eine höhere Version ersetzt eine niedrigere)."
+          date: "Datum der Einwilligung oder des Widerrufs, JJJJ-MM-TT."
+          uses: "Erlaubte Nutzungen: training, validation, publication, sharing, commercial (mehrfach oder durch Kommas getrennt)."
+          withdrawn: "Vollständiger Widerruf ab dem Datum (keine Nutzung erlaubt)."
+          ethics_ref: "Referenz des Ethikvotums (optional, keine Namen)."
+          from: "Importtabelle consents.tsv (tabulatorgetrennt), statt der einzelnen Felder."
+          config: "Pfad zu neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Datensatz); liefert den Vault-Pfad und die Standardwerte der Ereignisfelder."
+          role: "Rolle im Zugriffsereignis (Rollenbezeichnung oder Kürzel; Standard: [vault] role)."
+          purpose: "Zweck im Zugriffsereignis (Standard: [vault] purpose)."
+          approval_ref: "Genehmigungsreferenz im Zugriffsereignis (Standard: [vault] approval_ref)."
 
 errors:
   splits:
@@ -294,6 +313,35 @@ errors:
     object_invalid: "Objekt {index} ist kein relativer Pfad und kein Muster (kein absoluter, Laufwerks- oder Netzwerkpfad, kein '..', kein Backslash oder Doppelpunkt, keine Steuerzeichen, höchstens 1024 Zeichen)."
     too_many_objects: "Zu viele oder zu lange Objekte: höchstens {limit} Objekte, und ein Eintrag des Zugriffsprotokolls fasst höchstens 64 KiB."
     text_invalid: "Der Wert von {field} kann nicht protokolliert werden: Er ist leer, zu lang oder enthält Steuerzeichen oder ungültigen Text."
+    target_not_folder: "Die Vault-Befehle brauchen einen Datensatzordner, keine einzelne Datei."
+  consents:
+    invalid: "Die Einwilligungen (consents.yaml im Vault) sind ungültig: Feld '{field}' ({problem})."
+    too_large: "Die Einwilligungen (consents.yaml im Vault) sind oder würden zu groß (Grenze {limit} Bytes)."
+    encoding: "Die Einwilligungen (consents.yaml im Vault) sind kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
+    not_a_file: "consents.yaml im Vault ist keine reguläre Datei."
+    unreadable: "consents.yaml im Vault kann nicht gelesen werden."
+  consent:
+    from_with_fields: "--from importiert eine Tabelle; es kann nicht mit --subject, --version, --date, --uses, --withdrawn oder --ethics-ref kombiniert werden."
+    from_not_found: "Die Importtabelle (--from) wurde nicht gefunden."
+    uses_required: "Geben Sie die erlaubten Nutzungen mit --uses an oder erfassen Sie einen vollständigen Widerruf mit --withdrawn."
+    withdrawn_with_uses: "Ein vollständiger Widerruf (--withdrawn) erlaubt keine Nutzung; lassen Sie --uses weg (ein Teilwiderruf ist eine neue Version mit weniger Nutzungen)."
+    unknown_use: "Unbekannte Nutzung; erlaubt: {allowed}."
+    subject_invalid: "Ungültiger Proband: Geben Sie die pseudonyme Kennung mit oder ohne 'sub-' an (Buchstaben A-Z, a-z und Ziffern, höchstens 64)."
+    version_invalid: "Ungültige Version: eine ganze Zahl von 1 bis 1000000."
+    date_invalid: "Ungültiges Datum; erwartet JJJJ-MM-TT."
+    ethics_ref_invalid: "Ungültige Referenz des Ethikvotums: 1 bis 120 druckbare Zeichen, nicht nur Leerzeichen."
+    duplicate_version: "Für diesen Probanden gibt es bereits eine Einwilligung mit dieser Version; erfassen Sie eine Änderung als neue, höhere Version."
+    date_order: "Die Daten der Einwilligungen eines Probanden dürfen mit der Version nicht sinken: Eine höhere Version kann nicht vor einer niedrigeren datiert sein."
+    write_failed: "consents.yaml konnte nicht geschrieben werden und ist unverändert. Das Zugriffsprotokoll enthält den Versuch (Ereignis consent_manage)."
+  consent_tsv:
+    columns: "consents.tsv braucht die Spalten subject, version, date und permitted_uses (oder uses), optional withdrawn und ethics_approval_ref (oder ethics_ref), jede einmal und keine weitere Spalte."
+    invalid_row: "consents.tsv, Zeile {line}: Der Wert in Spalte '{field}' ist ungültig (bei einem Datum auch, wenn es vor dem Datum einer niedrigeren Version desselben Probanden liegt)."
+    duplicate: "consents.tsv, Zeile {line}: Dieser Proband und diese Version sind bereits erfasst (in der Tabelle oder in consents.yaml)."
+    too_large: "consents.tsv ist zu groß (Grenze {limit} Bytes)."
+    too_many_rows: "consents.tsv hat zu viele Zeilen (Grenze {limit})."
+    encoding: "consents.tsv ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
+    not_a_file: "Die Importtabelle (--from) ist keine reguläre Datei."
+    unreadable: "Die Importtabelle (--from) kann nicht gelesen werden."
 
 notice:
   splits_both_sources: "Die Splits stammen aus splits.tsv; die Spalte 'split' in participants.tsv wird nicht verwendet."
@@ -323,6 +371,10 @@ notice:
   annotations_ambiguous: "{count} reine Annotationsdatei(en) passen gleich gut zu mehreren Signalaufnahmen; jede wird als eigene Aufnahme geprüft. Bitte mit [[annotation.files]] in neurogrid.toml zuordnen."
   annotation_files_unmatched: "{count} Zeile(n) von [[annotation.files]] in neurogrid.toml nennen keine reine Annotationsdatei oder keine Signalaufnahme des Datensatzes."
   events_rows_invalid: "{count} Annotation(en) aus events.tsv-Dateien, EEGLAB-Datensätzen oder FIF-Dateien haben keinen gültigen Beginn oder keine gültige Dauer (endliche Zahlen, höchstens rund 31,7 Jahre vom Aufnahmebeginn entfernt; in FIF-Dateien innerhalb der aufgezeichneten Daten, wie MNE sie liest) und wurden bei den Annotationsprüfungen ausgelassen."
+  consent_future_versions: "{count} Einwilligung(en) von Probanden des Datensatzes sind nach dem Stichtag {as_of} datiert; sie gelten noch nicht."
+  consents_without_recording: "{count} Proband(en) der Einwilligungen haben keine Signalaufnahme im Datensatz."
+  consent_refs_look_identifying: "{count} Referenz(en) eines Ethikvotums in den Einwilligungen können Personen erkennbar machen (ein Name, Buchstaben außerhalb von ASCII oder sechs oder mehr Ziffern in Folge); die Werte werden nicht gezeigt."
+  consents_outside_dataset: "Der Vault mit den Einwilligungen liegt außerhalb des Datensatzes; ein Manifest des Datensatzes erfasst consents.yaml nicht."
 
 severity:
   error: "Fehler"
@@ -468,6 +520,16 @@ reason:
     epoched: "Epochierter EEGLAB-Datensatz; kontinuierliche Annotation kann nicht beurteilt werden."
     duration_unknown: "Die Länge der Aufnahme ist unbekannt."
     too_many_epochs: "Das Epochenraster hat mehr Epochen als die Grenze (5.000.000); bitte ein längeres [annotation] epoch_s wählen."
+  consent:
+    single_file: "Eine einzelne Datei ist kein Datensatz: Sie hat keinen Vault und keine Einwilligungen."
+    no_uses: "Keine Aufnahme braucht eine Nutzung: kein Split und keine [consent] dataset_uses."
+    no_vault: "Kein Vault, also keine Einwilligungen (anlegen mit 'neurogrid vault init', Einwilligungen erfassen mit 'neurogrid vault consent add')."
+    no_consents: "Der Vault enthält keine Einwilligungen (consents.yaml fehlt oder hat keine Einträge)."
+    subject_unknown: "Die Aufnahme braucht eine Nutzung, aber ihr Proband ist unbekannt (Rohdateien mit [convert] pattern oder [[convert.files]] zuordnen)."
+    missing: "Keine Einwilligung für diesen Probanden."
+    not_yet_valid: "Jede Einwilligung dieses Probanden ist nach dem Stichtag datiert."
+    withdrawn: "Die wirksame Einwilligung dieses Probanden ist ein Widerruf."
+    use_not_permitted: "Die wirksame Einwilligung dieses Probanden erlaubt diese Nutzung nicht."
 
 issue:
   header:
@@ -562,6 +624,8 @@ check:
     codes: "Annotationscodes einheitlich und im Vokabular"
     gaps: "Keine Lücken in kontinuierlicher Annotation"
     overlaps: "Keine überlappenden Annotationen"
+  consent:
+    covered: "Nutzung durch Einwilligung gedeckt"
 
 report:
   ai:
@@ -573,6 +637,16 @@ report:
     duplicate_of: "Gleiches Signal wie: {names}"
     duplicate_splits: "Splits der Gruppe: {names}"
     split_recordings: "{split}: {names}"
+  consent:
+    use: "Nutzung"
+    count: "Anzahl"
+    subjects: "{count} Proband(en)"
+    recordings: "{count} Aufnahme(n)"
+    dataset: "der Datensatz"
+    all_uses: "alle Nutzungen"
+    withheld: "Aufschlüsselung zurückgehalten: ein Grund oder Status hat weniger als 5 Probanden (Tabellenregel für kleine Zellen)"
+    note: "Einwilligungsbefunde je Proband stehen nur in results.json; dieser Bericht zeigt sie zusammengefasst je Nutzung und Grund, ohne Probanden-IDs und Versionsnummern der Einwilligung."
+    exception_withheld: "zurückgehalten: Einwilligungsbefunde und ihre Ausnahmen stehen je Proband nur in results.json"
   title: "NeuroGrid-Vorprüfungsbericht"
   placeholder_banner: "Dieser Bericht enthält Regelpakete, die als Platzhalter markiert sind. Ihre Regeln beruhen nicht auf dem Normtext, erscheinen ohne Klauselbezug und zählen nicht."
   section:
@@ -822,3 +896,11 @@ report:
     sidecar: "Sidecar"
     header: "Datendatei"
     default: "Standardwert"
+
+terms:
+  consent_use:
+    training: "Training"
+    validation: "Validierung"
+    publication: "Veröffentlichung"
+    sharing: "Weitergabe"
+    commercial: "Kommerzielle Nutzung"

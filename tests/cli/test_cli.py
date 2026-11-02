@@ -314,10 +314,19 @@ def test_mixed_rate_edf_prints_no_library_warning(
     results = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
     errors = {(f["rule_id"], f["subkey"]) for f in results["findings"] if f["severity"] == "error"}
     # P4: dataset-level findings of error rules without a data problem here, both not_applicable and not
-    # counted: CORE-M12-01 (no splits; A-81, C11) and CORE-M13-02 (no manifest to compare with; A-82)
-    assert code == 1 and errors == {("CORE-M08-01", "EEG Fz"), ("CORE-M12-01", None), ("CORE-M13-02", None)}
+    # counted: CORE-M12-01 (no splits; A-81, C11) and CORE-M13-02 (no manifest to compare with; A-82); P6:
+    # CORE-M14-01 (no split and no [consent] dataset_uses: no use to cover; A-91)
+    expected = {
+        ("CORE-M08-01", "EEG Fz"),
+        ("CORE-M12-01", None),
+        ("CORE-M13-02", None),
+        ("CORE-M14-01", None),
+    }
+    assert code == 1 and errors == expected
     m13_02 = [(f["status"], f["reason"]) for f in results["findings"] if f["rule_id"] == "CORE-M13-02"]
     assert m13_02 == [("not_applicable", "provenance.manifest_missing")]
+    m14 = [(f["status"], f["reason"]) for f in results["findings"] if f["rule_id"] == "CORE-M14-01"]
+    assert m14 == [("not_applicable", "consent.no_uses")]
     assert results["summary"]["errors"] == 1  # only the flat line counts
 
 

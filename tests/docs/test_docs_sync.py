@@ -28,6 +28,7 @@ from neurogrid.config import Config, MetadataDefaults
 from neurogrid.kernel.findings import Finding, Light, Phase, Severity, Status, Verification
 from neurogrid.kernel.rules import EVIDENCE_CHECK, Bound, Rule, Rulepack, is_true, load_rulepack
 from neurogrid.kernel.safety import load_yaml, operator_path_problem
+from neurogrid.model.consent import ConsentScope, ConsentUse
 from neurogrid.model.dataset import Channel
 from neurogrid.model.results import Results, Summary
 from neurogrid.report.texts import tables
@@ -445,6 +446,14 @@ MAPPING = {
         "weitergabe": "sharing",
         "kommerziell": "commercial",
     },
+    "consent-scope": {  # DM-08: the fields of a consent record (model.consent.ConsentScope)
+        "subject": "subject",
+        "version": "version",
+        "datum": "date",
+        "erlaubte_nutzungen": "permitted_uses",
+        "widerruf": "withdrawn",
+        "ethikvotum_ref": "ethics_approval_ref",
+    },
     "report-terms": {
         "Befund": "finding",
         "Belege": "details",
@@ -466,8 +475,10 @@ def test_spec_terms_are_documented() -> None:
         typing.get_args(typing.get_args(MetadataDefaults.model_fields["electrode_type"].annotation)[0])
     )
     literals |= set(typing.get_args(typing.get_args(Channel.model_fields["status"].annotation)[0]))
-    consent_uses = {"training", "validation", "publication", "sharing", "commercial"}  # ConsentScope, v0.2
+    consent_uses = {use.value for use in ConsentUse}  # ConsentScope.permitted_uses (DM-08)
     assert set(MAPPING["values"].values()) <= enum_values | literals | consent_uses
+    assert consent_uses <= set(MAPPING["values"].values())  # every use has its specification term
+    assert set(MAPPING["consent-scope"].values()) == set(ConsentScope.model_fields)
     assert {"details"} <= set(Finding.model_fields) and {"evidence", "exceptions"} <= set(
         Results.model_fields
     )

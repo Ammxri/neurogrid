@@ -164,10 +164,41 @@ def test_scan_and_manifest_files_against_their_schemas(tmp_path: Path) -> None:
 def test_finding_rows_accept_the_report(results: Results, overflowing: Results, lang: str) -> None:
     for checked_results in (results, overflowing):
         checked = g1.check_finding_rows(render_report(checked_results, lang), checked_results, lang)
-        totals = Counter(finding.rule_id for finding in checked_results.findings)
+        # M14 (consent.covered) has no finding rows: one aggregated block per rule (D-17 option B)
+        aggregated = {rule.id for rule in checked_results.rules if rule.check == "consent.covered"}
+        totals = Counter(f.rule_id for f in checked_results.findings if f.rule_id not in aggregated)
         assert checked.problems == []
         assert checked.rows == sum(min(total, MAX_ROWS_PER_RULE) for total in totals.values())
     assert max(Counter(f.rule_id for f in overflowing.findings).values()) > MAX_ROWS_PER_RULE
+    assert any(f.rule_id == "CORE-M14-01" for f in results.findings)  # bids_issues: no use, not applicable
+
+
+def test_the_aggregated_m14_block_is_checked(results: Results) -> None:
+    """D-17 option B: the oracle requires the M14 block, refuses a per-subject row of M14 and a block that
+    names a subject of its findings."""
+    lang = "en"
+    document = render_report(results, lang)
+    block = re.search(r'<div class="rule-group" data-rule="CORE-M14-01">.*?</div>', document, re.S)
+    assert block is not None and '<table class="consent">' in block.group(0)
+    without = document.replace('<table class="consent">', '<table class="other">')
+    assert g1.check_finding_rows(without, results, lang).problems == [
+        "CORE-M14-01: the aggregated block is missing"
+    ]
+    finding = next(f for f in results.findings if f.rule_id == "CORE-M14-01")
+    per_subject = finding.model_copy(update={"object": "sub-07", "details": {"use": "training"}})
+    named = results.model_copy(update={"findings": [*results.findings, per_subject]})
+    text = render_report(named, lang).replace(
+        '<p class="consent-note">', '<p class="consent-note">sub-07 ', 1
+    )
+    assert "CORE-M14-01: the aggregated block names 1 object(s) of its findings" in (
+        g1.check_finding_rows(text, named, lang).problems
+    )
+    key = ROW.search(document)["key"]  # type: ignore[index]
+    moved = [f.model_copy(update={"rule_id": "CORE-M14-01"}) if f.key == key else f for f in results.findings]
+    shown = results.model_copy(update={"findings": moved})
+    assert f"row {key}: a finding of CORE-M14-01 is shown per subject" in (
+        g1.check_finding_rows(document, shown, lang).problems
+    )
 
 
 def test_finding_rows_name_each_defect(results: Results) -> None:

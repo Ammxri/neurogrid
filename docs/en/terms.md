@@ -49,6 +49,19 @@ Additions without a specification term: `source_status`, `norm`, `strict_severit
 | weitergabe | sharing | consent use (from version 0.2) |
 | kommerziell | commercial | consent use (from version 0.2) |
 
+## Consent records {#consent-scope}
+
+The fields of a consent record in `consents.yaml` of the vault ([Output files](reference/outputs.md#consents)).
+
+| Specification term | Identifier | Meaning |
+|---|---|---|
+| subject | subject | pseudonymous subject (`sub-<label>`) |
+| version | version | version of the consent; the highest one dated on or before the reference date is in effect |
+| datum | date | date of the consent or the withdrawal |
+| erlaubte_nutzungen | permitted_uses | uses the consent permits |
+| widerruf | withdrawn | full withdrawal from the date on |
+| ethikvotum_ref | ethics_approval_ref | reference of the ethics approval |
+
 ## Report and findings {#report-terms}
 
 | Specification term | Identifier | Meaning |

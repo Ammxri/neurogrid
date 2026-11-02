@@ -38,3 +38,4 @@ CORE-M12-02: {origin: spec, ref: "A-21"}
 CORE-M13-01: {origin: spec, ref: "A-22, A-82"}
 CORE-M13-02: {origin: spec, ref: "A-82"}
 CORE-M13-03: {origin: assumption, ref: "A-22"}
+CORE-M14-01: {origin: spec, ref: "A-30, A-91"}

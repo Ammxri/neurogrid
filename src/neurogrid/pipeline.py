@@ -21,6 +21,7 @@ import neurogrid
 from neurogrid import config as config_module
 from neurogrid.checks import ai_dataset
 from neurogrid.checks import annotation as annotation_checks
+from neurogrid.checks import consent as consent_checks
 from neurogrid.checks import evidence as evidence_module
 from neurogrid.checks import provenance as provenance_checks
 from neurogrid.checks.context import CheckContext
@@ -84,6 +85,7 @@ from neurogrid.model.results import (
 from neurogrid.quality import describe as describe_quality
 from neurogrid.quality import finite_values
 from neurogrid.report.texts import disclaimer
+from neurogrid.vault import consents as vault_consents
 
 # Libraries whose versions can change a result (A-11): readers, the BIDS validator and its runtime (A-48).
 RESULT_LIBRARIES = (
@@ -343,6 +345,13 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             ai_dataset.structure(ctx)
         if provenance_checks.DOCUMENTED in check_ids and not ctx.provenance().single_file:
             ctx.provenance().sources()  # likewise an invalid provenance.yaml, before the signal pass (C2)
+        if check_ids & consent_checks.CHECKS and not found.single_file:
+            # M14 (A-30, A-91): the consent records are a control file too; a single file has no vault
+            ai_dataset.structure(ctx)
+            ctx.consents = vault_consents.load_for_check(
+                target.root, loaded_config.project_root, cfg.vault.path
+            )
+            ctx.consent_required = strict or cfg.consent.configured
         stream = bool(check_ids & (STREAM_CHECKS | ai_dataset.STREAM_CHECKS))  # M12 needs the signal hash
         sample = bool(check_ids & SAMPLE_CHECKS)
         if stream or sample:
@@ -405,6 +414,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         # (A-66): no manifest covers its folder, so there is nothing to warn about.
         notices.append(Notice(level=Severity.WARNING, message_key="notice.output_inside_dataset"))
     notices.extend(annotation_checks.notices(ctx))  # M10: files and rows that could not be used (A-80)
+    notices.extend(consent_checks.notices(ctx, check_ids))  # M14: counts only (A-51)
     exceptions = [
         use.model_copy(
             update={
@@ -457,6 +467,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             effective_params=result.effective_params,
             effective_settings=_effective_settings(cfg, plain_names, show_paths=options.show_paths),
             evidence_sha256=evidence.sha256,
+            consents_sha256=ctx.consents.sha256 if ctx.consents is not None else None,
         ),
         recordings=_recording_summaries(ctx),
         findings=result.findings,

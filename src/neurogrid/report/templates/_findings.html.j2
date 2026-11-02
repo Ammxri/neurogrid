@@ -9,6 +9,22 @@
     </tbody>
   </table>
 {% endmacro %}
+{% macro consent_table(consent) %}
+  <table class="consent">
+    <thead><tr><th>{{ t('report.consent.use') }}</th><th>{{ t('report.label.status') }}</th><th>{{ t('report.label.reason') }}</th><th>{{ t('report.consent.count') }}</th></tr></thead>
+    <tbody>
+    {% for row in consent.rows %}
+    {% if row.withheld %}<tr><td>{{ row.use }}</td><td colspan="2">{{ row.withheld }}</td><td>{{ row.count }}</td></tr>
+    {% else %}<tr><td>{{ row.use }}</td><td>{{ row.status }}</td><td>{{ row.reason }}</td><td>{{ row.count }}</td></tr>
+    {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="consent-note">{{ consent.note }}</p>
+{% endmacro %}
+{% macro group_body(group) %}
+{% if group.consent %}{{ consent_table(group.consent) }}{% else %}{{ finding_table(group) }}{% endif %}
+{% endmacro %}
 <section id="findings">
   <h2>{{ t('report.section.findings') }}</h2>
   {% for section in severity_sections %}
@@ -18,7 +34,7 @@
   <div class="rule-group" data-rule="{{ group.rule }}">
     <h4><span class="nowrap">{{ group.rule }}</span>{% if group.title %} – {{ group.title }}{% endif %}</h4>
     <p class="aggregate">{{ group.aggregate }}</p>
-    {{ finding_table(group) }}
+    {{ group_body(group) }}
     {% if group.more %}<p class="more">{{ group.more }}</p>{% endif %}
   </div>
   {% endfor %}
@@ -33,7 +49,7 @@
     <div class="rule-group" data-rule="{{ group.rule }}">
       <h4><span class="nowrap">{{ group.rule }}</span>{% if group.title %} – {{ group.title }}{% endif %}</h4>
       <p class="aggregate">{{ group.aggregate }}</p>
-      {{ finding_table(group) }}
+      {{ group_body(group) }}
       {% if group.more %}<p class="more">{{ group.more }}</p>{% endif %}
     </div>
     {% endfor %}

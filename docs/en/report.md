@@ -45,6 +45,11 @@ The report shows at most 50 rows per rule; a closing line names the exact number
 the complete list is in `results.json` (`findings`, selected by `rule_id`). Passed checks are counted per rule.
 Findings of placeholder packs are in a section of their own, "not evaluated".
 
+M14 (consent, CORE-M14-01) is the one rule without finding rows: its block counts the results per use, status
+and reason, without subject IDs and consent versions; when a cell has fewer than 5 subjects only the total per use
+is shown (small-cell rule). The results per subject are in `results.json`. Exceptions for this rule show neither
+object nor reason in the appendix.
+
 ## 4 Metrics per recording {#metrics}
 
 A table of the metrics per recording (format, sampling rate, duration, EEG channels, passed checks and the values
