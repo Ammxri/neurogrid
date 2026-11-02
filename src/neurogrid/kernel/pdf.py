@@ -198,12 +198,15 @@ class PdfMeta:
 @dataclass(frozen=True)
 class PdfExpect:
     """What the QA gate requires: the metadata, the fonts (PostScript names of the faces whose subsets the
-    PDF may embed, passed in by the product), phrases on every page and phrases somewhere in the text."""
+    PDF may embed, passed in by the product), phrases on every page, phrases somewhere in the text and
+    phrases of which every page holds at least one (``every_page_any``: a PDF made of parts in several
+    languages, such as the dossier, whose pages carry the fixed sentence of their part's language, A-99)."""
 
     meta: PdfMeta
     fonts: tuple[str, ...]
     every_page: tuple[str, ...] = ()
     once: tuple[str, ...] = ()
+    every_page_any: tuple[str, ...] = ()
 
 
 @dataclass
@@ -1049,8 +1052,9 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
 
     Fonts: only embedded Type0/CIDFontType2 subsets (Identity encoding) of ``expect.fonts`` with ToUnicode,
     no Type3, no system font, no glyph 0 shown (a missing glyph drawn as an empty box, _MissingGlyphs).
-    Text: no radical or compatibility code point; ``every_page`` phrases on each page, ``once`` phrases
-    somewhere (whitespace ignored, cells wrap). Metadata: exactly the five /Info keys, the title and the
+    Text: no radical or compatibility code point; ``every_page`` phrases on each page, at least one of the
+    ``every_page_any`` phrases on each page (both phrase_missing_on_page), ``once`` phrases somewhere
+    (whitespace ignored, cells wrap). Metadata: exactly the five /Info keys, the title and the
     reference date, no XMP. Requests: none but the printed file, none aborted or failed."""
     data = pdf.read_bytes() if isinstance(pdf, Path) else pdf
     missing_glyph = False
@@ -1082,6 +1086,10 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
     for phrase in expect.every_page:
         if any(_squeeze(phrase) not in text for text in squeezed):
             violations.add("phrase_missing_on_page")
+    if expect.every_page_any:
+        alternatives = [_squeeze(phrase) for phrase in expect.every_page_any]
+        if any(not any(phrase in text for phrase in alternatives) for text in squeezed):
+            violations.add("phrase_missing_on_page")
     whole = "".join(squeezed)
     if any(_squeeze(phrase) not in whole for phrase in expect.once):
         violations.add("phrase_missing")
@@ -1103,6 +1111,45 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
         if log.failed:
             violations.add("requests_failed")
     return sorted(violations)
+
+
+def merge_pdfs(parts: Sequence[bytes], meta: PdfMeta, *, producer: str) -> bytes:
+    """One PDF of the pages of ``parts`` in their order (the dossier, A-99), with pypdf: the pages are copied
+    one by one (``add_page``; ``append`` would add an empty outline), no XMP, no outline, no /ID; /Info holds
+    exactly Title (``meta.title``), Creator and Producer (``producer``, the product names itself; the kernel
+    names no product, A-23) and CreationDate and ModDate = the reference date in the form of set_dates.
+    Deterministic (measured with pypdf 6.21.2 on the zh and en reports of a fixture, 18 + 20 pages printed by
+    revision 1243: the merged 38 pages are byte-identical in one process and across processes with other hash
+    seeds; pypdf writes no /ID unless one is set). An unreadable part is pdf.qa_failed (unreadable); the
+    caller runs the QA gate on the result."""
+    stamp = pdf_date(meta.as_of)
+    writer = pypdf.PdfWriter()
+    try:
+        for data in parts:
+            for page in pypdf.PdfReader(io.BytesIO(data)).pages:
+                writer.add_page(page)
+        writer.add_metadata(
+            {
+                "/Title": meta.title,
+                "/Creator": producer,
+                "/Producer": producer,
+                "/CreationDate": stamp,
+                "/ModDate": stamp,
+            }
+        )
+        buffer = io.BytesIO()
+        writer.write(buffer)
+    except (PyPdfError, ValueError, KeyError, TypeError):
+        raise PdfError("pdf.qa_failed", checks="unreadable") from None
+    return buffer.getvalue()
+
+
+def page_count(data: bytes) -> int:
+    """The number of pages of a PDF (pdf.qa_failed unreadable for bytes pypdf cannot read)."""
+    try:
+        return len(pypdf.PdfReader(io.BytesIO(data)).pages)
+    except (PyPdfError, ValueError, KeyError, TypeError):
+        raise PdfError("pdf.qa_failed", checks="unreadable") from None
 
 
 def print_pdf(
