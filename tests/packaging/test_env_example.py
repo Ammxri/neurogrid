@@ -3,10 +3,12 @@ only; .env stays out of git (secrets only via environment variables).
 
 The scan covers the package and the tools (every name read, set or cleared, also through constants, loops and
 the environment handed to a child process), the names the tests read without setting them, the workflows
-(env blocks, vars/secrets/env expressions, the variables of their scripts) and the packaging scripts (bash,
-PowerShell, cmd). In the workflows and scripts every word with one of NeuroGrid's own prefixes counts as well,
-whatever the scan makes of the line around it. Every name found is either in .env.example or in one of the
-reviewed sets below, and every reviewed name is still in use."""
+(env blocks, vars/secrets/env expressions, the variables of their scripts), the composite action action.yml
+(its run steps, without the names a step sets from the inputs in its own env block), the GitLab template
+(ci-templates/*.yml: job variables, tags and scripts) and the packaging scripts (bash, PowerShell, cmd). In
+the workflows, the action, the template and the scripts every word with one of NeuroGrid's own prefixes
+counts as well, whatever the scan makes of the line around it. Every name found is either in .env.example or
+in one of the reviewed sets below, and every reviewed name is still in use."""
 
 from __future__ import annotations
 
@@ -30,6 +32,7 @@ PROVIDED = {
     "COMPUTERNAME",
     "ERRORLEVEL",
     "GITHUB_ACTIONS",
+    "GITHUB_OUTPUT",
     "GITHUB_REF",
     "GITHUB_REF_NAME",
     "GITHUB_REPOSITORY",
@@ -92,10 +95,19 @@ THIRD_PARTY = {
     "__PYVENV_LAUNCHER__",
 }
 # Defined inside one workflow for its own steps, or by one of the project's scripts for another
-# (cleanroom_linux.sh -> cleanroom_inside.sh, the docker build argument of pdf_debian12.sh); never set from
+# (cleanroom_linux.sh -> cleanroom_inside.sh, the docker build argument of pdf_debian12.sh), or the messages
+# zh/en that the GitLab template defines for its own scripts ("leave them as they are"); never set from
 # outside.
 INTERNAL = {
     "BUNDLES",
+    "NEUROGRID_TEXT_FAILED_EN",
+    "NEUROGRID_TEXT_FAILED_ZH",
+    "NEUROGRID_TEXT_INVALID_EN",
+    "NEUROGRID_TEXT_INVALID_ZH",
+    "NEUROGRID_TEXT_NOTE_EN",
+    "NEUROGRID_TEXT_NOTE_ZH",
+    "NEUROGRID_TEXT_UNSET_EN",
+    "NEUROGRID_TEXT_UNSET_ZH",
     "NG_EXPECT_REFUSAL",
     "NG_PDF_SHA",
     "NG_PDF_ZIP",
@@ -109,9 +121,10 @@ RESERVED = {"PYPI_API_TOKEN"}
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 # NeuroGrid's own prefixes: in a workflow or script every such word is taken for a variable (as before the
 # scan below existed), so a name that the scan cannot see (a line it misreads, a snippet it does not parse)
-# still has to be listed in .env.example.
+# still has to be listed in .env.example. A word ending in "_" is the start of a family in prose
+# ("NEUROGRID_TEXT_*"), not a name.
 OWN_PREFIXES = ("NEUROGRID", "GITEE", "PYPI")
-OWN_WORD = re.compile(rf"\b(?:{'|'.join(OWN_PREFIXES)})_[A-Z0-9_]+\b")
+OWN_WORD = re.compile(rf"\b(?:{'|'.join(OWN_PREFIXES)})_[A-Z0-9_]*[A-Z0-9]\b")
 
 
 def _example() -> dict[str, str]:
@@ -392,11 +405,45 @@ def _workflow_names(text: str) -> set[str]:
     return names
 
 
+def _run_names(run: str, shell: str) -> set[str]:
+    return _windows_names(run) if shell in ("pwsh", "powershell") else _bash_names(run)
+
+
+def _action_names(text: str) -> set[str]:
+    """Names of a composite action: what its run steps read, without the names a step defines in its own env
+    block (the action fills them from its inputs; a name that a step reads from another step's env counts)."""
+    data = yaml.safe_load(text)
+    names = set(EXPRESSION.findall(text))
+    for step in data["runs"]["steps"]:
+        found = _run_names(str(step.get("run", "")), str(step.get("shell", "")))
+        names |= found - set(step.get("env", {}))
+    return names
+
+
+def _gitlab_names(text: str) -> set[str]:
+    """Names of a GitLab CI template: the variables, tags and scripts of its jobs; a job whose name ends in
+    -powershell runs PowerShell, every other one POSIX sh."""
+    names: set[str] = set()
+    for job_name, job in yaml.safe_load(text).items():
+        if not isinstance(job, dict):
+            continue
+        names |= set(job.get("variables", {}))
+        names |= set(SH_REFERENCE.findall(" ".join(str(tag) for tag in job.get("tags", []))))
+        script = "\n".join(str(line) for line in job.get("script", []))
+        names |= _run_names(script, "powershell" if job_name.endswith("-powershell") else "sh")
+    return names
+
+
 def _script_names() -> dict[str, set[str]]:
     found: dict[str, set[str]] = defaultdict(set)
     for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
         text = path.read_text(encoding="utf-8")
         for name in _workflow_names(text) | _own_words(text):
+            found[name].add(path.relative_to(ROOT).as_posix())
+    for path in [ROOT / "action.yml", *sorted((ROOT / "ci-templates").glob("*.yml"))]:
+        text = path.read_text(encoding="utf-8")
+        names = _action_names(text) if path.name == "action.yml" else _gitlab_names(text)
+        for name in names | _own_words(text):
             found[name].add(path.relative_to(ROOT).as_posix())
     for path in sorted((ROOT / "packaging").rglob("*")):
         if path.suffix == ".sh":
@@ -533,7 +580,9 @@ def test_script_scanners_find_planted_names() -> None:
     }  # fmt: skip
     assert _sh_assignments("lower=1 tool\nUPPER=2\n") == ({"UPPER"}, {"lower"})
     # the own-prefix words count wherever they stand: also in a heredoc, a comment or a message
-    own = "cat <<X\nNEUROGRID_SNIPPET=1\nX\n# GITEE_NOTE\necho PYPI_WORD NEUROGRID_ x_NEUROGRID_Y"
+    own = (
+        "cat <<X\nNEUROGRID_SNIPPET=1\nX\n# GITEE_NOTE\necho PYPI_WORD NEUROGRID_ x_NEUROGRID_Y NEUROGRID_F_*"
+    )
     assert _own_words(own) == {"NEUROGRID_SNIPPET", "GITEE_NOTE", "PYPI_WORD"}
     assert _windows_names("$env:B_One = 1; $ENV:B_TWO; $LASTEXITCODE; echo %B_CMD% %~dp0 %*") == {
         "B_One",
@@ -564,3 +613,27 @@ jobs:
     assert _workflow_names(workflow) == {
         "C_TOP", "C_JOB", "C_STEP", "C_SECRET", "C_BASH", "C_VAR", "C_PWSH", "C_EITHER", "C_SHELL"
     }  # fmt: skip
+    action = """
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env: {E_OWN: "${{ inputs.x }}"}
+      run: echo "$E_OWN $E_OTHER" >> "$GITHUB_OUTPUT"
+    - shell: powershell
+      env: {E_OTHER: "1"}
+      run: echo $env:E_OTHER $env:E_PS
+"""
+    assert _action_names(action) == {"E_OTHER", "E_PS", "GITHUB_OUTPUT"}
+    template = """
+.job:
+  tags: [$G_TAG]
+  variables: {G_VAR: ""}
+  script:
+    - echo "$G_SH ${G_DEFAULT:-x}"
+.job-powershell:
+  extends: .job
+  script:
+    - echo $env:G_PS $LASTEXITCODE
+"""
+    assert _gitlab_names(template) == {"G_TAG", "G_VAR", "G_SH", "G_DEFAULT", "G_PS"}
