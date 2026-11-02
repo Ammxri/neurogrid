@@ -7,9 +7,9 @@ lines below it). tools/coverage_gates.py leaves the other platform's marked bloc
 Windows blocks are measured locally, the POSIX blocks in the Linux CI (D-09).
 
 Modes (KONZEPT 2.8, p6 decisions 2): on POSIX new vault folders get 0700 and new vault files 0600, set with
-fchmod after creation so that the umask cannot widen or narrow them; on Windows the folder's ACLs are
-inherited (os.open's mode only decides the read-only flag, which 0600 leaves off). The operating system
-governs access; NeuroGrid has no user accounts.
+fchmod after creation so that the umask cannot widen or narrow them; on Windows new folders and files inherit
+the ACLs of their folder (folders are made without a mode, see make_folder; os.open's mode only decides the
+read-only flag, which 0600 leaves off). The operating system governs access; NeuroGrid has no user accounts.
 """
 
 from __future__ import annotations
@@ -107,9 +107,13 @@ def unlock(fd: int) -> None:
 
 def make_folder(path: Path) -> None:
     """Create one folder (FileExistsError if anything of that name exists, a link included: mkdir never
-    follows the last part); 0700 on POSIX."""
-    Path(path).mkdir(mode=NEW_FOLDER_MODE)
-    if sys.platform != "win32":  # platform-only: posix
+    follows the last part); 0700 on POSIX. On Windows without a mode: since Python 3.11.10, 3.12.4 and 3.13
+    (gh-118486) the mode 0o700 gives the folder a protected ACL of its own (the owner, SYSTEM and the
+    administrators only) instead of the ACLs of its parent, which govern access there (KONZEPT 2.8)."""
+    if sys.platform == "win32":  # platform-only: windows
+        Path(path).mkdir()
+    else:  # platform-only: posix
+        Path(path).mkdir(mode=NEW_FOLDER_MODE)
         fd = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | FLAGS)
         try:
             os.fchmod(fd, NEW_FOLDER_MODE)
