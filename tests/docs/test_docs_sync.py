@@ -77,7 +77,9 @@ def _tagged(text: str, tag: str, language: str) -> list[str]:
 @pytest.mark.parametrize("lang", LANGUAGES)
 def test_metrics_page_has_every_core_metric(lang: str) -> None:
     text = _page(lang, "metrics.md")
-    sections = {m.group(1): m.start() for m in re.finditer(r"^## (M\d\d) .*\{#\1\}$", text, flags=re.M)}
+    # the metrics M01-M14 and the NeuroVault access log NV03 (P6), each a clause of the core pack
+    pattern = r"^## ((?:M|NV)\d\d) .*\{#\1\}$"
+    sections = {m.group(1): m.start() for m in re.finditer(pattern, text, flags=re.M)}
     for rule in _core().rules:
         assert rule.clause in sections, (lang, rule.clause)
         start = sections[rule.clause]
@@ -181,11 +183,24 @@ def test_every_cli_option_is_documented(lang: str) -> None:
     for name, command in group.commands.items():
         assert name in sections, (lang, name)
         body = sections[name]
-        for param in command.params:
-            labels = [p for p in param.opts if p.startswith("--")] or [str(param.name).upper()]
-            for label in labels:
-                assert f"`{label}" in body, (lang, name, label)
+        # a group ('vault', P6) documents the options of every command below it in its own section
+        for path, member in [((name,), command), *_nested(command, (name,))]:
+            for param in member.params:
+                labels = [p for p in param.opts if p.startswith("--")] or [str(param.name).upper()]
+                for label in labels:
+                    assert f"`{label}" in body, (lang, path, label)
+            if path != (name,):
+                assert f"`neurogrid {' '.join(path)}" in body, (lang, path)
     assert "NEUROGRID_LANG" in global_section
+
+
+def _nested(group: Any, path: tuple[str, ...]) -> list[tuple[tuple[str, ...], Any]]:
+    """Every command below a group with its command path (the nested groups 'vault' and 'vault consent')."""
+    found = []
+    for name, child in getattr(group, "commands", {}).items():
+        found.append(((*path, name), child))
+        found += _nested(child, (*path, name))
+    return found
 
 
 def _leaves(model: type[BaseModel], prefix: str = "") -> list[str]:

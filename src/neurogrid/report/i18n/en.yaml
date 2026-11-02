@@ -83,6 +83,45 @@ cli:
       imported: "Consent records imported: {count}."
       subject_hint: "Note: {count} subject label(s) contain six or more digits in a row and may be identification numbers; use pseudonymous labels."
       date_in_future: "Note: {count} record(s) are dated after today; they take effect from their date on."
+    role_missing: "Note: no role is set ([vault] role in neurogrid.toml, for check also --role); the access event of this run records no role."
+    role_without_vault: "Note: --role has no effect: no vault was found (a single file has none), so this run writes no access event."
+    event_not_written: "Warning: the access event of this run was not written to the vault ({reason}). The exit code is not affected."
+    event_reason:
+      no_vault: "there is no vault folder at the vault path any more"
+      link: "a part of the vault path is a link or junction, which is not followed"
+      log_missing: "the vault has no access log access.jsonl, and NeuroGrid never recreates it silently"
+      locked: "another NeuroGrid process held the vault lock too long"
+      not_writable: "the access log or the vault cannot be written"
+      log_damaged: "the end of the access log holds no readable entry"
+    init:
+      created: "Created: {name}"
+      kept: "Kept unchanged: {name}"
+      manifest_hint: "consents.yaml is part of the manifest: run 'neurogrid manifest' again so that 'neurogrid verify' covers it. The access log and its lock file are left out of the manifest."
+    log:
+      written: "Access event {seq} recorded, hash {hash}"
+      identifying: "Note: an object, the purpose or the approval reference looks like a personal name or an identification number; the access log records it as given. Use pseudonymous IDs and references without personal data."
+    show:
+      header: "Entries (line: #seq, time UTC | role | action | objects | purpose | approval reference):"
+      row: "Line {line}: #{seq}, {time} | {role} | {action} | {objects} | {purpose} | {approval_ref}"
+      none: "–"
+      unreadable_line: "Line {line}: unreadable entry"
+      more: "… and {count} earlier line(s), not shown (the newest 200 are shown)"
+      empty: "The access log has no entries yet."
+      summary_intact: "Hash chain: intact."
+      summary_broken: "Hash chain: {deviations} deviation(s); 'neurogrid vault verify' lists them."
+    verify:
+      events: "Entries in the access log: {events}"
+      head: "Head hash (last entry): {hash}"
+      head_none: "Head hash: none (no readable entry)"
+      deviation: "Line {line}: {kind}"
+      deviation_likely: "Line {line}: {kind} (likely {likely})"
+      deviation_no_line: "{kind}"
+      expected_found: "Expected head {hash}: found in line {line}, {after} entry/entries after it."
+      expected_missing: "Expected head {hash}: not part of the intact chain (the log was truncated at the end or rewritten)."
+      intact: "The access log is intact."
+      differs: "The access log has {deviations} deviation(s)."
+      head_hint: "Record the head hash outside the vault (for example in the lab book) and check later with 'neurogrid vault verify --expect-head <hash>': only a head recorded elsewhere shows truncation at the end and rewriting."
+      limits: "Limits: changing, inserting, deleting and reordering entries inside the chain are detected; an edit that recomputes all following hashes is a rewrite. Truncation at the end and complete rewriting are detected only with --expect-head against a head hash recorded elsewhere. Only accesses through NeuroGrid are recorded: runs that end with exit code 2 record nothing, scan, manifest and verify use only the vault at the default location, report records only with --config. Times come from the local clock and are not verified."
   help:
     app: "NeuroGrid – local, offline pre-check of EEG datasets. Not a conformity assessment."
     heading:
@@ -120,6 +159,7 @@ cli:
       jobs: "Processes for the signal metrics, 1 to 64 (results do not change)."
       evidence: "evidence.yaml with the evidence for manual rules (default: .neurogrid/evidence.yaml)."
       manifest: "Manifest to compare with (default: .neurogrid/manifest.json in the dataset)."
+      role: "Role of this run's access event in the vault: a role name or initials (over [vault] role)."
     convert:
       about: "Convert a raw folder to EEG-BIDS and validate the result."
       path: "Raw data folder or single data file."
@@ -133,6 +173,7 @@ cli:
       lang: "Report languages, e.g. zh,en (default: zh,en)."
       format: "Output formats, e.g. html,pdf (default: html)."
       out: "Output folder (default: next to results.json)."
+      config: "neurogrid.toml whose vault the cover shows (access log entries, head hash, state); the report then records its access event there."
     manifest:
       about: "Write the provenance manifest: SHA-256 and size of every file, processing steps, software versions."
       path: "Dataset folder."
@@ -161,6 +202,25 @@ cli:
           role: "Role recorded in the access event (a role name or initials; default: [vault] role)."
           purpose: "Purpose recorded in the access event (default: [vault] purpose)."
           approval_ref: "Approval reference recorded in the access event (default: [vault] approval_ref)."
+      init:
+        about: "Create the missing parts of the vault: its folder, consents.yaml, the access log and its lock file; existing parts are kept."
+        path: "Dataset folder (default: the current folder)."
+        config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset); [vault] path names the vault."
+      log:
+        about: "Record an access in the access log by hand, or show the log with --show."
+        path: "Dataset folder (default: the current folder)."
+        config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset); [vault] path names the vault."
+        action: "Action: read, check, convert, report, export or consent_manage."
+        objects: "Object of the access: a dataset-relative path or pattern (repeatable; a comma is part of the path)."
+        purpose: "Purpose of the access (default: [vault] purpose)."
+        approval_ref: "Reference of the approval, e.g. of the ethics committee (default: [vault] approval_ref)."
+        role: "Role name or initials (default: [vault] role)."
+        show: "Show the newest entries, the number of entries, the head hash and the state of the chain; records nothing."
+      verify:
+        about: "Verify the hash chain of the access log (exit 0 intact, 1 deviation)."
+        path: "Dataset folder (default: the current folder)."
+        config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset); [vault] path names the vault."
+        expect_head: "Head hash recorded earlier outside the vault; it must still be part of the chain (repeatable)."
 
 errors:
   splits:
@@ -313,7 +373,10 @@ errors:
     object_invalid: "Object {index} is not a relative path or pattern (no absolute, drive or network path, no '..', no backslash or colon, no control characters, at most 1024 characters)."
     too_many_objects: "Too many or too long objects: at most {limit} objects, and one entry of the access log holds at most 64 KiB."
     text_invalid: "The value of {field} cannot be recorded: it is empty, too long or contains control characters or invalid text."
-    target_not_folder: "The vault commands need a dataset folder, not a single file."
+    purpose_missing: "No purpose given: use --purpose or [vault] purpose in neurogrid.toml."
+    target_not_folder: "PATH must be the dataset folder, not a file."
+    show_exclusive: "--show cannot be combined with --action, --objects, --purpose, --approval-ref or --role."
+    log_unreadable: "The access log access.jsonl cannot be read."
   consents:
     invalid: "The consent records (consents.yaml in the vault) are invalid: field '{field}' ({problem})."
     too_large: "The consent records (consents.yaml in the vault) are or would become too large (limit {limit} bytes)."
@@ -530,6 +593,14 @@ reason:
     not_yet_valid: "Every consent record of this subject is dated after the reference date."
     withdrawn: "The effective consent of this subject is a withdrawal."
     use_not_permitted: "The effective consent of this subject does not permit this use."
+  vault:
+    not_found: "No vault at the vault path ([vault] path, default .neurogrid/vault); create it with 'neurogrid vault init'."
+    single_file: "A single file has no vault; the access log belongs to a dataset folder."
+    locked: "Not read: another NeuroGrid process held the vault lock too long."
+    log_unreadable: "The access log access.jsonl cannot be read."
+    log_missing: "The vault has no access log access.jsonl; NeuroGrid never recreates it silently."
+    chain_broken: "The hash chain of the access log is broken ('neurogrid vault verify' lists every deviation)."
+    not_writable: "The access log cannot be written (read-only vault); accesses are not recorded."
 
 issue:
   header:
@@ -626,8 +697,15 @@ check:
     overlaps: "No overlapping annotations"
   consent:
     covered: "Use covered by consent"
+  access:
+    log_intact: "Access log hash chain intact"
+    log_writable: "Access log can be written"
 
 report:
+  access:
+    first_line: "First deviation: line {line}."
+    kind: "Kind: {kind}."
+    deviations: "Deviations in total: {count}."
   ai:
     share: "{count} of {total} ({unit})"
     unit_events: "events"
@@ -751,6 +829,7 @@ report:
     recordings_count: "Recordings"
     unassigned: "Recordings without split"
     duplicate_groups: "Groups of recordings with the same signal (M12)"
+    access_log: "Access log (NeuroVault)"
   value:
     none: "–"
     whole_recording: "whole recording"
@@ -787,6 +866,15 @@ report:
     missing_reason: "– ({reason})"
     no_values: "– (no documented values)"
     title_missing: "– (rule not listed in the rules block of results.json)"
+    access_log: "{events} entries, head hash {head}; {state}"
+    access_log_empty: "no entries yet; {state}"
+    access_log_state:
+      intact: "hash chain intact"
+      broken: "hash chain broken ({deviations} deviation(s); 'neurogrid vault verify' lists them)"
+      log_missing: "– (the vault has no access log access.jsonl)"
+      not_found: "– (no vault at the vault path of this neurogrid.toml)"
+      locked: "– (not read: another NeuroGrid process held the vault lock too long)"
+      unreadable: "– (the access log cannot be read)"
   text:
     no_findings: "No findings with these severities."
     severity_heading: "{severity}: {findings} finding(s), {counted} of them counted in the summary ({failed} not passed, {open} evidence open)"
@@ -821,6 +909,8 @@ report:
     strict_severity: "(with --strict: {severity})"
     label_source: "Label source: {source} ({unit})"
     splits_source: "Split assignment from {source}."
+    access_log_note: "Access log: the head hash on the cover is the one when this report was rendered, before the report's own access event. Record it outside the vault and check later with 'neurogrid vault verify --expect-head <hash>'. Changing, inserting, deleting and reordering entries inside the chain are detected; truncation at the end and complete rewriting only against a head hash recorded elsewhere; only accesses through NeuroGrid are recorded."
+    os_access: "No user accounts; access rights to the files are governed by the operating system."
   measure:
     documented: "documented"
     channel_sets: "channel sets"
@@ -897,6 +987,7 @@ report:
     header: "data file"
     default: "default value"
 
+# Value terms shared by the console and the report (p6 decisions 9).
 terms:
   consent_use:
     training: "Training"
@@ -904,3 +995,15 @@ terms:
     publication: "Publication"
     sharing: "Sharing"
     commercial: "Commercial use"
+  access_kind:
+    malformed: "unreadable entry"
+    hash_mismatch: "entry changed (its hash does not match its content)"
+    link_mismatch: "chain link broken (previous_hash does not match the entry before)"
+    start_mismatch: "chain does not start at the beginning (entries missing at the start)"
+    log_missing: "access log access.jsonl missing"
+    head_missing: "expected head hash not found"
+  access_likely:
+    change: "changed"
+    insert: "inserted"
+    delete: "deleted"
+    reorder: "reordered"

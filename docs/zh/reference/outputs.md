@@ -29,7 +29,8 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 | `summary` | 每个阶段的信号灯、错误、警告、待补的证明材料；每个规则包的覆盖率；合计和退出码。 |
 | `manifest` | 清单比对的结果，或 `null`。 |
 
-不包含：时刻、计算机名或用户名、绝对路径、信号哈希值、原始年龄。
+不包含：时刻、计算机名或用户名、绝对路径、信号哈希值、原始年龄；关于 vault 访问日志，除 CORE-NV03-01/02 的发现外不含任何
+内容：没有链头哈希值，也没有事件的数量或时间。本次运行自身的访问事件在写入 `results.json` 之后才追加。
 
 ## 清点 JSON {#scan-json}
 
@@ -86,12 +87,21 @@ consents:
 `results.json` 中的 `config.consents_sha256` 是解析后规范化记录的 SHA-256（同一组记录无论如何书写都相同）；没有
 `consents.yaml` 或未加载 M14 时为 `null`；记录本身从不进入 `results.json`。
 
+## 访问日志 {#access-log}
+
+vault（`[vault] path`，默认 `.neurogrid/vault`）中的 `access.jsonl`，由 `vault init` 创建为空文件，由各命令追加
+（[NeuroVault](../vault.md#events)）：每行一个访问事件，格式为按键排序的紧凑 JSON，以 LF 结尾（模式
+[`access_event.schema.json`](../../schemas/access_event.schema.json)）。字段：`format_version`、`seq`、`time`、
+`role`、`action`、`objects`、`purpose`、`approval_ref`、`tool_version`、`previous_hash`、`hash`
+（[哈希链](../vault.md#chain)）。其锁文件 `access.jsonl.lock` 为空文件。两者都不纳入清单。
+
 ## 其他模式 {#schemas}
 
 [`config.schema.json`](../../schemas/config.schema.json)（`neurogrid.toml`）、
-[`rulepack.schema.json`](../../schemas/rulepack.schema.json) 和
+[`rulepack.schema.json`](../../schemas/rulepack.schema.json)、
 [`evidence.schema.json`](../../schemas/evidence.schema.json)（`evidence.yaml`）、
-[`consents.schema.json`](../../schemas/consents.schema.json)（`consents.yaml`）。
+[`consents.schema.json`](../../schemas/consents.schema.json)（`consents.yaml`）和
+[`access_event.schema.json`](../../schemas/access_event.schema.json)（`access.jsonl` 的一行）。
 
 ## 退出码 {#exit-codes}
 

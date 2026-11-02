@@ -21,6 +21,7 @@ from neurogrid.quality.positions import Position, sidecar_positions
 from neurogrid.validator import ValidatorResult
 from neurogrid.validator import run as run_validator
 from neurogrid.vault.consents import LoadedConsents
+from neurogrid.vault.store import VaultLocation
 
 __all__ = ["ENTITY_FIELDS", "CheckContext", "RecordingState"]
 
@@ -80,6 +81,9 @@ class CheckContext:
     as_of: date | None = None  # the run's reference date (A-14 expiry, A-15 review dates)
     manifest_path: Path | None = None  # --manifest; None: <dataset>/.neurogrid/manifest.json (A-22, A-82)
     evidence_path: Path | None = None  # --evidence; None: the default location (A-15)
+    # the vault of the run ([vault] path relative to the project root, A-66), located once by the pipeline
+    # in any state; None for a single file as target, which has no vault (p6 decisions 2)
+    vault: VaultLocation | None = None
     _validator: ValidatorResult | None = field(default=None, repr=False)
     # M11/M12 dataset structure (participants, splits, labels), built once by checks.ai_dataset (A-81)
     ai_structure: object = field(default=None, repr=False)
@@ -191,6 +195,7 @@ class CheckContext:
         as_of: date | None = None,
         manifest_path: Path | None = None,
         evidence_path: Path | None = None,
+        vault: VaultLocation | None = None,
     ) -> CheckContext:
         states = []
         for found in scan.recordings:
@@ -225,4 +230,5 @@ class CheckContext:
             as_of=as_of,
             manifest_path=manifest_path,
             evidence_path=evidence_path,
+            vault=vault,
         )

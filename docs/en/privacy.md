@@ -46,7 +46,11 @@ synchronised if that matters to you.
   references or permitted uses; the report shows M14 only aggregated per use and reason, without subject IDs and
   versions, and withholds a breakdown with fewer than 5 subjects in a cell. The later vault export leaves the
   consent records out.
-- No user accounts and no log files. Access to the files is governed by the rights of the operating system.
+- No user accounts; access rights to the files are governed by the operating system. With a vault, NeuroGrid
+  keeps one log: the access log `access.jsonl` of [NeuroVault](vault.md). Each entry holds the time (UTC), the
+  role (a role name or initials), the action, the objects (`**` for the whole dataset; files of raw folders by
+  their pseudonymous names), the purpose and the approval reference – no user name, no computer name, no
+  absolute path. NeuroGrid writes no other log files.
 - Each run uses its own work folder next to its output and removes it at the end. The PDF browser's work folder
   lies in the computer's temporary folder instead (Windows limits the length of its paths) and is removed the same
   way. A work folder that a run ended by force could not remove is removed by the next run that works in the same

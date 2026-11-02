@@ -109,7 +109,11 @@ NeuroGrid 的公开格式（results.json、规则包、neurogrid.toml）使用�
 `params`（生效阈值及其来源）、`time_ranges`、`time_ranges_total`、`time_ranges_duration_s`、`message_key`、
 `reason`。
 
-## ConsentScope（知情同意范围）
+## ConsentScope 与 AccessEvent
+
+这两个对象属于 NeuroVault，在 0.2 版中加入（[NeuroVault](vault.md)）。
+
+### ConsentScope {#consent-scope}
 
 vault 中 `consents.yaml` 的一条知情同意记录（[输出文件](reference/outputs.md#consents)）。
 
@@ -125,9 +129,23 @@ vault 中 `consents.yaml` 的一条知情同意记录（[输出文件](reference
 `permitted_uses` 的取值：training → `training`，validierung → `validation`，veroeffentlichung → `publication`，
 weitergabe → `sharing`，kommerziell → `commercial`。
 
-## AccessEvent（访问事件）
+### AccessEvent {#access-event}
 
-NeuroVault 访问日志中的访问事件（0.2 版）。
+访问日志 `access.jsonl` 中的一行；JSON 模式为 [`access_event.schema.json`](../schemas/access_event.schema.json)。
+
+| 规格字段 | 字段 |
+|---|---|
+| zeit | time（UTC） |
+| rolle | role |
+| aktion | action |
+| objekte | objects |
+| zweck | purpose |
+| genehmigung_ref | approval_ref |
+| vorheriger_hash | previous_hash |
+| hash | hash |
+
+补充字段：`format_version`、`seq`（在哈希链中的位置）和 `tool_version`。事件中不含用户名、计算机名、进程 ID 和
+绝对路径（[字段和对象命名空间](vault.md#fields)）。
 
 ## Results（结果）
 

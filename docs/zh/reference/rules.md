@@ -11,7 +11,7 @@
 | 来源 | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | 来源状态 | 正式 |
 | 对应标准（计算覆盖率） | 否 |
-| SHA-256 | `78600d6cda1ac3d3b888e9212f5ab4625b179951dc5b7bd5feb51b971cd8ce3e` |
+| SHA-256 | `5a2635793e23160ddedd12b6cbcba4842f9521e42431202b5ec50faa99755865` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -427,6 +427,32 @@
 | 参数 | – |
 | 严重程度 | 错误 |
 | 使用 --strict 时的严重程度 | 错误 |
+| 核验方式 | 自动 |
+
+### CORE-NV03-01 {#CORE-NV03-01}
+
+| | |
+|---|---|
+| 名称 | 访问日志哈希链完整 |
+| 条款 | [NV03](../metrics.md#NV03) |
+| 阶段 | 访问 |
+| 检查项 | [access.log_intact](checks.md#access.log_intact) |
+| 参数 | – |
+| 严重程度 | 错误 |
+| 使用 --strict 时的严重程度 | 错误 |
+| 核验方式 | 自动 |
+
+### CORE-NV03-02 {#CORE-NV03-02}
+
+| | |
+|---|---|
+| 名称 | 访问日志可写入 |
+| 条款 | [NV03](../metrics.md#NV03) |
+| 阶段 | 访问 |
+| 检查项 | [access.log_writable](checks.md#access.log_writable) |
+| 参数 | – |
+| 严重程度 | 警告 |
+| 使用 --strict 时的严重程度 | 警告 |
 | 核验方式 | 自动 |
 
 ### CORE-M10-01 {#CORE-M10-01}

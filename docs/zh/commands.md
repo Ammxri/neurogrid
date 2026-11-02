@@ -73,16 +73,21 @@
 | `--jobs N` | 计算信号指标所用的进程数，1–64；结果与 `--jobs 1` 逐字节相同。 |
 | `--evidence FILE` | `evidence.yaml`（默认：数据集中的 `.neurogrid/evidence.yaml`）。 |
 | `--manifest FILE` | 用于比对的清单（默认：数据集中的 `.neurogrid/manifest.json`）。 |
+| `--role ROLE` | 本次运行在 vault 中记录的访问事件的角色：角色名称或姓名缩写（以字母开头，其后为字母、数字、`_`、`.` 或 `-`，最多 80 个字符），优先于 `[vault] role`。角色无效时以退出码 2 结束，没有 vault 时也是如此；没有 vault 时该选项不起作用，并有提示说明。 |
+
+有 vault 时（`[vault] path`，默认为 `.neurogrid/vault`），`check` 在写入 `results.json` 之后追加一个访问事件（操作
+`check`，对象 `**`）；该事件从不进入 `results.json`。访问事件无法写入时（vault 被锁定或为只读、缺少访问日志）只给出
+警告，退出码不变。
 
 | 退出码 | 含义 |
 |---|---|
 | 0 | 没有未通过的错误级规则，错误级规则也没有待补的证明材料（占位规则包不计） |
 | 1 | 至少有一项上述情况；或有无法读取、不受支持的数据文件，或数据集中没有可读取的记录 |
-| 2 | 工具错误：配置、规则包、验证器、不允许的路径、内部错误 |
+| 2 | 工具错误：配置、规则包、验证器、不允许的路径、vault 路径中有链接、`--role` 无效、内部错误 |
 
 ## report {#report}
 
-`neurogrid report RESULTS [--lang zh,en] [--format html,pdf] [--out FOLDER]`
+`neurogrid report RESULTS [--lang zh,en] [--format html,pdf] [--out FOLDER] [--config FILE]`
 
 只根据 `results.json` 按语言和格式生成报告：`report.<lang>.html` 和 `report.<lang>.pdf`（[阅读报告](report.md)）。
 命令最后会输出固定声明。
@@ -93,11 +98,12 @@
 | `--lang` | 报告语言 `zh`、`en`（默认 `zh,en`）。 |
 | `--format` | `html`、`pdf`（默认 `html`）；PDF 需要 [PDF 浏览器](installation.md#pdf-browser)。 |
 | `--out FOLDER` | 输出文件夹（默认：`results.json` 所在的文件夹）。 |
+| `--config FILE` | 报告显示其 vault 的 `neurogrid.toml`：封面增加访问日志一行（条目数、链头哈希值、哈希链状态，在生成报告前读取），报告在写出文件之后追加其访问事件（操作 `report`）。不指定 `--config` 时，报告不读取也不写入任何 vault。 |
 
 | 退出码 | 含义 |
 |---|---|
 | 0 | 已写出所有要求的报告 |
-| 2 | 工具错误：结果无法读取、未知的语言或格式、缺少 PDF 浏览器或 Linux 系统库（此时不写出任何文件） |
+| 2 | 工具错误：结果无法读取、未知的语言或格式、缺少 PDF 浏览器或 Linux 系统库（此时不写出任何文件）、`--config` 无效、vault 路径中有链接 |
 
 ## manifest {#manifest}
 
@@ -144,11 +150,77 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 `access.jsonl.lock`。vault 路径中的链接从不跟随。`neurogrid vault consent` 汇集用于知情同意记录的命令。不带命令时，
 `neurogrid vault` 和 `neurogrid vault consent` 显示帮助并以退出码 2 结束。
 
+文件格式、哈希链及其局限见 [NeuroVault](vault.md)。每个 vault 命令都接受 `PATH`，即数据集文件夹（默认：当前文件夹；不接受文件），以及 `--config FILE`，即其
+`[vault] path` 指定 vault 的 `neurogrid.toml`（默认：数据集中的 `.neurogrid/neurogrid.toml`）。每个命令最后都输出
+固定声明。
+
 | 退出码 | 含义 |
 |---|---|
 | 0 | 命令已完成；对 `vault verify`：访问日志完整 |
-| 1 | `vault verify`：访问日志中至少有一处不一致 |
-| 2 | 工具错误：没有 vault、vault 路径中有链接、vault 被另一个 NeuroGrid 进程锁定或无法写入、输入无效 |
+| 1 | `vault verify`：访问日志中至少有一处不一致，包括缺少访问日志或未找到预期的链头哈希值 |
+| 2 | 工具错误：没有 vault、vault 路径中有链接、vault 路径不是文件夹、vault 被另一个 NeuroGrid 进程锁定或无法写入、输入无效（角色、目的、操作、对象、链头哈希值） |
+
+### vault init {#vault-init}
+
+`neurogrid vault init [PATH] [--config FILE]`
+
+创建 vault 中缺少的部分：vault 路径中的文件夹、`consents.yaml`（尚无知情同意记录）、空的访问日志 `access.jsonl`
+及其锁文件 `access.jsonl.lock`。已有部分逐字节保留，因此该命令可随时重复运行；它不记录访问事件（哈希链从创世哈希值
+开始）。之后请重新运行 `neurogrid manifest`：`consents.yaml` 属于清单，访问日志及其锁文件不属于清单。
+
+| 参数 / 选项 | 含义 |
+|---|---|
+| `PATH` | 数据集文件夹（默认：当前文件夹）。 |
+| `--config FILE` | `neurogrid.toml`；其 `[vault] path` 指定 vault。 |
+
+### vault log {#vault-log}
+
+`neurogrid vault log [PATH] [--config FILE] --action ACTION --objects OBJECT [--objects OBJECT ...] --purpose TEXT [--approval-ref REF] [--role ROLE]`
+
+`neurogrid vault log [PATH] [--config FILE] --show`
+
+手动记录一次访问，例如 NeuroGrid 无法看到的、交给审阅人员的副本。角色和目的为必填：`--role` 优先于
+`[vault] role`，`--purpose` 优先于 `[vault] purpose`；`--approval-ref` 优先于 `[vault] approval_ref`，可选。
+在原始文件夹中，指向现有文件的对象以其假名文件名记录（与 `verify` 的显示相同）；模式、文件夹和 BIDS 路径按原样记录。
+看起来像人名或身份编号的对象、目的或角色会给出提示，并按原样记录。命令输出新条目的序号和哈希值。
+
+`--show` 显示最新的 200 个条目（行、序号、UTC 时间、角色、操作、对象、目的、批准编号；无法读取的行只显示其行号）、
+未显示的较早行数、条目数、链头哈希值和哈希链状态。它不能与条目的选项同时使用，也不作任何记录。
+
+| 参数 / 选项 | 含义 |
+|---|---|
+| `PATH` | 数据集文件夹（默认：当前文件夹）。 |
+| `--config FILE` | `neurogrid.toml`；其 `[vault] path` 指定 vault。 |
+| `--action ACTION` | `read`、`check`、`convert`、`report`、`export` 或 `consent_manage`。 |
+| `--objects OBJECT` | 相对于数据集的路径或模式（`**` = 整个数据集）；多个对象时重复该选项，逗号属于路径的一部分（最多 1000 个对象，每个最多 1024 个字符）。 |
+| `--purpose TEXT` | 访问目的，最多 200 个字符（默认：`[vault] purpose`）。 |
+| `--approval-ref REF` | 批准编号，例如伦理委员会的批件编号，最多 120 个字符（默认：`[vault] approval_ref`）。 |
+| `--role ROLE` | 角色名称或姓名缩写（默认：`[vault] role`）。 |
+| `--show` | 显示日志，而不记录条目。 |
+
+### vault verify {#vault-verify}
+
+`neurogrid vault verify [PATH] [--config FILE] [--expect-head HASH ...]`
+
+校验访问日志的哈希链。输出条目数、链头哈希值（最后一个条目的哈希值）、每处不一致的行、类型和可能的原因（修改、
+插入、删除、重新排序），从不输出条目内容；还输出每个预期链头的结果、在别处记录链头哈希值的提示以及哈希链的局限。
+它不记录访问事件。
+
+| 参数 / 选项 | 含义 |
+|---|---|
+| `PATH` | 数据集文件夹（默认：当前文件夹）。 |
+| `--config FILE` | `neurogrid.toml`；其 `[vault] path` 指定 vault。 |
+| `--expect-head HASH` | 先前在 vault 之外记录的链头哈希值（64 位十六进制数字）；即使之后又追加了条目，它也必须仍是完整哈希链的一部分。可重复。只有这样才能发现末尾截断和整体重写。 |
+
+### 其他命令的访问事件 {#access-events}
+
+`check`（操作 `check`）、`convert`（操作 `convert`，源文件夹 `neurogrid.toml` 的 vault）和 `report --config`
+（操作 `report`）向其 `neurogrid.toml` 的 vault 追加一个事件，角色、目的和批准编号取自 `[vault]`（`check --role`
+优先于 `[vault] role`；没有角色时事件不记录角色，并有提示说明）。`scan`、`manifest` 和 `verify` 只向默认位置
+`.neurogrid/vault` 的 vault 追加操作为 `read` 的事件，不含角色、目的和批准编号。每个事件都在本次运行的输出写入之后
+追加，并以整个数据集（`**`）为对象。不作记录的有：以退出码 2 结束的运行、不带 `--config` 的 `report`、`vault init`、
+`vault log --show` 和 `vault verify`。事件无法写入时只给出警告，从不改变退出码；对 `convert`、`scan`、`manifest` 和
+`verify`，vault 路径中的链接属于这种警告，对 `check`、`report --config` 和各 vault 命令则为退出码 2。
 
 ### vault consent add {#vault-consent-add}
 

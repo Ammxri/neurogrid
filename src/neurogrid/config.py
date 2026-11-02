@@ -25,6 +25,7 @@ from neurogrid.kernel.engine import ExceptionEntry
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.rules import RULE_ID_PATTERN, ParamValue
 from neurogrid.kernel.safety import check_relative, decode_text, read_limited, resolve_within
+from neurogrid.model.access import ROLE_PATTERN
 from neurogrid.model.consent import ConsentUse, ordered_uses
 
 CONFIG_DIR = ".neurogrid"
@@ -445,8 +446,13 @@ class ConsentSection(_Section):
 
 
 class VaultSection(_Section):
+    """NeuroVault (A-30, A-66, A-90): the vault folder relative to the project root and the fields of the
+    access events that check, convert and report append. ``role`` is a role name or initials, never a
+    personal name with spaces or an OS login (model.access.ROLE_PATTERN, NZ-09); ``check --role`` overrides
+    it for one run."""
+
     path: str = ".neurogrid/vault"
-    role: str | None = Field(default=None, max_length=80)
+    role: str | None = Field(default=None, max_length=80, pattern=ROLE_PATTERN)
     purpose: str | None = Field(default=None, max_length=200)
     approval_ref: str | None = Field(default=None, max_length=120)
 

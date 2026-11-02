@@ -110,7 +110,11 @@ Supplements: `key`, `rulepack`, `rulepack_version`, `source_status`, `phase`, `s
 `params` (effective thresholds with their origin), `time_ranges`, `time_ranges_total`, `time_ranges_duration_s`,
 `message_key`, `reason`.
 
-## ConsentScope
+## ConsentScope and AccessEvent
+
+Both objects belong to NeuroVault and are added in version 0.2 ([NeuroVault](vault.md)).
+
+### ConsentScope {#consent-scope}
 
 One consent record of `consents.yaml` in the vault ([Output files](reference/outputs.md#consents)).
 
@@ -126,9 +130,24 @@ One consent record of `consents.yaml` in the vault ([Output files](reference/out
 Values of `permitted_uses`: training → `training`, validierung → `validation`, veroeffentlichung →
 `publication`, weitergabe → `sharing`, kommerziell → `commercial`.
 
-## AccessEvent
+### AccessEvent {#access-event}
 
-The access event of the NeuroVault access log (version 0.2).
+One line of the access log `access.jsonl`; the JSON schema is
+[`access_event.schema.json`](../schemas/access_event.schema.json).
+
+| Specification field | Field |
+|---|---|
+| zeit | time (UTC) |
+| rolle | role |
+| aktion | action |
+| objekte | objects |
+| zweck | purpose |
+| genehmigung_ref | approval_ref |
+| vorheriger_hash | previous_hash |
+| hash | hash |
+
+Supplements: `format_version`, `seq` (the position in the chain) and `tool_version`. An event holds no user
+name, computer name, process ID or absolute path ([fields and object namespaces](vault.md#fields)).
 
 ## Results
 

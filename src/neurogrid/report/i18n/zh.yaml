@@ -84,6 +84,45 @@ cli:
       imported: "已导入知情同意记录：{count} 条。"
       subject_hint: "提示：{count} 个受试者标签含有连续六位或更多数字，可能是身份编号；请使用假名标签。"
       date_in_future: "提示：{count} 条记录的日期晚于今天；自该日期起才生效。"
+    role_missing: "提示：未设置角色（neurogrid.toml 中的 [vault] role，check 还可使用 --role）；本次运行的访问事件不记录角色。"
+    role_without_vault: "提示：--role 未生效：未找到 vault（单个文件没有 vault），因此本次运行不写入访问事件。"
+    event_not_written: "警告：本次运行的访问事件未写入 vault（{reason}）。退出码不受影响。"
+    event_reason:
+      no_vault: "vault 路径下已不存在 vault 文件夹"
+      link: "vault 路径的某一部分是链接或目录联接，不跟随链接"
+      log_missing: "vault 中没有访问日志 access.jsonl，NeuroGrid 不会自动重建它"
+      locked: "另一个 NeuroGrid 进程占用 vault 锁的时间过长"
+      not_writable: "无法写入访问日志或 vault"
+      log_damaged: "访问日志末尾没有可读的条目"
+    init:
+      created: "已创建：{name}"
+      kept: "已保留，未更改：{name}"
+      manifest_hint: "consents.yaml 属于清单的一部分：请重新运行 'neurogrid manifest'，以便 'neurogrid verify' 覆盖该文件。访问日志及其锁文件不纳入清单。"
+    log:
+      written: "已记录访问事件 {seq}，哈希值 {hash}"
+      identifying: "提示：某个对象、目的或批准编号看起来像人名或身份编号；访问日志按原样记录。请使用假名 ID 和不含个人数据的编号。"
+    show:
+      header: "条目（行：#序号，时间 UTC | 角色 | 操作 | 对象 | 目的 | 批准编号）："
+      row: "第 {line} 行：#{seq}，{time} | {role} | {action} | {objects} | {purpose} | {approval_ref}"
+      none: "–"
+      unreadable_line: "第 {line} 行：无法读取的条目"
+      more: "… 另有 {count} 行较早的条目未显示（仅显示最新的 200 行）"
+      empty: "访问日志中尚无条目。"
+      summary_intact: "哈希链：完整。"
+      summary_broken: "哈希链：{deviations} 处不一致；'neurogrid vault verify' 会逐一列出。"
+    verify:
+      events: "访问日志中的条目：{events}"
+      head: "链头哈希值（最后一个条目）：{hash}"
+      head_none: "链头哈希值：无（没有可读的条目）"
+      deviation: "第 {line} 行：{kind}"
+      deviation_likely: "第 {line} 行：{kind}（可能为{likely}）"
+      deviation_no_line: "{kind}"
+      expected_found: "预期链头 {hash}：位于第 {line} 行，其后有 {after} 个条目。"
+      expected_missing: "预期链头 {hash}：不在完整的哈希链中（日志在末尾被截断或被整体重写）。"
+      intact: "访问日志完整。"
+      differs: "访问日志有 {deviations} 处不一致。"
+      head_hint: "请在 vault 之外（例如实验记录本中）记下链头哈希值，并在以后使用 'neurogrid vault verify --expect-head <hash>' 检查：只有在别处记录的链头才能发现末尾截断和整体重写。"
+      limits: "局限：可以发现哈希链内条目的修改、插入、删除和重新排序；重新计算其后所有哈希值的修改属于整体重写。末尾截断和整体重写只能通过 --expect-head 对照在别处记录的链头哈希值发现。只记录通过 NeuroGrid 进行的访问：以退出码 2 结束的运行不作记录，scan、manifest 和 verify 只使用默认位置的 vault，report 只有在指定 --config 时才记录。时间取自本地时钟，未经核实。"
   help:
     app: "NeuroGrid – 在本地离线运行的脑电数据集预检工具。不构成符合性评价。"
     heading:
@@ -121,6 +160,7 @@ cli:
       jobs: "计算信号指标所用的进程数，1 至 64（结果不变）。"
       evidence: "记录人工规则证明材料的 evidence.yaml（默认：.neurogrid/evidence.yaml）。"
       manifest: "用于比对的清单（默认：数据集中的 .neurogrid/manifest.json）。"
+      role: "本次运行在 vault 中记录的访问事件的角色：角色名称或姓名缩写（优先于 [vault] role）。"
     convert:
       about: "将原始数据文件夹转换为 EEG-BIDS，并验证结果。"
       path: "原始数据文件夹或单个数据文件。"
@@ -134,6 +174,7 @@ cli:
       lang: "报告语言，例如 zh,en（默认：zh,en）。"
       format: "输出格式，例如 html,pdf（默认：html）。"
       out: "输出文件夹（默认：results.json 所在的文件夹）。"
+      config: "neurogrid.toml：封面显示其 vault 的访问日志（条目数、链头哈希值、状态）；随后报告在其中记录访问事件。"
     manifest:
       about: "写入溯源清单：每个文件的 SHA-256 和大小、处理步骤、软件版本。"
       path: "数据集文件夹。"
@@ -162,6 +203,25 @@ cli:
           role: "记入访问事件的角色（角色或姓名缩写；默认：[vault] role）。"
           purpose: "记入访问事件的目的（默认：[vault] purpose）。"
           approval_ref: "记入访问事件的批准编号（默认：[vault] approval_ref）。"
+      init:
+        about: "创建 vault 中缺少的部分：文件夹、consents.yaml、访问日志及其锁文件；已有部分保持不变。"
+        path: "数据集文件夹（默认：当前文件夹）。"
+        config: "neurogrid.toml 的路径（默认：数据集中的 .neurogrid/neurogrid.toml）；[vault] path 指定 vault。"
+      log:
+        about: "手动在访问日志中记录一次访问，或使用 --show 显示日志。"
+        path: "数据集文件夹（默认：当前文件夹）。"
+        config: "neurogrid.toml 的路径（默认：数据集中的 .neurogrid/neurogrid.toml）；[vault] path 指定 vault。"
+        action: "操作：read、check、convert、report、export 或 consent_manage。"
+        objects: "访问对象：相对于数据集的路径或模式（可重复；逗号属于路径的一部分）。"
+        purpose: "访问目的（默认：[vault] purpose）。"
+        approval_ref: "批准编号，例如伦理委员会的批件编号（默认：[vault] approval_ref）。"
+        role: "角色名称或姓名缩写（默认：[vault] role）。"
+        show: "显示最新的条目、条目数、链头哈希值和哈希链状态；不作任何记录。"
+      verify:
+        about: "校验访问日志的哈希链（完整时退出码 0，有不一致时为 1）。"
+        path: "数据集文件夹（默认：当前文件夹）。"
+        config: "neurogrid.toml 的路径（默认：数据集中的 .neurogrid/neurogrid.toml）；[vault] path 指定 vault。"
+        expect_head: "先前在 vault 之外记录的链头哈希值；它必须仍是哈希链的一部分（可重复）。"
 
 errors:
   splits:
@@ -314,7 +374,10 @@ errors:
     object_invalid: "第 {index} 个对象不是相对路径或模式（不得为绝对路径、盘符路径或网络路径，不得含 '..'、反斜杠、冒号或控制字符，最多 1024 个字符）。"
     too_many_objects: "对象过多或过长：最多 {limit} 个对象，且访问日志的每个条目最多 64 KiB。"
     text_invalid: "{field} 的值无法记录：为空、过长，或含有控制字符或无效文本。"
-    target_not_folder: "vault 命令需要数据集文件夹，而不是单个文件。"
+    purpose_missing: "未指定目的：请使用 --purpose 或 neurogrid.toml 中的 [vault] purpose。"
+    target_not_folder: "PATH 必须是数据集文件夹，而不是文件。"
+    show_exclusive: "--show 不能与 --action、--objects、--purpose、--approval-ref 或 --role 同时使用。"
+    log_unreadable: "无法读取访问日志 access.jsonl。"
   consents:
     invalid: "知情同意记录（vault 中的 consents.yaml）无效：字段 '{field}'（{problem}）。"
     too_large: "知情同意记录（vault 中的 consents.yaml）过大或将会过大（上限 {limit} 字节）。"
@@ -531,6 +594,14 @@ reason:
     not_yet_valid: "该受试者的知情同意记录日期均晚于基准日期。"
     withdrawn: "该受试者的有效知情同意为撤回。"
     use_not_permitted: "该受试者的有效知情同意不允许此用途。"
+  vault:
+    not_found: "vault 路径下没有 vault（[vault] path，默认为 .neurogrid/vault）；请使用 'neurogrid vault init' 创建。"
+    single_file: "单个文件没有 vault；访问日志属于数据集文件夹。"
+    locked: "未读取：另一个 NeuroGrid 进程占用 vault 锁的时间过长。"
+    log_unreadable: "无法读取访问日志 access.jsonl。"
+    log_missing: "vault 中没有访问日志 access.jsonl；NeuroGrid 不会自动重建它。"
+    chain_broken: "访问日志的哈希链已断开（'neurogrid vault verify' 会列出每处不一致）。"
+    not_writable: "无法写入访问日志（vault 为只读）；访问不会被记录。"
 
 issue:
   header:
@@ -627,6 +698,9 @@ check:
     overlaps: "标注无重叠"
   consent:
     covered: "用途在知情同意范围内"
+  access:
+    log_intact: "访问日志哈希链完整"
+    log_writable: "访问日志可写入"
 
 report:
   ai:
@@ -752,6 +826,7 @@ report:
     recordings_count: "记录"
     unassigned: "未分配数据划分的记录"
     duplicate_groups: "信号相同的记录组（M12）"
+    access_log: "访问日志（NeuroVault）"
   value:
     none: "–"
     whole_recording: "整段记录"
@@ -788,6 +863,15 @@ report:
     missing_reason: "–（{reason}）"
     no_values: "–（没有已记录的数值）"
     title_missing: "–（results.json 的规则列表中没有该规则）"
+    access_log: "{events} 个条目，链头哈希值 {head}；{state}"
+    access_log_empty: "尚无条目；{state}"
+    access_log_state:
+      intact: "哈希链完整"
+      broken: "哈希链已断开（{deviations} 处不一致；'neurogrid vault verify' 会逐一列出）"
+      log_missing: "–（vault 中没有访问日志 access.jsonl）"
+      not_found: "–（此 neurogrid.toml 的 vault 路径下没有 vault）"
+      locked: "–（未读取：另一个 NeuroGrid 进程占用 vault 锁的时间过长）"
+      unreadable: "–（无法读取访问日志）"
   text:
     no_findings: "没有此类严重程度的结果。"
     severity_heading: "{severity}：{findings} 项结果，其中 {counted} 项计入摘要（{failed} 项未通过，{open} 项证明材料待补）"
@@ -822,6 +906,8 @@ report:
     strict_severity: "（使用 --strict 时：{severity}）"
     label_source: "标签来源：{source}（{unit}）"
     splits_source: "数据划分来自 {source}。"
+    access_log_note: "访问日志：封面上的链头哈希值为生成本报告时的值，即本报告自身的访问事件写入之前的值。请在 vault 之外记下该值，并在以后使用 'neurogrid vault verify --expect-head <hash>' 检查。可以发现哈希链内条目的修改、插入、删除和重新排序；末尾截断和整体重写只能对照在别处记录的链头哈希值发现；只记录通过 NeuroGrid 进行的访问。"
+    os_access: "不设用户账户；文件的访问权限由操作系统管理。"
   measure:
     documented: "已说明"
     channel_sets: "通道组数"
@@ -898,6 +984,7 @@ report:
     header: "数据文件"
     default: "默认值"
 
+# Value terms shared by the console and the report (p6 decisions 9).
 terms:
   consent_use:
     training: "训练"
@@ -905,3 +992,20 @@ terms:
     publication: "发表"
     sharing: "共享"
     commercial: "商业用途"
+  access:
+    first_line: "第一处不一致：第 {line} 行。"
+    kind: "类型：{kind}。"
+    deviations: "不一致总数：{count}。"
+
+  access_kind:
+    malformed: "无法读取的条目"
+    hash_mismatch: "条目已更改（其哈希值与内容不符）"
+    link_mismatch: "链接断开（previous_hash 与前一个条目不符）"
+    start_mismatch: "哈希链未从开头开始（开头缺少条目）"
+    log_missing: "缺少访问日志 access.jsonl"
+    head_missing: "未找到预期的链头哈希值"
+  access_likely:
+    change: "修改"
+    insert: "插入"
+    delete: "删除"
+    reorder: "重新排序"

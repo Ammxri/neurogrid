@@ -1,9 +1,9 @@
 # Metrics {#metrics}
 
-The rule pack `core` evaluates the metrics M01–M14; this page is its source (the clause of a core rule is the
-metric). For each metric it says what is measured, how, on which object, when a value cannot be judged, which
-rules use it with which threshold and where that threshold comes from. Every threshold can be overridden in
-`neurogrid.toml` (`[rules."ID".params]`).
+The rule pack `core` evaluates the metrics M01–M14 and the access log NV03 of NeuroVault; this page is its
+source (the clause of a core rule is the metric). For each metric it says what is measured, how, on which
+object, when a value cannot be judged, which rules use it with which threshold and where that threshold comes
+from. Every threshold can be overridden in `neurogrid.toml` (`[rules."ID".params]`).
 
 **States.** A value that cannot be judged is *not checkable* with a reason (for example too little data); a rule
 that does not apply to the recording is *not applicable*. Neither is a tool error: data never cause exit code 2.
@@ -272,6 +272,33 @@ cell has fewer than 5 subjects, only the total per use is shown ([Reading the re
 
 **Limits.** NeuroGrid records the user's statement about a consent and does not judge whether it is legally
 valid ([Limitations](limitations.md#consent)).
+
+## NV03 Access log {#NV03}
+
+**Measured.** The access log of the dataset's vault (`access.jsonl` in `[vault] path`, by default
+`.neurogrid/vault`; see [NeuroVault](vault.md)). CORE-NV03-01: its hash chain is intact – the stored hash of
+every entry matches its content, every entry links to the entry before it, the chain starts at the genesis hash.
+CORE-NV03-02: the log can be written – it is opened for appending, nothing is written; a read-only vault gives
+this warning and finding, never exit code 2. The log is read up to the size it has when the vault lock is taken
+for a moment; the run's own access event is appended only after `results.json` is written, so two runs on the
+same data give the same results.
+
+**Not checkable, not applicable.** Without a vault both rules are not checkable, also with `--strict`; a single
+file as target has no vault (not applicable). A vault lock that another NeuroGrid process holds longer than 10 s
+and a log that cannot be read make CORE-NV03-01 not checkable. A vault without `access.jsonl` fails both rules:
+NeuroGrid never recreates the log silently. A link in the vault path ends `check` with exit code 2 before the
+data are read.
+
+**Details.** A broken chain names the first deviating line, its kind and the number of deviations;
+`neurogrid vault verify` lists every deviation with its likely cause. Truncation at the end and complete
+rewriting are detected only with `vault verify --expect-head`.
+
+<!-- BEGIN GENERATED thresholds NV03 -->
+| Rule | Severity | Parameter | Origin |
+|---|---|---|---|
+| [CORE-NV03-01](reference/rules.md#CORE-NV03-01) Access log hash chain intact | Error | – | start value of the product specification (A-30, A-90) |
+| [CORE-NV03-02](reference/rules.md#CORE-NV03-02) Access log can be written | Warning | – | assumption A-30, A-90 (decision log) |
+<!-- END GENERATED -->
 
 ## Calibration {#calibration}
 

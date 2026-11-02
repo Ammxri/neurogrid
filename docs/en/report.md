@@ -13,7 +13,11 @@ its footer, the page number "x / y" and a running head.
 
 Dataset and version, the loaded rule packs with version, source status and SHA-256, the date (the reference
 date `as_of` of the check, not the time of printing), the tool version and the manifest hash. If a placeholder
-rule pack was loaded, a banner says that its rules are not based on a norm text and are not counted.
+rule pack was loaded, a banner says that its rules are not based on a norm text and are not counted. With
+`report --config` the cover also shows the vault's access log: the number of entries, the head hash and the
+state of the chain, read before the report's own access event ([NeuroVault](vault.md#verify)); record the head
+hash outside the vault to check it later with `vault verify --expect-head`. Without `--config` this row is
+missing and the report records nothing.
 
 ## 2 Summary {#summary}
 
@@ -71,7 +75,9 @@ folders without `--show-paths`; use a role or initials as reviewer, never a full
 
 An overview of the loaded rules, the effective configuration (cleaned of paths that could identify a person),
 the overridden thresholds, the justified exceptions with justification, approver role and validity, the notices
-of the run, the environment (Python, platform, libraries) and the fixed sentence.
+of the run, the environment (Python, platform, libraries), the sentence that NeuroGrid has no user accounts and
+the operating system governs access to the files, with `--config` a note on the head hash of the access log,
+and the fixed sentence.
 
 ## Pseudonymity {#pseudonymity}
 

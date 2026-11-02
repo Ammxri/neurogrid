@@ -188,6 +188,25 @@ def test_vault_boundary_check_sees_forbidden_imports() -> None:
     assert _outside(model, ("neurogrid.kernel",)) == ["neurogrid.vault", "neurogrid.vault.store"]
 
 
+# The checks that read NeuroVault as a supplier (ARC-01): the access log now; the consent area adds
+# consent.covered (p6 decisions 1).
+VAULT_CHECKS = ("access.log_intact", "access.log_writable")
+
+
+def test_vault_supplies_registered_checks() -> None:
+    """ARC-01: the five stages are wired with NeuroVault as a supplier: the access checks are registered with
+    a measurer, read the vault through neurogrid.vault, and core names them."""
+    from neurogrid.checks.registry import MEASURERS, REGISTRY
+
+    for check_id in VAULT_CHECKS:
+        assert check_id in REGISTRY and check_id in MEASURERS, check_id
+    names = _imports(SRC / "checks" / "access.py")
+    assert {"neurogrid.vault.ledger", "neurogrid.vault.store"} <= names
+    assert not _outside(names, ("neurogrid.kernel", "neurogrid.vault", "neurogrid.checks"))
+    core = (SRC / "rulepacks" / "core.yaml").read_text(encoding="utf-8")
+    assert all(f"check: {check_id}\n" in core for check_id in VAULT_CHECKS)
+
+
 def _aliases(tree: ast.AST) -> dict[str, str]:
     """Local name -> imported dotted name, for ``import x as y`` and ``from x import y [as z]``."""
     found: dict[str, str] = {}

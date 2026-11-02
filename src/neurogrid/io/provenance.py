@@ -87,6 +87,7 @@ KNOWN_CONTROL_FILES = frozenset(
         "vault/risks.yaml",
         "vault/retention.yaml",
         "vault/access.jsonl",
+        "vault/access.jsonl.lock",  # the vault lock (name confirmed in P6, A-82, A-90)
         "vault/pia/pia.zh.md",
         "vault/pia/pia.en.md",
     )

@@ -597,6 +597,43 @@ def append_locked(
     return AppendOutcome("written", event)
 
 
+Writability = Literal["writable", "log_missing", "not_writable"]
+
+
+def probe_writable(location: VaultLocation) -> Writability:
+    """Whether an event could be appended now (CORE-NV03-02, A-30 "Warnung und Befund" for a read-only
+    vault), without writing a byte to the log: the log is opened for appending as ``append_locked`` opens it
+    (not created when it is missing: log_missing), and the lock file as ``exclusive`` opens it (created empty
+    when it is missing, as every append does; it is never part of the manifest). Raises the errors of
+    store.require_present and UnsafePathError errors.vault.link for a linked log or lock file."""
+    current = location.refreshed()
+    require_present(current)
+    try:
+        fd = _open_log(current.log)
+    except FileNotFoundError:
+        return "log_missing"
+    except OSError as exc:
+        if _os.is_link_error(exc):
+            raise UnsafePathError("vault.link", part=VAULT_LOG) from None
+        return "not_writable"
+    try:
+        regular = stat.S_ISREG(os.fstat(fd).st_mode)
+    finally:
+        os.close(fd)
+    if not regular:
+        return "not_writable"
+    if is_link(current.lock):
+        raise UnsafePathError("vault.link", part=VAULT_LOCK)
+    try:
+        fd = _os.open_lock(current.lock)
+    except OSError as exc:
+        if _os.is_link_error(exc):
+            raise UnsafePathError("vault.link", part=VAULT_LOCK) from None
+        return "not_writable"
+    os.close(fd)
+    return "writable"
+
+
 def _open_log(path: Path) -> int:
     """The log for appending; one retry after RETRY_DELAY_S on a Windows sharing violation."""
     try:

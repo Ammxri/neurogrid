@@ -3,6 +3,26 @@
 
 规则包可在 `check` 中引用的全部检查项，由本版本 NeuroGrid 的注册表（`neurogrid.checks.registry`）生成。 规则包只能使用已注册的检查项及其声明的参数（A-13）；参数值依次取自 `neurogrid.toml` （`[rules."ID".params]`）、规则包，最后为下表中的默认值。
 
+## access.log_intact {#access.log_intact}
+
+| | |
+|---|---|
+| 名称 | 访问日志哈希链完整 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 数据集：其 vault 访问日志（access.jsonl）的哈希链 |
+| 内置规则 | [CORE-NV03-01](rules.md#CORE-NV03-01) |
+
+## access.log_writable {#access.log_writable}
+
+| | |
+|---|---|
+| 名称 | 访问日志可写入 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 数据集：其 vault 的访问日志（以追加方式打开，不写入任何内容） |
+| 内置规则 | [CORE-NV03-02](rules.md#CORE-NV03-02) |
+
 ## ai.class_balance {#ai.class_balance}
 
 | | |

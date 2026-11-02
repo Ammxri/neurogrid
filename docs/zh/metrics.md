@@ -1,6 +1,6 @@
 # 指标 {#metrics}
 
-规则包 `core` 评价指标 M01–M14；本页是它的来源（core 规则的条款即为指标）。对每个指标，本页说明测量什么、如何测量、
+规则包 `core` 评价指标 M01–M14 和 NeuroVault 的访问日志 NV03；本页是它的来源（core 规则的条款即为指标）。对每个指标，本页说明测量什么、如何测量、
 在什么对象上测量、何时无法判断、哪些规则使用它及其阈值，以及该阈值的来源。所有阈值都可以在 `neurogrid.toml`
 （`[rules."ID".params]`）中覆盖。
 
@@ -249,6 +249,29 @@ onnxruntime 运行，其遥测已关闭。
 <!-- END GENERATED -->
 
 **局限。** NeuroGrid 记录用户关于知情同意的说明，不判断其在法律上是否有效（[局限](limitations.md#consent)）。
+
+## NV03 访问日志 {#NV03}
+
+**测量内容。** 数据集 vault 的访问日志（`[vault] path` 中的 `access.jsonl`，默认为 `.neurogrid/vault`；参见
+[NeuroVault](vault.md)）。CORE-NV03-01：哈希链完整——每个条目存储的哈希值与其内容一致，每个条目都链接到其前一个
+条目，哈希链从创世哈希值开始。CORE-NV03-02：访问日志可写入——以追加方式打开，不写入任何内容；vault 为只读时给出
+此警告和发现，绝不产生退出码 2。日志读取到短暂获得 vault 锁时的大小为止；本次运行自身的访问事件在写入
+`results.json` 之后才追加，因此对相同数据的两次运行结果相同。
+
+**无法检查、不适用。** 没有 vault 时两条规则均为无法检查，使用 `--strict` 时也是如此；以单个文件为目标时没有
+vault（不适用）。另一个 NeuroGrid 进程占用 vault 锁超过 10 秒，或日志无法读取时，CORE-NV03-01 为无法检查。vault
+中没有 `access.jsonl` 时两条规则均不通过：NeuroGrid 不会自动重建日志。vault 路径中有链接时，`check` 在读取数据之前
+以退出码 2 结束。
+
+**详细信息。** 哈希链断开时给出第一处不一致所在的行、其类型和不一致总数；`neurogrid vault verify` 会列出每处不一致及其
+可能的原因。末尾截断和整体重写只能通过 `vault verify --expect-head` 发现。
+
+<!-- BEGIN GENERATED thresholds NV03 -->
+| 规则 | 严重程度 | 参数 | 来源 |
+|---|---|---|---|
+| [CORE-NV03-01](reference/rules.md#CORE-NV03-01) 访问日志哈希链完整 | 错误 | – | 产品规格书中的起始值（A-30, A-90） |
+| [CORE-NV03-02](reference/rules.md#CORE-NV03-02) 访问日志可写入 | 警告 | – | 假设 A-30, A-90（决策记录） |
+<!-- END GENERATED -->
 
 ## 校准 {#calibration}
 

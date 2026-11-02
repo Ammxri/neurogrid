@@ -316,13 +316,17 @@ def test_mixed_rate_edf_prints_no_library_warning(
     # P4: dataset-level findings of error rules without a data problem here, both not_applicable and not
     # counted: CORE-M12-01 (no splits; A-81, C11) and CORE-M13-02 (no manifest to compare with; A-82); P6:
     # CORE-M14-01 (no split and no [consent] dataset_uses: no use to cover; A-91)
+    # CORE-NV03-01, not checkable and not counted without a vault (A-90)
     expected = {
         ("CORE-M08-01", "EEG Fz"),
         ("CORE-M12-01", None),
         ("CORE-M13-02", None),
         ("CORE-M14-01", None),
+        ("CORE-NV03-01", None),
     }
     assert code == 1 and errors == expected
+    nv03 = [(f["status"], f["reason"]) for f in results["findings"] if f["rule_id"] == "CORE-NV03-01"]
+    assert nv03 == [("not_checkable", "vault.not_found")]
     m13_02 = [(f["status"], f["reason"]) for f in results["findings"] if f["rule_id"] == "CORE-M13-02"]
     assert m13_02 == [("not_applicable", "provenance.manifest_missing")]
     m14 = [(f["status"], f["reason"]) for f in results["findings"] if f["rule_id"] == "CORE-M14-01"]

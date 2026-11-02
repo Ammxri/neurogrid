@@ -1,5 +1,9 @@
 # 每个已注册检查项的测量对象；对自带比较规则的检查项另给出通过条件（tools/gen_docs.py，reference/checks.md）。
 # 键 = 注册表中的检查项 ID；测试保证两者一致。中文，待母语人士审校（A-07）。
+access.log_intact:
+  object: "数据集：其 vault 访问日志（access.jsonl）的哈希链"
+access.log_writable:
+  object: "数据集：其 vault 的访问日志（以追加方式打开，不写入任何内容）"
 ai.class_balance:
   object: "标签来源的每个范围（all、train、val、test）及每个类别"
   passes: "该类别在其范围内的占比不低于 `min_share`；对于被扣留的标签来源（单元格少于 5 名受试者），只依据受试者人数本身可得出的信息判断（A-81）"

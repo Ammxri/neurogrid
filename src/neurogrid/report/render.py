@@ -14,9 +14,10 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from markupsafe import Markup, escape
 
@@ -72,6 +73,20 @@ _COUNTER = re.compile(r"(\{page\}|\{pages\})")
 # '[U+001F]' in any text, whatever the fonts cover, so a sentence formatted with glyph-safe values
 # (_slot_safe) holds it only where a rule ID goes (_with_rule_ids); no dataset or user text can hold one.
 RULE_SLOT = "\x1f"
+ACCESS_LOG_CHECK = "access.log_intact"  # CORE-NV03-01; its details are rendered by access_details
+
+
+@dataclass(frozen=True)
+class VaultView:
+    """The access log of the vault as ``report --config`` shows it on the cover (A-30, p6 decisions 7), read
+    before rendering (pipeline.vault_view): the state, the number of well-formed entries, the head hash (the
+    stored hash of the last well-formed entry; None for an empty log) and the number of deviations. Never in
+    results.json: the head changes with every access, results.json must not (A-30, A-61)."""
+
+    state: Literal["intact", "broken", "log_missing", "not_found", "locked", "unreadable"]
+    events: int = 0
+    head: str | None = None
+    deviations: int = 0
 
 
 def report_coverage() -> frozenset[int] | None:
@@ -279,6 +294,8 @@ class _Formatter:
             if names:
                 parts.append(self.tr("report.validator.sub_codes", names=names))
         parts.extend(self.ai_details(finding.details))
+        if finding.message_key == f"check.{ACCESS_LOG_CHECK}":
+            parts.extend(self.access_details(finding.details))
         chars = finding.details.get("chars")
         if isinstance(chars, int) and not isinstance(chars, bool):  # a code or label not shown (A-17, M10)
             parts.append(self.tr("report.value.free_text", n=chars))
@@ -331,6 +348,19 @@ class _Formatter:
             parts.append(self.tr("report.ai.duplicate_of", names=names))
             if isinstance(details.get("splits"), list):
                 parts.append(self.tr("report.ai.duplicate_splits", names=self.names(details["splits"])))
+        return parts
+
+    def access_details(self, details: dict[str, Any]) -> list[str]:
+        """CORE-NV03-01 (NV-F03): the first deviating line of the access log, its kind and the number of
+        deviations; never entry content (A-51). The likely cause is not in results.json (p6 decisions 6);
+        ``vault verify`` names it."""
+        parts: list[str] = []
+        if isinstance(details.get("first_line"), int):
+            parts.append(self.tr("report.access.first_line", line=details["first_line"]))
+        if isinstance(details.get("kind"), str):
+            parts.append(self.tr("report.access.kind", kind=self.label("terms.access_kind", details["kind"])))
+        if isinstance(details.get("deviations"), int):
+            parts.append(self.tr("report.access.deviations", count=details["deviations"]))
         return parts
 
     @staticmethod
@@ -550,6 +580,23 @@ def _cover_rows(results: Results, fmt: _Formatter) -> list[tuple[str, str, bool]
         (tr("report.label.manifest_hash"), manifest_hash, bool(dataset.manifest_hash)),
         (tr("report.label.manifest_status"), manifest_status, False),
     ]
+
+
+def _access_log_value(view: VaultView, fmt: _Formatter) -> str:
+    """The cover value of the access log (``report --config``): entries, head hash in monospace and the
+    state of the chain; without a readable log only its state."""
+    tr = fmt.tr
+    state = tr(f"report.value.access_log_state.{view.state}", deviations=view.deviations)
+    if view.state not in ("intact", "broken"):
+        return state
+    if view.head is None:
+        return tr("report.value.access_log_empty", state=state)
+    coverage = report_coverage()  # the head slot is a RULE_SLOT: no translated text holds one
+    before, after = tr("report.value.access_log", events=view.events, head=RULE_SLOT, state=state).split(
+        RULE_SLOT
+    )
+    head = Markup('<span class="mono">%s</span>') % view.head
+    return Markup(escape(glyph_safe(before, coverage)) + head + escape(glyph_safe(after, coverage)))
 
 
 # --- section 3: findings (REP-03, NG-F13) --------------------------------------------------------------
@@ -1043,7 +1090,11 @@ def _shown_settings(results: Results, fmt: _Formatter, consent: frozenset[str]) 
     return settings
 
 
-def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[str, Any]:
+def build_context(
+    results: Results, lang: str, *, font_css: str = "", vault: VaultView | None = None
+) -> dict[str, Any]:
+    """``vault``: the access log for the cover row and the appendix note (``report --config``, A-30);
+    without it the report has neither."""
     evidence_rules = frozenset(rule.id for rule in results.rules if rule.check == EVIDENCE_CHECK)
     fmt = _Formatter(
         lang, recordings=frozenset(rec.id for rec in results.recordings), evidence_rules=evidence_rules
@@ -1055,6 +1106,9 @@ def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[st
     failed = tables.failed_index(results)
     placeholder_rules = {r.id for r in results.rules if r.source_status is SourceStatus.PLACEHOLDER}
     css = Markup(font_css) + Markup(_static_css()) + Markup(page_css(lang, results.config.as_of.isoformat()))
+    cover_rows = _cover_rows(results, fmt)
+    if vault is not None:
+        cover_rows.append((fmt.tr("report.label.access_log"), _access_log_value(vault, fmt), False))
     return {
         "css": css,
         "evidence_rows": _evidence_rows(results, fmt, titles),
@@ -1065,7 +1119,8 @@ def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[st
         "lang": lang,
         "results": results,
         "titles": titles,
-        "cover_rows": _cover_rows(results, fmt),
+        "cover_rows": cover_rows,
+        "vault": vault,
         "overall": fmt.overall(results.summary),
         "severity_sections": severity_sections,
         "placeholder_groups": placeholder_groups,
@@ -1097,9 +1152,9 @@ def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[st
     }
 
 
-def render_report(results: Results, lang: str, *, font_css: str = "") -> str:
+def render_report(results: Results, lang: str, *, font_css: str = "", vault: VaultView | None = None) -> str:
     """The report as one self-contained HTML document (B1). ``font_css`` are the @font-face rules of the
-    embedded font subsets (family 'NG Sans', data: URIs); the style element starts with them."""
-    return render_html(
-        TEMPLATE_DIR, "report.html.j2", build_context(results, lang, font_css=font_css), finalize=_finalize
-    )
+    embedded font subsets (family 'NG Sans', data: URIs); the style element starts with them. ``vault`` as
+    in build_context."""
+    context = build_context(results, lang, font_css=font_css, vault=vault)
+    return render_html(TEMPLATE_DIR, "report.html.j2", context, finalize=_finalize)

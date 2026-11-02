@@ -312,6 +312,25 @@ rules:
     severity: error
     verification: automatic
 
+  # --- P6 NeuroVault access log (NV-F03, A-30, A-90) ---
+  - id: CORE-NV03-01
+    clause: NV03
+    title_zh: 访问日志哈希链完整
+    title_en: Access log hash chain intact
+    phase: access
+    check: access.log_intact
+    severity: error
+    verification: automatic
+
+  - id: CORE-NV03-02
+    clause: NV03
+    title_zh: 访问日志可写入
+    title_en: Access log can be written
+    phase: access
+    check: access.log_writable
+    severity: warning  # A-30: a read-only vault is a warning and a finding, never exit 2
+    verification: automatic
+
   # --- P4 annotation ---
   - id: CORE-M10-01
     clause: M10

@@ -30,7 +30,9 @@ Written by `check` (`--out`, default `results.json`); `report` reads only this f
 | `summary` | Per phase light, errors, warnings, open evidence; coverage per pack; totals and the exit code. |
 | `manifest` | Result of the manifest comparison, or `null`. |
 
-Not contained: time of day, computer or user name, absolute paths, signal hashes, raw ages.
+Not contained: time of day, computer or user name, absolute paths, signal hashes, raw ages, and nothing of the
+vault's access log but the findings of CORE-NV03-01/02: no head hash, no number or time of events. The run's own
+access event is appended after `results.json` is written.
 
 ## Scan JSON {#scan-json}
 
@@ -92,12 +94,22 @@ column, never the content of a cell.
 spelling of the same records), `null` without `consents.yaml` or without M14; the records themselves never reach
 `results.json`.
 
+## Access log {#access-log}
+
+`access.jsonl` in the vault (`[vault] path`, default `.neurogrid/vault`), created empty by `vault init` and
+appended to by the commands ([NeuroVault](../vault.md#events)): one access event per line as compact JSON with
+sorted keys, then LF (schema [`access_event.schema.json`](../../schemas/access_event.schema.json)). Fields:
+`format_version`, `seq`, `time`, `role`, `action`, `objects`, `purpose`, `approval_ref`, `tool_version`,
+`previous_hash`, `hash` ([the hash chain](../vault.md#chain)). Its lock file `access.jsonl.lock` is empty. Both
+are left out of the manifest.
+
 ## Further schemas {#schemas}
 
 [`config.schema.json`](../../schemas/config.schema.json) (`neurogrid.toml`),
-[`rulepack.schema.json`](../../schemas/rulepack.schema.json) and
+[`rulepack.schema.json`](../../schemas/rulepack.schema.json),
 [`evidence.schema.json`](../../schemas/evidence.schema.json) (`evidence.yaml`),
-[`consents.schema.json`](../../schemas/consents.schema.json) (`consents.yaml`).
+[`consents.schema.json`](../../schemas/consents.schema.json) (`consents.yaml`) and
+[`access_event.schema.json`](../../schemas/access_event.schema.json) (one line of `access.jsonl`).
 
 ## Exit codes {#exit-codes}
 
