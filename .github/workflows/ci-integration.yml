@@ -1,0 +1,154 @@
+# NeuroGrid CI integration (A-34, A-98; V-03, UF-02, CON-02): runs the composite action of this repository
+# (action.yml, the local action ./) on GitHub's runners with the synthetic fixtures only. On GitHub-hosted
+# runners (Ubuntu 24.04 and Windows, so both script variants) the action must refuse without
+# allow-hosted-runner, before anything is checked, and run check, report and diff with allow-hosted-runner:
+# true. The run on a self-hosted runner (label neurogrid) that KONZEPT asks for is started by hand only (owner
+# answer 2 of P9, before the v1.0 release; never for pull requests). Every result stays on the runner: nothing
+# is uploaded. Runs on every push to dev and main (D-09) and by hand.
+name: ci-integration
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+    inputs:
+      self_hosted:
+        description: Also run the action on the self-hosted runner with the label neurogrid
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.13.0"
+  PYTHONWARNDEFAULTENCODING: "1"
+  UV_PYTHON_DOWNLOADS: automatic
+
+jobs:
+  hosted-refused:
+    name: refused on a GitHub-hosted runner (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      # NeuroGrid is installed, so a guard that let the run through would leave results behind
+      - name: Install (locked, no source builds)
+        run: uv sync --locked --no-build --python 3.12
+      - name: The action without allow-hosted-runner
+        id: refused
+        continue-on-error: true
+        uses: ./
+        with:
+          path: tests/fixtures/synthetic/edf_ok
+          config: tests/fixtures/documented.toml
+          neurogrid: ${{ runner.os == 'Windows' && '.venv/Scripts/neurogrid.exe' || '.venv/bin/neurogrid' }}
+      - name: The guard refused it before anything was checked
+        if: steps.refused.outcome != 'failure' || steps.refused.outputs.exit-code != '' || hashFiles('neurogrid-results/**') != ''
+        shell: bash
+        run: |
+          echo "::error::the action did not refuse a GitHub-hosted runner"
+          exit 1
+
+  hosted-allowed:
+    name: check, report and diff with allow-hosted-runner (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Install (locked, no source builds)
+        run: uv sync --locked --no-build --python 3.12
+      - name: Baseline run (check only, synthetic data)
+        id: baseline
+        uses: ./
+        with:
+          path: tests/fixtures/synthetic/edf_ok
+          config: tests/fixtures/documented.toml
+          out: baseline/results.json
+          report-formats: none
+          allow-hosted-runner: true
+          neurogrid: ${{ runner.os == 'Windows' && '.venv/Scripts/neurogrid.exe' || '.venv/bin/neurogrid' }}
+      - name: Strict run with report and diff against the baseline (fail-on never)
+        id: strict
+        uses: ./
+        with:
+          path: tests/fixtures/synthetic/edf_ok
+          config: tests/fixtures/documented.toml
+          strict: true
+          baseline: baseline/results.json
+          fail-on: never
+          allow-hosted-runner: true
+          neurogrid: ${{ runner.os == 'Windows' && '.venv/Scripts/neurogrid.exe' || '.venv/bin/neurogrid' }}
+      - name: The same strict run fails by the default fail-on (errors)
+        id: failing
+        continue-on-error: true
+        uses: ./
+        with:
+          path: tests/fixtures/synthetic/edf_ok
+          config: tests/fixtures/documented.toml
+          strict: true
+          out: failing/results.json
+          report-formats: none
+          allow-hosted-runner: true
+          neurogrid: ${{ runner.os == 'Windows' && '.venv/Scripts/neurogrid.exe' || '.venv/bin/neurogrid' }}
+      - name: Exit codes and outcomes as expected
+        if: >-
+          steps.baseline.outputs.exit-code != '0' || steps.baseline.outputs.diff-exit-code != '' ||
+          steps.strict.outputs.exit-code != '1' || steps.strict.outputs.diff-exit-code != '1' ||
+          steps.strict.outputs.results != 'neurogrid-results/results.json' ||
+          steps.failing.outcome != 'failure' || steps.failing.outputs.exit-code != '1'
+        shell: bash
+        run: |
+          echo "::error::the action gave other exit codes or outcomes than expected"
+          exit 1
+      - name: Results, reports and diff.json stay on the runner
+        shell: bash
+        run: |
+          for file in baseline/results.json neurogrid-results/results.json neurogrid-results/report.zh.html \
+            neurogrid-results/report.en.html neurogrid-results/diff.json failing/results.json; do
+            test -f "$file" || { echo "::error::$file missing"; exit 1; }
+          done
+          test ! -e baseline/report.zh.html && test ! -e baseline/diff.json
+
+  self-hosted:
+    name: the action on the self-hosted runner (label neurogrid)
+    if: github.event_name == 'workflow_dispatch' && inputs.self_hosted
+    runs-on: [self-hosted, neurogrid]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: Install (locked, no source builds)
+        run: uv sync --locked --no-build --python 3.12
+      - name: The action without allow-hosted-runner
+        id: own
+        uses: ./
+        with:
+          path: tests/fixtures/synthetic/edf_ok
+          config: tests/fixtures/documented.toml
+          neurogrid: ${{ runner.os == 'Windows' && '.venv/Scripts/neurogrid.exe' || '.venv/bin/neurogrid' }}
+      - name: Exit code and files as expected
+        if: >-
+          steps.own.outputs.exit-code != '0' || hashFiles('neurogrid-results/results.json') == '' ||
+          hashFiles('neurogrid-results/report.zh.html') == '' || hashFiles('neurogrid-results/report.en.html') == ''
+        run: exit 1

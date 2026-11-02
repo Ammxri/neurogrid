@@ -54,6 +54,13 @@ NeuroVault 目前部分可用：vault 文件夹、知情同意记录以及带 `v
   `.neurogrid/vault` 的 vault 中记录其访问；`report` 只有在指定 `--config` 时才记录。事件时间取自本地时钟，未经核实。
 - vault 锁只能使 NeuroGrid 进程彼此错开，不能约束其他程序；角色只作参考，不强制执行。访问权限由操作系统管理。
 
+## CI 集成 {#ci}
+
+- GitHub Action 和 GitLab 模板只用于自托管运行器。Action 依据 GitHub 的 `runner.environment` 区分自托管运行器和
+  GitHub 托管的运行器；模板只依靠运行器标签（[CI 集成](ci.md#self-hosted)）。
+- 仓库中的工作流 `ci-integration.yml` 用合成数据在 GitHub 托管的运行器上运行 Action；在自托管运行器上的运行尚未验证。
+- GitLab 模板尚未在 GitLab 上运行过：未验证，GitLab 是否展开 `tags` 中的变量也未验证。
+
 ## 不属于 0.1 版的内容 {#not-in-v01}
 
 - `diff`（比较两次结果）、NeuroVault（知情同意、角色、访问日志、M14）和证明材料汇编将在后续版本中提供。0.2 版增加了

@@ -37,6 +37,8 @@ path = [
     ".env.example",
     "mkdocs.yml",
     "docs/assets/**",
+    "action.yml",
+    "ci-templates/**",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"

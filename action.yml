@@ -1,0 +1,351 @@
+# NeuroGrid GitHub Action (A-34, A-98; V-03, UF-02, CON-02): runs `neurogrid check`, `neurogrid report` and,
+# with a baseline, `neurogrid diff` on the runner and keeps every result there as files of the job. Meant for
+# self-hosted runners in the customer's own network: on any other runner it stops before NeuroGrid runs, unless
+# allow-hosted-runner is true (public or synthetic data only). It installs nothing and needs no network:
+# NeuroGrid is installed on the runner beforehand (input `neurogrid`). It uploads nothing: there is no upload
+# step, and the last step says so in zh and en. Inputs reach the scripts through env only, never as an
+# expression inside a script (script injection). Every step exists twice, bash on Linux and macOS runners and
+# Windows PowerShell 5.1 on Windows runners; the Chinese texts come through env as well, so the scripts are
+# ASCII and PowerShell 5.1 reads them whatever the code page. tests/packaging/test_ci_integration.py runs both
+# variants; .github/workflows/ci-integration.yml runs the action on GitHub's runners (D-09).
+name: NeuroGrid pre-check
+description: Pre-check an EEG dataset with NeuroGrid on a self-hosted runner (check, report, diff); uploads nothing.
+author: Ammar Ahad
+
+inputs:
+  path:
+    description: Dataset folder or single data file (relative to the workspace or absolute).
+    required: true
+  rulepacks:
+    description: Rule packs for check --rulepack, one name or path per line (never split at commas); empty uses the configuration.
+    required: false
+    default: ""
+  config:
+    description: neurogrid.toml for check --config; empty uses .neurogrid/neurogrid.toml in the dataset.
+    required: false
+    default: ""
+  out:
+    description: The results.json that check writes; the reports and diff.json go next to it.
+    required: false
+    default: neurogrid-results/results.json
+  strict:
+    description: true runs check --strict.
+    required: false
+    default: "false"
+  role:
+    description: Role of the access event of check in the vault (check --role); empty uses [vault] role.
+    required: false
+    default: ""
+  report-formats:
+    description: Formats for report --format (html, pdf or html,pdf); none skips the report.
+    required: false
+    default: html
+  report-lang:
+    description: Languages for report --lang.
+    required: false
+    default: zh,en
+  baseline:
+    description: results.json of an earlier run; when given, diff compares it with this run.
+    required: false
+    default: ""
+  fail-on:
+    description: errors (check exit code 1 fails the step), new-errors (diff exit code 1 fails it; needs baseline) or never.
+    required: false
+    default: errors
+  neurogrid:
+    description: Name or path of the installed neurogrid launcher; the action installs nothing.
+    required: false
+    default: neurogrid
+  allow-hosted-runner:
+    description: true lets the action run on a GitHub-hosted runner, for public or synthetic data only.
+    required: false
+    default: "false"
+
+outputs:
+  exit-code:
+    description: Exit code of neurogrid check (0 or 1; exit code 2 fails the step at once).
+    value: ${{ steps.check-bash.outputs.exit-code || steps.check-powershell.outputs.exit-code }}
+  diff-exit-code:
+    description: Exit code of neurogrid diff (0 or 1); empty without baseline.
+    value: ${{ steps.diff-bash.outputs.exit-code || steps.diff-powershell.outputs.exit-code }}
+  results:
+    description: Path of the results.json written (the input out).
+    value: ${{ steps.check-bash.outputs.results || steps.check-powershell.outputs.results }}
+
+runs:
+  using: composite
+  steps:
+    # 1 guard: runner.environment is github-hosted or self-hosted; anything else, an empty value included,
+    # counts as not self-hosted (fail-safe). Then the inputs that the scripts decide on are checked.
+    - name: Self-hosted runner only (A-34), inputs
+      id: guard-bash
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        NG_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        NG_ALLOW_HOSTED_RUNNER: ${{ inputs.allow-hosted-runner }}
+        NG_PATH: ${{ inputs.path }}
+        NG_OUT: ${{ inputs.out }}
+        NG_STRICT: ${{ inputs.strict }}
+        NG_BASELINE: ${{ inputs.baseline }}
+        NG_FAIL_ON: ${{ inputs.fail-on }}
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_TEXT_REFUSED_ZH: "NeuroGrid 已停止：此 Action 仅用于您自有网络中的自托管运行器（self-hosted runner）。在 GitHub 托管的运行器上，只有设置 allow-hosted-runner: true 才会运行，且只可用于公开数据或合成数据。"
+        NG_TEXT_REFUSED_EN: "NeuroGrid stopped: this action is meant for self-hosted runners in your own network. On a GitHub-hosted runner it runs only with allow-hosted-runner: true, and only for public or synthetic data."
+        NG_TEXT_HOSTED_ZH: "NeuroGrid 在 GitHub 托管的运行器上运行（allow-hosted-runner: true）：只可使用公开数据或合成数据。"
+        NG_TEXT_HOSTED_EN: "NeuroGrid runs on a GitHub-hosted runner (allow-hosted-runner: true): use public or synthetic data only."
+        NG_TEXT_INVALID_ZH: "NeuroGrid：输入项无效："
+        NG_TEXT_INVALID_EN: "NeuroGrid: invalid input:"
+      run: |
+        invalid() {
+          printf '::error title=NeuroGrid::%s %s\n' "$NG_TEXT_INVALID_ZH" "$1" "$NG_TEXT_INVALID_EN" "$1"
+          exit 2
+        }
+        if [ "$NG_RUNNER_ENVIRONMENT" != "self-hosted" ]; then
+          if [ "$NG_ALLOW_HOSTED_RUNNER" != "true" ]; then
+            printf '::error title=NeuroGrid::%s\n' "$NG_TEXT_REFUSED_ZH" "$NG_TEXT_REFUSED_EN"
+            printf 'runner.environment: %s\n' "$NG_RUNNER_ENVIRONMENT"
+            exit 1
+          fi
+          printf '::warning title=NeuroGrid::%s\n' "$NG_TEXT_HOSTED_ZH" "$NG_TEXT_HOSTED_EN"
+        fi
+        if [ -z "$NG_PATH" ]; then invalid path; fi
+        case "$NG_OUT" in "" | *$'\n'* | *$'\r'*) invalid out ;; esac
+        case "$NG_STRICT" in true | false) ;; *) invalid strict ;; esac
+        case "$NG_FAIL_ON" in errors | new-errors | never) ;; *) invalid fail-on ;; esac
+        if [ "$NG_FAIL_ON" = "new-errors" ] && [ -z "$NG_BASELINE" ]; then invalid "fail-on (new-errors needs baseline)"; fi
+        if ! command -v "$NG_NEUROGRID" > /dev/null 2>&1; then invalid neurogrid; fi
+    - name: Self-hosted runner only (A-34), inputs
+      id: guard-powershell
+      if: runner.os == 'Windows'
+      shell: powershell
+      env:
+        NG_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        NG_ALLOW_HOSTED_RUNNER: ${{ inputs.allow-hosted-runner }}
+        NG_PATH: ${{ inputs.path }}
+        NG_OUT: ${{ inputs.out }}
+        NG_STRICT: ${{ inputs.strict }}
+        NG_BASELINE: ${{ inputs.baseline }}
+        NG_FAIL_ON: ${{ inputs.fail-on }}
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_TEXT_REFUSED_ZH: "NeuroGrid 已停止：此 Action 仅用于您自有网络中的自托管运行器（self-hosted runner）。在 GitHub 托管的运行器上，只有设置 allow-hosted-runner: true 才会运行，且只可用于公开数据或合成数据。"
+        NG_TEXT_REFUSED_EN: "NeuroGrid stopped: this action is meant for self-hosted runners in your own network. On a GitHub-hosted runner it runs only with allow-hosted-runner: true, and only for public or synthetic data."
+        NG_TEXT_HOSTED_ZH: "NeuroGrid 在 GitHub 托管的运行器上运行（allow-hosted-runner: true）：只可使用公开数据或合成数据。"
+        NG_TEXT_HOSTED_EN: "NeuroGrid runs on a GitHub-hosted runner (allow-hosted-runner: true): use public or synthetic data only."
+        NG_TEXT_INVALID_ZH: "NeuroGrid：输入项无效："
+        NG_TEXT_INVALID_EN: "NeuroGrid: invalid input:"
+      run: |
+        $ErrorActionPreference = 'Continue'
+        function Say([string[]] $Lines) {
+          # UTF-8 bytes straight to stdout: Windows PowerShell 5.1 would write the console's code page
+          $stream = [Console]::OpenStandardOutput()
+          foreach ($line in $Lines) {
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($line + "`n")
+            $stream.Write($bytes, 0, $bytes.Length)
+          }
+          $stream.Flush()
+        }
+        function Invalid([string] $Name) {
+          Say @("::error title=NeuroGrid::$env:NG_TEXT_INVALID_ZH $Name", "::error title=NeuroGrid::$env:NG_TEXT_INVALID_EN $Name")
+          exit 2
+        }
+        if ($env:NG_RUNNER_ENVIRONMENT -cne 'self-hosted') {
+          if ($env:NG_ALLOW_HOSTED_RUNNER -cne 'true') {
+            Say @("::error title=NeuroGrid::$env:NG_TEXT_REFUSED_ZH", "::error title=NeuroGrid::$env:NG_TEXT_REFUSED_EN")
+            Say @("runner.environment: $env:NG_RUNNER_ENVIRONMENT")
+            exit 1
+          }
+          Say @("::warning title=NeuroGrid::$env:NG_TEXT_HOSTED_ZH", "::warning title=NeuroGrid::$env:NG_TEXT_HOSTED_EN")
+        }
+        if (-not $env:NG_PATH) { Invalid 'path' }
+        if (-not $env:NG_OUT -or $env:NG_OUT -match '[\r\n]') { Invalid 'out' }
+        if (@('true', 'false') -cnotcontains $env:NG_STRICT) { Invalid 'strict' }
+        if (@('errors', 'new-errors', 'never') -cnotcontains $env:NG_FAIL_ON) { Invalid 'fail-on' }
+        if ($env:NG_FAIL_ON -ceq 'new-errors' -and -not $env:NG_BASELINE) { Invalid 'fail-on (new-errors needs baseline)' }
+        if (-not (Get-Command -Name $env:NG_NEUROGRID -ErrorAction SilentlyContinue)) { Invalid 'neurogrid' }
+        exit 0
+
+    # 2 check: exit codes 0 and 1 are results (the verdict comes last), anything else fails at once
+    - name: neurogrid check
+      id: check-bash
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_PATH: ${{ inputs.path }}
+        NG_OUT: ${{ inputs.out }}
+        NG_RULEPACKS: ${{ inputs.rulepacks }}
+        NG_CONFIG: ${{ inputs.config }}
+        NG_STRICT: ${{ inputs.strict }}
+        NG_ROLE: ${{ inputs.role }}
+      run: |
+        arguments=(check "$NG_PATH" --out "$NG_OUT")
+        while IFS= read -r pack || [ -n "$pack" ]; do
+          pack="${pack%$'\r'}"
+          if [ -n "$pack" ]; then arguments+=(--rulepack "$pack"); fi
+        done <<< "$NG_RULEPACKS"
+        if [ -n "$NG_CONFIG" ]; then arguments+=(--config "$NG_CONFIG"); fi
+        if [ "$NG_STRICT" = "true" ]; then arguments+=(--strict); fi
+        if [ -n "$NG_ROLE" ]; then arguments+=(--role "$NG_ROLE"); fi
+        code=0
+        "$NG_NEUROGRID" "${arguments[@]}" || code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "results=$NG_OUT" >> "$GITHUB_OUTPUT"
+        if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then exit "$code"; fi
+    - name: neurogrid check
+      id: check-powershell
+      if: runner.os == 'Windows'
+      shell: powershell
+      env:
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_PATH: ${{ inputs.path }}
+        NG_OUT: ${{ inputs.out }}
+        NG_RULEPACKS: ${{ inputs.rulepacks }}
+        NG_CONFIG: ${{ inputs.config }}
+        NG_STRICT: ${{ inputs.strict }}
+        NG_ROLE: ${{ inputs.role }}
+      run: |
+        $ErrorActionPreference = 'Continue'
+        function Add-Output([string] $Line) {
+          [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, $Line + "`n", [System.Text.UTF8Encoding]::new($false))
+        }
+        $arguments = @('check', $env:NG_PATH, '--out', $env:NG_OUT)
+        foreach ($pack in ("$env:NG_RULEPACKS" -split '\r?\n')) {
+          if ($pack) { $arguments += @('--rulepack', $pack) }
+        }
+        if ($env:NG_CONFIG) { $arguments += @('--config', $env:NG_CONFIG) }
+        if ($env:NG_STRICT -ceq 'true') { $arguments += '--strict' }
+        if ($env:NG_ROLE) { $arguments += @('--role', $env:NG_ROLE) }
+        & $env:NG_NEUROGRID @arguments
+        $code = $LASTEXITCODE
+        if ($null -eq $code) { $code = 2 }
+        Add-Output "exit-code=$code"
+        Add-Output "results=$env:NG_OUT"
+        if ($code -ne 0 -and $code -ne 1) { exit $code }
+        exit 0
+
+    # 3 report next to results.json, unless report-formats is none
+    - name: neurogrid report
+      id: report-bash
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_OUT: ${{ inputs.out }}
+        NG_REPORT_FORMATS: ${{ inputs.report-formats }}
+        NG_REPORT_LANG: ${{ inputs.report-lang }}
+      run: |
+        if [ "$NG_REPORT_FORMATS" = "none" ]; then exit 0; fi
+        "$NG_NEUROGRID" report "$NG_OUT" --lang "$NG_REPORT_LANG" --format "$NG_REPORT_FORMATS"
+    - name: neurogrid report
+      id: report-powershell
+      if: runner.os == 'Windows'
+      shell: powershell
+      env:
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_OUT: ${{ inputs.out }}
+        NG_REPORT_FORMATS: ${{ inputs.report-formats }}
+        NG_REPORT_LANG: ${{ inputs.report-lang }}
+      run: |
+        $ErrorActionPreference = 'Continue'
+        if ($env:NG_REPORT_FORMATS -ceq 'none') { exit 0 }
+        & $env:NG_NEUROGRID report $env:NG_OUT --lang $env:NG_REPORT_LANG --format $env:NG_REPORT_FORMATS
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        exit 0
+
+    # 4 diff against the baseline into diff.json next to results.json: exit codes 0 and 1 are results
+    - name: neurogrid diff
+      id: diff-bash
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_OUT: ${{ inputs.out }}
+        NG_BASELINE: ${{ inputs.baseline }}
+      run: |
+        if [ -z "$NG_BASELINE" ]; then exit 0; fi
+        target="$(dirname "$NG_OUT")/diff.json"
+        code=0
+        "$NG_NEUROGRID" diff "$NG_BASELINE" "$NG_OUT" --format text,json --out "$target" || code=$?
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then exit "$code"; fi
+    - name: neurogrid diff
+      id: diff-powershell
+      if: runner.os == 'Windows'
+      shell: powershell
+      env:
+        NG_NEUROGRID: ${{ inputs.neurogrid }}
+        NG_OUT: ${{ inputs.out }}
+        NG_BASELINE: ${{ inputs.baseline }}
+      run: |
+        $ErrorActionPreference = 'Continue'
+        if (-not $env:NG_BASELINE) { exit 0 }
+        $folder = Split-Path -Parent $env:NG_OUT
+        if ($folder) { $target = Join-Path $folder 'diff.json' } else { $target = 'diff.json' }
+        & $env:NG_NEUROGRID diff $env:NG_BASELINE $env:NG_OUT --format 'text,json' --out $target
+        $code = $LASTEXITCODE
+        if ($null -eq $code) { $code = 2 }
+        [System.IO.File]::AppendAllText($env:GITHUB_OUTPUT, "exit-code=$code`n", [System.Text.UTF8Encoding]::new($false))
+        if ($code -ne 0 -and $code -ne 1) { exit $code }
+        exit 0
+
+    # 5 verdict per fail-on, after the note that nothing was uploaded (CON-02)
+    - name: Verdict (fail-on), nothing uploaded
+      id: verdict-bash
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        NG_FAIL_ON: ${{ inputs.fail-on }}
+        NG_CHECK_EXIT: ${{ steps.check-bash.outputs.exit-code }}
+        NG_DIFF_EXIT: ${{ steps.diff-bash.outputs.exit-code }}
+        NG_TEXT_NOTE_ZH: "NeuroGrid 不上传任何内容：results.json、报告和版本比较结果作为文件保留在此运行器上。只有在其中不含真实人员数据时，才可将其作为制品（artifact）上传。"
+        NG_TEXT_NOTE_EN: "NeuroGrid uploads nothing: results.json, the reports and the comparison stay on this runner as files. Upload them as artifacts only if they hold no data of real persons."
+        NG_TEXT_ERRORS_ZH: "NeuroGrid check 发现错误级结果（退出码 1）；按 fail-on: errors，此步骤失败。"
+        NG_TEXT_ERRORS_EN: "NeuroGrid check found error findings (exit code 1); the step fails (fail-on: errors)."
+        NG_TEXT_NEW_ERRORS_ZH: "NeuroGrid diff 发现相对于基线的新错误级结果（退出码 1）；按 fail-on: new-errors，此步骤失败。"
+        NG_TEXT_NEW_ERRORS_EN: "NeuroGrid diff found new error findings against the baseline (exit code 1); the step fails (fail-on: new-errors)."
+      run: |
+        printf '%s\n' "$NG_TEXT_NOTE_ZH" "$NG_TEXT_NOTE_EN"
+        if [ "$NG_FAIL_ON" = "errors" ] && [ "$NG_CHECK_EXIT" = "1" ]; then
+          printf '::error title=NeuroGrid::%s\n' "$NG_TEXT_ERRORS_ZH" "$NG_TEXT_ERRORS_EN"
+          exit 1
+        fi
+        if [ "$NG_FAIL_ON" = "new-errors" ] && [ "$NG_DIFF_EXIT" = "1" ]; then
+          printf '::error title=NeuroGrid::%s\n' "$NG_TEXT_NEW_ERRORS_ZH" "$NG_TEXT_NEW_ERRORS_EN"
+          exit 1
+        fi
+    - name: Verdict (fail-on), nothing uploaded
+      id: verdict-powershell
+      if: runner.os == 'Windows'
+      shell: powershell
+      env:
+        NG_FAIL_ON: ${{ inputs.fail-on }}
+        NG_CHECK_EXIT: ${{ steps.check-powershell.outputs.exit-code }}
+        NG_DIFF_EXIT: ${{ steps.diff-powershell.outputs.exit-code }}
+        NG_TEXT_NOTE_ZH: "NeuroGrid 不上传任何内容：results.json、报告和版本比较结果作为文件保留在此运行器上。只有在其中不含真实人员数据时，才可将其作为制品（artifact）上传。"
+        NG_TEXT_NOTE_EN: "NeuroGrid uploads nothing: results.json, the reports and the comparison stay on this runner as files. Upload them as artifacts only if they hold no data of real persons."
+        NG_TEXT_ERRORS_ZH: "NeuroGrid check 发现错误级结果（退出码 1）；按 fail-on: errors，此步骤失败。"
+        NG_TEXT_ERRORS_EN: "NeuroGrid check found error findings (exit code 1); the step fails (fail-on: errors)."
+        NG_TEXT_NEW_ERRORS_ZH: "NeuroGrid diff 发现相对于基线的新错误级结果（退出码 1）；按 fail-on: new-errors，此步骤失败。"
+        NG_TEXT_NEW_ERRORS_EN: "NeuroGrid diff found new error findings against the baseline (exit code 1); the step fails (fail-on: new-errors)."
+      run: |
+        $ErrorActionPreference = 'Continue'
+        function Say([string[]] $Lines) {
+          # UTF-8 bytes straight to stdout: Windows PowerShell 5.1 would write the console's code page
+          $stream = [Console]::OpenStandardOutput()
+          foreach ($line in $Lines) {
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($line + "`n")
+            $stream.Write($bytes, 0, $bytes.Length)
+          }
+          $stream.Flush()
+        }
+        Say @($env:NG_TEXT_NOTE_ZH, $env:NG_TEXT_NOTE_EN)
+        if ($env:NG_FAIL_ON -ceq 'errors' -and $env:NG_CHECK_EXIT -ceq '1') {
+          Say @("::error title=NeuroGrid::$env:NG_TEXT_ERRORS_ZH", "::error title=NeuroGrid::$env:NG_TEXT_ERRORS_EN")
+          exit 1
+        }
+        if ($env:NG_FAIL_ON -ceq 'new-errors' -and $env:NG_DIFF_EXIT -ceq '1') {
+          Say @("::error title=NeuroGrid::$env:NG_TEXT_NEW_ERRORS_ZH", "::error title=NeuroGrid::$env:NG_TEXT_NEW_ERRORS_EN")
+          exit 1
+        }
+        exit 0

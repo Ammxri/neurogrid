@@ -26,7 +26,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / "tools"
 WORKFLOWS = ROOT / ".github" / "workflows"
-NAMES = ("ci", "offline", "corpus", "docs", "release", "publish-pypi", "mirror-gitee")
+NAMES = ("ci", "offline", "corpus", "docs", "release", "publish-pypi", "mirror-gitee", "ci-integration")
 PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
     "astral-sh/setup-uv": "07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",  # v10.3.2
@@ -75,6 +75,9 @@ def test_every_action_is_pinned_to_a_reviewed_commit() -> None:
             target = match.group(1)
             if target.startswith("./.github/workflows/"):
                 assert (ROOT / target).is_file(), target
+                continue
+            if target == "./":  # the action of this repository (action.yml), run by ci-integration only
+                assert name == "ci-integration" and (ROOT / "action.yml").is_file(), (name, line)
                 continue
             action, _, ref = target.partition("@")
             assert re.fullmatch(r"[0-9a-f]{40}", ref), (name, line)
@@ -768,6 +771,43 @@ def test_docs_and_corpus_workflows() -> None:
     assert "tools/corpus.py verify" in run and "tools/acceptance_g1.py" in run
     uploads = [s for s in _steps(job) if "upload-artifact" in str(s.get("uses"))]
     assert [u["with"]["path"] for u in uploads] == ["acceptance-summary/"]
+
+
+def test_ci_integration_runs_the_action_on_github_runners() -> None:
+    """A-34, A-98 (owner answer 2 of P9): the composite action of this repository (`uses: ./`) runs on
+    GitHub-hosted Ubuntu and Windows runners (both script variants) with the synthetic fixtures only. Without
+    allow-hosted-runner it must fail before anything is checked (no exit code of check, no results); with it,
+    check, report and diff give the expected exit codes and files; the job on the self-hosted runner (label
+    neurogrid) runs by hand only, never for a push or a pull request. Nothing is uploaded.
+    tests/packaging/test_ci_integration.py runs the scripts of the action locally."""
+    workflow = _load("ci-integration")
+    assert set(workflow["on"]) == {"push", "workflow_dispatch"}
+    assert workflow["on"]["push"] == {"branches": ["dev", "main"]}
+    assert workflow["on"]["workflow_dispatch"]["inputs"]["self_hosted"]["default"] is False
+    jobs = workflow["jobs"]
+    assert list(jobs) == ["hosted-refused", "hosted-allowed", "self-hosted"]
+    for job_id in ("hosted-refused", "hosted-allowed"):
+        assert jobs[job_id]["strategy"]["matrix"]["os"] == ["ubuntu-24.04", "windows-latest"], job_id
+    actions = [(job_id, s) for job_id, job in jobs.items() for s in _steps(job) if s.get("uses") == "./"]
+    assert [job_id for job_id, _step in actions] == ["hosted-refused", *["hosted-allowed"] * 3, "self-hosted"]
+    for job_id, step in actions:
+        assert str(step["with"]["path"]).startswith("tests/fixtures/synthetic/"), (job_id, step["with"])
+        assert step["with"].get("allow-hosted-runner", False) is (job_id == "hosted-allowed"), job_id
+    refused = _steps(jobs["hosted-refused"])
+    assert actions[0][1]["continue-on-error"] is True
+    assert refused[-1]["if"] == (
+        "steps.refused.outcome != 'failure' || steps.refused.outputs.exit-code != '' || "
+        "hashFiles('neurogrid-results/**') != ''"
+    )
+    allowed = " ".join(str(step.get("if", "")) for step in _steps(jobs["hosted-allowed"]))
+    for condition in ("steps.strict.outputs.diff-exit-code != '1'", "steps.failing.outcome != 'failure'"):
+        assert condition in allowed, condition
+    own = jobs["self-hosted"]
+    assert own["runs-on"] == ["self-hosted", "neurogrid"]
+    assert own["if"] == "github.event_name == 'workflow_dispatch' && inputs.self_hosted"
+    assert "allow-hosted-runner" not in actions[-1][1]["with"]
+    text = _text("ci-integration")
+    assert "upload-artifact" not in text and "pull_request" not in text
 
 
 # A step that runs pytest (not the name of its report file).

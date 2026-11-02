@@ -193,6 +193,14 @@ def sources(root: Path = ROOT) -> list[Source]:
         Source("packaging/README.bundle.txt", "README of the offline bundle", zh_lines, keyed=False),
         Source("packaging/release-notes.md", "release notes", zh_lines, keyed=False),
         Source("packaging/gitee-release.md", "Gitee release text", zh_lines, keyed=False),
+        Source("action.yml", "messages of the GitHub Action", zh_lines, keyed=False),
+        Source(
+            "ci-templates/gitlab-ci.yml",
+            "messages and comments of the GitLab CI template",
+            zh_lines,
+            keyed=False,
+        ),
+        Source("docs/en/ci.md", "the GitLab CI template in the English CI page", zh_lines, keyed=False),
         Source(
             "src/neurogrid/report/wording/forbidden.yaml",
             "word list: forbidden phrases (not displayed)",
