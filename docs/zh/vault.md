@@ -161,6 +161,39 @@ print("head", previous)
 检查其格式；当角色、对象或目的看起来像人名或身份编号时会给出警告，但仍会记录。角色只作参考，不强制执行；角色登记册
 将在以后的版本中提供。
 
+## 风险与重新取得知情同意 {#risks}
+
+vault 中的 `risks.yaml` 是风险登记册：在取得知情同意之后发现的风险，每项风险记录其所涉用途，以及自哪个知情同意版本起
+知情同意覆盖该风险。`neurogrid vault init` 创建该文件，其中为空列表和一个注释掉的示例；NeuroGrid 从不改写它。JSON
+schema：[`risks.schema.json`](../schemas/risks.schema.json)。
+
+<!-- example: risks.yaml -->
+```yaml
+format_version: 1
+risks:
+  - id: R-2026-01
+    date: 2026-09-01
+    description: 这些记录还用于训练第二个模型
+    affected_uses: [training, sharing]
+    min_consent_version: 2
+```
+
+| 字段 | 内容 |
+|---|---|
+| `id` | 一个字母，后接字母、数字、`_`、`.` 或 `-`，最多 40 个字符；不得重复。绝不使用人名：该 ID 会出现在报告中。 |
+| `date` | 风险的日期，`YYYY-MM-DD`；CORE-M14-02 自该日期起判断该风险。 |
+| `description` | 1 至 500 个可打印字符。它只保留在本文件中：从不出现在 `results.json`、报告、导出或控制台中。 |
+| `affected_uses` | `training`、`validation`、`publication`、`sharing`、`commercial` 中的 1 至 5 项，每项一次。 |
+| `min_consent_version` | 整数 1 至 1000000：该版本或更高版本的知情同意覆盖该风险。 |
+
+最多 1 000 项风险、1 000 000 字节。文件无效时 `check` 以退出码 2 结束，并指出风险和字段，从不显示值；不跟随位于其
+位置的链接。
+
+CORE-M14-02 判断日期在基准日期（`--as-of`）当日或之前的每项风险：其信号记录需要所涉用途、有效知情同意的版本却低于
+`min_consent_version` 的受试者会得到一条警告；日期更晚的风险由一条提示计数。按受试者的名单在 `results.json` 中；报告
+按风险统计受试者人数（[指标](metrics.md#M14)、[阅读报告](report.md#findings)）。是否需要重新取得知情同意由伦理委员会
+决定，而不是由 NeuroGrid 决定。
+
 ## 检查 {#checks}
 
 规则包 `core` 用 CORE-NV03-01（哈希链完整，错误）和 CORE-NV03-02（访问日志可写入，警告）检查日志：

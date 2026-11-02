@@ -4,6 +4,7 @@ effect; the order is the ID order whatever the order of the file (two runs give 
 
 from __future__ import annotations
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -54,3 +55,18 @@ def test_loaded_risks_in_each_state(tmp_path: Path) -> None:
     location.risks.write_bytes(REGISTER)
     loaded = risks.load_for_check(location)
     assert [risk.id for risk in loaded.judged(AS_OF)] == ["Q.1", "R-a", "R-b"] and loaded.future(AS_OF) == 1
+
+
+def test_the_documented_example_is_a_valid_register() -> None:
+    """docs/<lang>/vault.md#risks: the example parses, and both languages give the same risks apart from the
+    description (written in the page's language)."""
+    docs = Path(__file__).parents[3] / "docs"
+    found = {}
+    for lang in ("en", "zh"):
+        page = (docs / lang / "vault.md").read_text(encoding="utf-8")
+        (example,) = re.findall(r"<!-- example: risks.yaml -->\n```yaml\n(.*?)\n```", page, flags=re.S)
+        found[lang] = [
+            (r.id, r.date, r.affected_uses, r.min_consent_version)
+            for r in parse_risks(example.encode()).risks
+        ]
+    assert found["en"] == found["zh"] and len(found["en"]) == 1

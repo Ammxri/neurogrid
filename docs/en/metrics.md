@@ -264,6 +264,20 @@ effective version and up to 20 recording IDs; consent dates, ethics references a
 appear. The report shows M14 only aggregated per use, status and reason, without subject IDs and versions; when a
 cell has fewer than 5 subjects, only the total per use is shown ([Reading the report](report.md#findings)).
 
+**Re-consent (CORE-M14-02).** The risk register `risks.yaml` of the vault ([NeuroVault](vault.md#risks))
+lists risks found after the consents were given. For every risk dated on or before the reference date,
+each subject with a known label whose signal recordings need a use the risk affects (the needed uses
+above) and whose effective consent is valid gets one result: passed when the consent version is at least
+the risk's `min_consent_version`, else a warning – the subject may need a new consent, which the ethics
+committee decides. Subjects without a valid consent are left to CORE-M14-01. A risk that affects no such
+subject passes for the dataset. Without a risk register or without a risk dated on or before the
+reference date the rule is not applicable; without consent data it is not checkable, also with
+`--strict` or a configured `[consent]`. A risk dated later is not judged yet; a note counts it.
+`results.json` lists the results per subject (risk ID, affected uses, consent version, the version the
+risk requires, up to 20 recording IDs) and per risk the numbers of the report's table (`reconsent`),
+never the description. The report counts the subjects per risk in a section of its own
+([Reading the report](report.md#findings)).
+
 <!-- BEGIN GENERATED thresholds M14 -->
 | Rule | Severity | Parameter | Origin |
 |---|---|---|---|

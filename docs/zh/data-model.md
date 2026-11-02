@@ -147,6 +147,13 @@ weitergabe → `sharing`，kommerziell → `commercial`。
 补充字段：`format_version`、`seq`（在哈希链中的位置）和 `tool_version`。事件中不含用户名、计算机名、进程 ID 和
 绝对路径（[字段和对象命名空间](vault.md#fields)）。
 
+## Risk（风险） {#risk}
+
+对产品规格书中各对象的补充：vault 中风险登记册 `risks.yaml` 的一项风险（[NeuroVault](vault.md#risks)）；JSON
+schema 为 [`risks.schema.json`](../schemas/risks.schema.json)。其字段由 NeuroGrid 自行定义：`id`、`date`、
+`description`（从不输出）、`affected_uses`（取值同 `permitted_uses`）和 `min_consent_version`。CORE-M14-02 将知情同意
+版本与之比较。
+
 ## Results（结果）
 
 `results.json` 包含上述对象以及本次运行的上下文：规则包和规则、生效配置、各记录及其指标和抽样、检查结果

@@ -149,6 +149,13 @@ One line of the access log `access.jsonl`; the JSON schema is
 Supplements: `format_version`, `seq` (the position in the chain) and `tool_version`. An event holds no user
 name, computer name, process ID or absolute path ([fields and object namespaces](vault.md#fields)).
 
+## Risk {#risk}
+
+A supplement to the objects of the product specification: one risk of the risk register `risks.yaml` in
+the vault ([NeuroVault](vault.md#risks)); JSON schema [`risks.schema.json`](../schemas/risks.schema.json).
+The fields are NeuroGrid's own: `id`, `date`, `description` (never in output), `affected_uses` (the values
+of `permitted_uses`) and `min_consent_version`. CORE-M14-02 compares the consent versions with it.
+
 ## Results
 
 `results.json` carries the objects above together with the run's context: the rule packs and rules, the

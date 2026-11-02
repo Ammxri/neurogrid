@@ -51,7 +51,7 @@ The report shows at most 50 rows per rule; a closing line names the exact number
 the complete list is in `results.json` (`findings`, selected by `rule_id`). Passed checks are counted per rule.
 Findings of placeholder packs are in a section of their own, "not evaluated".
 
-M14 (consent, CORE-M14-01) is the one rule without finding rows: its block counts the subjects that need each
+The M14 rules have no finding rows. The block of CORE-M14-01 (consent) counts the subjects that need each
 use per status and reason, passed subjects included, without subject IDs and consent versions; it is shown
 whenever the rule has results per subject, also when all of them passed. When a cell has fewer than 5 subjects,
 every use shows only its total (small-cell rule), and no other count in the report depends on the consent
@@ -61,6 +61,21 @@ severity heading counts only the results that are not passed. The error counts a
 exit code include them as for every rule. The results per subject are in `results.json`. Exceptions for this rule
 appear in the appendix only as their number, without subject, use or justification, also in a run in which no
 loaded rule pack has the rule (for example with the BIDS pack alone).
+
+CORE-M14-02 (re-consent) has one line in its severity group that points to the section "Re-consent after
+new risks" at the end of section 3. The section starts with the fixed text "According to the risk
+register, re-consent may be required – the ethics committee decides." and gives, per risk dated on or
+before the reference date (at most 50 per rule, then a sentence with the number of further risks), its ID,
+date and affected uses, the number of subjects whose recordings need an affected use and these subjects
+by result: consent version at least the one the risk requires (passed), below it (not passed), an
+exception, or no valid consent at the reference date (judged by CORE-M14-01). When a result has fewer than
+5 subjects in any risk, every risk shows only its number of subjects (small-cell rule); the rule overview
+in the appendix then shows no count of the rule, and the passed checks of the summary leave it out. The
+warning counts and lights of the summary include its results that are not passed, as for every rule.
+Subject IDs, consent versions, the versions the risks require and risk descriptions never appear; the
+subjects are listed in `results.json`. Without a risk register, without a risk dated on or before the
+reference date or without consent data the section says why it has no table. Exceptions for this rule
+appear in the appendix only as their number.
 
 ## 4 Metrics per recording {#metrics}
 

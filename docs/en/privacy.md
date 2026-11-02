@@ -46,6 +46,10 @@ synchronised if that matters to you.
   references or permitted uses; the report shows M14 only aggregated per use and reason, without subject IDs and
   versions, and withholds a breakdown with fewer than 5 subjects in a cell. The later vault export leaves the
   consent records out.
+- The risk register `risks.yaml` in the vault holds risk IDs, dates, uses, versions and descriptions; the
+  descriptions never leave the file. `results.json` lists the CORE-M14-02 results per pseudonymous subject
+  (risk ID, consent version, the version the risk requires); the report counts them per risk only, under the
+  same small-cell rule, and the console of `check` gives their number.
 - No user accounts; access rights to the files are governed by the operating system. With a vault, NeuroGrid
   keeps one log: the access log `access.jsonl` of [NeuroVault](vault.md). Each entry holds the time (UTC), the
   role (a role name or initials), the action, the objects (`**` for the whole dataset; files of raw folders by

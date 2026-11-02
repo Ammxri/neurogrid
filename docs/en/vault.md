@@ -175,6 +175,42 @@ personal name or a login. NeuroGrid checks only its form and warns when a role, 
 like a name or an identification number; it records them anyway. Roles are advisory, not enforced; the role
 register follows in a later version.
 
+## Risks and re-consent {#risks}
+
+`risks.yaml` in the vault is the risk register: risks found after the consents were given, each with
+the uses it affects and the consent version from which a consent covers it. `neurogrid vault init`
+creates it with an empty list and a commented example; NeuroGrid never rewrites it. JSON schema:
+[`risks.schema.json`](../schemas/risks.schema.json).
+
+<!-- example: risks.yaml -->
+```yaml
+format_version: 1
+risks:
+  - id: R-2026-01
+    date: 2026-09-01
+    description: The recordings are also used to train a second model
+    affected_uses: [training, sharing]
+    min_consent_version: 2
+```
+
+| Field | Content |
+|---|---|
+| `id` | A letter, then letters, digits, `_`, `.` or `-`, at most 40 characters; unique. Never a personal name: the ID appears in the report. |
+| `date` | The date of the risk, `YYYY-MM-DD`; CORE-M14-02 judges the risk from this date on. |
+| `description` | 1 to 500 printable characters. It stays in this file: it never appears in `results.json`, a report, an export or the console. |
+| `affected_uses` | 1 to 5 of `training`, `validation`, `publication`, `sharing`, `commercial`, each once. |
+| `min_consent_version` | Whole number 1 to 1000000: a consent of this version or higher covers the risk. |
+
+At most 1 000 risks and 1 000 000 bytes. An invalid file ends `check` with exit code 2 and names the risk
+and the field, never a value; a link at its place is never followed.
+
+CORE-M14-02 judges every risk dated on or before the reference date (`--as-of`): a subject whose signal
+recordings need an affected use and whose effective consent is valid but has a lower version than
+`min_consent_version` gets a warning; a note counts the risks dated later. The list per subject is in
+`results.json`; the report counts the subjects per risk ([Metrics](metrics.md#M14),
+[Reading the report](report.md#findings)). Whether a new consent is needed is decided by the ethics
+committee, not by NeuroGrid.
+
 ## Checks {#checks}
 
 The rule pack `core` checks the log with CORE-NV03-01 (hash chain intact, error) and CORE-NV03-02 (log can be
