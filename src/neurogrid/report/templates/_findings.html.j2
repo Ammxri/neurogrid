@@ -23,7 +23,7 @@
   <p class="consent-note">{{ consent.note }}</p>
 {% endmacro %}
 {% macro group_body(group) %}
-{% if group.consent %}{{ consent_table(group.consent) }}{% else %}{{ finding_table(group) }}{% endif %}
+{% if group.consent %}{{ consent_table(group.consent) }}{% elif not group.reconsent %}{{ finding_table(group) }}{% endif %}
 {% endmacro %}
 <section id="findings">
   <h2>{{ t('report.section.findings') }}</h2>
@@ -54,6 +54,31 @@
       {% if group.more %}<p class="more">{{ group.more }}</p>{% endif %}
     </div>
     {% endfor %}
+  </div>
+  {% endif %}
+  {% if reconsent %}
+  <div class="reconsent" id="reconsent">
+    <h3>{{ reconsent.heading }}</h3>
+    {% if reconsent.text %}<p class="reconsent-text">{{ reconsent.text }}</p>
+    <p class="reconsent-legend">{{ reconsent.legend }}</p>{% endif %}
+    {% for rule in reconsent.rules %}
+    <div class="reconsent-rule" data-rule="{{ rule.rule }}">
+      <h4><span class="nowrap">{{ rule.rule }}</span>{% if rule.title %} – {{ rule.title }}{% endif %}</h4>
+      {% if rule.state %}<p class="reconsent-state">{{ rule.state }}</p>
+      {% else %}
+      <table class="reconsent">
+        <thead><tr><th>{{ t('report.reconsent.risk') }}</th><th>{{ t('report.reconsent.date') }}</th><th>{{ t('report.reconsent.uses') }}</th><th>{{ t('report.reconsent.subjects') }}</th><th>{{ t('report.reconsent.results') }}</th></tr></thead>
+        <tbody>
+        {% for row in rule.rows %}
+        <tr><td class="mono nowrap">{{ row.risk }}</td><td class="nowrap">{{ row.date }}</td><td>{{ row.uses }}</td><td>{{ row.subjects }}</td><td>{% for cell in row.cells %}{{ cell }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% if rule.more %}<p class="more">{{ rule.more }}</p>{% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+    <p class="reconsent-note">{{ reconsent.note }}</p>
   </div>
   {% endif %}
 </section>

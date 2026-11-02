@@ -268,6 +268,7 @@ cell has fewer than 5 subjects, only the total per use is shown ([Reading the re
 | Rule | Severity | Parameter | Origin |
 |---|---|---|---|
 | [CORE-M14-01](reference/rules.md#CORE-M14-01) Use in the split covered by consent | Error (no consent data: not checkable; --strict or [consent]: error) | – | start value of the product specification (A-30, A-91) |
+| [CORE-M14-02](reference/rules.md#CORE-M14-02) Re-consent possibly needed (risk register) | Warning | – | start value of the product specification (A-30, A-95) |
 <!-- END GENERATED -->
 
 **Limits.** NeuroGrid records the user's statement about a consent and does not judge whether it is legally

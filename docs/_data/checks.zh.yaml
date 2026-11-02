@@ -46,6 +46,9 @@ channels.standard_names:
 consent.covered:
   object: "每名受试者的每个所需用途；受试者未知的每条记录；没有知情同意数据时为数据集"
   passes: "基准日期时有效的知情同意允许该用途（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时为未通过）"
+consent.reconsent:
+  object: "risks.yaml 中日期在基准日期当日或之前的每项风险，以及其记录需要该风险所涉用途且知情同意有效的每名受试者；没有此类受试者的风险为数据集；没有风险或没有知情同意数据时为数据集"
+  passes: "受试者有效知情同意的版本不低于该风险的 min_consent_version（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时亦然；没有有效知情同意的受试者由 consent.covered 处理）"
 evidence.document:
   object: "规则本身（来自 evidence.yaml 的人工或半自动证明材料）"
 impedance.documented:

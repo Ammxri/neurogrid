@@ -28,6 +28,7 @@ cli:
     none_evaluated: "No rule pack was evaluated: only placeholder rule packs are loaded ({packs})."
     open_evidence: "{count} open evidence item(s), counted in the errors and warnings above."
     recomputed: "Note: at least one helper process of --jobs stopped unexpectedly (for example out of memory); the work for {count} recording(s) is done without it."
+    reconsent: "{count} subject(s) have a valid consent of a lower version than a risk of the risk register requires; re-consent may be required – the ethics committee decides (list per subject: results.json)."
   report:
     written: "Report written to {path}"
   convert:
@@ -459,6 +460,7 @@ notice:
   consents_without_recording: "{count} subject(s) of the consent records have no signal recording in the dataset."
   consent_refs_look_identifying: "{count} ethics approval reference(s) of the consent records may identify persons (a name, non-ASCII letters or six or more digits in a row); the values are not shown."
   consents_outside_dataset: "The vault with the consent records lies outside the dataset; a manifest of the dataset does not cover consents.yaml."
+  risks_future: "{count} risk(s) of the risk register are dated after the reference date; CORE-M14-02 judges a risk from its date on."
 
 severity:
   error: "Error"
@@ -614,6 +616,9 @@ reason:
     not_yet_valid: "Every consent record of this subject is dated after the reference date."
     withdrawn: "The effective consent of this subject is a withdrawal."
     use_not_permitted: "The effective consent of this subject does not permit this use."
+  reconsent:
+    no_risks: "No risk register in the vault (risks.yaml), or no risk dated on or before the reference date."
+    version_below: "The effective consent of this subject has a lower version than the risk requires (min_consent_version in risks.yaml); whether a new consent is needed is decided by the ethics committee."
   vault:
     not_found: "No vault at the vault path ([vault] path, default .neurogrid/vault); create it with 'neurogrid vault init'."
     single_file: "A single file has no vault; the access log belongs to a dataset folder."
@@ -718,6 +723,7 @@ check:
     overlaps: "No overlapping annotations"
   consent:
     covered: "Use covered by consent"
+    reconsent: "Consent version at least the one a risk requires"
   access:
     log_intact: "Access log hash chain intact"
     log_writable: "Access log can be written"
@@ -752,6 +758,27 @@ report:
     exceptions_total: "{count} exception(s) for consent findings; subjects, uses and justifications are listed only in results.json"
     passed_note: "Not included: the passed results of consent rules whose breakdown is withheld (small-cell rule)."
     severity_note: "For consent rules whose breakdown is withheld, only the results that are not passed are counted here (small-cell rule)."
+  reconsent:
+    heading: "Re-consent after new risks (risk register)"
+    text: "According to the risk register, re-consent may be required – the ethics committee decides."
+    legend: "Per risk dated on or before the reference date: the subjects whose signal recordings need a use the risk affects, by result – the version of their valid consent reaches the version the risk requires (passed) or is below it (not passed), an exception, or no valid consent at the reference date (judged by the consent scope rule of M14)."
+    pointer: "Counted per risk in the section '{heading}' at the end of this section; the subjects are listed only in results.json."
+    risk: "Risk"
+    date: "Date"
+    uses: "Affected uses"
+    subjects: "Subjects with an affected use"
+    results: "Subjects by result"
+    cell: "{result}: {count}"
+    with_reason: "{status} ({reason})"
+    version_below: "consent version below the risk's"
+    no_valid_consent: "no valid consent at the reference date"
+    no_subjects: "no subject's recordings need an affected use"
+    withheld: "breakdown withheld: a result has fewer than 5 subjects (small-cell rule)"
+    note: "The subjects who may need a new consent are listed only in results.json (the findings of the rule, with their consent versions); this report counts them per risk, without subject IDs, consent versions or risk descriptions."
+    no_risks: "No table: the vault has no risk register (risks.yaml), or no risk is dated on or before the reference date."
+    no_consents: "No table: there are no consent data (no vault, no consents.yaml, or no consent record)."
+    more: "{count} further risk(s) are counted in results.json (field reconsent); their subjects are in the findings of the rule."
+    overview_withheld: "breakdown withheld (small-cell rule); counted per risk in section 3"
   title: "NeuroGrid pre-check report"
   placeholder_banner: "This report contains rule packs marked as placeholders. Their rules are not based on the norm text, are shown without clause reference and are not counted."
   section:

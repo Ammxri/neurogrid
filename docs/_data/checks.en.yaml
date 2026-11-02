@@ -46,6 +46,9 @@ channels.standard_names:
 consent.covered:
   object: "each subject and needed use; each recording with an unknown subject; the dataset without consent data"
   passes: "the effective consent at the reference date permits the use (without consent data: not checkable, failed with --strict or a configured [consent])"
+consent.reconsent:
+  object: "each risk of risks.yaml dated on or before the reference date and each subject whose recordings need a use it affects and whose consent is valid; the dataset for a risk without such a subject; the dataset without risks or without consent data"
+  passes: "the version of the subject's effective consent is at least the min_consent_version of the risk (without consent data: not checkable, also with --strict or a configured [consent]; a subject without a valid consent is left to consent.covered)"
 evidence.document:
   object: "the rule itself (manual or semi-automatic evidence from evidence.yaml)"
 impedance.documented:

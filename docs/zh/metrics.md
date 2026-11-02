@@ -246,6 +246,7 @@ onnxruntime 运行，其遥测已关闭。
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
 | [CORE-M14-01](reference/rules.md#CORE-M14-01) 数据划分中的用途在知情同意范围内 | 错误 (没有知情同意数据：无法检查；--strict 或 [consent]：错误) | – | 产品规格书中的起始值（A-30, A-91） |
+| [CORE-M14-02](reference/rules.md#CORE-M14-02) 根据风险登记册可能需要重新取得知情同意 | 警告 | – | 产品规格书中的起始值（A-30, A-95） |
 <!-- END GENERATED -->
 
 **局限。** NeuroGrid 记录用户关于知情同意的说明，不判断其在法律上是否有效（[局限](limitations.md#consent)）。

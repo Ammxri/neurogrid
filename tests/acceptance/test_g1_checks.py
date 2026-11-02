@@ -164,8 +164,9 @@ def test_scan_and_manifest_files_against_their_schemas(tmp_path: Path) -> None:
 def test_finding_rows_accept_the_report(results: Results, overflowing: Results, lang: str) -> None:
     for checked_results in (results, overflowing):
         checked = g1.check_finding_rows(render_report(checked_results, lang), checked_results, lang)
-        # M14 (consent.covered) has no finding rows: one aggregated block per rule (D-17 option B)
-        aggregated = {rule.id for rule in checked_results.rules if rule.check == "consent.covered"}
+        # M14 (the checks consent.*) has no finding rows: one aggregated block per rule (D-17 option B), for
+        # CORE-M14-02 (consent.reconsent) the counts per risk of the re-consent section (A-95)
+        aggregated = {rule.id for rule in checked_results.rules if rule.check.startswith("consent.")}
         totals = Counter(f.rule_id for f in checked_results.findings if f.rule_id not in aggregated)
         assert checked.problems == []
         assert checked.rows == sum(min(total, MAX_ROWS_PER_RULE) for total in totals.values())

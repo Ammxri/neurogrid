@@ -39,5 +39,6 @@ CORE-M13-01: {origin: spec, ref: "A-22, A-82"}
 CORE-M13-02: {origin: spec, ref: "A-82"}
 CORE-M13-03: {origin: assumption, ref: "A-22"}
 CORE-M14-01: {origin: spec, ref: "A-30, A-91"}
+CORE-M14-02: {origin: spec, ref: "A-30, A-95"}
 CORE-NV03-01: {origin: spec, ref: "A-30, A-90"}
 CORE-NV03-02: {origin: assumption, ref: "A-30, A-90"}

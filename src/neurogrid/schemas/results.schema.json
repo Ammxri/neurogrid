@@ -1108,6 +1108,60 @@
       "title": "PhaseSummary",
       "type": "object"
     },
+    "ReconsentRisk": {
+      "additionalProperties": false,
+      "description": "One risk that CORE-M14-02 judged (A-95): its ID, date and affected uses from risks.yaml (never its\ndescription, A-51), the subjects whose signal recordings need an affected use (``subjects``) and how many\nof them have a valid consent at the reference date (``candidates``: one result per subject, passed when\nits consent version reaches the risk's). Counts only.",
+      "properties": {
+        "affected_uses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Uses",
+          "type": "array"
+        },
+        "candidates": {
+          "title": "Candidates",
+          "type": "integer"
+        },
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "subjects": {
+          "title": "Subjects",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "affected_uses",
+        "subjects",
+        "candidates"
+      ],
+      "title": "ReconsentRisk",
+      "type": "object"
+    },
+    "ReconsentSummary": {
+      "additionalProperties": false,
+      "description": "The sums of the re-consent tables of the report (D-17 option B for CORE-M14-02, A-81, A-95): per\njudged risk in ID order. results.passed counts a subject's passed risks without naming them, so the report\nneeds the candidates of each risk to tell its passed subjects, and its subjects to tell those without a\nvalid consent (left to CORE-M14-01); the subjects of a risk are public counts like those of a use\n(ConsentSummary). Present only when CORE-M14-02 judged risks per subject.",
+      "properties": {
+        "risks": {
+          "items": {
+            "$ref": "#/$defs/ReconsentRisk"
+          },
+          "title": "Risks",
+          "type": "array"
+        }
+      },
+      "title": "ReconsentSummary",
+      "type": "object"
+    },
     "RecordingSummary": {
       "additionalProperties": false,
       "description": "One recording as seen by the checks (no path; ``id`` is pseudonymous in raw folders).",
@@ -1592,6 +1646,17 @@
       },
       "title": "Passed",
       "type": "array"
+    },
+    "reconsent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReconsentSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "recordings": {
       "items": {

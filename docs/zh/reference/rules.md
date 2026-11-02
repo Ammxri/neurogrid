@@ -11,7 +11,7 @@
 | 来源 | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | 来源状态 | 正式 |
 | 对应标准（计算覆盖率） | 否 |
-| SHA-256 | `401894f1fe40ec6436b1025ac9b9b2a3f2d98379abf79b5d48afbe90f4bf6041` |
+| SHA-256 | `e74e3e92f950fce23fd423d97b1477275392e3be562c56fd2f0e4be9289224ac` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -427,6 +427,19 @@
 | 参数 | – |
 | 严重程度 | 错误 |
 | 使用 --strict 时的严重程度 | 错误 |
+| 核验方式 | 自动 |
+
+### CORE-M14-02 {#CORE-M14-02}
+
+| | |
+|---|---|
+| 名称 | 根据风险登记册可能需要重新取得知情同意 |
+| 条款 | [M14](../metrics.md#M14) |
+| 阶段 | 访问 |
+| 检查项 | [consent.reconsent](checks.md#consent.reconsent) |
+| 参数 | – |
+| 严重程度 | 警告 |
+| 使用 --strict 时的严重程度 | 警告 |
 | 核验方式 | 自动 |
 
 ### CORE-NV03-01 {#CORE-NV03-01}

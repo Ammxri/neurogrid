@@ -192,6 +192,19 @@ def test_the_consent_check_reads_the_vault_as_a_supplier() -> None:
     assert not _outside(_imports(SRC / "vault" / "consents.py"), VAULT_ALLOWED)
 
 
+def test_the_reconsent_check_reads_the_risk_register_as_a_supplier() -> None:
+    """ARC-01 (p9 decisions 1): CORE-M14-02's check consent.reconsent is registered with a measurer and core
+    names it; it reads risks.yaml through the pipeline's loader vault.risks (in the check context), which
+    imports only the kernel, the models and the vault, and the check never imports the pipeline or the CLI."""
+    from neurogrid.checks.registry import MEASURERS, REGISTRY
+
+    assert "consent.reconsent" in REGISTRY and "consent.reconsent" in MEASURERS
+    assert "check: consent.reconsent\n" in (SRC / "rulepacks" / "core.yaml").read_text(encoding="utf-8")
+    assert not _outside(_imports(SRC / "vault" / "risks.py"), VAULT_ALLOWED)
+    allowed = ("neurogrid.kernel", "neurogrid.model", "neurogrid.io", "neurogrid.vault", "neurogrid.checks")
+    assert not _outside(_imports(SRC / "checks" / "consent.py"), allowed)
+
+
 def test_vault_boundary_check_sees_forbidden_imports() -> None:
     source = (
         "from neurogrid import pipeline, __version__\nfrom ..checks import registry\nimport neurogrid.cli\n"

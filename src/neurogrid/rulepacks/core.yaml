@@ -312,6 +312,18 @@ rules:
     severity: error
     verification: automatic
 
+  # --- P9 re-consent (M14, NV-F06, A-30, A-95): per risk of risks.yaml, the subjects with a valid consent of a
+  # lower version than the risk requires; a hint for the ethics committee, so a warning; without consent
+  # data not checkable, also with --strict or [consent] (no strict_severity) ---
+  - id: CORE-M14-02
+    clause: M14
+    title_zh: 根据风险登记册可能需要重新取得知情同意
+    title_en: Re-consent possibly needed (risk register)
+    phase: access
+    check: consent.reconsent
+    severity: warning
+    verification: automatic
+
   # --- P6 NeuroVault access log (NV-F03, A-30, A-90) ---
   - id: CORE-NV03-01
     clause: NV03

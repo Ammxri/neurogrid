@@ -29,6 +29,7 @@ cli:
     none_evaluated: "未评价任何规则包：仅加载了占位规则包（{packs}）。"
     open_evidence: "{count} 项证明材料待补，已计入上述错误和警告。"
     recomputed: "提示：--jobs 的至少一个辅助进程意外终止（例如内存不足）；{count} 条记录的相关计算改为在没有该进程的情况下完成。"
+    reconsent: "{count} 名受试者的有效知情同意版本低于风险登记册中某项风险要求的版本；可能需要重新取得知情同意——由伦理委员会决定（逐人名单见 results.json）。"
   report:
     written: "报告已写入 {path}"
   convert:
@@ -460,6 +461,7 @@ notice:
   consents_without_recording: "知情同意记录中有 {count} 名受试者在数据集中没有信号记录。"
   consent_refs_look_identifying: "知情同意记录中有 {count} 个伦理审批编号可能识别个人（人名、非 ASCII 字母或连续六位以上数字）；不显示其值。"
   consents_outside_dataset: "存放知情同意记录的 vault 位于数据集之外；数据集的清单不包含 consents.yaml。"
+  risks_future: "风险登记册中有 {count} 项风险的日期晚于基准日期；CORE-M14-02 自风险日期起对其进行判断。"
 
 severity:
   error: "错误"
@@ -615,6 +617,9 @@ reason:
     not_yet_valid: "该受试者的知情同意记录日期均晚于基准日期。"
     withdrawn: "该受试者的有效知情同意为撤回。"
     use_not_permitted: "该受试者的有效知情同意不允许此用途。"
+  reconsent:
+    no_risks: "vault 中没有风险登记册（risks.yaml），或没有日期在基准日期当日或之前的风险。"
+    version_below: "该受试者有效知情同意的版本低于该风险要求的版本（risks.yaml 中的 min_consent_version）；是否需要重新取得知情同意由伦理委员会决定。"
   vault:
     not_found: "vault 路径下没有 vault（[vault] path，默认为 .neurogrid/vault）；请使用 'neurogrid vault init' 创建。"
     single_file: "单个文件没有 vault；访问日志属于数据集文件夹。"
@@ -719,6 +724,7 @@ check:
     overlaps: "标注无重叠"
   consent:
     covered: "用途在知情同意范围内"
+    reconsent: "知情同意版本不低于风险要求的版本"
   access:
     log_intact: "访问日志哈希链完整"
     log_writable: "访问日志可写入"
@@ -753,6 +759,27 @@ report:
     exceptions_total: "知情同意检查结果的例外共 {count} 项；受试者、用途和理由只在 results.json 中列出"
     passed_note: "不含细分已隐去的知情同意规则的通过结果（小单元格规则）。"
     severity_note: "细分已隐去的知情同意规则在此只计未通过的结果（小单元格规则）。"
+  reconsent:
+    heading: "新风险后的重新取得知情同意（风险登记册）"
+    text: "根据风险登记册，可能需要重新取得知情同意——由伦理委员会决定。"
+    legend: "对日期在基准日期当日或之前的每项风险：其信号记录需要该风险所涉用途的受试者，按结果分列——有效知情同意的版本达到风险要求的版本（通过）或低于该版本（未通过）、例外，或基准日期时没有有效的知情同意（由 M14 的知情同意范围规则判断）。"
+    pointer: "按风险汇总于本节末尾的“{heading}”部分；受试者只列于 results.json。"
+    risk: "风险"
+    date: "日期"
+    uses: "所涉用途"
+    subjects: "需要所涉用途的受试者"
+    results: "按结果分列的受试者"
+    cell: "{result}：{count}"
+    with_reason: "{status}（{reason}）"
+    version_below: "知情同意版本低于风险要求"
+    no_valid_consent: "基准日期时没有有效的知情同意"
+    no_subjects: "没有受试者的记录需要所涉用途"
+    withheld: "已隐去细分：某一结果少于 5 名受试者（小单元格规则）"
+    note: "可能需要重新取得知情同意的受试者只列于 results.json（该规则的检查结果，含知情同意版本）；本报告按风险计数，不含受试者 ID、知情同意版本和风险描述。"
+    no_risks: "无表格：vault 中没有风险登记册（risks.yaml），或没有日期在基准日期当日或之前的风险。"
+    no_consents: "无表格：没有知情同意数据（没有 vault、没有 consents.yaml 或没有知情同意记录）。"
+    more: "另有 {count} 项风险计于 results.json（reconsent 字段）；其受试者见该规则的检查结果。"
+    overview_withheld: "已隐去细分（小单元格规则）；按风险汇总于第 3 节"
   title: "NeuroGrid 预检报告"
   placeholder_banner: "本报告包含标记为占位的规则包。其规则并非依据标准原文，显示时不附条款号，且不计入统计。"
   section:
