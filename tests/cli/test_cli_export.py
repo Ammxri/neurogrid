@@ -157,10 +157,12 @@ def _flow_result(folder: Path, out: Path, codes: Path) -> None:
         assert archive.namelist()[-1] == "index.json"
 
 
-def test_vault_export_windows_powershell_51_chinese_path(tmp_path: Path) -> None:
-    powershell = shutil.which("powershell") if sys.platform == "win32" else None
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"], ids=["powershell-5.1", "pwsh-7"])
+def test_vault_export_windows_powershell_chinese_path(tmp_path: Path, shell: str) -> None:
+    """Windows PowerShell 5.1 and PowerShell 7 (p9 decisions 10)."""
+    powershell = shutil.which(shell) if sys.platform == "win32" else None
     if powershell is None:
-        pytest.skip("Windows PowerShell 5.1 only exists on Windows")
+        pytest.skip(f"{shell} is not installed (Windows only; PowerShell 7 where the runner has it)")
     folder = tmp_path / "数据集"
     report = _dataset(folder)
     script = tmp_path / "flow.ps1"
