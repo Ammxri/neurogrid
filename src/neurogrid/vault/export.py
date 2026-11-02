@@ -66,8 +66,8 @@ from neurogrid.model.export import (
 )
 from neurogrid.model.results import Disclaimer, ToolInfo
 from neurogrid.model.roles import MAX_FILE_BYTES as MAX_ROLES_BYTES
-from neurogrid.model.roles import parse_roles
-from neurogrid.vault import _os, ledger
+from neurogrid.model.roles import RoleRegister, parse_roles
+from neurogrid.vault import _os, ledger, roles
 from neurogrid.vault.lock import LOCK_TIMEOUT_S, exclusive
 from neurogrid.vault.store import (
     PIA_FILES,
@@ -124,12 +124,14 @@ class ExportManifestSource:
 
 @dataclass(frozen=True)
 class ExportResult:
-    """What ``vault export`` wrote: the access event, index.json as written and the warnings
-    (PIA_UNEDITED, ROLES_EMPTY, CHAIN_BROKEN)."""
+    """What ``vault export`` wrote: the access event, index.json as written, the warnings (PIA_UNEDITED,
+    ROLES_EMPTY, CHAIN_BROKEN) and the role warning of its event (vault.roles.role_warning: the register it
+    packs does not permit the export; A-93)."""
 
     event: AccessEvent
     index: ExportIndex
     warnings: tuple[str, ...]
+    role_warning: str | None = None
 
 
 def read_regular(
@@ -230,19 +232,23 @@ class _Member:
     format: ReportFormat | None = None
 
 
-def _vault_members(current: VaultLocation) -> tuple[list[_Member], list[str], list[str]]:
-    """roles.yaml and the PIA files of the vault (read and checked), their event objects and the warnings."""
+def _vault_members(
+    current: VaultLocation,
+) -> tuple[list[_Member], list[str], list[str], RoleRegister]:
+    """roles.yaml and the PIA files of the vault (read and checked), their event objects, the warnings and
+    the role register as packed."""
     warnings: list[str] = []
-    roles = read_regular(
+    data = read_regular(
         current.roles,
         part=ROLES_FILE,
         max_bytes=MAX_ROLES_BYTES,
         link=_vault_link(ROLES_FILE),
         too_large=lambda: InputError("roles.too_large", limit=MAX_ROLES_BYTES),
     )
-    if not parse_roles(roles).entries:
+    register = parse_roles(data)
+    if not register.entries:
         warnings.append(ROLES_EMPTY)
-    members = [_Member("roles", ROLES_MEMBER, roles)]
+    members = [_Member("roles", ROLES_MEMBER, data)]
     objects = [current.object_name(ROLES_FILE)]
     if is_link(current.pia_folder):
         raise UnsafePathError("vault.link", part=PIA_FOLDER)
@@ -265,7 +271,7 @@ def _vault_members(current: VaultLocation) -> tuple[list[_Member], list[str], li
         raise InputError("export.part_missing", part=PIA_FOLDER)
     if all(unedited):
         warnings.append(PIA_UNEDITED)
-    return members, objects, warnings
+    return members, objects, warnings, register
 
 
 def _report_members(reports: Sequence[ExportReport]) -> list[_Member]:
@@ -377,7 +383,7 @@ def export_vault(
         raise InputError("export.part_missing", part=LOG_MEMBER) from None
     if not stat.S_ISREG(log_info.st_mode):
         raise InputError("export.not_regular", part=LOG_MEMBER)
-    vault_members, vault_objects, warnings = _vault_members(current)
+    vault_members, vault_objects, warnings, register = _vault_members(current)
     report_members = _report_members(reports)
     objects = [
         *([manifest.object] if manifest.object is not None else []),
@@ -387,6 +393,8 @@ def export_vault(
     ledger.check_fields(
         role=role, action=EXPORT_ACTION, objects=objects, purpose=purpose, approval_ref=approval_ref
     )
+    # compared before the event, with the register as packed (an invalid one already refused the export)
+    role_warning = roles.role_warning(roles.permission(register, role, EXPORT_ACTION, objects))
     created = None
     try:
         created = _new_folders(out.parent)
@@ -430,7 +438,7 @@ def export_vault(
                 _remove_folders(created, out.parent)
     if not chain_intact:
         warnings.append(CHAIN_BROKEN)
-    return ExportResult(event, index, tuple(warnings))
+    return ExportResult(event, index, tuple(warnings), role_warning)
 
 
 def _append_event(

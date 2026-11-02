@@ -1120,6 +1120,7 @@ def vault_export(
         _say("cli.vault.export.inside_dataset")
     if run.role_identifying:
         _say("cli.vault.role_looks_identifying")
+    _role_warning(run.result.role_warning)
     _say("cli.vault.export.written", path=_written_path(target, plain=run.plain))
     _say("disclaimer")
 

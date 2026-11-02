@@ -122,6 +122,36 @@ def test_vault_export_chinese_path_in_process(tmp_path: Path, capsys: pytest.Cap
     assert names[-1] == "index.json" and "report/report.en.html" in names
 
 
+ROLES_WITHOUT_EXPORT = (
+    b"format_version: 1\nroles:\n  - role: QA\n    description: quality assurance\n"
+    b"    actions: [read, check]\n    objects: ['**']\n"
+)
+
+
+def test_export_warns_when_the_register_does_not_permit_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The role register is advisory (A-93): an export it does not permit is written with the warning and
+    exit 0; once the role may export, the warning is gone."""
+    folder = tmp_path / "data"
+    report = _dataset(folder)
+    assert run(["--lang", "en", "vault", "init", str(folder)], capsys)[0] == 0
+    assert run(["--lang", "en", "manifest", str(folder)], capsys)[0] == 0
+    roles = folder / VAULT / "roles.yaml"
+    roles.write_bytes(ROLES_WITHOUT_EXPORT)
+    tr = translator("en").t
+    warning = tr("cli.vault.role_not_permitted", reason=tr("cli.vault.role_reason.action_not_allowed"))
+    out = tmp_path / "package.zip"
+    args = ["--lang", "en", "vault", "export", str(folder), "--report", str(report), "--out", str(out)]
+    code, stdout, stderr = run([*args, "--role", "QA"], capsys)
+    assert code == 0 and out.is_file() and warning in stdout + stderr
+    out.unlink()
+    roles.write_bytes(ROLES_WITHOUT_EXPORT.replace(b"[read, check]", b"[read, check, export]"))
+    code, stdout, stderr = run([*args, "--role", "QA"], capsys)
+    prefix = tr("cli.vault.role_not_permitted", reason="|").split("|")[0]
+    assert code == 0 and out.is_file() and prefix not in stdout + stderr
+
+
 POWERSHELL_FLOW = """$py, $folder, $report, $out, $codes = $args[0..4]
 & $py -m neurogrid --lang zh vault init $folder | Out-Null
 Add-Content -Path $codes -Value "init $LASTEXITCODE"
