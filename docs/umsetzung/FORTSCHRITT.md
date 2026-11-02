@@ -284,7 +284,7 @@ die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
     (beide Bündel, Reinräume ubuntu 22.04/24.04 und debian:12-slim, Windows unter powershell und pwsh, glibc 2.27 mit
     Exit 2 abgelehnt, strace-Lauf, PDF in debian:12-slim); `ci-integration` 41447040527 (abgelehnt auf ubuntu-24.04 und
     windows-latest; check, report und diff mit allow-hosted-runner auf beiden, der Schritt mit fail-on errors scheiterte
-    wie vorgesehen; Job auf eigenem Runner übersprungen). Testjobs laut Notice-Annotationen: {{CI_ZAHLEN_5596a8d}}
+    wie vorgesehen; Job auf eigenem Runner übersprungen). Testjobs laut Notice-Annotationen: windows-latest Python 3.11 4821 bestanden / 20 übersprungen, 3.12 und 3.13 je 4822 / 19 (von 4841); ubuntu-24.04 Python 3.11, 3.12 und 3.13 je 4721 / 125 (von 4846); 0 Fehler; Abdeckung Kern 94,3–94,4 %, Prüfer 97,0–97,1 % (Grenzen 90 % und 80 %)
 - **Annahmen:** A-93 (Rollenregister), A-94 (Aufbewahrung und Folgenabschätzung), A-95 (Risikoregister und
   Neueinwilligung), A-96 (Export-ZIP), A-97 (Versionsvergleich), A-98 (CI-Integration), A-99 (Nachweismappe);
   vorgemerkt für die Freigabe nach P9 (STOPP G2). Angewandt: D-19; keine neue Entscheidung.

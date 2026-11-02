@@ -2763,7 +2763,7 @@ Alle drei Läufe abgeschlossen, Ergebnis success (02.11.2026) [D: `.local/p9/doc
 
 | Workflow / Lauf | Ergebnis |
 |---|---|
-| `ci`, 41447040471 | grün; Testjobs laut Notice-Annotationen: {{CI_ZAHLEN_5596a8d}} |
+| `ci`, 41447040471 | grün; Testjobs laut Notice-Annotationen: windows-latest Python 3.11 4821 bestanden / 20 übersprungen, 3.12 und 3.13 je 4822 / 19 (von 4841); ubuntu-24.04 Python 3.11, 3.12 und 3.13 je 4721 / 125 (von 4846); 0 Fehler; Abdeckung Kern 94,3–94,4 %, Prüfer 97,0–97,1 % (Grenzen 90 % und 80 %) |
 | `offline`, 41447040492 | grün: beide Bündel, Reinräume ubuntu 22.04/24.04 und debian:12-slim, Windows unter powershell und pwsh, glibc 2.27 mit Exit 2 abgelehnt, strace-Lauf, PDF in debian:12-slim |
 | `ci-integration`, 41447040527 | grün: abgelehnt auf den GitHub-gehosteten Runnern ubuntu-24.04 und windows-latest; check, report und diff mit allow-hosted-runner auf beiden, der Schritt mit fail-on errors scheiterte wie vorgesehen; Job auf eigenem Runner übersprungen |
 
@@ -3114,8 +3114,8 @@ Cache entfernt).
   `tags`, leerer Tag, Kodierung unter PowerShell); die PowerShell-7-Variante von `test_cli_diff.py` läuft nur in der CI.
 - Nachweismappe [NV]: Sichtprüfung durch den Projektverantwortlichen (REP-08); mit `--config` sind zwei Bauten mit
   Absicht verschieden (das eigene Ereignis des Berichts).
-- `src/neurogrid/cli.py`: Der Docstring der Exitcodes nennt `diff` (0, 1, 2) nicht und sagt noch „Further commands
-  follow in later phases“; der Bereich Vergleich überließ ihn dem Lead (offen, Code nicht Teil dieser Doku).
+- `src/neurogrid/cli.py`: Der Docstring nannte die Exitcodes von `diff` (0, 1, 2) nicht und sagte noch „Further
+  commands follow in later phases“; behoben vom Lead mit der Doku (Docstring, kein Verhalten).
 - Nicht verifiziert [NV]: lokal übersprungene Tests (Datei-Links, pwsh); die Testzahlen und die Abdeckung der CI auf
   `5596a8d` stehen in 4.9.8.
 

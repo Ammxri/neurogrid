@@ -1,8 +1,9 @@
-"""Command line (PRD §13): scan, convert, check, report, manifest, verify, and the NeuroVault groups 'vault'
-and 'vault consent' (v0.2). Further commands follow in later phases.
+"""Command line (PRD §13): scan, convert, check, report, manifest, verify, diff (v1.0), and the NeuroVault
+groups 'vault' and 'vault consent' (v0.2; vault export v1.0).
 
 Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error. manifest: 0 written, 1 files
 could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82);
+diff: 0 no new error finding, 1 new error findings, 2 tool error (A-97);
 report: 0 written, 2 tool error, e.g. no PDF browser for --format pdf or dossier (nothing written, A-26).
 vault init, vault log and vault export: 0 done, 2 every refusal (export: never 1, A-96); vault verify: 0 the
 access log is intact, 1 a deviation (also a missing log or an expected head not found), 2 tool error
