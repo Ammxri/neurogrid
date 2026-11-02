@@ -146,6 +146,7 @@ def _outside(names: set[str], allowed: tuple[str, ...]) -> list[str]:
 def test_vault_imports_only_kernel_model_io_and_config() -> None:
     files = sorted((SRC / "vault").rglob("*.py"))
     assert {path.name for path in files} >= {"__init__.py", "_os.py", "store.py", "lock.py", "ledger.py"}
+    assert {path.name for path in files} >= {"roles.py", "retention.py", "risks.py"}  # the P9 registers
     for path in files:
         assert not _outside(_imports(path), VAULT_ALLOWED), (
             f"{path.name}: {_outside(_imports(path), VAULT_ALLOWED)}"
@@ -156,6 +157,28 @@ def test_vault_imports_only_kernel_model_io_and_config() -> None:
 def test_access_and_consent_models_import_only_the_kernel(name: str) -> None:
     names = _imports(SRC / "model" / name)
     assert not _outside(names, ("neurogrid.kernel",)), f"{name}: {_outside(names, ('neurogrid.kernel',))}"
+
+
+# The register models of P9 (A-93 to A-95; p9 decisions 1): roles.yaml, retention.yaml and risks.yaml build on
+# the access and consent models and the kernel only; the vault, the checks and the CLI build on them.
+REGISTER_MODELS = ("_registers.py", "roles.py", "retention.py", "risks.py")
+MODEL_ALLOWED = ("neurogrid.kernel", "neurogrid.model")
+
+
+@pytest.mark.parametrize("name", REGISTER_MODELS)
+def test_register_models_import_only_the_kernel_and_the_models(name: str) -> None:
+    names = _imports(SRC / "model" / name)
+    assert not _outside(names, MODEL_ALLOWED), f"{name}: {_outside(names, MODEL_ALLOWED)}"
+    assert "neurogrid" not in names and "neurogrid.__version__" not in names  # no package import either
+
+
+def test_the_vault_reads_the_registers_through_the_register_models() -> None:
+    """ARC-01: the loaders of the registers are vault modules that read their model (the checks read the
+    loaders, never the files)."""
+    for name, model in (("roles", "roles"), ("retention", "retention"), ("risks", "risks")):
+        names = _imports(SRC / "vault" / f"{name}.py")
+        assert f"neurogrid.model.{model}" in names and "neurogrid.vault.store" in names, name
+        assert not _outside(names, VAULT_ALLOWED), name
 
 
 def test_the_consent_check_reads_the_vault_as_a_supplier() -> None:

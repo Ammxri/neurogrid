@@ -98,6 +98,9 @@ from neurogrid.report.texts import disclaimer
 from neurogrid.vault import consents as vault_consents
 from neurogrid.vault import ledger
 from neurogrid.vault import lock as vault_lock
+from neurogrid.vault import retention as vault_retention
+from neurogrid.vault import risks as vault_risks
+from neurogrid.vault import roles as vault_roles
 from neurogrid.vault import store as vault_store
 from neurogrid.vault.lock import VaultLocked
 from neurogrid.vault.roles import role_looks_identifying, validate_role
@@ -416,6 +419,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
                 target.root, loaded_config.project_root, cfg.vault.path
             )
             ctx.consent_required = strict or cfg.consent.configured
+        _load_vault_files(ctx, check_ids, vault)  # the registers are control files too (A-93 to A-95)
         stream = bool(check_ids & (STREAM_CHECKS | ai_dataset.STREAM_CHECKS))  # M12 needs the signal hash
         sample = bool(check_ids & SAMPLE_CHECKS)
         if stream or sample:
@@ -534,6 +538,9 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
             effective_settings=settings,
             evidence_sha256=evidence.sha256,
             consents_sha256=ctx.consents.sha256 if ctx.consents is not None else None,
+            roles_sha256=ctx.roles.sha256 if ctx.roles is not None else None,
+            retention_sha256=ctx.retention.sha256 if ctx.retention is not None else None,
+            risks_sha256=ctx.risks.sha256 if ctx.risks is not None else None,
         ),
         recordings=_recording_summaries(ctx),
         findings=result.findings,
@@ -554,6 +561,31 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         manifest=manifest,
         consent=consent_checks.summary(ctx, check_ids),  # M14 subjects per use, for the report (A-91)
     )
+
+
+# The checks that read a register of the vault (A-93 to A-95): CORE-NV04-01 reads roles.yaml, CORE-NV05-01
+# and CORE-NV05-03 (every check whose ID starts with RETENTION_CHECKS) retention.yaml, CORE-M14-02
+# risks.yaml. CORE-NV05-02 (pia.edited) reads the PIA files itself.
+ROLES_CHECK = "roles.permitted"
+RETENTION_CHECKS = "retention."
+RISKS_CHECK = "consent.reconsent"
+
+
+def _load_vault_files(ctx: CheckContext, check_ids: set[str], vault: VaultLocation | None) -> None:
+    """Read the registers of the vault that a loaded rule needs into ``ctx`` (ctx.roles, ctx.retention,
+    ctx.risks), right after the consent records and before the signal pass: they are control files, so an
+    invalid one ends the run with exit 2 before the data are read (C2; errors.roles.*, errors.retention.*
+    with too_short, errors.risks.*, errors.vault.link {part}). Nothing is read for a single file, which has
+    no vault (``vault`` None: the fields stay None); a vault path without a vault gives the state no_vault,
+    a vault without the file no_file. config.<file>_sha256 of results.json comes from these fields."""
+    if vault is None:
+        return
+    if ROLES_CHECK in check_ids:
+        ctx.roles = vault_roles.load_for_check(vault)
+    if any(check_id.startswith(RETENTION_CHECKS) for check_id in check_ids):
+        ctx.retention = vault_retention.load_for_check(vault)
+    if RISKS_CHECK in check_ids:
+        ctx.risks = vault_risks.load_for_check(vault)
 
 
 def _explicit_manifest(raw: Path | None) -> Path | None:

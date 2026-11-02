@@ -15,6 +15,25 @@ from neurogrid.report.texts import tables
 
 ROOT = Path(__file__).parent.parent.parent
 SRC = ROOT / "src" / "neurogrid"
+# The templates that vault init writes into the user's vault (A-93 to A-95): NeuroGrid's own texts. The PIA
+# templates name the articles of the PIPL provisions they restate (owner answer 3 of P9): they are the only
+# exception of the law_article group; every other wording rule applies to them.
+PIA_TEMPLATES = tuple(sorted((SRC / "vault" / "templates").glob("pia.*.md")))
+LAW_ARTICLE_EXCEPTIONS = {
+    "src/neurogrid/vault/templates/pia.en.md",
+    "src/neurogrid/vault/templates/pia.zh.md",
+}
+
+
+def _vault_templates() -> list[tuple[str, str]]:
+    """The register templates of vault.store and the PIA templates, as (name, text)."""
+    from neurogrid.vault import store
+
+    names = ("CONSENTS_TEMPLATE", "ROLES_TEMPLATE", "RISKS_TEMPLATE", "RETENTION_TEMPLATE")
+    texts = [(f"vault/store.py:{name}", bytes(getattr(store, name)).decode("utf-8")) for name in names]
+    return texts + [
+        (path.relative_to(ROOT).as_posix(), path.read_text(encoding="utf-8")) for path in PIA_TEMPLATES
+    ]
 
 
 def test_all_languages_have_the_same_keys() -> None:
@@ -155,7 +174,7 @@ def _texts_to_scan() -> list[tuple[str, str]]:
     for entry in resources.files("neurogrid.rulepacks").iterdir():
         if entry.name.endswith(".yaml"):
             texts.append((entry.name, entry.read_text(encoding="utf-8")))
-    return texts
+    return texts + _vault_templates()
 
 
 def test_no_conformity_claims() -> None:
@@ -218,7 +237,7 @@ def _own_texts() -> list[tuple[str, str]]:
         texts += [(f"validator:{code}:{lang}", entry[lang]) for lang in LANGUAGES]
     for path in sorted((SRC / "report" / "templates").iterdir()):
         texts.append((str(path.relative_to(ROOT)), path.read_text(encoding="utf-8")))
-    return texts
+    return texts + _vault_templates()
 
 
 def _user_texts() -> list[tuple[str, str]]:
@@ -247,11 +266,25 @@ def test_report_texts_make_no_patient_statements() -> None:
 
 
 def test_findings_name_no_law_articles() -> None:
-    """A-57: findings (rule titles, reasons, issue texts, validator texts, report texts) name no law
-    articles."""
+    """A-57: findings (rule titles, reasons, issue texts, validator texts, report texts) and the vault
+    templates name no law articles; the two PIA templates are the only exception (LAW_ARTICLE_EXCEPTIONS)."""
     patterns = _statement_patterns("law_article")
-    hits = [(name, p.pattern) for name, text in _own_texts() for p in patterns if p.search(text)]
+    texts = [(name, text) for name, text in _own_texts() if name not in LAW_ARTICLE_EXCEPTIONS]
+    hits = [(name, p.pattern) for name, text in texts for p in patterns if p.search(text)]
     assert not hits, hits
+
+
+def test_the_pia_templates_are_the_law_article_exception() -> None:
+    """Owner answer 3 of P9 (A-94): the PIA templates name the PIPL articles, and they are the exception of
+    exactly those two files; they are scanned for conformity claims and patient statements like every other
+    own text (the tests above)."""
+    assert {path.relative_to(ROOT).as_posix() for path in PIA_TEMPLATES} == LAW_ARTICLE_EXCEPTIONS
+    patterns = _statement_patterns("law_article")
+    for path in PIA_TEMPLATES:
+        assert any(p.search(path.read_text(encoding="utf-8")) for p in patterns), path.name
+    own = {name for name, _text in _own_texts()}
+    scanned = {name for name, _text in _texts_to_scan()}
+    assert LAW_ARTICLE_EXCEPTIONS <= own and LAW_ARTICLE_EXCEPTIONS <= scanned
 
 
 @pytest.mark.parametrize(

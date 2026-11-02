@@ -97,6 +97,12 @@ class ConfigInfo(BaseModel):
     # canonical SHA-256 of the parsed consent records <vault>/consents.yaml (M14, A-91); None without the
     # file or when M14 is not loaded. Never their content (no dates, ethics references or uses, A-51).
     consents_sha256: str | None = None
+    # canonical SHA-256 of the parsed registers of the vault: roles.yaml (CORE-NV04-01, A-93),
+    # retention.yaml (CORE-NV05-01/03, A-94) and risks.yaml (CORE-M14-02, A-95); None without the file or
+    # when no loaded rule reads it. Never their content (no descriptions, ethics references or dates, A-51).
+    roles_sha256: str | None = None
+    retention_sha256: str | None = None
+    risks_sha256: str | None = None
 
 
 class RecordingSummary(BaseModel):

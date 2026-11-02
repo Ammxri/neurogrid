@@ -97,7 +97,7 @@ cli:
     init:
       created: "Created: {name}"
       kept: "Kept unchanged: {name}"
-      manifest_hint: "consents.yaml is part of the manifest: run 'neurogrid manifest' again so that 'neurogrid verify' covers it. The access log and its lock file are left out of the manifest."
+      manifest_hint: "consents.yaml, roles.yaml, risks.yaml, retention.yaml and the impact assessment pia/pia.zh.md and pia/pia.en.md are part of the manifest: run 'neurogrid manifest' again so that 'neurogrid verify' covers them. The access log and its lock file are left out of the manifest."
     log:
       written: "Access event {seq} recorded, hash {hash}"
       identifying: "Note: an object, the purpose or the approval reference looks like a personal name or an identification number; the access log records it as given. Use pseudonymous IDs and references without personal data."
@@ -204,7 +204,7 @@ cli:
           purpose: "Purpose recorded in the access event (default: [vault] purpose)."
           approval_ref: "Approval reference recorded in the access event (default: [vault] approval_ref)."
       init:
-        about: "Create the missing parts of the vault: its folder, consents.yaml, the access log and its lock file; existing parts are kept."
+        about: "Create the missing parts of the vault: its folder, consents.yaml, the access log and its lock file, the role register roles.yaml, the risk register risks.yaml, the retention periods retention.yaml and the impact assessment templates pia/pia.zh.md and pia/pia.en.md; existing parts are kept."
         path: "Dataset folder (default: the current folder)."
         config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset); [vault] path names the vault."
       log:
@@ -385,6 +385,25 @@ errors:
     encoding: "The consent records (consents.yaml in the vault) are not UTF-8 text (UTF-8 with or without BOM is accepted)."
     not_a_file: "consents.yaml in the vault is not a regular file."
     unreadable: "consents.yaml in the vault cannot be read."
+  roles:
+    invalid: "The role register (roles.yaml in the vault) is invalid: field '{field}' ({problem})."
+    too_large: "The role register (roles.yaml in the vault) is too large (limit {limit} bytes)."
+    encoding: "The role register (roles.yaml in the vault) is not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "roles.yaml in the vault is not a regular file."
+    unreadable: "roles.yaml in the vault cannot be read."
+  risks:
+    invalid: "The risk register (risks.yaml in the vault) is invalid: field '{field}' ({problem})."
+    too_large: "The risk register (risks.yaml in the vault) is too large (limit {limit} bytes)."
+    encoding: "The risk register (risks.yaml in the vault) is not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "risks.yaml in the vault is not a regular file."
+    unreadable: "risks.yaml in the vault cannot be read."
+  retention:
+    invalid: "The retention periods (retention.yaml in the vault) are invalid: field '{field}' ({problem})."
+    too_short: "retention.yaml in the vault: the minimum retention of '{object}' ends less than three years after its creation date; min_until must lie at least three years after created (from 29 February: 1 March three years later)."
+    too_large: "The retention periods (retention.yaml in the vault) are too large (limit {limit} bytes)."
+    encoding: "The retention periods (retention.yaml in the vault) are not UTF-8 text (UTF-8 with or without BOM is accepted)."
+    not_a_file: "retention.yaml in the vault is not a regular file."
+    unreadable: "retention.yaml in the vault cannot be read."
   consent:
     from_with_fields: "--from imports a table; it cannot be combined with --subject, --version, --date, --uses, --withdrawn or --ethics-ref."
     from_not_found: "The import table (--from) was not found."

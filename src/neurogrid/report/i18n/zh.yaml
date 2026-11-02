@@ -98,7 +98,7 @@ cli:
     init:
       created: "已创建：{name}"
       kept: "已保留，未更改：{name}"
-      manifest_hint: "consents.yaml 属于清单的一部分：请重新运行 'neurogrid manifest'，以便 'neurogrid verify' 覆盖该文件。访问日志及其锁文件不纳入清单。"
+      manifest_hint: "consents.yaml、roles.yaml、risks.yaml、retention.yaml 以及个人信息保护影响评估 pia/pia.zh.md 和 pia/pia.en.md 属于清单的一部分：请重新运行 'neurogrid manifest'，以便 'neurogrid verify' 覆盖这些文件。访问日志及其锁文件不纳入清单。"
     log:
       written: "已记录访问事件 {seq}，哈希值 {hash}"
       identifying: "提示：某个对象、目的或批准编号看起来像人名或身份编号；访问日志按原样记录。请使用假名 ID 和不含个人数据的编号。"
@@ -205,7 +205,7 @@ cli:
           purpose: "记入访问事件的目的（默认：[vault] purpose）。"
           approval_ref: "记入访问事件的批准编号（默认：[vault] approval_ref）。"
       init:
-        about: "创建 vault 中缺少的部分：文件夹、consents.yaml、访问日志及其锁文件；已有部分保持不变。"
+        about: "创建 vault 中缺少的部分：文件夹、consents.yaml、访问日志及其锁文件、角色登记册 roles.yaml、风险登记册 risks.yaml、保存期限 retention.yaml，以及个人信息保护影响评估模板 pia/pia.zh.md 和 pia/pia.en.md；已有部分保持不变。"
         path: "数据集文件夹（默认：当前文件夹）。"
         config: "neurogrid.toml 的路径（默认：数据集中的 .neurogrid/neurogrid.toml）；[vault] path 指定 vault。"
       log:
@@ -386,6 +386,25 @@ errors:
     encoding: "知情同意记录（vault 中的 consents.yaml）不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
     not_a_file: "vault 中的 consents.yaml 不是普通文件。"
     unreadable: "无法读取 vault 中的 consents.yaml。"
+  roles:
+    invalid: "角色登记册（vault 中的 roles.yaml）无效：字段 '{field}'（{problem}）。"
+    too_large: "角色登记册（vault 中的 roles.yaml）过大（上限 {limit} 字节）。"
+    encoding: "角色登记册（vault 中的 roles.yaml）不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
+    not_a_file: "vault 中的 roles.yaml 不是普通文件。"
+    unreadable: "无法读取 vault 中的 roles.yaml。"
+  risks:
+    invalid: "风险登记册（vault 中的 risks.yaml）无效：字段 '{field}'（{problem}）。"
+    too_large: "风险登记册（vault 中的 risks.yaml）过大（上限 {limit} 字节）。"
+    encoding: "风险登记册（vault 中的 risks.yaml）不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
+    not_a_file: "vault 中的 risks.yaml 不是普通文件。"
+    unreadable: "无法读取 vault 中的 risks.yaml。"
+  retention:
+    invalid: "保存期限（vault 中的 retention.yaml）无效：字段 '{field}'（{problem}）。"
+    too_short: "vault 中的 retention.yaml：'{object}' 的最低保存期限不足创建日期后三年；min_until 至少须为 created 之后三年（自 2 月 29 日起算时为三年后的 3 月 1 日）。"
+    too_large: "保存期限（vault 中的 retention.yaml）过大（上限 {limit} 字节）。"
+    encoding: "保存期限（vault 中的 retention.yaml）不是 UTF-8 文本（接受带或不带 BOM 的 UTF-8）。"
+    not_a_file: "vault 中的 retention.yaml 不是普通文件。"
+    unreadable: "无法读取 vault 中的 retention.yaml。"
   consent:
     from_with_fields: "--from 用于导入表格，不能与 --subject、--version、--date、--uses、--withdrawn 或 --ethics-ref 同时使用。"
     from_not_found: "未找到导入表（--from）。"

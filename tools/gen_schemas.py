@@ -21,6 +21,9 @@ from neurogrid.kernel.rules import Rulepack
 from neurogrid.model.access import AccessEvent
 from neurogrid.model.consent import ConsentFile
 from neurogrid.model.results import Results, ScanResult
+from neurogrid.model.retention import RetentionRegister
+from neurogrid.model.risks import RiskRegister
+from neurogrid.model.roles import RoleRegister
 
 ROOT = Path(__file__).resolve().parent.parent
 TARGET = ROOT / "src" / "neurogrid" / "schemas"
@@ -33,6 +36,9 @@ MODELS: dict[str, type[BaseModel]] = {
     "manifest": Manifest,
     "access_event": AccessEvent,  # one line of the vault access log access.jsonl (DM-09, NV-F03)
     "consents": ConsentFile,  # the consent records <vault>/consents.yaml (DM-08, NV-F01, A-91)
+    "roles": RoleRegister,  # the role register <vault>/roles.yaml (NV-F04, A-93)
+    "retention": RetentionRegister,  # the retention periods <vault>/retention.yaml (NV-F05, A-94)
+    "risks": RiskRegister,  # the risk register <vault>/risks.yaml (NV-F06, A-95)
 }
 
 

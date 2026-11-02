@@ -97,7 +97,7 @@ cli:
     init:
       created: "Angelegt: {name}"
       kept: "Unverändert behalten: {name}"
-      manifest_hint: "consents.yaml gehört zum Manifest: Führen Sie 'neurogrid manifest' erneut aus, damit 'neurogrid verify' die Datei erfasst. Zugriffsprotokoll und Sperrdatei bleiben außerhalb des Manifests."
+      manifest_hint: "consents.yaml, roles.yaml, risks.yaml, retention.yaml und die Folgenabschätzung pia/pia.zh.md und pia/pia.en.md gehören zum Manifest: Führen Sie 'neurogrid manifest' erneut aus, damit 'neurogrid verify' sie erfasst. Zugriffsprotokoll und Sperrdatei bleiben außerhalb des Manifests."
     log:
       written: "Zugriffsereignis {seq} protokolliert, Hash {hash}"
       identifying: "Hinweis: Ein Objekt, der Zweck oder die Genehmigungsreferenz sieht wie ein Personenname oder eine Kennnummer aus; das Zugriffsprotokoll speichert sie wie angegeben. Verwenden Sie pseudonyme IDs und Referenzen ohne personenbezogene Daten."
@@ -204,7 +204,7 @@ cli:
           purpose: "Zweck im Zugriffsereignis (Standard: [vault] purpose)."
           approval_ref: "Genehmigungsreferenz im Zugriffsereignis (Standard: [vault] approval_ref)."
       init:
-        about: "Fehlende Teile des Vaults anlegen: Ordner, consents.yaml, Zugriffsprotokoll und Sperrdatei; vorhandene Teile bleiben erhalten."
+        about: "Fehlende Teile des Vaults anlegen: Ordner, consents.yaml, Zugriffsprotokoll und Sperrdatei, das Rollenregister roles.yaml, das Risikoregister risks.yaml, die Aufbewahrungsfristen retention.yaml und die Vorlagen der Folgenabschätzung pia/pia.zh.md und pia/pia.en.md; vorhandene Teile bleiben erhalten."
         path: "Datensatzordner (Standard: der aktuelle Ordner)."
         config: "Pfad zu neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Datensatz); [vault] path nennt den Vault."
       log:
@@ -385,6 +385,25 @@ errors:
     encoding: "Die Einwilligungen (consents.yaml im Vault) sind kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
     not_a_file: "consents.yaml im Vault ist keine reguläre Datei."
     unreadable: "consents.yaml im Vault kann nicht gelesen werden."
+  roles:
+    invalid: "Das Rollenregister (roles.yaml im Vault) ist ungültig: Feld '{field}' ({problem})."
+    too_large: "Das Rollenregister (roles.yaml im Vault) ist zu groß (Grenze {limit} Bytes)."
+    encoding: "Das Rollenregister (roles.yaml im Vault) ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
+    not_a_file: "roles.yaml im Vault ist keine reguläre Datei."
+    unreadable: "roles.yaml im Vault kann nicht gelesen werden."
+  risks:
+    invalid: "Das Risikoregister (risks.yaml im Vault) ist ungültig: Feld '{field}' ({problem})."
+    too_large: "Das Risikoregister (risks.yaml im Vault) ist zu groß (Grenze {limit} Bytes)."
+    encoding: "Das Risikoregister (risks.yaml im Vault) ist kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
+    not_a_file: "risks.yaml im Vault ist keine reguläre Datei."
+    unreadable: "risks.yaml im Vault kann nicht gelesen werden."
+  retention:
+    invalid: "Die Aufbewahrungsfristen (retention.yaml im Vault) sind ungültig: Feld '{field}' ({problem})."
+    too_short: "retention.yaml im Vault: Die Mindestaufbewahrung von '{object}' endet weniger als drei Jahre nach dem Erstellungsdatum; min_until muss mindestens drei Jahre nach created liegen (ab dem 29. Februar: der 1. März drei Jahre später)."
+    too_large: "Die Aufbewahrungsfristen (retention.yaml im Vault) sind zu groß (Grenze {limit} Bytes)."
+    encoding: "Die Aufbewahrungsfristen (retention.yaml im Vault) sind kein UTF-8-Text (UTF-8 mit oder ohne BOM wird akzeptiert)."
+    not_a_file: "retention.yaml im Vault ist keine reguläre Datei."
+    unreadable: "retention.yaml im Vault kann nicht gelesen werden."
   consent:
     from_with_fields: "--from importiert eine Tabelle; es kann nicht mit --subject, --version, --date, --uses, --withdrawn oder --ethics-ref kombiniert werden."
     from_not_found: "Die Importtabelle (--from) wurde nicht gefunden."

@@ -7,11 +7,11 @@
 
 | | |
 |---|---|
-| 版本 | 0.2.0 |
+| 版本 | 1.0.0 |
 | 来源 | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | 来源状态 | 正式 |
 | 对应标准（计算覆盖率） | 否 |
-| SHA-256 | `5a2635793e23160ddedd12b6cbcba4842f9521e42431202b5ec50faa99755865` |
+| SHA-256 | `401894f1fe40ec6436b1025ac9b9b2a3f2d98379abf79b5d48afbe90f4bf6041` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 

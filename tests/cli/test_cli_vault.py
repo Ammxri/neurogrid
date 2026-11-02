@@ -247,10 +247,23 @@ def test_vault_init_creates_parts_and_is_idempotent(
     assert _t("cli.vault.init.manifest_hint") in out and out.rstrip().endswith(_t("disclaimer"))
     assert (folder / VAULT / "consents.yaml").read_bytes() == CONSENTS_TEMPLATE
     assert _log(folder) == b""  # no access event: the chain starts at the genesis hash
-    before = {path.name: path.read_bytes() for path in (folder / VAULT).iterdir()}
+    registers = [f".neurogrid/vault/{name}" for name in ("roles.yaml", "risks.yaml", "retention.yaml")]
+    pia = [".neurogrid/vault/pia", ".neurogrid/vault/pia/pia.zh.md", ".neurogrid/vault/pia/pia.en.md"]
+    assert all(
+        _t("cli.vault.init.created", name=name) in out for name in registers + pia
+    )  # P9 (A-93 to A-95)
+    before = _vault_files(folder)
     code, out, _ = run(["--lang", "en", "vault", "init", str(folder)], capsys)
-    assert code == 0 and all(_t("cli.vault.init.kept", name=name) in out for name in names)
-    assert {path.name: path.read_bytes() for path in (folder / VAULT).iterdir()} == before
+    assert code == 0 and all(_t("cli.vault.init.kept", name=name) in out for name in names + registers + pia)
+    assert _vault_files(folder) == before
+
+
+def _vault_files(folder: Path) -> dict[str, bytes]:
+    """Every file of the vault (relative POSIX name -> bytes); the PIA files lie in its folder pia."""
+    vault = folder / VAULT
+    return {
+        path.relative_to(vault).as_posix(): path.read_bytes() for path in vault.rglob("*") if path.is_file()
+    }
 
 
 def test_vault_init_with_a_config_outside_the_dataset(

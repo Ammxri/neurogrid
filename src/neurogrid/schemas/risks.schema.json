@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "ConsentUse": {
+      "description": "The uses a consent may permit (KONZEPT 2.1); this order is the order of every list of uses.",
+      "enum": [
+        "training",
+        "validation",
+        "publication",
+        "sharing",
+        "commercial"
+      ],
+      "title": "ConsentUse",
+      "type": "string"
+    },
+    "Risk": {
+      "additionalProperties": false,
+      "description": "One risk of the register (A-95). ``affected_uses`` is kept in ConsentUse order, so equal risks are\nequal objects however the file lists the uses.",
+      "properties": {
+        "affected_uses": {
+          "items": {
+            "$ref": "#/$defs/ConsentUse"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Affected Uses",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "date": {
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 500,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Description",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,39}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "min_consent_version": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "title": "Min Consent Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "description",
+        "affected_uses",
+        "min_consent_version"
+      ],
+      "title": "Risk",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The whole risks.yaml. ``format_version`` and ``risks`` are required in a file (parse_risks, and the\nschema); the defaults only serve NeuroGrid's own construction. Risk IDs are unique (parse_risks).",
+  "properties": {
+    "format_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Format Version",
+      "type": "integer"
+    },
+    "risks": {
+      "items": {
+        "$ref": "#/$defs/Risk"
+      },
+      "maxItems": 1000,
+      "title": "Risks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "format_version",
+    "risks"
+  ],
+  "title": "RiskRegister",
+  "type": "object"
+}
