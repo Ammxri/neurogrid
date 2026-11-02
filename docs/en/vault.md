@@ -77,7 +77,9 @@ An event holds no user name, no computer name, no process ID and no absolute pat
 namespaces: data events name the dataset – `**` for the whole dataset, or the paths and patterns given to
 `vault log`, relative to the dataset; events about a vault file name it relative to the project root, for
 example `.neurogrid/vault/consents.yaml`. In a raw folder an object of `vault log` that names an existing file
-is recorded by its pseudonymous file name (`rec-<8 hex digits>.<extension>`, as `verify` shows it). The JSON
+is recorded by its pseudonymous file name (`rec-<8 hex digits>.<extension>`, as `verify` shows it), also when
+the name holds glob characters or, on Windows, differs only in case or trailing dots and spaces; an object that
+names a link is refused. The JSON
 schema is [`access_event.schema.json`](../schemas/access_event.schema.json); the mapping to the terms of the
 product specification is on [Data model](data-model.md).
 

@@ -190,8 +190,11 @@ its lock file are not.
 Records an access by hand, for example a copy for a reviewer that NeuroGrid does not see. Role and purpose are
 required: `--role` over `[vault] role`, `--purpose` over `[vault] purpose`; `--approval-ref` over `[vault]
 approval_ref` is optional. In a raw folder an object that names an existing file is recorded by its
-pseudonymous file name (as `verify` shows it); patterns, folders and BIDS paths are recorded as given. An
-object, purpose or role that looks like a name or an identification number gives a note and is recorded as
+pseudonymous file name (as `verify` shows it); the name is looked up as the system reads it before the object
+counts as a pattern, so a file name with `[`, `*` or `?` and, on Windows, a name in another case or with
+trailing dots or spaces count too. An object that names a link or junction in the dataset, or a path through
+one, ends with exit code 2 (links are never followed). Patterns, folders and BIDS paths are recorded as given.
+An object, purpose or role that looks like a name or an identification number gives a note and is recorded as
 given. The command prints the number and the hash of the new entry.
 
 `--show` prints the newest 200 entries (line, number, time in UTC, role, action, objects, purpose, approval

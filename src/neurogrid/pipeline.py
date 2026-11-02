@@ -1037,7 +1037,6 @@ def run_verify(raw_target: str | Path, manifest_path: str | Path, *, show_paths:
 # --- NeuroVault: access events and the vault commands (NV-F01, NV-F03, CLI-08, CLI-09; A-30, A-90) ----------
 
 DATASET_OBJECTS = ("**",)  # the object of automatic data events: the whole dataset (an A-14 pattern)
-_PATTERN_CHARS = frozenset("*?[")  # an object with one of them is a pattern and stored as given
 
 
 @dataclass(frozen=True)
@@ -1183,18 +1182,45 @@ def run_vault_init(raw_path: str | Path, config_path: Path | None = None) -> tup
     return vault_store.init_vault(vault_target(raw_path, config_path).location)
 
 
-def _stored_object(root: Path, item: str, *, plain: bool) -> str:
-    """How a manual object is recorded (NZ-09, A-51): a path that names an existing file of a raw folder by
-    the pseudonymous file name verify shows (rec-<sha8>.<ext>; NeuroGrid's fixed names in .neurogrid/ in
-    clear), in the stored spelling of its name (A-66); anything else (BIDS datasets, patterns, folders,
-    paths that do not exist) as given. The log is part of the P9 export."""
-    if plain or _PATTERN_CHARS & set(item):
-        return item
+def _raw_file(root: Path, item: str, index: int) -> str | None:
+    """The raw-folder file that the object ``item`` names when its text is taken as a name, glob characters
+    included, and read as the system reads it (Windows: any case, trailing dots and spaces, short names), as
+    its relative path in the stored spelling (A-66); None when nothing of that name exists or it is a folder.
+    The literal name is looked up before the object counts as a pattern, so ``Zhang[EEG].edf`` is a file when
+    one of that name exists. A link at the name or on the way to it is refused (errors.vault.object_link
+    {index}, exit 2): links in the dataset are never followed (A-52), so the file behind one has no stored
+    name, and its own name would be recorded in clear."""
+    parts = [part for part in item.split("/") if part not in ("", ".")]
+    if not parts:
+        return None
+    candidate = root.joinpath(*parts)
     try:
-        path = resolve_within(root, check_relative(item))
-        stored = path.resolve().relative_to(root).as_posix() if path.is_file() else None
-    except (UnsafePathError, OSError, ValueError):
+        if not os.path.lexists(candidate):  # a pattern, or a path that does not exist
+            return None
+    except (OSError, ValueError):  # a name the system refuses (an embedded NUL is refused before)
+        return None
+    current = root
+    for part in parts:
+        current = current / part
+        if is_link(current):
+            raise UnsafePathError("vault.object_link", index=index)
+    try:
+        if not candidate.is_file():
+            return None
+        resolved = candidate.resolve(strict=True)
+    except OSError:
+        return None
+    return resolved.relative_to(root).as_posix() if resolved.is_relative_to(root) else None
+
+
+def _stored_object(root: Path, item: str, index: int, *, plain: bool) -> str:
+    """How a manual object is recorded (NZ-09, A-51): in a raw folder an object that names an existing file
+    (_raw_file) by the pseudonymous file name verify shows (rec-<sha8>.<ext>; NeuroGrid's fixed names in
+    .neurogrid/ in clear); anything else (BIDS datasets, patterns, folders, paths that do not exist) as given,
+    with the note when it looks identifying. The log is part of the P9 export."""
+    if plain:
         return item
+    stored = _raw_file(root, item, index)
     return item if stored is None else show(stored, plain=False).file
 
 
@@ -1233,7 +1259,10 @@ def run_vault_log(
         raise InputError("vault.purpose_missing")
     approval_ref = approval_ref if approval_ref is not None else section.approval_ref
     ledger.check_fields(role=role, action=action, objects=objects, purpose=purpose, approval_ref=approval_ref)
-    stored = [_stored_object(target.root, item, plain=target.is_bids) for item in objects]
+    stored = [
+        _stored_object(target.root, item, index, plain=target.is_bids)
+        for index, item in enumerate(objects, start=1)
+    ]
     outcome = ledger.append(
         target.location,
         role=role,

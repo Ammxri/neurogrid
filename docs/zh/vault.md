@@ -72,7 +72,8 @@ vault 路径中任何位置的链接或目录联接，以及访问日志、其�
 事件中不含用户名、计算机名、进程 ID 和绝对路径。对象分属两个命名空间：数据事件指向数据集——`**` 表示整个数据集，
 或者是交给 `vault log` 的、相对于数据集的路径和模式；涉及 vault 文件的事件以相对于项目根目录的路径指明该文件，例如
 `.neurogrid/vault/consents.yaml`。在原始文件夹中，`vault log` 的对象若指向现有文件，则以其假名文件名记录
-（`rec-<8 位十六进制数字>.<扩展名>`，与 `verify` 的显示相同）。JSON 模式为
+（`rec-<8 位十六进制数字>.<扩展名>`，与 `verify` 的显示相同），文件名含通配符，或在 Windows 下仅大小写或末尾的点和
+空格不同时也是如此；指向链接的对象会被拒绝。JSON 模式为
 [`access_event.schema.json`](../schemas/access_event.schema.json)；与产品规格书术语的对应关系见
 [数据模型](data-model.md)。
 

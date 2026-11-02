@@ -372,6 +372,7 @@ errors:
     role_invalid: "Invalid role: use a role name or initials (a letter, then letters, digits, '_', '.' or '-', at most 80 characters, no spaces)."
     action_invalid: "Unknown action; allowed: {allowed}."
     object_invalid: "Object {index} is not a relative path or pattern (no absolute, drive or network path, no '..', no backslash or colon, no control characters, at most 1024 characters)."
+    object_link: "Object {index} names a link or junction in the dataset, or a path through one; links are never followed, so NeuroGrid cannot record the file by its pseudonymous name. Name the file itself or use a pattern."
     too_many_objects: "Too many or too long objects: at most {limit} objects, and one entry of the access log holds at most 64 KiB."
     text_invalid: "The value of {field} cannot be recorded: it is empty, too long or contains control characters or invalid text."
     purpose_missing: "No purpose given: use --purpose or [vault] purpose in neurogrid.toml."
