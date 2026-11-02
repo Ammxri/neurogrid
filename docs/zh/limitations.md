@@ -53,6 +53,9 @@ NeuroVault 目前部分可用：vault 文件夹、知情同意记录以及带 `v
 - 只记录通过 NeuroGrid 进行的访问。以退出码 2 结束的运行不作记录；`scan`、`manifest` 和 `verify` 只在默认位置
   `.neurogrid/vault` 的 vault 中记录其访问；`report` 只有在指定 `--config` 时才记录。事件时间取自本地时钟，未经核实。
 - vault 锁只能使 NeuroGrid 进程彼此错开，不能约束其他程序；角色只作参考，不强制执行。访问权限由操作系统管理。
+- 检查包包含 NeuroGrid 在其锁下读取的、到导出事件为止的访问日志；`index.json` 中的哈希链状态按 `vault verify`
+  读取日志的方式校验。在原始数据文件夹中，归档的清单以假名 ID 命名数据文件，因此其 `manifest_hash` 与副本不再一致。
+  在同一台计算机上，相同的文件和时钟得到相同的归档，在其他平台上则不一定（压缩）。
 
 ## 不属于 0.1 版的内容 {#not-in-v01}
 

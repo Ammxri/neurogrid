@@ -10,6 +10,7 @@ read, without role, purpose or approval reference). A run that ends with exit co
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import itertools
 import math
@@ -58,6 +59,7 @@ from neurogrid.kernel.findings import Notice, Severity, SourceStatus
 from neurogrid.kernel.provenance import (
     DEFAULT_MANIFEST,
     DEVIATION_KINDS,
+    MAX_MANIFEST_BYTES,
     Exclusions,
     Manifest,
     ManifestError,
@@ -96,6 +98,7 @@ from neurogrid.quality import describe as describe_quality
 from neurogrid.quality import finite_values
 from neurogrid.report.texts import disclaimer
 from neurogrid.vault import consents as vault_consents
+from neurogrid.vault import export as vault_export
 from neurogrid.vault import ledger
 from neurogrid.vault import lock as vault_lock
 from neurogrid.vault import retention as vault_retention
@@ -1378,6 +1381,132 @@ def run_vault_show(raw_path: str | Path, config_path: Path | None = None) -> Vau
     except OSError:
         raise InputError("vault.log_unreadable") from None
     return VaultShowRun(tuple(shown), verification.lines - len(shown), verification)
+
+
+@dataclass(frozen=True)
+class VaultExportRun:
+    """What ``vault export`` wrote (NV-F07, A-96) and how the console names it: the dataset root, whether
+    names appear in clear (a BIDS dataset or --show-paths), whether --out lies in the dataset (a warning) and
+    whether the role looks like a name (a warning; recorded anyway)."""
+
+    result: vault_export.ExportResult
+    root: Path
+    plain: bool
+    inside_dataset: bool
+    role_identifying: bool
+
+
+def _export_reports(paths: Sequence[Path]) -> list[vault_export.ExportReport]:
+    """The --report files, each read without following a link at it (errors.path.link, as consent --from),
+    at most MAX_REPORT_BYTES (errors.export.report_too_large {index, limit}), identified as a NeuroGrid report
+    (report.identify: errors.export.report_invalid {index}) and each kind once (errors.export.report_duplicate
+    {name})."""
+    from neurogrid.report.identify import identify  # PDF parsing: only for this command
+
+    found: list[vault_export.ExportReport] = []
+    for index, path in enumerate(paths, start=1):
+        data = vault_export.read_regular(
+            path,
+            part="report",
+            max_bytes=vault_export.MAX_REPORT_BYTES,
+            link=functools.partial(UnsafePathError, "path.link"),
+            too_large=functools.partial(
+                InputError, "export.report_too_large", index=index, limit=vault_export.MAX_REPORT_BYTES
+            ),
+        )
+        report = identify(data, index)
+        if any(item.name == report.name for item in found):
+            raise InputError("export.report_duplicate", name=report.name)
+        kind = "dossier" if report.dossier else report.format
+        found.append(vault_export.ExportReport(report.name, report.lang, kind, data))
+    return found
+
+
+def _export_manifest(
+    root: Path, manifest_path: Path | None, *, is_bids: bool, show_paths: bool
+) -> vault_export.ExportManifestSource:
+    """The manifest part: --manifest (an operator path whose own file is no link) or the default location
+    <dataset>/.neurogrid/manifest.json (never through a link, A-52). Its event object is its path relative to
+    the dataset when it lies there: the default name in clear, another name in a raw folder by the
+    pseudonymous file name verify shows (as vault log stores objects; --show-paths changes only the console
+    and the archived copy, never the log)."""
+    if manifest_path is None:
+        location = resolve_within(root, DEFAULT_MANIFEST, must_exist=False)
+    else:
+        location = check_operator_path(manifest_path)
+    data = vault_export.read_regular(
+        location,
+        part="manifest.json",
+        max_bytes=MAX_MANIFEST_BYTES,
+        link=functools.partial(UnsafePathError, "path.link"),
+        too_large=functools.partial(ManifestError, "manifest.too_large", limit=MAX_MANIFEST_BYTES),
+    )
+    own = inside(root, location)
+    if own is None or own == DEFAULT_MANIFEST.as_posix() or is_bids:
+        stored = own
+    else:
+        stored = show(own, plain=False).file
+    return vault_export.ExportManifestSource(data, stored, plain=is_bids or show_paths)
+
+
+def run_vault_export(
+    raw_path: str | Path,
+    config_path: Path | None = None,
+    *,
+    reports: Sequence[Path],
+    out: Path,
+    manifest_path: Path | None = None,
+    show_paths: bool = False,
+    role: str | None = None,
+    purpose: str | None = None,
+    approval_ref: str | None = None,
+    now: Callable[[], datetime] = ledger.utc_now,
+) -> VaultExportRun:
+    """``vault export`` (NV-F07, CLI-08, A-96): the export package of the vault (vault.export). Role =
+    --role > [vault] role (none: errors.vault.role_missing, a manual writer like vault log), purpose and
+    approval reference = option > [vault] > none. Everything is read and checked before the export event is
+    appended (the reports here, the vault parts in vault.export); every refusal is exit 2 and writes
+    nothing."""
+    target = vault_target(raw_path, config_path)
+    vault_store.require_present(target.location)
+    section = target.config.vault
+    role = role if role is not None else section.role
+    if role is None:
+        raise InputError("vault.role_missing")
+    validate_role(role)
+    purpose = purpose if purpose is not None else section.purpose
+    approval_ref = approval_ref if approval_ref is not None else section.approval_ref
+    ledger.check_fields(
+        role=role,
+        action=vault_export.EXPORT_ACTION,
+        objects=DATASET_OBJECTS,
+        purpose=purpose,
+        approval_ref=approval_ref,
+    )
+    if out.is_dir():
+        raise InputError("output.is_directory")
+    exported = _export_reports(reports)
+    manifest = _export_manifest(target.root, manifest_path, is_bids=target.is_bids, show_paths=show_paths)
+    result = vault_export.export_vault(
+        target.location,
+        out,
+        manifest=manifest,
+        reports=exported,
+        role=role,
+        purpose=purpose,
+        approval_ref=approval_ref,
+        disclaimer=disclaimer_block(),
+        tool=tool_info(),
+        now=now,
+        timeout_s=vault_lock.LOCK_TIMEOUT_S,
+    )
+    return VaultExportRun(
+        result,
+        target.root,
+        plain=target.is_bids or show_paths,
+        inside_dataset=inside(target.root, out) is not None,
+        role_identifying=role_looks_identifying(role),
+    )
 
 
 def run_vault_verify(

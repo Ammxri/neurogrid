@@ -44,7 +44,8 @@ Written by `scan --out` (schema [`scan.schema.json`](../../schemas/scan.schema.j
 ## Reports {#reports}
 
 `report.<lang>.html` and `report.<lang>.pdf` per language `zh`, `en` in the folder `--out` (default: next to
-`results.json`), see [Reading the report](../report.md).
+`results.json`), see [Reading the report](../report.md). With `--format dossier` also `dossier.pdf`, the
+[evidence dossier](../report.md#dossier) with both languages.
 
 ## manifest.json {#manifest}
 
@@ -104,6 +105,19 @@ sorted keys, then LF (schema [`access_event.schema.json`](../../schemas/access_e
 `format_version`, `seq`, `time`, `role`, `action`, `objects`, `purpose`, `approval_ref`, `tool_version`,
 `previous_hash`, `hash` ([the hash chain](../vault.md#chain)). Its lock file `access.jsonl.lock` is empty. Both
 are left out of the manifest.
+
+## Export package (ZIP) {#export-zip}
+
+Written by `vault export` to `--out` ([NeuroVault](../vault.md#export)): the members `manifest.json`,
+`access.jsonl`, `roles.yaml`, `pia/pia.zh.md` and `pia/pia.en.md` (those that exist), `report/report.<lang>.html`,
+`report/report.<lang>.pdf` and `report/dossier.pdf` (those given), in this order, and `index.json` last
+(schema [`export_index.schema.json`](../../schemas/export_index.schema.json); canonical JSON with sorted keys and
+LF): `format_version` (1), `disclaimer` (`zh`, `en`), `tool` (`name`, `version`), `parts` (per member: `part` =
+`manifest`, `access_log`, `roles`, `pia` or `report`; `file`, the name in the archive; `sha256`; `size`; `lang` of
+a PIA file or a report; `format` of a report: `html`, `pdf` or `dossier`), `manifest` (`manifest_hash` as stored,
+`source_sha256` of the file read, `pseudonymized`: the archived copy names data files by pseudonymous IDs) and
+`access_log` (`head`, the hash of the export event; `events`; `intact`; `deviations`). No time, no path outside
+the archive, no user or computer name.
 
 ## Further schemas {#schemas}
 

@@ -89,16 +89,18 @@
 
 ## report {#report}
 
-`neurogrid report RESULTS [--lang zh,en] [--format html,pdf] [--out FOLDER] [--config FILE]`
+`neurogrid report RESULTS [--lang zh,en] [--format html,pdf,dossier] [--out FOLDER] [--config FILE]`
 
 只根据 `results.json` 按语言和格式生成报告：`report.<lang>.html` 和 `report.<lang>.pdf`（[阅读报告](report.md)）。
 命令最后会输出固定声明。
+使用 `--format dossier` 时还会写出 `dossier.pdf`，即[证明材料汇编](report.md#dossier)：目录部分与中文报告和英文报告
+合为一个 PDF，始终包含两种语言，不受 `--lang` 影响。
 
 | 参数 / 选项 | 含义 |
 |---|---|
 | `RESULTS_FILE` | 由 `check` 写入的 `results.json`。 |
 | `--lang` | 报告语言 `zh`、`en`（默认 `zh,en`）。 |
-| `--format` | `html`、`pdf`（默认 `html`）；PDF 需要 [PDF 浏览器](installation.md#pdf-browser)。 |
+| `--format` | `html`、`pdf`、`dossier`（默认 `html`）；PDF 和证明材料汇编需要 [PDF 浏览器](installation.md#pdf-browser)。多种格式要么全部写出，要么都不写出。 |
 | `--out FOLDER` | 输出文件夹（默认：`results.json` 所在的文件夹）。 |
 | `--config FILE` | 报告显示其 vault 的 `neurogrid.toml`：封面增加访问日志一行（条目数、链头哈希值、哈希链状态，在生成报告前读取），报告在写出文件之后追加其访问事件（操作 `report`）。不指定 `--config` 时，报告不读取也不写入任何 vault。 |
 
@@ -216,6 +218,34 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 | `PATH` | 数据集文件夹（默认：当前文件夹）。 |
 | `--config FILE` | `neurogrid.toml`；其 `[vault] path` 指定 vault。 |
 | `--expect-head HASH` | 先前在 vault 之外记录的链头哈希值（64 位十六进制数字）；即使之后又追加了条目，它也必须仍是完整哈希链的一部分。可重复。只有这样才能发现末尾截断和整体重写。 |
+
+### vault export {#vault-export}
+
+`neurogrid vault export [PATH] --report FILE [--report FILE ...] --out FILE.zip [--manifest FILE] [--show-paths]
+[--config FILE] [--role ROLE] [--purpose TEXT] [--approval-ref REF]`
+
+为检查写出检查包（[NeuroVault](vault.md#export)）：一个 ZIP，恰好包含五个组成部分和 `index.json`，先写入 `--out`
+旁的临时文件，再移到目标位置，要么全部写出，要么什么都不写。所有内容先读取并检查；随后在 vault 锁下追加访问事件
+`export`，访问日志打包到该事件为止（含该事件）。`index.json` 列出每个组成部分及其 SHA-256 和大小，以及导出日志的
+链头哈希值，即导出事件的哈希值：请在 vault 之外记下它，以后用 `neurogrid vault verify --expect-head` 检查。角色、
+目的和批准编号与 `vault log` 相同；必须有角色。控制台输出每个组成部分的大小和 SHA-256、链头哈希值和归档的路径，
+并对未经编辑的个人信息保护影响评估、空的角色登记册、断裂的哈希链（日志按原样导出）以及位于数据集内的归档给出警告。
+
+| 参数 / 选项 | 含义 |
+|---|---|
+| `PATH` | 数据集文件夹（默认：当前文件夹）。 |
+| `--report FILE` | 要纳入的 NeuroGrid 报告，须为 `neurogrid report` 写出且未经修改：`report.<lang>.html`、`report.<lang>.pdf` 或 `dossier.pdf`。重复该选项可给出 1 至 5 份报告，每种一次；其他文件一律拒绝。 |
+| `--out FILE.zip` | 要写出的 ZIP 文件；不得位于 vault 文件夹内。已有文件会被替换。 |
+| `--manifest FILE` | 要纳入的清单（默认：数据集中的 `.neurogrid/manifest.json`）；必须有效。 |
+| `--show-paths` | 在导出的清单中保留真实文件名；否则在原始数据文件夹中以假名 ID 命名文件，与 `verify` 的显示相同。 |
+| `--config FILE` | `neurogrid.toml`；其 `[vault] path` 指定 vault。 |
+| `--role ROLE` | 访问事件中的角色（默认：`[vault] role`；没有角色时退出码为 2）。 |
+| `--purpose TEXT`、`--approval-ref REF` | 访问事件的目的和批准编号（默认：`[vault] purpose` 和 `approval_ref`，否则为空）。 |
+
+| 退出码 | 含义 |
+|---|---|
+| 0 | 已写出检查包，哈希链断裂时也是如此（`index.json` 记录其状态） |
+| 2 | 拒绝，不写出任何内容，也不记录访问事件：缺少组成部分或不是普通文件、链接、清单或角色登记册无效、文件不是 NeuroGrid 报告或同一报告给出两次、`--out` 位于 vault 内或是文件夹、没有角色；事件之后只会因写入失败而结束（事件保留，`--out` 不变） |
 
 ### 其他命令的访问事件 {#access-events}
 

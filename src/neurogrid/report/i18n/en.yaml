@@ -94,6 +94,14 @@ cli:
       locked: "another NeuroGrid process held the vault lock too long"
       not_writable: "the access log or the vault cannot be written"
       log_damaged: "the end of the access log holds no readable entry"
+    export:
+      part: "{file}: {size} bytes, SHA-256 {sha256}"
+      head: "Head hash of the exported access log (the export event): {hash}"
+      written: "Export package written to {path}"
+      pia_unedited: "Warning: the impact assessment in pia/ is still the unedited template of 'neurogrid vault init'; it is exported as it is."
+      roles_empty: "Warning: the role register roles.yaml lists no role; it is exported as it is."
+      chain_broken: "Warning: the hash chain of the exported access log has {deviations} deviation(s); the log is exported as it is and index.json records its state. 'neurogrid vault verify' lists the deviations."
+      inside_dataset: "Note: the export package lies inside the dataset. A manifest made later includes it, and a later verify reports it as new; write --out outside the dataset."
     init:
       created: "Created: {name}"
       kept: "Kept unchanged: {name}"
@@ -203,6 +211,17 @@ cli:
           role: "Role recorded in the access event (a role name or initials; default: [vault] role)."
           purpose: "Purpose recorded in the access event (default: [vault] purpose)."
           approval_ref: "Approval reference recorded in the access event (default: [vault] approval_ref)."
+      export:
+        about: "Write the export package for an inspection: a ZIP with the manifest, the access log, the role register, the impact assessment and the given reports, plus index.json; never signals or consent records. The access event export is recorded before packing."
+        path: "Dataset folder (default: the current folder)."
+        report: "A NeuroGrid report to include: report.<lang>.html, report.<lang>.pdf or dossier.pdf as 'neurogrid report' wrote it (repeatable, 1 to 5, each kind once)."
+        out: "The ZIP file to write (outside the vault)."
+        manifest: "Manifest to include (default: .neurogrid/manifest.json in the dataset)."
+        show_paths: "Keep the real file names in the exported manifest (in raw folders the default is pseudonymous IDs)."
+        config: "Path to neurogrid.toml (default: .neurogrid/neurogrid.toml in the dataset); [vault] path names the vault."
+        role: "Role recorded in the access event (a role name or initials; default: [vault] role)."
+        purpose: "Purpose recorded in the access event (default: [vault] purpose)."
+        approval_ref: "Approval reference recorded in the access event (default: [vault] approval_ref)."
       init:
         about: "Create the missing parts of the vault: its folder, consents.yaml, the access log and its lock file, the role register roles.yaml, the risk register risks.yaml, the retention periods retention.yaml and the impact assessment templates pia/pia.zh.md and pia/pia.en.md; existing parts are kept."
         path: "Dataset folder (default: the current folder)."

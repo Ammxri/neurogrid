@@ -44,13 +44,19 @@ synchronised if that matters to you.
   of the manifest (a change shows in `verify`); the access log names the file, never a subject. `results.json`
   lists the M14 results per pseudonymous subject (use, reason, consent version), never dates, ethics
   references or permitted uses; the report shows M14 only aggregated per use and reason, without subject IDs and
-  versions, and withholds a breakdown with fewer than 5 subjects in a cell. The later vault export leaves the
-  consent records out.
+  versions, and withholds a breakdown with fewer than 5 subjects in a cell. The vault export leaves the consent
+  records out.
 - No user accounts; access rights to the files are governed by the operating system. With a vault, NeuroGrid
   keeps one log: the access log `access.jsonl` of [NeuroVault](vault.md). Each entry holds the time (UTC), the
   role (a role name or initials), the action, the objects (`**` for the whole dataset; files of raw folders by
   their pseudonymous names), the purpose and the approval reference – no user name, no computer name, no
   absolute path. NeuroGrid writes no other log files.
+- The export package of `vault export` holds the manifest, the access log, the role register, the impact
+  assessment and the reports given, plus `index.json` with hashes and counts; never `consents.yaml`, the risk
+  register, the retention periods, `results.json` or a data file. In a raw folder its manifest names the data
+  files by pseudonymous IDs unless `--show-paths` is given; the reports and the log are packed as they are. The
+  role register is packed as written: describe roles without personal data. The evidence dossier
+  (`report --format dossier`) holds what the two reports hold and counts from `results.json`.
 - Each run uses its own work folder next to its output and removes it at the end. The PDF browser's work folder
   lies in the computer's temporary folder instead (Windows limits the length of its paths) and is removed the same
   way. A work folder that a run ended by force could not remove is removed by the next run that works in the same

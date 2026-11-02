@@ -94,6 +94,14 @@ cli:
       locked: "ein anderer NeuroGrid-Prozess hielt die Vault-Sperre zu lange"
       not_writable: "das Zugriffsprotokoll oder der Vault kann nicht geschrieben werden"
       log_damaged: "am Ende des Zugriffsprotokolls steht kein lesbarer Eintrag"
+    export:
+      part: "{file}: {size} Bytes, SHA-256 {sha256}"
+      head: "Kopf-Hash des exportierten Zugriffsprotokolls (das Export-Ereignis): {hash}"
+      written: "Prüfpaket geschrieben nach {path}"
+      pia_unedited: "Warnung: Die Folgenabschätzung in pia/ ist noch die unbearbeitete Vorlage von 'neurogrid vault init'; sie wird so exportiert."
+      roles_empty: "Warnung: Das Rollenregister roles.yaml nennt keine Rolle; es wird so exportiert."
+      chain_broken: "Warnung: Die Hash-Kette des exportierten Zugriffsprotokolls hat {deviations} Abweichung(en); das Protokoll wird so exportiert, und index.json hält seinen Zustand fest. 'neurogrid vault verify' listet die Abweichungen."
+      inside_dataset: "Hinweis: Das Prüfpaket liegt im Datensatz. Ein später erstelltes Manifest enthält es, und ein späteres verify meldet es als neu; --out außerhalb des Datensatzes schreiben."
     init:
       created: "Angelegt: {name}"
       kept: "Unverändert behalten: {name}"
@@ -203,6 +211,17 @@ cli:
           role: "Rolle im Zugriffsereignis (Rollenbezeichnung oder Kürzel; Standard: [vault] role)."
           purpose: "Zweck im Zugriffsereignis (Standard: [vault] purpose)."
           approval_ref: "Genehmigungsreferenz im Zugriffsereignis (Standard: [vault] approval_ref)."
+      export:
+        about: "Das Prüfpaket für eine Inspektion schreiben: ein ZIP mit Manifest, Zugriffsprotokoll, Rollenregister, Folgenabschätzung und den angegebenen Berichten, dazu index.json; nie Signale oder Einwilligungsdaten. Vor dem Packen wird das Zugriffsereignis export protokolliert."
+        path: "Datensatzordner (Standard: der aktuelle Ordner)."
+        report: "Ein NeuroGrid-Bericht für das Paket: report.<lang>.html, report.<lang>.pdf oder dossier.pdf, wie 'neurogrid report' ihn schrieb (wiederholbar, 1 bis 5, jede Art einmal)."
+        out: "Die zu schreibende ZIP-Datei (außerhalb des Vaults)."
+        manifest: "Aufzunehmendes Manifest (Standard: .neurogrid/manifest.json im Datensatz)."
+        show_paths: "Im exportierten Manifest die echten Dateinamen behalten (in Rohordnern sind pseudonyme IDs der Standard)."
+        config: "Pfad zu neurogrid.toml (Standard: .neurogrid/neurogrid.toml im Datensatz); [vault] path nennt den Vault."
+        role: "Rolle im Zugriffsereignis (Rollenbezeichnung oder Kürzel; Standard: [vault] role)."
+        purpose: "Zweck im Zugriffsereignis (Standard: [vault] purpose)."
+        approval_ref: "Genehmigungsreferenz im Zugriffsereignis (Standard: [vault] approval_ref)."
       init:
         about: "Fehlende Teile des Vaults anlegen: Ordner, consents.yaml, Zugriffsprotokoll und Sperrdatei, das Rollenregister roles.yaml, das Risikoregister risks.yaml, die Aufbewahrungsfristen retention.yaml und die Vorlagen der Folgenabschätzung pia/pia.zh.md und pia/pia.en.md; vorhandene Teile bleiben erhalten."
         path: "Datensatzordner (Standard: der aktuelle Ordner)."

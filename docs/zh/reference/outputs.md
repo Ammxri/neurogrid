@@ -42,7 +42,8 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 ## 报告 {#reports}
 
 每种语言 `zh`、`en` 的 `report.<lang>.html` 和 `report.<lang>.pdf`，位于 `--out` 指定的文件夹（默认：`results.json`
-旁边），见[阅读报告](../report.md)。
+旁边），见[阅读报告](../report.md)。使用 `--format dossier` 时另有 `dossier.pdf`，即包含两种语言的
+[证明材料汇编](../report.md#dossier)。
 
 ## manifest.json {#manifest}
 
@@ -95,6 +96,18 @@ vault（`[vault] path`，默认 `.neurogrid/vault`）中的 `access.jsonl`，由
 [`access_event.schema.json`](../../schemas/access_event.schema.json)）。字段：`format_version`、`seq`、`time`、
 `role`、`action`、`objects`、`purpose`、`approval_ref`、`tool_version`、`previous_hash`、`hash`
 （[哈希链](../vault.md#chain)）。其锁文件 `access.jsonl.lock` 为空文件。两者都不纳入清单。
+
+## 检查包（ZIP） {#export-zip}
+
+由 `vault export` 写入 `--out`（[NeuroVault](../vault.md#export)）：成员依次为 `manifest.json`、`access.jsonl`、
+`roles.yaml`、`pia/pia.zh.md` 和 `pia/pia.en.md`（存在的）、`report/report.<lang>.html`、`report/report.<lang>.pdf`
+和 `report/dossier.pdf`（给出的），最后是 `index.json`（模式 [`export_index.schema.json`](../../schemas/export_index.schema.json)；
+键已排序、以 LF 换行的规范化 JSON）：`format_version`（1）、`disclaimer`（`zh`、`en`）、`tool`（`name`、`version`）、
+`parts`（每个成员：`part` 为 `manifest`、`access_log`、`roles`、`pia` 或 `report`；`file` 为归档中的名称；`sha256`；
+`size`；个人信息保护影响评估文件或报告的 `lang`；报告的 `format`：`html`、`pdf` 或 `dossier`）、`manifest`
+（原存储的 `manifest_hash`、所读文件的 `source_sha256`、`pseudonymized`：归档的副本以假名 ID 命名数据文件）以及
+`access_log`（`head` 为导出事件的哈希值；`events`；`intact`；`deviations`）。不含时间、归档以外的路径以及用户名或
+计算机名。
 
 ## 其他模式 {#schemas}
 

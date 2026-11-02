@@ -87,6 +87,23 @@ of the run, the environment (Python, platform, libraries), the sentence that Neu
 the operating system governs access to the files, with `--config` a note on the head hash of the access log,
 and the fixed sentence.
 
+## Evidence dossier {#dossier}
+
+`neurogrid report --format dossier` writes `dossier.pdf`: one PDF of three parts, always in both languages,
+whatever `--lang` says. Part 1 is a bilingual index: the title, the dataset (name, ID, version), the reference
+date, the tool version, the SHA-256 of the `results.json` file, the parts with their page ranges in the dossier,
+the evidence list (rule, document, status, the SHA-256 NeuroGrid computed and the one recorded in
+`evidence.yaml`), the manifest summary (hash, status, files and deviations) and the NeuroVault summary: the
+results per status of every rule of the access phase as appendix 6.1 counts them (a withheld breakdown of a
+consent rule only as its total) and, with `--config`, the access log row of the cover. Parts 2 and 3 are the zh
+and the en report as `--format pdf` prints them; they keep their own page counters. Every page carries the fixed
+sentence: the index pages in both languages, the report pages in the language of their report.
+
+The dossier holds what the two reports hold and counts from `results.json`: no signals, no consent records and
+no subject IDs beyond those the reports show. Its metadata name only the title, NeuroGrid and the reference date.
+Each part passes the PDF check of the reports, and the joined file passes it again; the same `results.json` gives
+the same file. `dossier.pdf` can be one of the reports of the [export package](vault.md#export).
+
 ## Pseudonymity {#pseudonymity}
 
 In raw folders recordings are shown under pseudonymous IDs (`rec-<8 hex digits>` or the mapping in

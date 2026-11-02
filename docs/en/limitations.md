@@ -63,6 +63,10 @@ impact assessment and the export follow in later versions.
   `report` records only with `--config`. Event times come from the local clock and are not verified.
 - The vault lock keeps NeuroGrid processes apart, not other programs; roles are advisory, not enforced.
   Access rights are governed by the operating system.
+- The export package holds the access log up to the export event as NeuroGrid read it under its lock; the
+  chain state in `index.json` is verified the way `vault verify` reads the log. In a raw folder the archived
+  manifest names data files by pseudonymous IDs, so its `manifest_hash` no longer matches the copy. The same files
+  and clock give the same archive on one computer, not necessarily on another platform (compression).
 
 ## Not part of version 0.1 {#not-in-v01}
 

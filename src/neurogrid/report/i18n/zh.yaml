@@ -95,6 +95,14 @@ cli:
       locked: "另一个 NeuroGrid 进程占用 vault 锁的时间过长"
       not_writable: "无法写入访问日志或 vault"
       log_damaged: "访问日志末尾没有可读的条目"
+    export:
+      part: "{file}：{size} 字节，SHA-256 {sha256}"
+      head: "导出的访问日志的链头哈希值（导出事件）：{hash}"
+      written: "检查包已写入 {path}"
+      pia_unedited: "警告：pia/ 中的个人信息保护影响评估仍是 'neurogrid vault init' 写入的未经编辑的模板；按原样导出。"
+      roles_empty: "警告：角色登记册 roles.yaml 未列出任何角色；按原样导出。"
+      chain_broken: "警告：导出的访问日志的哈希链有 {deviations} 处偏差；日志按原样导出，index.json 记录其状态。'neurogrid vault verify' 会列出这些偏差。"
+      inside_dataset: "提示：检查包位于数据集内。之后生成的清单会包含它，之后的 verify 会将其报告为新增文件；请将 --out 写到数据集之外。"
     init:
       created: "已创建：{name}"
       kept: "已保留，未更改：{name}"
@@ -204,6 +212,17 @@ cli:
           role: "记入访问事件的角色（角色或姓名缩写；默认：[vault] role）。"
           purpose: "记入访问事件的目的（默认：[vault] purpose）。"
           approval_ref: "记入访问事件的批准编号（默认：[vault] approval_ref）。"
+      export:
+        about: "为检查写出检查包：一个 ZIP，包含清单、访问日志、角色登记册、个人信息保护影响评估和所给报告，另加 index.json；不含信号或知情同意记录。打包前记录访问事件 export。"
+        path: "数据集文件夹（默认：当前文件夹）。"
+        report: "要纳入的 NeuroGrid 报告：'neurogrid report' 写出的 report.<lang>.html、report.<lang>.pdf 或 dossier.pdf（可重复，1 至 5 份，每种一次）。"
+        out: "要写出的 ZIP 文件（位于 vault 之外）。"
+        manifest: "要纳入的清单（默认：数据集中的 .neurogrid/manifest.json）。"
+        show_paths: "在导出的清单中保留真实文件名（原始文件夹中默认为假名 ID）。"
+        config: "neurogrid.toml 的路径（默认：数据集中的 .neurogrid/neurogrid.toml）；[vault] path 指定 vault。"
+        role: "记入访问事件的角色（角色或姓名缩写；默认：[vault] role）。"
+        purpose: "记入访问事件的目的（默认：[vault] purpose）。"
+        approval_ref: "记入访问事件的批准编号（默认：[vault] approval_ref）。"
       init:
         about: "创建 vault 中缺少的部分：文件夹、consents.yaml、访问日志及其锁文件、角色登记册 roles.yaml、风险登记册 risks.yaml、保存期限 retention.yaml，以及个人信息保护影响评估模板 pia/pia.zh.md 和 pia/pia.en.md；已有部分保持不变。"
         path: "数据集文件夹（默认：当前文件夹）。"

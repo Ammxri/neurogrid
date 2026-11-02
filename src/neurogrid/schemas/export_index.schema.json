@@ -1,0 +1,215 @@
+{
+  "$defs": {
+    "Disclaimer": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "title": "En",
+          "type": "string"
+        },
+        "zh": {
+          "title": "Zh",
+          "type": "string"
+        }
+      },
+      "required": [
+        "zh",
+        "en"
+      ],
+      "title": "Disclaimer",
+      "type": "object"
+    },
+    "ExportAccessLog": {
+      "additionalProperties": false,
+      "description": "The access log as archived (bytes [0, S) after the export event, A-30): the head hash (the hash of\nthe export event), the well-formed entries, whether the hash chain is intact and its deviations.",
+      "properties": {
+        "deviations": {
+          "minimum": 0,
+          "title": "Deviations",
+          "type": "integer"
+        },
+        "events": {
+          "minimum": 1,
+          "title": "Events",
+          "type": "integer"
+        },
+        "head": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Head",
+          "type": "string"
+        },
+        "intact": {
+          "title": "Intact",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "head",
+        "events",
+        "intact",
+        "deviations"
+      ],
+      "title": "ExportAccessLog",
+      "type": "object"
+    },
+    "ExportManifest": {
+      "additionalProperties": false,
+      "description": "The manifest part: ``manifest_hash`` as the file stores it (the value the report shows), the SHA-256 of\nthe file read from the dataset (or --manifest) and whether the archived manifest.json is the copy with the\npseudonymous names of a raw folder (then its manifest_hash no longer matches its content).",
+      "properties": {
+        "manifest_hash": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Hash",
+          "type": "string"
+        },
+        "pseudonymized": {
+          "title": "Pseudonymized",
+          "type": "boolean"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "manifest_hash",
+        "source_sha256",
+        "pseudonymized"
+      ],
+      "title": "ExportManifest",
+      "type": "object"
+    },
+    "ExportPart": {
+      "additionalProperties": false,
+      "description": "One member of the archive: its part, its name in the archive, SHA-256 and size of its bytes; ``lang``\nfor a PIA file and a report (not the dossier), ``format`` for a report.",
+      "properties": {
+        "file": {
+          "pattern": "^(manifest\\.json|access\\.jsonl|roles\\.yaml|pia/pia\\.(zh|en)\\.md|report/report\\.(zh|en)\\.(html|pdf)|report/dossier\\.pdf)$",
+          "title": "File",
+          "type": "string"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "enum": [
+                "html",
+                "pdf",
+                "dossier"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Format"
+        },
+        "lang": {
+          "anyOf": [
+            {
+              "enum": [
+                "zh",
+                "en"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lang"
+        },
+        "part": {
+          "enum": [
+            "manifest",
+            "access_log",
+            "roles",
+            "pia",
+            "report"
+          ],
+          "title": "Part",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "part",
+        "file",
+        "sha256",
+        "size"
+      ],
+      "title": "ExportPart",
+      "type": "object"
+    },
+    "ToolInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "neurogrid",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "ToolInfo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "index.json of the export package (A-96).",
+  "properties": {
+    "access_log": {
+      "$ref": "#/$defs/ExportAccessLog"
+    },
+    "disclaimer": {
+      "$ref": "#/$defs/Disclaimer"
+    },
+    "format_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Format Version",
+      "type": "integer"
+    },
+    "manifest": {
+      "$ref": "#/$defs/ExportManifest"
+    },
+    "parts": {
+      "items": {
+        "$ref": "#/$defs/ExportPart"
+      },
+      "maxItems": 10,
+      "minItems": 5,
+      "title": "Parts",
+      "type": "array"
+    },
+    "tool": {
+      "$ref": "#/$defs/ToolInfo"
+    }
+  },
+  "required": [
+    "disclaimer",
+    "tool",
+    "parts",
+    "manifest",
+    "access_log"
+  ],
+  "title": "ExportIndex",
+  "type": "object"
+}
