@@ -8,7 +8,8 @@ Grundlage:
 Stand 11.10.2026, überarbeitet nach einer Prüfung aus drei Blickwinkeln (Abschnitt 10). Nach P5 (27.10.2026,
 ergänzt am 28.10.2026 nach der zweiten CI-Fix-Runde und dem G1-Befund) sind die Abschnitte 1.1–1.4, 1.6, 2.6, 2.8, 3, 4
 und 5 (Risiko R10) an den Code angeglichen (Annahmen A-84 bis A-89); was davon noch bei STOPP G1 zu bestätigen ist,
-steht dort als „für G1 vorgemerkt“.
+steht dort als „für G1 vorgemerkt“. Nach P6 (02.11.2026, `dev` 0ffdd90) sind die Abschnitte 1.2, 1.4, 2.2, 2.3, 2.5,
+2.6 und 6 (Reihenfolge nach D-19) an den Code angeglichen (Annahmen A-90 bis A-92, für STOPP G2 vorgemerkt).
 
 ---
 
@@ -62,25 +63,30 @@ neurogrid/
       + fonts.py (Subsets, Glyph-Zwillinge)  + pdf.py (Shell, Druck, QA-Gate)  + pdf_linux_packages.json (A-85)
       + processes.py (Hilfsprozesse auf dem Nullgerät, `platform` ohne WMI, `quiet_pool`, `on_null_device`; A-89)
     io/                   edf.py bdf.py brainvision.py eeglab.py fif.py gbt47127.py (v0.2)  + base.py  + discover.py
-    model/                dataset.py consent.py results.py
-    checks/               structure.py metadata.py signal.py annotation.py ai_dataset.py provenance.py consent.py
-                          + registry.py  + access.py (v1.0)  + evidence.py (P4)
-    rulepacks/            core.yaml (+) bids.yaml gxdsl008.yaml yyt2029.yaml gbt47127.yaml   + rulepack.schema.json
-    vault/                ledger.py roles.py pia.py  + store.py + risks.py + retention.py + export.py
+    model/                dataset.py consent.py results.py  + access.py (AccessEvent, P6)
+    checks/               structure.py metadata.py signal.py annotation.py ai_dataset.py provenance.py consent.py (P6)
+                          + registry.py  + access.py (P6: CORE-NV03-01/02; Rollen ab v1.0)  + evidence.py (P4)
+    rulepacks/            core.yaml (+) bids.yaml gxdsl008.yaml yyt2029.yaml (P6, Platzhalter) gbt47127.yaml
+                          + rulepack.schema.json
+    vault/                ledger.py roles.py (P6)  + store.py + lock.py + consents.py + _os.py (P6, A-90/A-91)
+                          pia.py + risks.py + retention.py + export.py (v1.0, P9)
     report/               templates/  i18n/zh.yaml en.yaml de.yaml  + render.py + tables.py + charts.py (eigenes SVG, A-84)
                           + output.py (write_reports, A-85)  + glyphs.py  + texts.py  + validator_codes.yaml
                           + fonts/ (Noto Sans SC 400/700, OFL.txt, fonts.json)
                           + wording/forbidden.yaml (Sperrliste, A-57)  + wording/statements.yaml (ARC-05, A-84)
-    + schemas/            results, rulepack, config, evidence, manifest, scan, diff (*.schema.json, aus Pydantic erzeugt)
+    + schemas/            results, rulepack, config, evidence, manifest, scan, access_event, consents (P6), diff (v1.0)
+                          (*.schema.json, aus Pydantic erzeugt)
   tests/                  fixtures/synthetic/ (CC BY 4.0) fixtures/derived/ (mit DATA_SOURCES-Eintrag)  rules/  docs/  packaging/
                           acceptance/  perf/  …
   tools/   (+)            check_matrix_coverage.py check_commit_ids.py gen_fixtures.py gen_large_edf.py gen_schemas.py
                           gen_montage_names.py corpus.py calibrate.py benchmark.py build_fonts.py coverage_gates.py
                           bundle.py notices.py licenses.py install_pdf_browser.py linux_pdf_packages.py
-                          gen_docs.py build_docs.py mkdocs_hooks.py docs_templates/  release_check.py scan_runtime_network.py
-                          strace_check.py junit_annotations.py acceptance_g1.py zh_review_package.py
-  docs/                   zh/ en/ (MkDocs, je 16 Seiten; metrics.md je Metrik = Quelle der core-Regeln), _data/ und assets/
-                          (Daten bzw. Code der Website), umsetzung/ (nicht Teil der Website)
+                          gen_docs.py build_docs.py mkdocs_hooks.py docs_templates/ (seit P6 mit questions.md.j2)
+                          release_check.py scan_runtime_network.py strace_check.py junit_annotations.py acceptance_g1.py
+                          zh_review_package.py
+  docs/                   zh/ en/ (MkDocs, je 17 Seiten, seit P6 mit vault.md; metrics.md je Metrik = Quelle der
+                          core-Regeln), _data/ (seit P6 mit interpretation_questions.yaml) und assets/ (Daten bzw. Code
+                          der Website), umsetzung/ (nicht Teil der Website)
   research/neuroarena/ (+)  eigenes uv-Projekt mit eigenem Lock (A-36)
   action.yml, ci-templates/gitlab-ci.yml (+, v1.0, A-34)
 ```
@@ -137,7 +143,7 @@ Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `valid
    - `--jobs` (E3) als Prozesspool; Ergebnisse in fester Reihenfolge. Die Hilfsprozesse (Pool, loky) haben das Nullgerät als stdin, stdout und stderr, was sie dort schreiben, erreicht die Konsole nicht (Grenze: direktes Schreiben auf das Konsolengerät, A-89); `platform` fragt in keinem Prozess WMI (`kernel/processes.py`, A-89). Unter POSIX liegen während eines Starts auch die Deskriptoren hinter den sys-Strömen auf /dev/null, und ein dabei geforktes Kind bindet seine sys-Ströme vor dem Bootstrap von multiprocessing an das Nullgerät und schließt die gesicherten Konsolen-Deskriptoren. `quiet_pool` ersetzt den Fehlerhandler des Feeder-Threads der Aufrufwarteschlange im eigenen Prozess: Ein gescheiterter Versand druckt keinen Traceback (CPython 3.11 nach dem Tod eines Workers), eine Aufgabe, die nicht gesendet werden konnte, scheitert an ihrer eigenen Future. `on_null_device` führt Bibliothekscode mit nativer Ausgabe (ICLabel mit onnxruntime) in Worker und eigenem Prozess mit der Konsole auf dem Nullgerät aus (POSIX: Deskriptoren; Windows: Deskriptoren 1 und 2 und sys-Ströme auf einer Senke). Stirbt ein Hilfsprozess oder kommt eine Aufgabe nicht an, rechnet `check` die betroffenen Aufnahmen allein nach (D-14) und sagt das einmal mit einer übersetzten Zeile auf stdout; results.json bleibt gleich.
 6. **Bewerten:** Regelmotor mit wirksamen Parametern samt Herkunft. Danach Ausnahmen, Nachweise und placeholder-Regeln anwenden; Ampel und Abdeckung bilden.
 7. **Ausgeben:** `results.json` kanonisch schreiben (A-61, mit `disclaimer`), Kurzfassung auf der Konsole, Exitcode.
-8. **Protokollieren:** Ist ein Vault vorhanden, Zugriffsereignis anhängen (mit Dateisperre). Es fließt nicht in results.json ein.
+8. **Protokollieren** (A-30, A-90): Ist ein Vault vorhanden, wird das Zugriffsereignis erst nach allen Ausgaben des Laufs angehängt (unter der Sperre `access.jsonl.lock`, ein `os.write`, fsync); es fließt nicht in results.json ein. `check` schreibt in den Vault seiner toml (Rolle `--role` vor `[vault] role`); `scan`, `manifest` und `verify` lesen keine toml und schreiben ein Ereignis `read` nur in den Vault am Standardort `.neurogrid/vault`. Ein Ereignis, das nicht geschrieben werden kann, ist eine Warnung und ändert den Exitcode nie; ein Lauf, der mit Exit 2 endet, schreibt keines. Ein Link im Vault-Pfad beendet `check` vor dem Lesen der Daten mit Exit 2.
 
 ### 1.5 Laufzeitkonzept (NG-N02, D-04, A-50)
 
@@ -256,12 +262,13 @@ Hilfsmodelle (A-09): `Rule`, `Rulepack`, `CheckSpec`, `Measurement`, `MetricValu
 ```yaml
 rulepack: yyt2029
 version: 0.2.0-draft
-source: "YY/T 2029-2026"
+source: "YY/T 2029-2026, norm text not read"
 source_status: placeholder          # placeholder | secondary | inventory | final
+norm: true                          # A-62; P8 switches only source_status (A-92)
 rules:
   - id: YYT2029-ACQ-001
     clause: "TBD"                   # clause number from the norm text once it has been read
-    title_zh: "采样频率记录且一致"
+    title_zh: "采样率已记录且一致"     # the published title of the check (A-92)
     title_en: "Sampling rate documented and consistent"
     phase: acquisition              # acquisition|processing|annotation|storage|access
     check: signal.sampling_rate_consistency
@@ -274,7 +281,7 @@ rules:
 - **Prüfungen:** `check` verweist auf die Prüf-Registry, die als generierte Doku-Seite veröffentlicht wird. Manuelle Regeln nutzen `evidence.document`.
 - **Titel:** `title_de` ist nicht vorgesehen; de gibt es nur in der Kern-Sprachtabelle (A-07).
 
-**Regeln des Pakets `core`.** Quelle ist die Metrik-Doku `docs/<lang>/metrics.md#Mxx`. Bei „Annahme“ nennt die PRD keine Schwelle bzw. keinen Schweregrad.
+**Regeln des Pakets `core`.** Quelle ist die Metrik-Doku `docs/<lang>/metrics.md#Mxx` (für NV03 `#NV03`). Bei „Annahme“ nennt die PRD keine Schwelle bzw. keinen Schweregrad. Version 0.2.0 seit P6 (`f023146`); umgesetzt sind alle Zeilen außer denen mit „(v1.0)“.
 
 | ID | Prüfung | Phase | Schweregrad | Startschwelle | Herkunft |
 |---|---|---|---|---|---|
@@ -313,9 +320,10 @@ rules:
 | CORE-M13-01 | Manifest vorhanden | storage | error (`--strict`) / warning | – | PRD, A-22 |
 | CORE-M13-02 | Dateien entsprechen dem Manifest | storage | error | – | NG-F10 |
 | CORE-M13-03 | Verarbeitungsschritte und Softwareversionen dokumentiert | storage | warning | – | A-22 |
-| CORE-M14-01 | Nutzung im Split durch Einwilligung gedeckt (v0.2) | access | error | – | PRD, A-30 |
+| CORE-M14-01 | Nutzung im Split durch Einwilligung gedeckt (ohne Daten not_checkable; `--strict` oder `[consent]`: verletzt) | access | error | – | PRD, A-30, A-91 |
 | CORE-M14-02 | möglicherweise Neueinwilligung erforderlich (v1.0) | access | warning | – | NV-F06, A-30 |
-| CORE-NV03-01 | Zugriffsprotokoll intakt (v0.2) | access | error | – | NV-F03 |
+| CORE-NV03-01 | Hash-Kette des Zugriffsprotokolls intakt | access | error | – | NV-F03, A-90 |
+| CORE-NV03-02 | Zugriffsprotokoll beschreibbar (schreibgeschützter Vault: Warnung und Befund, nie Exit 2) | access | warning | – | A-30, A-90 |
 | CORE-NV04-01 | Zugriffe im Rollenregister erlaubt (v1.0) | access | warning | – | NV-F04 |
 | CORE-NV05-01 | Aufbewahrungsobjekte vollständig, Frist ≥ 3 Jahre (v1.0) | access | warning | – | NV-F05, A-30 |
 | CORE-NV05-02 | Folgenabschätzung bearbeitet (keine Rohvorlage) (v1.0) | access | warning | – | A-30 |
@@ -341,7 +349,7 @@ rules:
   "rules": [{id, rulepack, clause, title_zh, title_en, phase, check, severity (wirksam), strict_severity,
              verification, source_status}],
   "config": {canonical_sha256, as_of, seed, strict, sampling, effective_params, effective_settings (bereinigt),
-             evidence_sha256},
+             evidence_sha256, consents_sha256 (P6)},
   "recordings": [{id (pseudonym), format, streamable, metrics (P4: metrics.annotation), sample}],
   "findings": [Finding …] (verletzte und Sonderstatus einzeln),
   "passed": [{rule_id, object, count} …] (bestandene gezählt je Regel × Objekt),
@@ -358,13 +366,14 @@ rules:
           classes, age_groups, sex null: zurückgehalten, A-81)
   "summary": {phases: {phase: {light, errors, warnings, open_evidence}}, coverage: {pack: value|"n/a"},
               errors, warnings, open_evidence, exit_code},
-  "manifest": {sha256, status, files, changed, new, missing, skipped_changed, unreadable} | null }
+  "manifest": {sha256, status, files, changed, new, missing, skipped_changed, unreadable} | null,
+  "consent": {subjects: {use: n}} | null (P6: Probanden je Nutzung, nur wenn M14 je Proband gemessen hat) }
 ```
 
-Die Felder aus P4 (`evidence`, `duplicates`, `ai`, `manifest`, `strict_severity`, `evidence_sha256`, `summary.open_evidence`) sind optional;
+Die Felder aus P4 (`evidence`, `duplicates`, `ai`, `manifest`, `strict_severity`, `evidence_sha256`, `summary.open_evidence`) und P6 (`consents_sha256`, `consent`; A-91) sind optional;
 results.json früherer Stände bleibt lesbar (A-80 ff., Übergreifend).
 
-Nicht enthalten: Uhrzeit, Rechner- oder Benutzername, absolute Pfade, Vault-Kopf-Hash, Signal-Hashes, Rohalter, diagnosis_code.
+Nicht enthalten: Uhrzeit, Rechner- oder Benutzername, absolute Pfade, Vault-Kopf-Hash, Zahl und Zeit der Zugriffsereignisse, Signal-Hashes, Rohalter, diagnosis_code, Daten, Ethikreferenzen und erlaubte Nutzungen der Einwilligungen (die Befunde von M14 je Proband nennen Nutzung, Grund und wirksame Version; A-91).
 
 ### 2.4 `neurogrid.toml` (NG-F18, MET-02)
 
@@ -427,11 +436,14 @@ approval_ref = "EC-2026-17"
 
 ### 2.5 Weitere Dateien
 
-- **Ablageort** `.neurogrid/` im Datensatz (A-22, A-30, A-47). Der Validator betritt ihn nicht; außer `manifest.json`, `vault/access.jsonl` und dessen Sperrdatei `vault/access.jsonl.lock` wird alles darin ins Manifest aufgenommen (A-82; `check` lässt zusätzlich seinen Arbeitsordner `run-*` außen vor).
+- **Ablageort** `.neurogrid/` im Datensatz (A-22, A-30, A-47). Der Validator betritt ihn nicht; außer `manifest.json`, `vault/access.jsonl` und dessen Sperrdatei `vault/access.jsonl.lock` (Name in P6 bestätigt) wird alles darin ins Manifest aufgenommen (A-82; `check` lässt zusätzlich seinen Arbeitsordner `run-*` außen vor). Seit P6 lässt das Manifest Protokoll und Sperrdatei auch eines Vaults unter abweichendem `[vault] path` aus, `verify` und CORE-M13-02 vergleichen ohne sie (A-90).
 - **`evidence.yaml`** (A-15, A-83): Standardort `.neurogrid/evidence.yaml`; `format_version: 1`, `evidence: {Regel-ID: {…}}` mit `status` open|provided|partial|not_applicable, `document`, `sha256`, `reviewer` (Rolle/Kürzel), `date`, `comment`, `justification`.
 - **`manifest.json`** (A-22, A-82): Standardort `.neurogrid/manifest.json`; `format_version`, `files` [{path, sha256, size}], `skipped`, `excluded`, `processing_steps`, `software`, `manifest_hash`.
 - **`provenance.yaml`** (A-82): `.neurogrid/provenance.yaml` mit `processing_steps` und `software` (CORE-M13-03).
-- **Vault** (A-30): `consents.yaml`, `roles.yaml`, `risks.yaml` ({id, date, description, affected_uses, min_consent_version}), `retention.yaml`, `access.jsonl`, `pia/pia.zh.md`, `pia/pia.en.md`.
+- **Vault** (A-30; Ordner `[vault] path` relativ zur Projektwurzel, Standard `.neurogrid/vault`; ein Link im Pfad wird nie verfolgt, A-90):
+  - seit P6 (v0.2): `consents.yaml` (`format_version: 1`, `consents` mit subject, version, date, permitted_uses, withdrawn, ethics_approval_ref; Teil des Manifests; A-91), `access.jsonl` (ein Ereignis je Zeile als kompaktes JSON mit sortierten Schlüsseln, Hash-Kette über `previous_hash` und `hash`, Kopf-Hash nie in results.json; A-90) und die Sperrdatei `access.jsonl.lock` (beratende Sperre jedes Lesers und Schreibers, höchstens 10 s; A-90); unter POSIX Ordner 0700 und Dateien 0600, unter Windows die ACLs des Elternordners; `vault init` legt fehlende Teile an.
+  - Import `consents.tsv` für `vault consent add --from` (tabulatorgetrennt; subject, version, date, permitted_uses, withdrawn, ethics_approval_ref; A-91).
+  - ab v1.0 (P9): `roles.yaml`, `risks.yaml` ({id, date, description, affected_uses, min_consent_version}), `retention.yaml`, `pia/pia.zh.md`, `pia/pia.en.md`.
 - **`splits.tsv`:** `recording`, `split`. Alternativ eine Spalte `split` in `participants.tsv`.
 - **`index.json` im Export-ZIP:** SHA-256 je Bestandteil, Kopf-Hash, Werkzeugversion, fester Satz.
 
@@ -442,11 +454,15 @@ approval_ref = "EC-2026-17"
 | `neurogrid scan PFAD` | `--out scan.json`, [E3] `--show-paths` | Formate, Probanden, Aufnahmen, Größen, nicht unterstützte Dateien | CLI-01 |
 | `neurogrid convert PFAD --to bids --out ZIEL` | `--config`, `--to gbt47127` (v0.2), [E3] `--strip-identifying-headers` | BIDS-Datensatz + ProcessingSteps + Validatorlauf | CLI-02, NG-F02, NG-F03 |
 | `neurogrid check PFAD` | `--rulepack` (mehrfach), `--config`, `--out`, `--strict`, `--manifest`, `--evidence`, `--as-of`, `--role`, `--allow-draft-rulepacks`, [E3] `--jobs`, [E3] `--show-paths` | results.json, Kurzfassung, Exit 0/1/2 | CLI-03, CLI-04 |
-| `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf` (Standard `html`), `--out` (Standard neben results.json); v1.0 `--format dossier` | `report.<lang>.<html,pdf>`, alle oder keine (A-84, A-85) | CLI-05, REP-08 |
+| `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf` (Standard `html`), `--out` (Standard neben results.json), `--config` (P6: Zugriffsprotokoll des Vaults auf dem Deckblatt und Ereignis `report`; A-30, A-90); v1.0 `--format dossier` | `report.<lang>.<html,pdf>`, alle oder keine (A-84, A-85) | CLI-05, REP-08 |
 | `neurogrid manifest PFAD` | [E3] `--out` (Standard `.neurogrid/manifest.json`), [E3] `--show-paths` | manifest.json | CLI-06 |
 | `neurogrid verify PFAD --manifest manifest.json` | [E3] `--show-paths` | geändert/neu/fehlend/Art geändert/unlesbar; Exit 0/1, 2 bei ungültigem Manifest (A-82) | CLI-06 |
 | `neurogrid diff alt.json neu.json` | `--format text,json` | neu/behoben/verändert; Exit 1 bei neuen Fehlern | CLI-07 |
-| `neurogrid vault init / consent add / log / verify / export` | `consent add --subject --version --date --uses --withdrawn --ethics-ref`, [E3] `--from consents.tsv`; `log --action --objects --purpose --approval-ref`, [E3] `--show`; `verify --expect-head`; `export --report --out` | Vault-Dateien, ZIP | CLI-08, CLI-09 |
+| `neurogrid vault init [PATH]` | `--config` | fehlende Teile des Vaults (Ordner, `consents.yaml`, `access.jsonl`, Sperrdatei), kein Ereignis; Exit 0/2 (A-90) | CLI-08 |
+| `neurogrid vault consent add PATH` | `--subject --version --date (--uses \| --withdrawn) [--ethics-ref]` oder [E3] `--from consents.tsv`; `--config --role --purpose --approval-ref` | `consents.yaml` kanonisch, Ereignis `consent_manage` vorher; Exit 0/2 (A-91) | CLI-08, NV-F01 |
+| `neurogrid vault log [PATH]` | `--action --objects … --purpose [--approval-ref] [--role] [--config]`; [E3] `--show` (allein, neueste 200 Einträge; `--last` entfällt) | Ereignis bzw. Anzeige mit Kopf-Hash und Zustand der Kette; Exit 0/2 (A-90) | CLI-08 |
+| `neurogrid vault verify [PATH]` | `--config`, `--expect-head HASH` (wiederholbar) | Abweichungen mit Zeile, Art, wahrscheinlicher Ursache; Exit 0 intakt, 1 Abweichung, 2 Werkzeugfehler (A-90) | CLI-09, NV-F03 |
+| `neurogrid vault export` (v1.0, P9) | `--report --out` | ZIP | CLI-08 |
 | global | `--lang`, `--debug` | – | NG-N06, A-51 |
 
 ### 2.7 Exitcodes (A-12)
@@ -557,6 +573,9 @@ STOPPs nach P5 und nach Abschluss von v0.2. Diese Abweichung von „Stopp bei fe
 ## 6. Phasenplan
 
 **Reihenfolge:** P1 → P2 → P3 → P4 → P5 (**STOPP G1**) → P6 → [G-A] P7 → [G-B] P8 (**STOPP G2**) → P9 → [G-C] P10 → P11 → P12.
+Stand 02.11.2026 (D-18, D-19): P6 lief parallel zur zh- und Sichtprüfung von STOPP G1 und ist abgeschlossen; G-A und
+G-B sind nicht erfüllt (`.local/normen/` fehlt), deshalb folgt P9 vor P7 und P8 (Regel „Fehlende Normtexte“ in
+Abschnitt 5, D-13).
 
 **Jede Phase endet mit:**
 - lauffähigem Stand, Tests grün (lokal; ab E2 auch in der CI)

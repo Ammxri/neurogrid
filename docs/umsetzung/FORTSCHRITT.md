@@ -6,17 +6,19 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P5 abgeschlossen (`dev` 27c3e90: zweite und dritte CI-Fix-Runde, D-17 und die Behebung des G1-Befunds gemergt, CI ganz grün); nächster Schritt STOPP G1.**
-Freigabemodus A bis STOPP G1. Git: `main` (Doku-Commit), Arbeitszweig `dev`, gepusht nach `https://github.com/Ammxri/neurogrid`
-(D-15; nur `dev`, D-09; zuletzt gepusht: 27c3e90). Version 0.1.0rc1; 0.1.0 und Tag erst nach G1.
-CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176); auf 18da12f waren die sechs Testjobs rot (`ci`
-40609866806), behoben in der dritten CI-Fix-Runde. Die volle Testsuite läuft nur in der CI (Prüfvorgehen ab dem Ende von
-P5, ENTSCHEIDUNGEN A-87): je Testjob 0 Fehler, windows-latest 3681–3682 von 3697 bestanden, ubuntu-24.04 3605 von 3702;
-Abdeckung Kern 93,3–93,5 %, Prüfer 97,3 %. G1-Lauf auf 18da12f: 6 von 6 Datensätzen bestanden, alle Kriterien erfüllt
-(151 min); Endlauf auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`) (Einzelheiten in den Einträgen unten).
-STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 startet parallel zur zh-Prüfung und zur Sichtprüfung; Merge nach `main` und Release v0.1.0 erst danach.
-Offen beim Nutzer: die übrigen Punkte von „Für STOPP G1 vorgemerkt“, GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8,
-ISO-TS vor P10, Docker Desktop bei Gelegenheit.
+**Phase P6 abgeschlossen (`dev` 0ffdd90: Bereiche vault, consent und yyt2029, Querschnittstests, Merge- und CI-Korrekturen, Fix-Runde nach dem Review; gepusht am 02.11.2026); CI auf 0ffdd90: ganz grün (`ci` 41422859481, `offline` 41422859830); nächster Schritt P9 (vorgezogen nach D-13 und D-19).**
+Freigabemodus A. Git: `main` (Doku-Commit), Arbeitszweig `dev`, gepusht nach `https://github.com/Ammxri/neurogrid`
+(D-15; nur `dev`, D-09; zuletzt gepusht: 0ffdd90). Version auf `dev` 0.2.0.dev0 seit 8391420; v0.1.0 wird später aus
+dem P5-Stand c4f240a plus den Korrekturen der Prüfungen auf einem Release-Zweig geschnitten, ein v0.2.0 ebenso aus dem
+Endstand von P6; mit dem ersten Commit von P9 geht `dev` auf 1.0.0.dev0 (D-19).
+CI auf d50158b (nach den Merges von P6): `ci` 41402168683 rot nur an fünf Tests außerhalb der Bereiche, behoben in
+2f2a5a5; `offline` 41402168572 grün. Die volle Testsuite läuft nur in der CI (A-87); lokal liefen nur die betroffenen
+Tests (Zahlen im P6-Eintrag). Stand P5: CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176); G1-Endlauf
+auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`).
+STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 lief parallel zur zh-Prüfung und zur Sichtprüfung; das Release v0.1.0 erst danach.
+Offen beim Nutzer: die übrigen Punkte von „Für STOPP G1 vorgemerkt“ (darunter die Kernbegriffe von P6 für die
+zh-Prüfung), GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8, ISO-TS vor P10, Docker Desktop bei Gelegenheit; vor v1.0
+ein eigener Runner für den echten Lauf der CI-Integration (D-19).
 
 ## Für STOPP G1 vorgemerkt
 
@@ -39,8 +41,27 @@ Projektverantwortlichen.
     Windows-Server-Zeile, die neuen Zeilen für Debian 12 und Ubuntu 22.04 und für Ubuntu 24.04 und die Definitionen
     „测试套件已在 CI 中验证“ und „测试套件未在 CI 中运行“; der Plattformsatz in `docs/zh/limitations.md` (wörtlich auch in
     README.bundle.txt und release-notes.md); die Zelle der Audit-Hook-Tests in `docs/zh/privacy.md`;
-  - von P6 nach D-17 nur die Kernbegriffe (die fünf Nutzungsarten, Einwilligung und Widerruf, Zugriffsprotokoll,
-    Hash-Kette, Platzhalter-Regelpaket, der Grenzsatz und die V-06-Aussage).
+  - von P6 nach D-17 Option C nur die Kernbegriffe. Sie stehen nicht im Paket von 27c3e90 (seit 2f2a5a5 nimmt
+    `tools/zh_review_package.py` jedes eingebaute Regelpaket auf, auch `yyt2029.yaml`). Liste für die Prüfperson, aus
+    den Sprachtabellen und der zh-Doku auf 0ffdd90; mit * die Texte, die der Bereich vault (Freeze) bzw. yyt2029 als
+    Kernbegriff markiert hat (die Bau-Agenten von vault und consent endeten vor ihrem Bericht, die übrigen Fundstellen
+    sind aus dem Code gesucht):
+    - die fünf Nutzungsarten `terms.consent_use.*`: 训练 (training), 验证 (validation), 发表 (publication), 共享
+      (sharing), 商业用途 (commercial);
+    - Einwilligung und Widerruf: 知情同意 (u. a. `check.consent.covered` 用途在知情同意范围内, Titel von CORE-M14-01
+      数据划分中的用途在知情同意范围内, `cli.help.vault.consent.about`*), 撤回 (`reason.consent.withdrawn`);
+    - Zugriffsprotokoll und Hash-Kette: 访问日志, 哈希链 (`cli.help.vault.about`*, `check.access.log_intact`
+      访问日志哈希链完整, `check.access.log_writable` 访问日志可写入, `errors.vault.log_missing`*,
+      `errors.vault.log_damaged`*, `errors.vault.too_many_objects`*, `cli.vault.role_looks_identifying`*, der Abschnitt
+      `vault` in `docs/zh/commands.md`*);
+    - Platzhalter-Regelpaket: 占位规则包* (in `cli.check.none_evaluated`, `report.text.overall_none_evaluated`, in
+      `docs/zh/rulepacks.md` und `commands.md`);
+    - der Grenzsatz ohne 防篡改: `cli.vault.verify.limits` und `docs/zh/vault.md#limits` (防篡改 steht in
+      `report/wording/forbidden.yaml`);
+    - die V-06-Aussage* in `docs/zh/index.md`, `limitations.md` und `rulepacks.md`.
+    Die vollständigen P6-Texte (u. a. die übrigen Meldungen von Vault und Einwilligung, `docs/zh/vault.md`, die neuen
+    Schlüssel der Fix-Runde `report.consent.*` und `errors.vault.object_link`) bekommen eine eigene Runde vor dem
+    Release von v0.2 (D-17).
 - **Sichtprüfung der PDFs** zh/en (KONZEPT 4; NG-F13, REP-00, UF-01). Bis dahin bleiben NG-F13, REP-00 und UF-01
   `nicht verifiziert`, auch nach bestandenem G1-Lauf.
 - **Annahmen A-78 bis A-89 zur Freigabe**, darunter:
@@ -87,14 +108,128 @@ Projektverantwortlichen.
     nicht verifiziert (NG-N04 `teilweise`).
 - **Anfrage an die Entwickler des BIDS-Validators** (D-16): den Entwurf
   (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) prüft und sendet der Projektverantwortliche.
-- **Merge und Veröffentlichung** (je Schritt durch den Projektverantwortlichen): Merge von `dev` nach `main` und Push;
+- **Merge und Veröffentlichung** (je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
+  P5-Stand c4f240a plus den Korrekturen aus zh- und Sichtprüfung auf einem Release-Zweig, nicht aus `dev`, das seit
+  8391420 0.2.0.dev0 trägt; `tools/release_check.py` verlangt den Tag-Commit in `origin/main`, A-87): Merge nach `main` und Push;
   Version 0.1.0, Tag `v0.1.0` und `release.yml` (vorher die Platzhalter `<REPO_URL>` und `<PYPI_RELEASE>` in docs/en und
   docs/zh mit der freigegebenen Adresse füllen; `tools/release_check.py` sperrt das Release, solange sie stehen, und der
   Release-Entwurf entsteht nur, wenn `ci.yml` auf dem getaggten Commit besteht); PyPI über `publish-pypi.yml` (Trusted
   Publishing bei TestPyPI und PyPI eintragen, erst TestPyPI); Gitee-Spiegel (`mirror-gitee.yml`, Secret
   `GITEE_SSH_KEY`, Variable `GITEE_MIRROR`) und das Gitee-Release von Hand am gespiegelten Tag (R15).
 
+## Für STOPP G2 vorgemerkt
+
+Stand 02.11.2026 (nach P6). STOPP G2 folgt nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf die
+Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
+- **Annahmen A-90 bis A-92 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P6“), darunter die Lesarten:
+  - A-90: Zugriffsereignisse von `scan`, `manifest` und `verify` nur im Vault am Standardort, von `report` nur mit
+    `--config`, keine Ereignisse bei Exit 2; das Ereignis erst nach allen Ausgaben; Leser halten die Sperre nur für die
+    Größe des Protokolls (Lesart von „Dateisperre um Lesen und Anhängen“); die wahrscheinliche Ursache einer Abweichung
+    nicht in results.json; `vault log --show` ohne `--last`; Projektwurzel von `report --config` wie bei `check`, mit der
+    benannten Einengung für eine toml außerhalb des Datensatzes.
+  - A-91: Sobald Einwilligungsdaten vorliegen, ist jede nicht gedeckte Nutzung ein Fehler, mit oder ohne `[consent]`;
+    ohne benötigte Nutzung ist M14 not_applicable, auch mit `--strict`; der Preis der Tabellenregel im M14-Block (in
+    kleinen oder gemischten Datensätzen fast immer nur Summen je Nutzung).
+  - A-92: `title_zh` des Gerüsts aus der veröffentlichten Prüfung statt aus dem Beispiel; der Gesamtsatz mit core und
+    `yyt2029` bleibt „besteht die Prüfungen der geladenen Regelpakete“ (Banner und Abschnitt grenzen ab).
+- **zh-Runde der vollständigen P6-Texte** vor dem Release von v0.2 (D-17 Option C).
+- **Release v0.2.0**, falls gewünscht, aus dem Endstand von P6 auf einem Release-Zweig (D-19).
+- **Bekannte Grenzen zur Kenntnis:** Kürzen am Ende und Neuschreiben des Zugriffsprotokolls nur mit
+  `vault verify --expect-head`; nur Zugriffe über NeuroGrid; Zeiten aus der lokalen Uhr; Sperre beratend; die Gültigkeit
+  einer Einwilligung beurteilt NeuroGrid nicht; das Ziel „10⁶ Einträge in < 30 s“ für `vault verify` ist nicht gemessen.
+
 ## Verlauf
+
+### 2026-11-02 – P6 v0.2 normunabhängig: NeuroVault, Einwilligung M14, Gerüst yyt2029 (NG-F11, NV-F01, NV-F02, NV-F03, M14, DM-08, DM-09, CLI-09, RP-10, ARC-01)
+- **Abgeschlossen:** NG-F11, NV-F01, NV-F02, M14, DM-08, DM-09, CLI-09, RP-10, ARC-01 (lokal mit den betroffenen Tests
+  belegt, A-87; volle Suite in der CI auf 0ffdd90: ganz grün (`ci` 41422859481, `offline` 41422859830)).
+- **Teilweise:** NV-F03 (Hash-Kette, `vault verify`, `--expect-head` und die Grenzen mit Tests; offen sind die Details
+  aus dem Normtext, P8).
+- **Beigetragen zu:** NG-F16, CLI-08, UF-03, UF-06 (Export und Prüfpaket in P9), V-02 (bleibt teilweise blockiert);
+  dazu CLI-03 (`check --role`), CLI-05 (`report --config`), NG-F10 (Manifest ohne die Protokolle des Vaults), POS-01,
+  V-06, NG-N03, NG-N05, NG-N06, NG-N08, TECH-01, TECH-06. RP-08 bleibt blockiert (nur die Vorlage).
+- **Gebaut** (drei Bereiche nach den verbindlichen Vorgaben des Leads vom 29.10.2026, ENTSCHEIDUNGEN A-90 bis A-92):
+  - NeuroVault (A-90): `src/neurogrid/vault/` mit `store.py` (Ort und Zustände, `vault init`, Ersetzen in einem
+    Schritt), `lock.py` (beratende Sperre `access.jsonl.lock`, höchstens 10 s), `ledger.py` (Hash-Kette, Anhängen,
+    Prüfung mit `--expect-head`, Probe der Beschreibbarkeit), `roles.py`, `_os.py` (aller Plattformcode mit
+    Markierungen); `model/access.py` (AccessEvent, DM-09) mit Schema; Befehle `vault init`, `vault log` (auch
+    `--show`), `vault verify`, `check --role`, `report --config`; automatische Ereignisse von check, convert, report,
+    scan, manifest und verify; CORE-NV03-01/02 (`checks/access.py`, core 0.2.0); Zeile des Zugriffsprotokolls auf dem
+    Deckblatt und der Satz zu den Zugriffsrechten im Anhang jedes Berichts; Gate der Abdeckung mit Plattformblöcken;
+    Nutzerdoku `vault.md` (zh/en) mit Testvektor und Nachprüfskript.
+  - Einwilligung M14 (A-91): `model/consent.py` (ConsentScope, DM-08) mit Schema, `vault/consents.py` (Lesen für
+    `check`, Import `consents.tsv`, `vault consent add` mit Ereignis vor dem Schreiben), `[consent]` in der
+    Konfiguration, CORE-M14-01 (`checks/consent.py`) je Proband und Nutzung; im Bericht ein zusammengefasster Block nach
+    D-17 Option B mit der Tabellenregel; `results.json` mit `config.consents_sha256` und `consent.subjects`.
+  - Gerüst yyt2029 (A-92): Platzhalter-Paket `yyt2029` (0.2.0-draft, eine Regel ohne Klausel), Konsole und Bericht
+    nennen kein Platzhalter-Paket als bestanden; Vorlage der Auslegungsfragen (leer, geprüft, erzeugter Block);
+    Norm-Unabhängigkeitstest ohne Versionsschranke mit genau geprüften Zeilen; V-06-Satz der aktuellen Version.
+- **Vorgehen:** Start auf `dev` mit 8391420 (0.2.0.dev0, 29.10.); Bereich vault mit dem Schnittstellen-Freeze f023146,
+  consent darauf aufbauend, yyt2029 parallel (3bd764f, e84b8ef, 85f382d). Die Bau-Agenten von vault und consent endeten
+  am Sitzungslimit vor ihrem Bericht; ihr Stand ist als `wip:`-Commit festgehalten (57fb4a0, 0c81561, 02.11.), dazu
+  ed81152 (Zeilenlänge eines CLI-Tests). yyt2029 wurde unabhängig nachgeprüft (19 Prüfpunkte erfüllt, 7 neue Probleme),
+  die Befunde behoben in 9a9433e (Prüfung der Fragentexte, Paket und Version auf getrennten Zeilen des Deckblatts,
+  `[check] rulepacks` nennt den Schalter). Merges 9272cd9 (consent), 3646997 (vault), c516598 (yyt2029).
+- **Integration:** Querschnittstests 40d6d16 (`tests/integration/test_p6_cross.py`: UF-06, UF-03, Bytegleichheit der
+  DoD mit Vault, Einwilligungen und `yyt2029` bei `--jobs 1` und `4`, verlinkter Vault und verlinkte `consents.yaml`,
+  Vault ohne Protokoll, die fünf Stufen mit Zulieferern); die Startseite nennt NeuroVault teilweise verfügbar.
+  Semantische Merge-Korrekturen d50158b: `report.access` in zh und de unter `report`, Berichtstests mit M14 und NV03
+  zugleich, die Seitenzahl mit `vault.md`.
+- **CI-Korrekturen (2f2a5a5)** nach der CI auf d50158b, die nur an fünf Tests außerhalb der Bereiche scheiterte:
+  `test_norm_independence.py::test_yyt2029_mentions_are_known` (zwei ungeprüfte Zeilen des Querschnittstests, jetzt
+  in `KNOWN`), `test_thresholds_overridable.py::test_builtin_parameter_override_takes_effect[yyt2029-YYT2029-ACQ-001-min_hz:number]`
+  (lädt das Platzhalter-Paket jetzt mit dem Schalter), `test_report.py::test_placeholder_findings_are_listed_without_verdict`
+  und `::test_each_finding_row_has_required_fields` (Befundzeilen neben dem M14-Block) und
+  `test_zh_review_package.py::test_every_file_with_chinese_text_is_in_the_package` (`yyt2029.yaml` fehlte im Paket).
+- **Review:** unabhängiges Review nur mit Lesezugriff auf vault und consent auf d50158b, sieben Befunde, alle behoben
+  auf `p6-fix` (Merge 0ffdd90), je mit Regressionstest, der vorher scheitert und danach besteht:
+  1. M14 kleine Zellen (Datenschutz, hoch): Der Bericht druckte die genaue kleine Zelle dreimal (754aef6).
+  2. Ausnahmen einer nicht geladenen M14-Regel zeigten Proband und Begründung (Datenschutz, mittel; 09cd05a).
+  3. `vault log --objects` speicherte Rohdateien mit Glob-Zeichen, nachgestelltem Punkt oder als Link im Klartext
+     (Datenschutz, mittel; eabdef6, neu `errors.vault.object_link`).
+  4. Das Manifest nannte bei abweichendem `[vault] path` das Protokoll am Standardort, jedes `verify` nach einem
+     read-Ereignis scheiterte (Datenintegrität; 8b36697).
+  5. Neue Vault-Ordner bekamen unter Windows eine eigene, geschützte DACL statt der ACLs des Elternordners (f307754).
+  6. Ein leeres oder ein Tab in `[vault] purpose`/`approval_ref` beendete `check`, `convert` und `report --config` erst
+     nach der Datenarbeit mit `errors.vault.text_invalid`; jetzt `config.invalid` beim Lesen der toml (16fd7c9).
+  7. `report --config` mit einer toml in einem Unterordner des Datensatzes suchte einen anderen Vault als `check`
+     (9e44134).
+- **Ergebnisse (lokal, Windows 11, Python 3.12.15; nur betroffene Tests, A-87):**
+  - Bereich yyt2029 auf 518964e (Baum gleich 85f382d): 508 bestanden in 35:43 min (mit `NEUROGRID_REQUIRE_PDF=1`); die
+    unabhängige Nachprüfung: 815 bestanden, 3 übersprungen in 1:39:46 h; dazu ein Lauf der betroffenen Tests des Bereichs
+    mit 110 bestanden (Zahl des Leads; Zeitpunkt und Protokoll nicht festgehalten).
+  - Bereich vault (02.11., vor den Merges): 702 bestanden, 6 übersprungen in 288,36 s
+    (`.local/logs/vault_tests_1.log`); im Freeze `test_verify_streams_100k_entries` in 190 s unter starker Last
+    (Grenze 300 s).
+  - Bereich consent (02.11., vor den Merges): 485 bestanden in 163,55 s (`.local/logs/consent_tests_1.log`).
+  - Gemergter Stand, betroffene Tests: 1096 bestanden, 9 fehlgeschlagen, 6 übersprungen in 434,56 s (zwei Sprachtests,
+    sechs Tests in `test_report_p5.py`, die Seitenzahl in `test_docs_build.py`; `.local/logs/p6_merged_1.log`), behoben
+    in d50158b.
+  - Querschnittstests: 7 bestanden, 1 übersprungen in 41,10 s (`.local/logs/p6_cross_1.log`).
+  - Fix-Runde `p6-fix`: 1037 bestanden, 8 übersprungen (POSIX-Zweige; Datei-Links sind auf diesem Rechner nicht
+    erlaubt); nach dem Merge 0ffdd90 die Überschneidung der Zweige 168 bestanden, 1 übersprungen.
+  - Durchlauf von Hand auf 0ffdd90 (NACHBAU 4.8): `vault init`, sechs `vault consent add`, `vault log`, zwei `check`
+    bytegleich mit 9 Ereignissen danach, `vault verify` Exit 0; nach einer geänderten Zeile Exit 1 und CORE-NV03-01
+    verletzt.
+- **CI:**
+  - d50158b (Push 02.11. 07:47): `ci` 41402168683 rot nur an den fünf Tests oben, auf allen Plattformen; laut den
+    Annotationen der beim Mitschreiben abgeschlossenen Testjobs windows-latest × 3.13 5 fehlgeschlagen, 4319 bestanden,
+    19 übersprungen (4343 Tests), ubuntu-24.04 × 3.12 und × 3.13 je 5 fehlgeschlagen, 4243 bestanden, 100 übersprungen
+    (4348 Tests); Lizenz-Gate, beide PowerShell-Jobs und Anforderungs-IDs grün (`.local/ci_d50158b.txt`). `offline`
+    41402168572 grün mit allen neun Jobs. Die Linux-Jobs zeigten nur diese fünf Fehler, der POSIX-Code des Vaults lief
+    dort grün (vor der Fix-Runde).
+  - 0ffdd90 (Push 02.11. 10:42): ganz grün, `ci` 41422859481 und `offline` 41422859830 (neun Jobs); Testjobs laut Notice-Annotationen: windows-latest Python 3.11 4347 bestanden / 20 übersprungen, 3.12 und 3.13 je 4348 / 19 (von 4367); ubuntu-24.04 Python 3.11, 3.12 und 3.13 je 4271 / 101 (von 4372); 0 Fehler; Abdeckung Kern 93,9–94,0 %, Prüfer 97,1–97,2 % (Grenzen 90 % und 80 %)
+- **Annahmen:** A-90 (NeuroVault v0.2), A-91 (Einwilligung M14), A-92 (Gerüst yyt2029, Auslegungsfragen); für STOPP G2
+  vorgemerkt. Neu: D-19 (Antworten vom 02.11.2026).
+- **Nicht verifiziert:**
+  - Die POSIX-Zweige des Vaults nach der Fix-Runde (flock, Modi 0700/0600 mit fchmod, fsync des Ordners): nur in der CI
+    (D-09), ganz grün (`ci` 41422859481, `offline` 41422859830).
+  - Das Ziel der Vorgaben „`vault verify` mit 10⁶ Einträgen in < 30 s“ ist nicht gemessen.
+  - Welche Tests die lokalen Läufe übersprangen, steht nur in den Protokollen; die Läufe von vault und consent sind
+    nur als Zahlen erhalten (`.local/logs/vault_tests_1.log`, `consent_tests_1.log`).
+  - zh-Texte von P6: Kernbegriffe bei der zh-Prüfung (Liste unter „Für STOPP G1 vorgemerkt“), die vollständigen Texte
+    vor dem Release von v0.2.
+- **Für STOPP G2 vorgemerkt:** übernommen in die Liste „Für STOPP G2 vorgemerkt“ oben.
 
 ### 2026-10-28 – Dritte CI-Fix-Runde (p5-ci3; NG-N05, NG-N03, TECH-05, NG-F07, NG-N04, TECH-06, V-06, NG-N08)
 - **Anlass:** CI auf 18da12f (`.local/ci_18da12f.txt`): `offline` (40609866836) grün, `ci` (40609866806) rot in allen
@@ -480,8 +615,11 @@ Projektverantwortlichen.
 
 ## Nächster Schritt
 
-G1-Endlauf auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`); das zh-Prüfpaket mit dessen Beispiel-PDFs ist erzeugt. STOPP G1 vorgelegt; D-18 (29.10.2026):
-Annahmen freigegeben, P6 startet jetzt parallel zur zh-Prüfung und zur Sichtprüfung der PDFs, nach dem Entwurf der
-P6-Vorgaben und D-17 (M14 Option B, zh-Texte Option C), mit Annahmen ab A-90 und nach dem Prüfvorgehen ab dem Ende von
-P5 (A-87). Nach zh- und Sichtprüfung ohne offene Befunde: Merge nach `main`, Version 0.1.0, Tag `v0.1.0`,
-`release.yml`, PyPI und Gitee, jeweils mit Freigabe.
+P6 ist abgeschlossen (`dev` 0ffdd90; CI auf 0ffdd90: ganz grün (`ci` 41422859481, `offline` 41422859830)). Weil weder das GB/T-47127-PDF (G-A) noch der
+YY/T-2029-Text (G-B) vorliegt (`.local/normen/` gibt es nicht), folgt nach D-13 und D-19 als nächste normunabhängige
+Phase **P9 v1.0 normunabhängig** (Rollenregister, Aufbewahrung und Vorlage der Folgenabschätzung, Risikoregister mit
+Neueinwilligung, Export-ZIP mit `index.json`, `diff`, GitHub Action und GitLab-Vorlage, Nachweismappe; KONZEPT 6); mit
+ihrem ersten Commit geht `dev` auf 1.0.0.dev0 (D-19). Danach P11 (NeuroArena, normunabhängig) oder die
+normabhängigen Phasen P7, P8 und P10, sobald der Projektverantwortliche die Texte liefert (G-A, G-B, G-C).
+Parallel beim Projektverantwortlichen: zh-Prüfung (mit den Kernbegriffen von P6) und Sichtprüfung für STOPP G1, danach
+Release v0.1.0 aus dem P5-Stand c4f240a auf einem Release-Zweig, jeweils mit Freigabe.
