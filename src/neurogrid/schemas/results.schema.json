@@ -285,6 +285,21 @@
       "title": "ConfigInfo",
       "type": "object"
     },
+    "ConsentSummary": {
+      "additionalProperties": false,
+      "description": "The sums of the per-use M14 tables of the report (D-17 option B, A-81, A-91): per use, the subjects\nwhose signal recordings need it. results.passed counts passed results per rule and subject without the\nuse, so the report needs these sums to tell the passed subjects of each use; they are public counts like\nthe subjects per split (A-81). Present only when M14 measured per subject; counts only.",
+      "properties": {
+        "subjects": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Subjects",
+          "type": "object"
+        }
+      },
+      "title": "ConsentSummary",
+      "type": "object"
+    },
     "Dataset": {
       "additionalProperties": false,
       "properties": {
@@ -1457,6 +1472,17 @@
     },
     "config": {
       "$ref": "#/$defs/ConfigInfo"
+    },
+    "consent": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConsentSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "dataset": {
       "$ref": "#/$defs/Dataset"

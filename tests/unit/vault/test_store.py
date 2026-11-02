@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+import subprocess
 import sys
 from pathlib import Path
 
@@ -272,3 +273,44 @@ def test_init_posix_permissions(tmp_path: Path, umask: int) -> None:
     }
     expected = {name: 0o700 if name in (".neurogrid", ".neurogrid/vault") else 0o600 for name in modes}
     assert modes == expected, f"umask {umask:o}: measured {[f'{n} {m:o}' for n, m in modes.items()]}"
+
+
+def _dacl(path: Path) -> str:
+    """Windows: the DACL of ``path`` in SDDL ("D:P..." when it is protected, i.e. does not inherit from the
+    parent folder), read with GetFileSecurityW through ctypes (no extra dependency)."""
+    import ctypes
+    from ctypes import wintypes
+
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)  # type: ignore[attr-defined,unused-ignore]
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined,unused-ignore]
+    dacl_information = 0x4  # DACL_SECURITY_INFORMATION
+    needed = wintypes.DWORD()
+    advapi32.GetFileSecurityW(str(path), dacl_information, None, 0, ctypes.byref(needed))
+    descriptor = ctypes.create_string_buffer(needed.value)
+    assert advapi32.GetFileSecurityW(str(path), dacl_information, descriptor, needed, ctypes.byref(needed))
+    text = wintypes.LPWSTR()
+    assert advapi32.ConvertSecurityDescriptorToStringSecurityDescriptorW(
+        descriptor, 1, dacl_information, ctypes.byref(text), None
+    )
+    try:
+        return str(text.value)
+    finally:
+        kernel32.LocalFree(text)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows ACLs (the POSIX modes: the test above)")
+def test_init_windows_folders_inherit_the_acls_of_their_parent(tmp_path: Path) -> None:
+    """p6 decisions 2 and KONZEPT 2.8: on Windows the vault folders and files inherit the ACLs of the folder
+    they are made in, as a folder made with cmd's mkdir and a file made with open() next to them; os.mkdir's
+    mode (0o700 gives a protected ACL of the owner, SYSTEM and the administrators only, Python 3.12.4) is used
+    on POSIX only."""
+    subprocess.run(["cmd", "/c", "mkdir", "reference"], cwd=tmp_path, check=True)  # CreateDirectoryW, no SD
+    (tmp_path / "reference.txt").write_bytes(b"")
+    folder, file = _dacl(tmp_path / "reference"), _dacl(tmp_path / "reference.txt")
+    assert folder.startswith("D:") and not folder.startswith("D:P")
+    init_vault(locate(tmp_path, ".neurogrid/vault"))
+    store.replace_file(tmp_path / ".neurogrid" / "vault" / "consents.yaml", CONSENTS_TEMPLATE)
+    for name in (".neurogrid", ".neurogrid/vault"):
+        assert _dacl(tmp_path / name) == folder, name
+    for name in PARTS[2:]:
+        assert _dacl(tmp_path / name) == file, name

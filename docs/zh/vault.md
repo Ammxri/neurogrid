@@ -34,13 +34,17 @@ vault 路径中任何位置的链接或目录联接，以及访问日志、其�
 `report --config` 和各 vault 命令以退出码 2 结束；`convert`、`scan`、`manifest` 和 `verify` 不写入事件并给出警告。
 在 Linux 下，新建的 vault 文件夹权限为 0700，新建的 vault 文件为 0600；在 Windows 下沿用其所在文件夹的权限。
 
+`neurogrid manifest` 不收录默认位置的 vault（`scan`、`manifest` 和 `verify` 在此记录）以及 `[vault] path` 处的 vault
+（`check`、`convert` 和 `report` 在此记录）的访问日志及其锁文件，因此日志增长时 `verify` 和 CORE-M13-02 仍保持一致；
+若较早的清单列出了默认位置的日志和锁文件，二者在比对时同样不予考虑，CORE-M13-02 还不考虑本次运行自身 vault 的日志和锁文件。
+
 ## 访问事件 {#events}
 
 | 命令 | 事件 | vault |
 |---|---|---|
 | `check` | 操作 `check` | 其 `neurogrid.toml` 的 vault |
 | `convert` | 操作 `convert` | 源文件夹 `neurogrid.toml` 的 vault |
-| `report --config FILE` | 操作 `report` | 该 `neurogrid.toml` 的 vault |
+| `report --config FILE` | 操作 `report` | 该 `neurogrid.toml` 的 vault，位于 `check` 对该文件使用的项目根目录下（[配置](configuration.md#configuration)） |
 | `scan`、`manifest`、`verify` | 操作 `read`，不含角色、目的和批准编号 | 只用默认位置 `.neurogrid/vault` 的 vault |
 | `vault consent add` | 操作 `consent_manage`，对象 `.neurogrid/vault/consents.yaml` | 其 `neurogrid.toml` 的 vault |
 | `vault log` | 给定的操作 | 其 `neurogrid.toml` 的 vault |
@@ -72,7 +76,8 @@ vault 路径中任何位置的链接或目录联接，以及访问日志、其�
 事件中不含用户名、计算机名、进程 ID 和绝对路径。对象分属两个命名空间：数据事件指向数据集——`**` 表示整个数据集，
 或者是交给 `vault log` 的、相对于数据集的路径和模式；涉及 vault 文件的事件以相对于项目根目录的路径指明该文件，例如
 `.neurogrid/vault/consents.yaml`。在原始文件夹中，`vault log` 的对象若指向现有文件，则以其假名文件名记录
-（`rec-<8 位十六进制数字>.<扩展名>`，与 `verify` 的显示相同）。JSON 模式为
+（`rec-<8 位十六进制数字>.<扩展名>`，与 `verify` 的显示相同），文件名含通配符，或在 Windows 下仅大小写或末尾的点和
+空格不同时也是如此；指向链接的对象会被拒绝。JSON 模式为
 [`access_event.schema.json`](../schemas/access_event.schema.json)；与产品规格书术语的对应关系见
 [数据模型](data-model.md)。
 

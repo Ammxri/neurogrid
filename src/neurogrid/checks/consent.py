@@ -46,6 +46,7 @@ from neurogrid.io.participants import SPLIT_NAMES
 from neurogrid.kernel.findings import Notice, Severity
 from neurogrid.kernel.rules import CheckSpec, Evaluation, Measurement, ParamValue
 from neurogrid.model.consent import ConsentState, ConsentUse, effective, ordered_uses
+from neurogrid.model.results import ConsentSummary
 from neurogrid.vault.consents import identifying_refs
 
 COVERED = "consent.covered"
@@ -113,11 +114,16 @@ def _no_data(ctx: CheckContext) -> Measurement | None:
     return _dataset(value=None, reason=reason, details={"required": ctx.consent_required})
 
 
+def _needing(ctx: CheckContext) -> list[tuple[ai_dataset.Member, tuple[ConsentUse, ...]]]:
+    """The signal recordings that need a use, with their uses, in the order of their stable names."""
+    needing = [(member, needed_uses(ctx, member)) for member in ai_dataset.structure(ctx).members]
+    return sorted(((m, uses) for m, uses in needing if uses), key=lambda item: item[0].rec.identity[0])
+
+
 def measure_covered(ctx: CheckContext) -> list[Measurement]:
     if ctx.scan.single_file:
         return [_dataset(state="not_applicable", reason="consent.single_file")]
-    needing = [(member, needed_uses(ctx, member)) for member in ai_dataset.structure(ctx).members]
-    needing = sorted(((m, uses) for m, uses in needing if uses), key=lambda item: item[0].rec.identity[0])
+    needing = _needing(ctx)
     if not needing:
         return [_dataset(state="not_applicable", reason="consent.no_uses")]
     missing = _no_data(ctx)
@@ -172,6 +178,24 @@ def _covered(measurement: Measurement, params: Mapping[str, ParamValue]) -> Eval
 
 SPECS = (CheckSpec(id=COVERED, evaluate=_covered),)
 MEASURERS = {COVERED: measure_covered}
+
+
+def summary(ctx: CheckContext, check_ids: Iterable[str]) -> ConsentSummary | None:
+    """results.consent (A-81, A-91): per use, how many subjects need it, the sums of the per-use tables the
+    report shows. results.passed counts a subject's passed uses without naming them, so without these sums
+    the report could not tell the passed subjects of a use, nor withhold a table whose passed cell has 1-4
+    subjects. Only when M14 measured per subject (step 5 of the module docstring reached for a subject);
+    counts only, in ConsentUse order."""
+    if COVERED not in set(check_ids) or ctx.scan.single_file or _no_data(ctx) is not None:
+        return None
+    subjects: dict[ConsentUse, set[str]] = {}
+    for member, uses in _needing(ctx):
+        if member.subject is not None:
+            for use in uses:
+                subjects.setdefault(use, set()).add(member.subject)
+    if not subjects:
+        return None
+    return ConsentSummary(subjects={use.value: len(subjects[use]) for use in ordered_uses(subjects)})
 
 
 def notices(ctx: CheckContext, check_ids: Iterable[str]) -> list[Notice]:

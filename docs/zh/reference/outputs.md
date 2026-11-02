@@ -28,6 +28,7 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 | `ai` | 汇总的标签、人口学信息和数据划分计数（每个单元格少于 5 名受试者时扣留），或 `null`。 |
 | `summary` | 每个阶段的信号灯、错误、警告、待补的证明材料；每个规则包的覆盖率；合计和退出码。 |
 | `manifest` | 清单比对的结果，或 `null`。 |
+| `consent` | M14：每种用途需要知情同意覆盖的受试者人数（报告中知情同意表格的合计），或 `null`。 |
 
 不包含：时刻、计算机名或用户名、绝对路径、信号哈希值、原始年龄；关于 vault 访问日志，除 CORE-NV03-01/02 的发现外不含任何
 内容：没有链头哈希值，也没有事件的数量或时间。本次运行自身的访问事件在写入 `results.json` 之后才追加。
@@ -47,7 +48,7 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 
 由 `manifest` 写入（默认 `.neurogrid/manifest.json`；模式 [`manifest.schema.json`](../../schemas/manifest.schema.json)）：
 `format_version`、`files`（路径、SHA-256、大小）、`skipped`（链接、特殊文件、被路径检查拒绝的名称）、`excluded`
-（vault 访问日志）、`processing_steps`、`software`、`manifest_hash`（基于规范化 JSON 字节计算）。
+（默认位置的 vault 和 `[vault] path` 处的 vault 的访问日志及其锁文件）、`processing_steps`、`software`、`manifest_hash`（基于规范化 JSON 字节计算）。
 
 ## consents.yaml 和 consents.tsv {#consents}
 

@@ -5,7 +5,9 @@
 并指出相应字段。
 
 **项目根目录。** 文件中的路径相对于项目根目录：对于位于 `.neurogrid` 文件夹中的文件，为其上一级文件夹；对于数据集中的
-其他文件，为数据集根目录；否则为该文件所在的文件夹。路径必须是普通的相对路径（不得含 `..`、盘符、网络或设备路径）。
+其他文件，为数据集根目录；否则为该文件所在的文件夹。`report --config` 不指定数据集：它把该文件所在文件夹或其上级中最近的、
+含有 `.neurogrid`、`dataset_description.json` 或 `[vault] path` 处 vault 的文件夹视为数据集，因此与使用同一文件的 `check`
+找到同一个 vault。路径必须是普通的相对路径（不得含 `..`、盘符、网络或设备路径）。
 从不跟随链接。
 
 **优先顺序。** 元数据：`neurogrid.toml` > BIDS 附带文件 > 文件头 > 未记录（作为检查结果，不中止运行）。阈值：
@@ -115,11 +117,12 @@ M06 和 M09 在抽样上运行：`mode = "sample"` 在等分的各段中间各�
 |---|---|
 | `path` | vault 文件夹，相对于项目根目录（默认 `.neurogrid/vault`）；不含 `..` 的普通相对路径。 |
 | `role` | `check`、`convert` 和 `report --config` 的访问事件的角色，也是 `vault log` 的默认角色：符合 `^[A-Za-z][A-Za-z0-9_.-]{0,79}$` 的角色名称或姓名缩写（不含空格，不是人名）；否则退出码为 2。`check --role` 可在单次运行中覆盖它。 |
-| `purpose` | 这些事件的目的，最多 200 个字符；也是 `vault log --purpose` 的默认值。 |
-| `approval_ref` | 这些事件的批准编号（例如伦理委员会的批件编号），最多 120 个字符；也是 `vault log --approval-ref` 的默认值。 |
+| `purpose` | 这些事件的目的，1 至 200 个字符，不含控制字符；也是 `vault log --purpose` 的默认值。 |
+| `approval_ref` | 这些事件的批准编号（例如伦理委员会的批件编号），1 至 120 个字符，不含控制字符；也是 `vault log --approval-ref` 的默认值。 |
 
-未设置 `role` 时，自动事件不记录角色，命令会给出提示。`purpose` 或 `approval_ref` 含控制字符时，`check`、`convert`
-和 `report --config` 在读取数据之前以退出码 2 结束（[NeuroVault](vault.md#events)）。
+未设置 `role` 时，自动事件不记录角色，命令会给出提示。`purpose` 或 `approval_ref` 为空或含控制字符（制表符、换行）
+时，与不符合模式的 `role` 一样属于无效值：无论是否存在 vault，所有读取该文件的命令都在读取数据之前以退出码 2 结束并指明该
+字段（[NeuroVault](vault.md#events)）。
 
 ## 示例 {#example}
 

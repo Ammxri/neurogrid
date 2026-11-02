@@ -344,14 +344,69 @@ def test_check_invalid_vault_fields_exit2_before_data(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """A purpose or approval reference that cannot be recorded is a configuration error at the start, never a
-    lost event after results.json (errors.vault.text_invalid); a role off the pattern is config.invalid."""
+    lost event after results.json: config.invalid naming the field (P6 review: as a role off the pattern)."""
     folder = _dataset(tmp_path, toml='[vault]\npurpose = "line one\\nline two"\n')
     code, _, err = _check(folder, tmp_path / "r.json", capsys)
-    assert code == 2 and _t("errors.vault.text_invalid", field="purpose") in err
+    assert code == 2 and _t("errors.config.invalid", field="vault.purpose", problem="value_error") in err
     assert not (tmp_path / "r.json").exists() and _log(folder) == b""
     other = _dataset(tmp_path / "other", toml='[vault]\nrole = "QA lead"\n')
     code, _, err = _check(other, tmp_path / "r.json", capsys)
     assert code == 2 and "vault.role" in err
+
+
+@pytest.mark.parametrize(
+    ("toml", "field", "problem"),
+    [
+        ('[vault]\npurpose = ""\n', "vault.purpose", "string_too_short"),
+        ('[vault]\npurpose = "QA\\trun"\n', "vault.purpose", "value_error"),
+        ('[vault]\napproval_ref = ""\n', "vault.approval_ref", "string_too_short"),
+        ('[vault]\napproval_ref = "EC\\u0007-17"\n', "vault.approval_ref", "value_error"),
+    ],
+)
+@pytest.mark.parametrize("vault", [False, True])
+def test_vault_texts_of_the_toml_are_config_errors_for_every_command(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], toml: str, field: str, problem: str, vault: bool
+) -> None:
+    """P6 review (spec sections 4 and 5): a [vault] purpose or approval_ref that the access log cannot record
+    (empty, a tab or another control character) is an invalid value of neurogrid.toml: every command that
+    reads the file ends with exit 2 config.invalid naming the field, with or without a vault, before the data
+    are read and without an event, as for [vault] role; never errors.vault.text_invalid of a pending event."""
+    folder = _dataset(tmp_path, vault=vault, toml=toml)
+    before = _log(folder) if vault else b""
+    message = _t("errors.config.invalid", field=field, problem=problem)
+    config = str(folder / ".neurogrid" / "neurogrid.toml")
+    results = tmp_path / "results.json"
+    commands = [
+        ["check", str(folder), "--out", str(results), "--as-of", AS_OF],
+        ["convert", str(folder), "--to", "bids", "--out", str(tmp_path / "bids")],
+        ["manifest", str(folder)],
+        ["vault", "init", str(folder)],
+        [
+            "vault",
+            "log",
+            str(folder),
+            "--action",
+            "read",
+            "--objects",
+            "**",
+            "--purpose",
+            "p",
+            "--role",
+            "QA",
+        ],
+    ]
+    for args in commands:
+        code, out, err = run(args, capsys)
+        assert code == 2 and message in err, (args, out, err)
+    assert not results.exists() and not (tmp_path / "bids").exists()
+    assert not (folder / ".neurogrid" / "manifest.json").exists()
+    good = _dataset(tmp_path / "good", vault=False)
+    assert _check(good, results, capsys)[0] in (0, 1)
+    code, out, err = run(["report", str(results), "--format", "html", "--config", config], capsys)
+    assert code == 2 and message in err, (out, err)
+    assert not (results.parent / "report.en.html").exists()
+    if vault:
+        assert _log(folder) == before
 
 
 def test_check_single_file_has_no_vault(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -394,6 +449,79 @@ def test_manifest_then_check_with_vault_verify_clean(
     ]
     assert all(event["objects"] == ["**"] for event in events)
     assert run(["vault", "verify", str(folder)], capsys)[0] == 0
+
+
+def test_the_manifest_leaves_out_the_log_of_every_vault(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P6 review (spec section 4, A-82): with a vault at the default location and another one at [vault] path,
+    manifest leaves out the log and lock file of both (scan, manifest and verify append to the default one,
+    check to the configured one), so every later verify and CORE-M13-02 stay clean. A manifest made before
+    (it lists the default log) is compared without the default log and lock file as well."""
+    from neurogrid.kernel.provenance import Exclusions, build_manifest, manifest_bytes
+
+    folder = _dataset(tmp_path, toml='[vault]\npath = "audit/vault"\nrole = "QA"\n')
+    init_vault(locate(folder, "audit/vault"))
+    assert run(["manifest", str(folder)], capsys)[0] == 0
+    manifest_file = folder / ".neurogrid" / "manifest.json"
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    logs = [
+        f"{vault}/{name}"
+        for vault in (".neurogrid/vault", "audit/vault")
+        for name in ("access.jsonl", "access.jsonl.lock")
+    ]
+    assert manifest["excluded"] == logs
+    assert not {entry["path"] for entry in manifest["files"]} & set(logs)
+    for _ in range(2):  # each verify appends a read event to the default vault
+        code, out, err = run(["verify", str(folder), "--manifest", str(manifest_file)], capsys)
+        assert code == 0, out + err
+    assert run(["scan", str(folder)], capsys)[0] == 0
+    code, out, err = _check(folder, tmp_path / "r.json", capsys)
+    assert code == 0, out + err
+    results = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
+    assert _statuses(results, "CORE-M13-02") == [("passed", None)]
+    assert [e["action"] for e in _events(folder)] == [
+        "read",
+        "read",
+        "read",
+        "read",
+    ]  # manifest, 2 verify, scan
+    assert [
+        json.loads(line)["action"] for line in (folder / "audit/vault/access.jsonl").read_bytes().splitlines()
+    ] == ["check"]
+    # a manifest that excludes the configured vault only, as manifest wrote it before
+    old = build_manifest(
+        folder,
+        Exclusions.of([".neurogrid/manifest.json", *logs[2:]]),
+        excluded=logs[2:],
+    ).manifest
+    assert old is not None and ".neurogrid/vault/access.jsonl" in {item.path for item in old.files}
+    manifest_file.write_bytes(manifest_bytes(old))
+    assert run(["scan", str(folder)], capsys)[0] == 0  # the default log changes after the manifest
+    code, out, err = run(["verify", str(folder), "--manifest", str(manifest_file)], capsys)
+    assert code == 0, out + err
+    code, out, err = _check(folder, tmp_path / "r2.json", capsys)
+    results = json.loads((tmp_path / "r2.json").read_text(encoding="utf-8"))
+    assert code == 0 and _statuses(results, "CORE-M13-02") == [("passed", None)], out + err
+
+
+def test_check_compares_without_the_log_of_its_vault(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CORE-M13-02 leaves out the log and lock file of the run's own vault also when the manifest lists them
+    (made before the vault was configured): check appends its event there after results.json."""
+    from neurogrid.kernel.provenance import Exclusions, build_manifest, manifest_bytes
+
+    folder = _dataset(tmp_path, vault=False, toml='[vault]\npath = "audit/vault"\n')
+    init_vault(locate(folder, "audit/vault"))
+    built = build_manifest(folder, Exclusions.of([".neurogrid/manifest.json"])).manifest
+    assert built is not None and "audit/vault/access.jsonl" in {item.path for item in built.files}
+    (folder / ".neurogrid" / "manifest.json").write_bytes(manifest_bytes(built))
+    for name in ("r1.json", "r2.json"):  # the first check appends to audit/vault/access.jsonl
+        code, out, err = _check(folder, tmp_path / name, capsys)
+        results = json.loads((tmp_path / name).read_text(encoding="utf-8"))
+        assert code == 0 and _statuses(results, "CORE-M13-02") == [("passed", None)], (name, out + err)
+    assert (folder / "audit" / "vault" / "access.jsonl").read_bytes().count(b"\n") == 2
 
 
 def test_read_events_only_at_the_default_location(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -503,6 +631,54 @@ def test_report_with_config_shows_head_and_appends_event(
             assert tr(key) in text, key
         assert tr("report.text.access_log_note") in text and tr("report.text.os_access") in text
         assert events[1]["hash"] not in html  # the report's own event comes after the files
+
+
+@pytest.mark.parametrize(
+    ("place", "toml", "vault"),
+    [
+        (
+            "data/conf/neurogrid.toml",
+            '[vault]\nrole = "QA"\n',
+            "data/.neurogrid/vault",
+        ),  # inside, default path
+        ("data/conf/neurogrid.toml", '[vault]\npath = "audit/vault"\nrole = "QA"\n', "data/audit/vault"),
+        (
+            "configs/neurogrid.toml",
+            '[vault]\nrole = "QA"\n',
+            "configs/.neurogrid/vault",
+        ),  # outside the dataset
+    ],
+)
+def test_report_config_finds_the_vault_of_check(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], place: str, toml: str, vault: str
+) -> None:
+    """P6 review (A-66): report --config resolves the project root of the file as check and the vault commands
+    do for it: a file inside the dataset that is not in .neurogrid has the dataset root, which the report
+    finds as the nearest folder above the file with .neurogrid, dataset_description.json or the vault path;
+    a file outside the dataset has its own folder. So the report shows and extends the log check appended to,
+    and never looks for a vault next to the file."""
+    folder = tmp_path / "data"
+    shutil.copytree(FIX / "edf_ok", folder)
+    config = tmp_path / place
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(DOCUMENTED_TOML + toml, encoding="utf-8")
+    assert run(["vault", "init", str(folder), "--config", str(config)], capsys)[0] == 0
+    log = tmp_path / vault / "access.jsonl"
+    assert log.is_file()
+    results = tmp_path / "results.json"
+    code, out, err = _check(folder, results, capsys, "--config", str(config))
+    assert code == 0, out + err
+    head = json.loads(log.read_bytes().splitlines()[-1])["hash"]
+    code, out, err = run(
+        ["report", str(results), "--lang", "en", "--out", str(tmp_path / "rep"), "--config", str(config)],
+        capsys,
+    )
+    assert code == 0, out + err
+    assert [json.loads(line)["action"] for line in log.read_bytes().splitlines()] == ["check", "report"]
+    html = (tmp_path / "rep" / "report.en.html").read_text(encoding="utf-8")
+    assert f'<span class="mono">{head}</span>' in html
+    assert _t("report.value.access_log_state.intact") in visible_text(html)
+    assert not (config.parent / ".neurogrid").exists() or config.parent == tmp_path / "configs"
 
 
 def test_report_with_config_without_vault(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

@@ -37,13 +37,18 @@ A link or junction anywhere in the vault path, at the log, its lock file or `con
 `verify` write no event and warn. On Linux new vault folders get mode 0700 and new vault files 0600; on Windows
 they inherit the rights of their folder.
 
+`neurogrid manifest` leaves out the log and the lock file of the vault at the default location (where `scan`,
+`manifest` and `verify` record) and of the one at `[vault] path` (where `check`, `convert` and `report` record),
+so that `verify` and CORE-M13-02 stay clean while the logs grow; both also leave out the log and lock file at
+the default location when an older manifest lists them, and CORE-M13-02 those of the run's own vault.
+
 ## Access events {#events}
 
 | Command | Event | Vault |
 |---|---|---|
 | `check` | action `check` | the vault of its `neurogrid.toml` |
 | `convert` | action `convert` | the vault of the source folder's `neurogrid.toml` |
-| `report --config FILE` | action `report` | the vault of that `neurogrid.toml` |
+| `report --config FILE` | action `report` | the vault of that `neurogrid.toml`, at the project root `check` uses for it ([Configuration](configuration.md#configuration)) |
 | `scan`, `manifest`, `verify` | action `read`, no role, purpose or approval reference | only the vault at the default location `.neurogrid/vault` |
 | `vault consent add` | action `consent_manage`, object `.neurogrid/vault/consents.yaml` | the vault of its `neurogrid.toml` |
 | `vault log` | the given action | the vault of its `neurogrid.toml` |
@@ -77,7 +82,9 @@ An event holds no user name, no computer name, no process ID and no absolute pat
 namespaces: data events name the dataset – `**` for the whole dataset, or the paths and patterns given to
 `vault log`, relative to the dataset; events about a vault file name it relative to the project root, for
 example `.neurogrid/vault/consents.yaml`. In a raw folder an object of `vault log` that names an existing file
-is recorded by its pseudonymous file name (`rec-<8 hex digits>.<extension>`, as `verify` shows it). The JSON
+is recorded by its pseudonymous file name (`rec-<8 hex digits>.<extension>`, as `verify` shows it), also when
+the name holds glob characters or, on Windows, differs only in case or trailing dots and spaces; an object that
+names a link is refused. The JSON
 schema is [`access_event.schema.json`](../schemas/access_event.schema.json); the mapping to the terms of the
 product specification is on [Data model](data-model.md).
 

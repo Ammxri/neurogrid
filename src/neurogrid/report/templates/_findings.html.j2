@@ -29,6 +29,7 @@
   <h2>{{ t('report.section.findings') }}</h2>
   {% for section in severity_sections %}
   <h3 class="sev-{{ section.severity }}">{{ section.heading }}</h3>
+  {% if section.note %}<p class="consent-severity-note">{{ section.note }}</p>{% endif %}
   {% if section.groups %}
   {% for group in section.groups %}
   <div class="rule-group" data-rule="{{ group.rule }}">

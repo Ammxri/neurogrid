@@ -29,6 +29,7 @@ Written by `check` (`--out`, default `results.json`); `report` reads only this f
 | `ai` | Aggregated label, demography and split counts (withheld below 5 subjects per cell), or `null`. |
 | `summary` | Per phase light, errors, warnings, open evidence; coverage per pack; totals and the exit code. |
 | `manifest` | Result of the manifest comparison, or `null`. |
+| `consent` | M14: per use the number of subjects that need it (the sums of the report's consent tables), or `null`. |
 
 Not contained: time of day, computer or user name, absolute paths, signal hashes, raw ages, and nothing of the
 vault's access log but the findings of CORE-NV03-01/02: no head hash, no number or time of events. The run's own
@@ -49,7 +50,8 @@ Written by `scan --out` (schema [`scan.schema.json`](../../schemas/scan.schema.j
 
 Written by `manifest` (default `.neurogrid/manifest.json`; schema
 [`manifest.schema.json`](../../schemas/manifest.schema.json)): `format_version`, `files` (path, SHA-256, size),
-`skipped` (links, special files, names the path check refuses), `excluded` (the vault log), `processing_steps`,
+`skipped` (links, special files, names the path check refuses), `excluded` (the access log and lock file of the vault at the default location and of the one at
+`[vault] path`), `processing_steps`,
 `software`, `manifest_hash` (over the canonical JSON bytes).
 
 ## consents.yaml and consents.tsv {#consents}

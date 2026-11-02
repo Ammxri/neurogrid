@@ -526,6 +526,72 @@ def test_vault_log_objects_pseudonymous_in_raw_folder(
     assert _events(bids)[0]["objects"] == ["rec_Zhang_San.edf"]
 
 
+def _objects(*objects: str) -> list[str]:
+    return [
+        *(p for o in objects for p in ("--objects", o)),
+        "--action",
+        "read",
+        "--purpose",
+        "p",
+        "--role",
+        "QA",
+    ]
+
+
+def test_vault_log_looks_up_the_literal_name_first(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P6 review (NZ-09, A-51): an object is looked up as the literal name of a raw-folder file before it
+    counts as a pattern, and as the system reads the name, so a file whose name holds glob characters is
+    recorded by its pseudonymous file name, and under Windows also a name given with another case or with
+    trailing dots or spaces (Windows opens the same file); a real pattern stays a pattern."""
+    folder = _initialised(tmp_path, capsys)
+    (folder / "ZhangSan[EEG].edf").write_bytes(b"not read")
+    code, _, err = _entry(folder, capsys, *_objects("ZhangSan[EEG].edf", "*.edf", "sub-?[0-9]/**"))
+    assert code == 0, err
+    glob_name = show("ZhangSan[EEG].edf", plain=False).file
+    assert glob_name.startswith("rec-") and glob_name.endswith(".edf")
+    assert _events(folder)[-1]["objects"] == [glob_name, "*.edf", "sub-?[0-9]/**"]
+    assert b"Zhang" not in _log(folder)
+    if sys.platform == "win32":  # one file under several names; on POSIX they name files that do not exist
+        variants = ("rec_Zhang_San.edf.", "rec_Zhang_San.edf ", "REC_ZHANG_SAN.EDF", "rec_Zhang_San.edf. .")
+        code, _, err = _entry(folder, capsys, *_objects(*variants))
+        assert code == 0, err
+        assert _events(folder)[-1]["objects"] == [show("rec_Zhang_San.edf", plain=False).file] * 4
+        assert b"Zhang" not in _log(folder)
+
+
+def test_vault_log_refuses_an_object_that_names_a_link(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P6 review (A-52, A-66): a link in the dataset is never followed, so an object that names one, or a
+    file behind one, cannot be recorded by the pseudonymous name of a raw-folder file: exit 2
+    errors.vault.object_link with the object's number, nothing written. A pattern through the link stays a
+    pattern."""
+    folder = _initialised(tmp_path, capsys)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "Li_Si.edf").write_bytes(b"not read")
+    dir_link(folder / "linked", outside)
+    before = _log(folder)
+    for objects in (("**", "linked/Li_Si.edf"), ("**", "linked"), ("**", "linked/")):
+        code, out, err = _entry(folder, capsys, *_objects(*objects))
+        assert code == 2 and _t("errors.vault.object_link", index=2) in err, (objects, out, err)
+        assert _log(folder) == before
+    code, _, err = _entry(folder, capsys, *_objects("linked/*.edf"))
+    assert code == 0, err
+    assert _events(folder)[-1]["objects"] == ["linked/*.edf"]
+    target = outside / "Wang_Wu.edf"
+    target.write_bytes(b"not read")
+    try:
+        (folder / "Wang_Wu.edf").symlink_to(target)
+    except OSError:
+        return  # file links need extra rights on Windows; the folder link above covers the rule
+    code, _, err = _entry(folder, capsys, *_objects("Wang_Wu.edf"))
+    assert code == 2 and _t("errors.vault.object_link", index=1) in err
+    assert b"Wang_Wu" not in _log(folder)
+
+
 def test_vault_log_identifying_purpose_and_role_warn(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

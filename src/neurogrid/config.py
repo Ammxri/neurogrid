@@ -25,7 +25,7 @@ from neurogrid.kernel.engine import ExceptionEntry
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.rules import RULE_ID_PATTERN, ParamValue
 from neurogrid.kernel.safety import check_relative, decode_text, read_limited, resolve_within
-from neurogrid.model.access import ROLE_PATTERN
+from neurogrid.model.access import MAX_APPROVAL_REF_CHARS, MAX_PURPOSE_CHARS, ROLE_PATTERN, text_problem
 from neurogrid.model.consent import ConsentUse, ordered_uses
 
 CONFIG_DIR = ".neurogrid"
@@ -449,12 +449,24 @@ class VaultSection(_Section):
     """NeuroVault (A-30, A-66, A-90): the vault folder relative to the project root and the fields of the
     access events that check, convert and report append. ``role`` is a role name or initials, never a
     personal name with spaces or an OS login (model.access.ROLE_PATTERN, NZ-09); ``check --role`` overrides
-    it for one run."""
+    it for one run. ``purpose`` and ``approval_ref`` follow the rules of the access event (not empty, at most
+    200 and 120 characters, no control character)."""
 
     path: str = ".neurogrid/vault"
     role: str | None = Field(default=None, max_length=80, pattern=ROLE_PATTERN)
-    purpose: str | None = Field(default=None, max_length=200)
-    approval_ref: str | None = Field(default=None, max_length=120)
+    purpose: str | None = Field(default=None, min_length=1, max_length=MAX_PURPOSE_CHARS)
+    approval_ref: str | None = Field(default=None, min_length=1, max_length=MAX_APPROVAL_REF_CHARS)
+
+    @field_validator("purpose", "approval_ref")
+    @classmethod
+    def _recordable(cls, value: str | None) -> str | None:
+        """The rules of the access event (model.access, ledger.check_fields): not empty (min_length), no
+        control character such as a tab, no lone surrogate. An invalid value is a config error naming the
+        field, for every command that reads the file (exit 2), never an event that check, convert or report
+        could not write after reading the data."""
+        if value is not None and text_problem(value) is not None:
+            raise ValueError("a control character or invalid text, which the access log cannot record")
+        return value
 
 
 class ConfigExceptionEntry(ExceptionEntry):

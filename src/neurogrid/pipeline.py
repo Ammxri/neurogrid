@@ -552,6 +552,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         duplicates=ai_outputs.duplicates,
         ai=ai_outputs.summary,
         manifest=manifest,
+        consent=consent_checks.summary(ctx, check_ids),  # M14 subjects per use, for the report (A-91)
     )
 
 
@@ -942,9 +943,10 @@ def run_manifest(
     the bundled BIDS validator may list it (``validator_listing``: never in hidden folders such as
     .neurogrid/, in the top-level folders it ignores or in what .bidsignore names). Inside a raw folder the
     console names it by its pseudonymous file name unless --show-paths is given or it is the default location
-    (``shown_target``, A-51). neurogrid.toml is read from its default location only for [vault] path (the
-    access log is excluded and recorded as such). An invalid provenance.yaml or processing_steps.json ends
-    with exit 2 (C2)."""
+    (``shown_target``, A-51). neurogrid.toml is read from its default location only for [vault] path: the
+    access log and lock file of that vault and of the one at the default location, where this command appends
+    its read event, are excluded and recorded as such (vault_exclusions). An invalid provenance.yaml or
+    processing_steps.json ends with exit 2 (C2)."""
     root = _folder(raw_target)
     loaded = config_module.load(None, root)
     is_bids = is_bids_folder(root)
@@ -1036,7 +1038,6 @@ def run_verify(raw_target: str | Path, manifest_path: str | Path, *, show_paths:
 # --- NeuroVault: access events and the vault commands (NV-F01, NV-F03, CLI-08, CLI-09; A-30, A-90) ----------
 
 DATASET_OBJECTS = ("**",)  # the object of automatic data events: the whole dataset (an A-14 pattern)
-_PATTERN_CHARS = frozenset("*?[")  # an object with one of them is a pattern and stored as given
 
 
 @dataclass(frozen=True)
@@ -1083,8 +1084,9 @@ def _run_vault(project_root: Path, cfg: Config) -> VaultLocation:
 
 def _pending(location: VaultLocation, cfg: Config, role: str | None, action: str) -> PendingAccess:
     """The automatic event of a run for ``location``: objects ``**``, purpose and approval reference from
-    [vault]. Fields that cannot be recorded are tool errors now (errors.vault.text_invalid {field}), never a
-    lost event after the outputs are written."""
+    [vault]. Every field is valid already: [vault] purpose and approval_ref follow the rules of the event when
+    neurogrid.toml is read (config.VaultSection: config.invalid naming the field, exit 2 for every command),
+    the role there and with --role; check_fields only guards that no event is lost after the outputs."""
     purpose, approval_ref = cfg.vault.purpose, cfg.vault.approval_ref
     ledger.check_fields(
         role=role, action=action, objects=DATASET_OBJECTS, purpose=purpose, approval_ref=approval_ref
@@ -1135,17 +1137,35 @@ def vault_view(location: VaultLocation) -> VaultView:
     )
 
 
+def config_dataset(config_path: Path, vault_path: str) -> Path:
+    """The dataset a neurogrid.toml lies in, for ``report --config``, which is given no dataset (A-66): the
+    nearest folder at or above the file's folder that holds NeuroGrid's folder ``.neurogrid``, a BIDS
+    dataset_description.json or the vault at [vault] path; else the file's folder (a file outside any
+    dataset). With it config.project_root_for gives the project root check and the vault commands use for the
+    same file inside that dataset: the folder above ``.neurogrid`` for a file in such a folder, else this
+    folder; for a file outside the dataset its own folder, unless a folder above it is marked so."""
+    folder = config_path.resolve().parent
+    for candidate in (folder, *folder.parents):
+        if (
+            os.path.lexists(candidate / config_module.CONFIG_DIR)
+            or is_bids_folder(candidate)
+            or vault_store.locate(candidate, vault_path).state != "absent"
+        ):
+            return candidate
+    return folder
+
+
 def report_vault(config_path: Path) -> tuple[PendingAccess | None, VaultView]:
-    """``report --config FILE`` (A-30): the vault of that neurogrid.toml (its project root after A-66: the
-    folder above ``.neurogrid`` for a file in such a folder, else the file's folder; the report knows no
-    dataset) and how the report shows it; the report event (action report, objects ``**``) when a vault is
-    present. Without --config the report finds no vault and records nothing."""
+    """``report --config FILE`` (A-30): the vault of that neurogrid.toml, at the project root check uses for
+    the file (A-66; the report knows no dataset, config_dataset finds the one the file lies in), and how the
+    report shows it; the report event (action report, objects ``**``) when a vault is present. Without
+    --config the report finds no vault and records nothing."""
     path = check_operator_path(config_path)
     if not path.is_file():
         raise ConfigError("config.not_found")
-    loaded = config_module.load(path, path.resolve().parent)
-    cfg = loaded.config
-    location = _run_vault(loaded.project_root, cfg)
+    cfg = config_module.load(path, path.resolve().parent).config
+    project_root = config_module.project_root_for(path, config_dataset(path, cfg.vault.path))
+    location = _run_vault(project_root, cfg)
     pending = _pending(location, cfg, cfg.vault.role, "report") if location.state == "present" else None
     return pending, vault_view(location)
 
@@ -1182,18 +1202,45 @@ def run_vault_init(raw_path: str | Path, config_path: Path | None = None) -> tup
     return vault_store.init_vault(vault_target(raw_path, config_path).location)
 
 
-def _stored_object(root: Path, item: str, *, plain: bool) -> str:
-    """How a manual object is recorded (NZ-09, A-51): a path that names an existing file of a raw folder by
-    the pseudonymous file name verify shows (rec-<sha8>.<ext>; NeuroGrid's fixed names in .neurogrid/ in
-    clear), in the stored spelling of its name (A-66); anything else (BIDS datasets, patterns, folders,
-    paths that do not exist) as given. The log is part of the P9 export."""
-    if plain or _PATTERN_CHARS & set(item):
-        return item
+def _raw_file(root: Path, item: str, index: int) -> str | None:
+    """The raw-folder file that the object ``item`` names when its text is taken as a name, glob characters
+    included, and read as the system reads it (Windows: any case, trailing dots and spaces, short names), as
+    its relative path in the stored spelling (A-66); None when nothing of that name exists or it is a folder.
+    The literal name is looked up before the object counts as a pattern, so ``Zhang[EEG].edf`` is a file when
+    one of that name exists. A link at the name or on the way to it is refused (errors.vault.object_link
+    {index}, exit 2): links in the dataset are never followed (A-52), so the file behind one has no stored
+    name, and its own name would be recorded in clear."""
+    parts = [part for part in item.split("/") if part not in ("", ".")]
+    if not parts:
+        return None
+    candidate = root.joinpath(*parts)
     try:
-        path = resolve_within(root, check_relative(item))
-        stored = path.resolve().relative_to(root).as_posix() if path.is_file() else None
-    except (UnsafePathError, OSError, ValueError):
+        if not os.path.lexists(candidate):  # a pattern, or a path that does not exist
+            return None
+    except (OSError, ValueError):  # a name the system refuses (an embedded NUL is refused before)
+        return None
+    current = root
+    for part in parts:
+        current = current / part
+        if is_link(current):
+            raise UnsafePathError("vault.object_link", index=index)
+    try:
+        if not candidate.is_file():
+            return None
+        resolved = candidate.resolve(strict=True)
+    except OSError:
+        return None
+    return resolved.relative_to(root).as_posix() if resolved.is_relative_to(root) else None
+
+
+def _stored_object(root: Path, item: str, index: int, *, plain: bool) -> str:
+    """How a manual object is recorded (NZ-09, A-51): in a raw folder an object that names an existing file
+    (_raw_file) by the pseudonymous file name verify shows (rec-<sha8>.<ext>; NeuroGrid's fixed names in
+    .neurogrid/ in clear); anything else (BIDS datasets, patterns, folders, paths that do not exist) as given,
+    with the note when it looks identifying. The log is part of the P9 export."""
+    if plain:
         return item
+    stored = _raw_file(root, item, index)
     return item if stored is None else show(stored, plain=False).file
 
 
@@ -1232,7 +1279,10 @@ def run_vault_log(
         raise InputError("vault.purpose_missing")
     approval_ref = approval_ref if approval_ref is not None else section.approval_ref
     ledger.check_fields(role=role, action=action, objects=objects, purpose=purpose, approval_ref=approval_ref)
-    stored = [_stored_object(target.root, item, plain=target.is_bids) for item in objects]
+    stored = [
+        _stored_object(target.root, item, index, plain=target.is_bids)
+        for index, item in enumerate(objects, start=1)
+    ]
     outcome = ledger.append(
         target.location,
         role=role,

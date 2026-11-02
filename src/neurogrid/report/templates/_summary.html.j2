@@ -25,4 +25,5 @@
   </table>
   <p class="coverage-note">{{ t('report.text.coverage_note') }}</p>
   <p class="passed">{{ t('report.label.passed_checks') }}: {{ passed_total }}</p>
+  {% if passed_note %}<p class="passed-note">{{ passed_note }}</p>{% endif %}
 </section>

@@ -13,7 +13,7 @@ from neurogrid.io import ADAPTERS
 from neurogrid.io.annotations import AnnotationIndex, build_index
 from neurogrid.io.base import FormatAdapter, HeaderInspection, HeaderUnreadable
 from neurogrid.io.discover import DatasetScan, FoundFile
-from neurogrid.io.provenance import ProvenanceState
+from neurogrid.io.provenance import ProvenanceState, vault_exclusions
 from neurogrid.metadata import ENTITY_FIELDS, RecordingMetadata, collect
 from neurogrid.model.dataset import Recording
 from neurogrid.quality import QualityJob, QualityResult, QualitySettings, compute_all
@@ -135,6 +135,10 @@ class CheckContext:
                 show_paths=self.show_paths,
                 manifest_path=self.manifest_path,
                 work=self.work,
+                # CORE-M13-02 leaves out the log of every vault the run may append to, as manifest does
+                vault_files=tuple(vault_exclusions(self.root, self.vault.project_root, self.vault.relative))
+                if self.vault is not None
+                else (),
             )
         return self._provenance
 

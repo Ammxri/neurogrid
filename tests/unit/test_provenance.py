@@ -125,15 +125,17 @@ def test_custom_vault_path_and_output_inside_the_dataset_are_excluded(tmp_path: 
     (tmp_path / "out").mkdir()
     (tmp_path / "out" / "m.json").write_text("{}", encoding="utf-8")
     recorded = vault_exclusions(tmp_path, tmp_path, "secure")
-    assert recorded == ["secure/access.jsonl", "secure/access.jsonl.lock"]
+    # P6 review (spec section 4): the default vault as well, where scan, manifest and verify append
+    assert recorded == [*VAULT, "secure/access.jsonl", "secure/access.jsonl.lock"]
     own = inside(tmp_path, tmp_path / "out" / "m.json")
     assert own == "out/m.json"
     built = build_manifest(tmp_path, _exclusions(*recorded, own), excluded=recorded)
     assert built.manifest is not None
     paths = {item.path for item in built.manifest.files}
     assert "secure/access.jsonl" not in paths and "out/m.json" not in paths
-    assert ".neurogrid/vault/access.jsonl" in paths  # not the vault of this configuration
-    assert vault_exclusions(tmp_path / "ds", tmp_path, "vault") == []  # vault outside the dataset
+    assert ".neurogrid/vault/access.jsonl" not in paths  # read events go there whatever [vault] path says
+    assert ".neurogrid/neurogrid.toml" in paths  # the rest of .neurogrid/ stays covered (A-82)
+    assert vault_exclusions(tmp_path / "ds", tmp_path, "vault") == VAULT  # the configured one lies outside
     assert vault_exclusions(tmp_path, tmp_path, ".neurogrid/vault") == VAULT
 
 
