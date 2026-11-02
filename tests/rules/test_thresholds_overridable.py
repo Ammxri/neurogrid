@@ -16,7 +16,7 @@ import pytest
 
 from neurogrid import pipeline
 from neurogrid.checks.registry import REGISTRY
-from neurogrid.kernel.findings import Status
+from neurogrid.kernel.findings import SourceStatus, Status
 from neurogrid.kernel.rules import ParamValue, load_rulepack
 
 FIX = Path(__file__).parent.parent / "fixtures" / "synthetic"
@@ -64,12 +64,17 @@ def _toml_value(value: ParamValue) -> str:
     return str(value)
 
 
+PLACEHOLDER_PACKS: set[str] = set()  # loaded only with --allow-draft-rulepacks (A-41, A-92)
+
+
 def _builtin_rule_params() -> list[tuple[str, str, str]]:
     cases = []
     for entry in resources.files("neurogrid.rulepacks").iterdir():
         if not entry.name.endswith(".yaml"):
             continue
         pack = load_rulepack(entry.read_bytes(), origin="builtin").pack
+        if pack.source_status is SourceStatus.PLACEHOLDER:
+            PLACEHOLDER_PACKS.add(pack.rulepack)
         for rule in pack.rules:
             for name, spec in REGISTRY[rule.check].params.items():
                 cases.append((pack.rulepack, rule.id, f"{name}:{spec.kind}"))
@@ -83,7 +88,10 @@ def test_builtin_parameter_override_takes_effect(tmp_path: Path, pack: str, rule
     packs = "" if pack == "core" else f'[check]\nrulepacks = ["core", "{pack}"]\n'
     config = tmp_path / "neurogrid.toml"
     config.write_text(f'{packs}[rules."{rule_id}".params]\n{name} = {_toml_value(value)}\n', encoding="utf-8")
-    results = pipeline.run_check(FIX / "edf_ok", pipeline.CheckOptions(config_path=config, as_of=AS_OF))
+    options = pipeline.CheckOptions(
+        config_path=config, as_of=AS_OF, allow_draft_rulepacks=pack in PLACEHOLDER_PACKS
+    )
+    results = pipeline.run_check(FIX / "edf_ok", options)
     effective = results.config.effective_params[rule_id][name]
     assert effective.origin == "config" and effective.value == value
 

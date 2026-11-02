@@ -10,6 +10,7 @@ from markupsafe import escape
 
 from neurogrid import pipeline
 from neurogrid.kernel.findings import Phase, SourceStatus
+from neurogrid.report import tables
 from neurogrid.report.render import EXPLAINED_EMPTY, FINDING_CELLS, render_report
 from neurogrid.report.texts import disclaimer, translator
 from report_html import finding_rows  # type: ignore[import-not-found]
@@ -48,8 +49,10 @@ def test_each_finding_row_has_required_fields(results) -> None:  # type: ignore[
     the channel column, data-key and cell classes (B1), and an empty value is '–' with its reason (A-09)."""
     html = render_report(results, "en")
     rows = finding_rows(html)
-    assert len(rows) == len(results.findings) >= 2  # no rule has more than 50 findings here (A-59)
-    assert {row["key"] for row in rows} == {f.key for f in results.findings}
+    consent = tables.consent_rules(results)  # M14: one aggregated block, no rows (D-17 option B, A-91)
+    shown = [f for f in results.findings if f.rule_id not in consent]
+    assert len(rows) == len(shown) >= 2  # no rule has more than 50 findings here (A-59)
+    assert {row["key"] for row in rows} == {f.key for f in shown}
     explained = {translator("en").t(key) for key in EXPLAINED_EMPTY}
     for row in rows:
         assert set(row) == {"key", *FINDING_CELLS}
@@ -80,7 +83,9 @@ def test_placeholder_findings_are_listed_without_verdict(results) -> None:  # ty
     html = render_report(marked, "en")
     tr = translator("en").t
     assert tr("report.label.placeholder_findings") in html
-    assert html.count(tr("report.value.placeholder_clause")) == len(marked.findings)
+    consent = tables.consent_rules(marked)  # the M14 block has no finding rows (D-17 option B, A-91)
+    shown = [f for f in marked.findings if f.rule_id not in consent]
+    assert html.count(tr("report.value.placeholder_clause")) == len(shown)
     findings_html = html[html.index('id="findings"') : html.index('id="metrics"')]
     assert tr("status.failed") not in findings_html
 

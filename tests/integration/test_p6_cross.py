@@ -1,6 +1,6 @@
 """P6 across its areas (KONZEPT row P6, UF-03, UF-06, ARC-01; A-90, A-91, A-92): the flows that need the
-vault, the consent records and the placeholder pack together, through the real command line. The areas test
-their own parts in test_vault_pipeline.py, test_consent_pipeline.py and test_yyt2029_scaffold.py."""
+vault, the consent records and the placeholder pack together, through the real command line. Each area tests
+its own parts in its own test files."""
 
 from __future__ import annotations
 

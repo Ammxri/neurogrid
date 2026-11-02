@@ -171,7 +171,7 @@ def sources(root: Path = ROOT) -> list[Source]:
             language_table,
         ),
     ]
-    for pack in ("core", "bids", "gxdsl008"):
+    for pack in sorted(path.stem for path in (root / "src/neurogrid/rulepacks").glob("*.yaml")):
         found.append(
             Source(f"src/neurogrid/rulepacks/{pack}.yaml", f"rule titles of the {pack} pack", rule_titles)
         )

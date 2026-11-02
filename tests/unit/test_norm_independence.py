@@ -117,6 +117,14 @@ KNOWN = {
     ("tests/rules/test_builtin_rules.py", 'YYT_RULE = "YYT2029-ACQ-001"'),
     ("tests/integration/test_yyt2029_scaffold.py", 'PACK = "yyt2029"'),
     ("tests/integration/test_yyt2029_scaffold.py", 'RULE = "YYT2029-ACQ-001"'),
+    # the P6 cross-area tests load the scaffold with the flag (tests/integration/test_p6_cross.py)
+    ("tests/integration/test_p6_cross.py", 'YYT = ("--rulepack", "yyt2029", "--allow-draft-rulepacks")'),
+    ("tests/integration/test_p6_cross.py", 'assert "YYT2029-ACQ-001" in rules'),
+    (
+        "tests/integration/test_p6_cross.py",
+        'assert {pack["name"] for pack in results["rulepacks"]} == {"core", "bids", "yyt2029"}  # rule packs',
+    ),
+    ("tests/integration/test_p6_cross.py", "def test_dod_two_checks_vault_consents_yyt2029_byte_identical("),
 }
 THIS = "tests/unit/test_norm_independence.py"
 
