@@ -641,27 +641,30 @@ def _worker_start() -> None:
     determinism.check_environment()
 
 
-def _worker_ready() -> int:
+def _worker_ready(delay: float = 0.0) -> int:
+    time.sleep(delay)
     return os.getpid()
 
 
 @contextlib.contextmanager
 def _pool(processes: int) -> Iterator[concurrent.futures.Executor]:
-    """``processes`` spawned worker processes that start with ``determinism.WORKER_ENVIRONMENT`` (set before
-    the interpreter starts, so before numpy or torch load; PYTHONHASHSEED acts only then). A process pool of
-    the spawn context starts all its workers at the first submit; that submit happens inside the environment,
-    and every worker checks it (``determinism.check_environment``) before it takes a unit."""
-    executor = concurrent.futures.ProcessPoolExecutor(
-        max_workers=processes, mp_context=multiprocessing.get_context("spawn"), initializer=_worker_start
-    )
-    try:
-        with _environment(determinism.WORKER_ENVIRONMENT):
-            executor.submit(_worker_ready).result()
-        yield executor
-    except BaseException:
-        executor.shutdown(wait=True, cancel_futures=True)
-        raise
-    executor.shutdown(wait=True)
+    """``processes`` spawned worker processes that start with ``determinism.WORKER_ENVIRONMENT`` (inherited
+    before the interpreter starts, so before numpy or torch load; PYTHONHASHSEED acts only then). A process
+    pool of the spawn context starts its workers on demand, at any submit, so this process keeps the
+    environment for the whole life of the pool and restores its own afterwards (this process has loaded its
+    libraries already and starts no other program meanwhile). Every worker checks the environment
+    (``determinism.check_environment``) before it takes a unit."""
+    with _environment(determinism.WORKER_ENVIRONMENT):
+        executor = concurrent.futures.ProcessPoolExecutor(
+            max_workers=processes, mp_context=multiprocessing.get_context("spawn"), initializer=_worker_start
+        )
+        try:
+            executor.submit(_worker_ready).result()  # fails early if a worker cannot start
+            yield executor
+        except BaseException:
+            executor.shutdown(wait=True, cancel_futures=True)
+            raise
+        executor.shutdown(wait=True)
 
 
 # --- aggregation -------------------------------------------------------------------------------------------

@@ -360,11 +360,14 @@ def test_pilot_defaults_to_clean_and_repeats_eegnet(
 
 def test_the_spawned_pool_starts_workers_with_the_worker_environment() -> None:
     """A-106: workers start (spawn) with WORKER_ENVIRONMENT, set before their interpreter starts; the
-    environment of this process is left as it was."""
+    environment of this process is left as it was. The pool starts workers on demand: three busy units at
+    once make it start all of them (a worker without the environment would break the pool)."""
     before = {name: os.environ.get(name) for name in determinism.WORKER_ENVIRONMENT}
-    with runner._pool(2) as executor:
-        pids = {executor.submit(runner._worker_ready).result() for _ in range(6)}
-        assert executor.submit(determinism.check_environment).result() is None
+    with runner._pool(3) as executor:
+        busy = [executor.submit(runner._worker_ready, 3.0) for _ in range(3)]
+        pids = {future.result() for future in busy}
+        checks = [executor.submit(determinism.check_environment) for _ in range(6)]
+        assert [future.result() for future in checks] == [None] * 6
         assert executor.submit(determinism.derive_seed, "x").result() == determinism.derive_seed("x")
-    assert os.getpid() not in pids and 1 <= len(pids) <= 2
+    assert os.getpid() not in pids and 2 <= len(pids) <= 3
     assert {name: os.environ.get(name) for name in determinism.WORKER_ENVIRONMENT} == before
