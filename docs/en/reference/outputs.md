@@ -50,7 +50,8 @@ Written by `scan --out` (schema [`scan.schema.json`](../../schemas/scan.schema.j
 
 Written by `manifest` (default `.neurogrid/manifest.json`; schema
 [`manifest.schema.json`](../../schemas/manifest.schema.json)): `format_version`, `files` (path, SHA-256, size),
-`skipped` (links, special files, names the path check refuses), `excluded` (the vault log), `processing_steps`,
+`skipped` (links, special files, names the path check refuses), `excluded` (the access log and lock file of the vault at the default location and of the one at
+`[vault] path`), `processing_steps`,
 `software`, `manifest_hash` (over the canonical JSON bytes).
 
 ## consents.yaml and consents.tsv {#consents}

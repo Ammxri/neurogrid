@@ -48,7 +48,7 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 
 由 `manifest` 写入（默认 `.neurogrid/manifest.json`；模式 [`manifest.schema.json`](../../schemas/manifest.schema.json)）：
 `format_version`、`files`（路径、SHA-256、大小）、`skipped`（链接、特殊文件、被路径检查拒绝的名称）、`excluded`
-（vault 访问日志）、`processing_steps`、`software`、`manifest_hash`（基于规范化 JSON 字节计算）。
+（默认位置的 vault 和 `[vault] path` 处的 vault 的访问日志及其锁文件）、`processing_steps`、`software`、`manifest_hash`（基于规范化 JSON 字节计算）。
 
 ## consents.yaml 和 consents.tsv {#consents}
 

@@ -396,6 +396,79 @@ def test_manifest_then_check_with_vault_verify_clean(
     assert run(["vault", "verify", str(folder)], capsys)[0] == 0
 
 
+def test_the_manifest_leaves_out_the_log_of_every_vault(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """P6 review (spec section 4, A-82): with a vault at the default location and another one at [vault] path,
+    manifest leaves out the log and lock file of both (scan, manifest and verify append to the default one,
+    check to the configured one), so every later verify and CORE-M13-02 stay clean. A manifest made before
+    (it lists the default log) is compared without the default log and lock file as well."""
+    from neurogrid.kernel.provenance import Exclusions, build_manifest, manifest_bytes
+
+    folder = _dataset(tmp_path, toml='[vault]\npath = "audit/vault"\nrole = "QA"\n')
+    init_vault(locate(folder, "audit/vault"))
+    assert run(["manifest", str(folder)], capsys)[0] == 0
+    manifest_file = folder / ".neurogrid" / "manifest.json"
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    logs = [
+        f"{vault}/{name}"
+        for vault in (".neurogrid/vault", "audit/vault")
+        for name in ("access.jsonl", "access.jsonl.lock")
+    ]
+    assert manifest["excluded"] == logs
+    assert not {entry["path"] for entry in manifest["files"]} & set(logs)
+    for _ in range(2):  # each verify appends a read event to the default vault
+        code, out, err = run(["verify", str(folder), "--manifest", str(manifest_file)], capsys)
+        assert code == 0, out + err
+    assert run(["scan", str(folder)], capsys)[0] == 0
+    code, out, err = _check(folder, tmp_path / "r.json", capsys)
+    assert code == 0, out + err
+    results = json.loads((tmp_path / "r.json").read_text(encoding="utf-8"))
+    assert _statuses(results, "CORE-M13-02") == [("passed", None)]
+    assert [e["action"] for e in _events(folder)] == [
+        "read",
+        "read",
+        "read",
+        "read",
+    ]  # manifest, 2 verify, scan
+    assert [
+        json.loads(line)["action"] for line in (folder / "audit/vault/access.jsonl").read_bytes().splitlines()
+    ] == ["check"]
+    # a manifest that excludes the configured vault only, as manifest wrote it before
+    old = build_manifest(
+        folder,
+        Exclusions.of([".neurogrid/manifest.json", *logs[2:]]),
+        excluded=logs[2:],
+    ).manifest
+    assert old is not None and ".neurogrid/vault/access.jsonl" in {item.path for item in old.files}
+    manifest_file.write_bytes(manifest_bytes(old))
+    assert run(["scan", str(folder)], capsys)[0] == 0  # the default log changes after the manifest
+    code, out, err = run(["verify", str(folder), "--manifest", str(manifest_file)], capsys)
+    assert code == 0, out + err
+    code, out, err = _check(folder, tmp_path / "r2.json", capsys)
+    results = json.loads((tmp_path / "r2.json").read_text(encoding="utf-8"))
+    assert code == 0 and _statuses(results, "CORE-M13-02") == [("passed", None)], out + err
+
+
+def test_check_compares_without_the_log_of_its_vault(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """CORE-M13-02 leaves out the log and lock file of the run's own vault also when the manifest lists them
+    (made before the vault was configured): check appends its event there after results.json."""
+    from neurogrid.kernel.provenance import Exclusions, build_manifest, manifest_bytes
+
+    folder = _dataset(tmp_path, vault=False, toml='[vault]\npath = "audit/vault"\n')
+    init_vault(locate(folder, "audit/vault"))
+    built = build_manifest(folder, Exclusions.of([".neurogrid/manifest.json"])).manifest
+    assert built is not None and "audit/vault/access.jsonl" in {item.path for item in built.files}
+    (folder / ".neurogrid" / "manifest.json").write_bytes(manifest_bytes(built))
+    for name in ("r1.json", "r2.json"):  # the first check appends to audit/vault/access.jsonl
+        code, out, err = _check(folder, tmp_path / name, capsys)
+        results = json.loads((tmp_path / name).read_text(encoding="utf-8"))
+        assert code == 0 and _statuses(results, "CORE-M13-02") == [("passed", None)], (name, out + err)
+    assert (folder / "audit" / "vault" / "access.jsonl").read_bytes().count(b"\n") == 2
+
+
 def test_read_events_only_at_the_default_location(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """p6 decisions 4: scan, manifest and verify read no neurogrid.toml for the vault; a vault at another
     [vault] path gets no read event (a documented narrowing), check does append there."""

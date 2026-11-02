@@ -943,9 +943,10 @@ def run_manifest(
     the bundled BIDS validator may list it (``validator_listing``: never in hidden folders such as
     .neurogrid/, in the top-level folders it ignores or in what .bidsignore names). Inside a raw folder the
     console names it by its pseudonymous file name unless --show-paths is given or it is the default location
-    (``shown_target``, A-51). neurogrid.toml is read from its default location only for [vault] path (the
-    access log is excluded and recorded as such). An invalid provenance.yaml or processing_steps.json ends
-    with exit 2 (C2)."""
+    (``shown_target``, A-51). neurogrid.toml is read from its default location only for [vault] path: the
+    access log and lock file of that vault and of the one at the default location, where this command appends
+    its read event, are excluded and recorded as such (vault_exclusions). An invalid provenance.yaml or
+    processing_steps.json ends with exit 2 (C2)."""
     root = _folder(raw_target)
     loaded = config_module.load(None, root)
     is_bids = is_bids_folder(root)

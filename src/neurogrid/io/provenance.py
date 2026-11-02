@@ -27,6 +27,7 @@ import hashlib
 import json
 import math
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -322,26 +323,40 @@ def inside(root: Path, path: Path | None) -> str | None:
     return None if relative in ("", ".") else relative
 
 
+# The access log and lock file of the vault at the default location: scan, manifest and verify append their
+# read event there, whatever [vault] path says, since they read no neurogrid.toml for it (p6 decisions 4).
+DEFAULT_VAULT_FILES = (f".neurogrid/vault/{VAULT_LOG}", f".neurogrid/vault/{VAULT_LOCK}")
+
+
 def vault_exclusions(root: Path, project_root: Path, vault_path: str) -> list[str]:
-    """The vault access log and its lock file, if the vault ([vault] path, relative to the project root, A-66)
-    lies inside the dataset. Recorded in the manifest even before they exist, so that ``verify`` leaves them
-    out without reading neurogrid.toml (A-22, A-82)."""
+    """The access log and lock file of every vault NeuroGrid may append to inside the dataset: the one at the
+    default location (DEFAULT_VAULT_FILES) and the one at [vault] path (relative to the project root, A-66),
+    if it lies inside the dataset. Recorded in the manifest even before they exist, so that ``verify`` leaves
+    them out without reading neurogrid.toml (A-22, A-82)."""
+    files = list(DEFAULT_VAULT_FILES)
     folder = project_root.joinpath(*PurePosixPath(vault_path).parts)
     try:
         relative = folder.relative_to(root).as_posix()
     except ValueError:
-        return []
+        return files
     prefix = "" if relative in ("", ".") else relative + "/"
-    return [f"{prefix}{VAULT_LOG}", f"{prefix}{VAULT_LOCK}"]
+    files += [name for name in (f"{prefix}{VAULT_LOG}", f"{prefix}{VAULT_LOCK}") if name not in files]
+    return files
 
 
 def comparison_exclusions(
-    root: Path, manifest: Manifest, location: Path | None, work: Path | None = None
+    root: Path,
+    manifest: Manifest,
+    location: Path | None,
+    work: Path | None = None,
+    vault_files: Iterable[str] = (),
 ) -> Exclusions:
     """What a comparison leaves out: the default manifest .neurogrid/manifest.json, the manifest being read
-    (if inside the dataset), the paths the manifest recorded as excluded and the run's transient work folder
-    (A-82). Everything else in .neurogrid/ is compared."""
-    files = [DEFAULT_MANIFEST.as_posix(), *manifest.excluded]
+    (if inside the dataset), the paths the manifest recorded as excluded, the run's transient work folder
+    (A-82), the access log and lock file at the default vault location (a manifest made before they were
+    excluded lists them, and every read event changes them) and ``vault_files`` (check: those of its [vault]
+    path, CORE-M13-02). Everything else in .neurogrid/ is compared."""
+    files = [DEFAULT_MANIFEST.as_posix(), *DEFAULT_VAULT_FILES, *manifest.excluded, *vault_files]
     own = inside(root, location)
     if own is not None:
         files.append(own)
@@ -513,8 +528,10 @@ class ProvenanceState:
         show_paths: bool,
         manifest_path: Path | None,
         work: Path | None,
+        vault_files: tuple[str, ...] = (),
     ) -> None:
         self.root = root
+        self.vault_files = vault_files  # the access log and lock file of the run's vault (vault_exclusions)
         self.single_file = single_file
         self.is_bids = is_bids
         self.plain = is_bids or show_paths
@@ -552,7 +569,9 @@ class ProvenanceState:
             read = self.read()
             if read.parsed is not None and not self.single_file:
                 manifest = read.parsed.manifest
-                exclusions = comparison_exclusions(self.root, manifest, read.location, self.work)
+                exclusions = comparison_exclusions(
+                    self.root, manifest, read.location, self.work, self.vault_files
+                )
                 self._comparison = compare(self.root, manifest, exclusions)
         return self._comparison
 

@@ -37,6 +37,11 @@ A link or junction anywhere in the vault path, at the log, its lock file or `con
 `verify` write no event and warn. On Linux new vault folders get mode 0700 and new vault files 0600; on Windows
 they inherit the rights of their folder.
 
+`neurogrid manifest` leaves out the log and the lock file of the vault at the default location (where `scan`,
+`manifest` and `verify` record) and of the one at `[vault] path` (where `check`, `convert` and `report` record),
+so that `verify` and CORE-M13-02 stay clean while the logs grow; both also leave out the log and lock file at
+the default location when an older manifest lists them, and CORE-M13-02 those of the run's own vault.
+
 ## Access events {#events}
 
 | Command | Event | Vault |

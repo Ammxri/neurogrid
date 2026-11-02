@@ -34,6 +34,10 @@ vault 路径中任何位置的链接或目录联接，以及访问日志、其�
 `report --config` 和各 vault 命令以退出码 2 结束；`convert`、`scan`、`manifest` 和 `verify` 不写入事件并给出警告。
 在 Linux 下，新建的 vault 文件夹权限为 0700，新建的 vault 文件为 0600；在 Windows 下沿用其所在文件夹的权限。
 
+`neurogrid manifest` 不收录默认位置的 vault（`scan`、`manifest` 和 `verify` 在此记录）以及 `[vault] path` 处的 vault
+（`check`、`convert` 和 `report` 在此记录）的访问日志及其锁文件，因此日志增长时 `verify` 和 CORE-M13-02 仍保持一致；
+若较早的清单列出了默认位置的日志和锁文件，二者在比对时同样不予考虑，CORE-M13-02 还不考虑本次运行自身 vault 的日志和锁文件。
+
 ## 访问事件 {#events}
 
 | 命令 | 事件 | vault |
