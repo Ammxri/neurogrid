@@ -163,6 +163,16 @@
 | 测量对象 | 记录中的每个 EEG 通道 |
 | 内置规则 | [CORE-M04-01](rules.md#CORE-M04-01) |
 
+## consent.covered {#consent.covered}
+
+| | |
+|---|---|
+| 名称 | 用途在知情同意范围内 |
+| 参数 | – |
+| 通过条件 | 基准日期时有效的知情同意允许该用途（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时为未通过） |
+| 测量对象 | 每名受试者的每个所需用途；受试者未知的每条记录；没有知情同意数据时为数据集 |
+| 内置规则 | [CORE-M14-01](rules.md#CORE-M14-01) |
+
 ## evidence.document {#evidence.document}
 
 | | |

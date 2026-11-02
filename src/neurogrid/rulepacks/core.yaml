@@ -2,7 +2,7 @@
 # (docs/<lang>/metrics.md). Rule IDs follow CORE-Mxx-NN by design (documented exception to PACK-PHASE-NNN).
 # Further metrics are added phase by phase (KONZEPT.md §2.2).
 rulepack: core
-version: "0.1.1"
+version: "0.2.0"
 source: "NeuroGrid core metrics (docs/<lang>/metrics.md)"
 source_status: final
 norm: false
@@ -299,6 +299,17 @@ rules:
     phase: storage
     check: provenance.documented
     severity: warning
+    verification: automatic
+
+  # --- P6 consent (M14, A-30, A-91): an error; without consent data not checkable, failed only with
+  # --strict/[check] strict or a configured [consent] (the evaluator decides, no strict_severity) ---
+  - id: CORE-M14-01
+    clause: M14
+    title_zh: 数据划分中的用途在知情同意范围内
+    title_en: Use in the split covered by consent
+    phase: access
+    check: consent.covered
+    severity: error
     verification: automatic
 
   # --- P4 annotation ---

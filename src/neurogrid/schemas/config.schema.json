@@ -272,17 +272,31 @@
     },
     "ConsentSection": {
       "additionalProperties": false,
+      "description": "M14 (A-30, A-91): the uses a recording needs. ``split_use`` maps a split to one use or a list of uses\n(each split replaces only its own default, DEFAULT_SPLIT_USE); ``dataset_uses`` are needed by every signal\nrecording of the dataset, in a split or not. Stored as lists in ConsentUse order.",
       "properties": {
         "dataset_uses": {
           "items": {
-            "type": "string"
+            "$ref": "#/$defs/ConsentUse"
           },
+          "maxItems": 5,
           "title": "Dataset Uses",
           "type": "array"
         },
         "split_use": {
           "additionalProperties": {
-            "type": "string"
+            "items": {
+              "$ref": "#/$defs/ConsentUse"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "type": "array"
+          },
+          "propertyNames": {
+            "enum": [
+              "train",
+              "val",
+              "test"
+            ]
           },
           "title": "Split Use",
           "type": "object"
@@ -290,6 +304,18 @@
       },
       "title": "ConsentSection",
       "type": "object"
+    },
+    "ConsentUse": {
+      "description": "The uses a consent may permit (KONZEPT 2.1); this order is the order of every list of uses.",
+      "enum": [
+        "training",
+        "validation",
+        "publication",
+        "sharing",
+        "commercial"
+      ],
+      "title": "ConsentUse",
+      "type": "string"
     },
     "ConvertSection": {
       "additionalProperties": false,

@@ -97,9 +97,19 @@ M06 和 M09 在抽样上运行：`mode = "sample"` 在等分的各段中间各�
 
 ## [consent] 和 [vault] {#consent-vault}
 
-这两节会被接受并校验；从 0.2 版（NeuroVault）起才进行评价。在 0.1 版中，`[vault] path`（默认 `.neurogrid/vault`）
-已用于将 vault 访问日志排除在清单之外。键：`[consent]` 的 `split_use`、`dataset_uses`；`[vault]` 的 `path`、`role`、
-`purpose`、`approval_ref`。
+`[consent]` 说明 M14 检查知情同意中的哪些用途（[指标](metrics.md#M14)）：
+
+| 键 | 含义 |
+|---|---|
+| `split_use` | 每个数据划分的用途：`train`、`val`、`test`，各对应一个用途或用途列表（`training`、`validation`、`publication`、`sharing`、`commercial`）。默认值：train → training，val → validation，test → validation；一个键只替换其自身数据划分的默认值。 |
+| `dataset_uses` | 数据集中每条信号记录都需要的用途，无论其是否属于某个数据划分，例如 `["sharing"]`。 |
+
+未知的数据划分、未知的用途、空列表或重复的用途会以退出码 2 结束运行。设置了 `split_use` 或 `dataset_uses` 的节视为
+已配置：此时没有知情同意数据，或记录没有已知的受试者，M14 均为错误，与使用 `--strict` 时相同。`results.json` 中的
+`effective_settings` 按上述顺序以列表显示各用途。
+
+`[vault]` 的键：`path`（vault 文件夹，相对于项目根目录；默认 `.neurogrid/vault`；也用于将 vault 访问日志排除在清单之外）、
+`role`、`purpose`、`approval_ref`。
 
 ## 示例 {#example}
 

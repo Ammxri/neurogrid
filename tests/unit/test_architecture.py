@@ -123,6 +123,71 @@ def test_kernel_boundary_check_sees_relative_imports() -> None:
     assert package_names == {"neurogrid.kernel.sub", "neurogrid.kernel.sub.x"}
 
 
+# ARC-01 (p6 decisions 1): NeuroVault is a supplier of the checks. The vault imports only the kernel, the
+# models, io and config, never the CLI, the pipeline, the checks or the report; the access model (and the
+# consent model of the consent area) import only the kernel. The package version an access event records
+# is the one import of the package itself.
+VAULT_ALLOWED = ("neurogrid.kernel", "neurogrid.model", "neurogrid.io", "neurogrid.config", "neurogrid.vault")
+PACKAGE_VERSION = {"neurogrid", "neurogrid.__version__"}
+KERNEL_ONLY_MODELS = ("access.py", "consent.py")
+
+
+def _outside(names: set[str], allowed: tuple[str, ...]) -> list[str]:
+    """The neurogrid modules in ``names`` outside the ``allowed`` packages."""
+    return sorted(
+        name
+        for name in names
+        if name.split(".")[0] == "neurogrid"
+        and name not in PACKAGE_VERSION
+        and not any(name == prefix or name.startswith(prefix + ".") for prefix in allowed)
+    )
+
+
+def test_vault_imports_only_kernel_model_io_and_config() -> None:
+    files = sorted((SRC / "vault").rglob("*.py"))
+    assert {path.name for path in files} >= {"__init__.py", "_os.py", "store.py", "lock.py", "ledger.py"}
+    for path in files:
+        assert not _outside(_imports(path), VAULT_ALLOWED), (
+            f"{path.name}: {_outside(_imports(path), VAULT_ALLOWED)}"
+        )
+
+
+@pytest.mark.parametrize("name", KERNEL_ONLY_MODELS)
+def test_access_and_consent_models_import_only_the_kernel(name: str) -> None:
+    names = _imports(SRC / "model" / name)
+    assert not _outside(names, ("neurogrid.kernel",)), f"{name}: {_outside(names, ('neurogrid.kernel',))}"
+
+
+def test_the_consent_check_reads_the_vault_as_a_supplier() -> None:
+    """ARC-01 (p6 decisions 1): the M14 check consent.covered is registered, and the vault consent module the
+    check reads imports only the kernel, the models, io and the vault (never the checks)."""
+    from neurogrid.checks.registry import MEASURERS, REGISTRY
+
+    assert "consent.covered" in REGISTRY and "consent.covered" in MEASURERS
+    names = _imports(SRC / "checks" / "consent.py")
+    assert "neurogrid.vault.consents" in {name.rsplit(".", 1)[0] for name in names} | names
+    assert not _outside(_imports(SRC / "vault" / "consents.py"), VAULT_ALLOWED)
+
+
+def test_vault_boundary_check_sees_forbidden_imports() -> None:
+    source = (
+        "from neurogrid import pipeline, __version__\nfrom ..checks import registry\nimport neurogrid.cli\n"
+        "from neurogrid.report.texts import tables\nfrom . import store\n"
+        "from neurogrid.io import identifying\n"
+    )
+    names = _imports_from_source(source, "neurogrid.vault.example", is_package=False)
+    assert _outside(names, VAULT_ALLOWED) == [
+        "neurogrid.checks",
+        "neurogrid.checks.registry",
+        "neurogrid.cli",
+        "neurogrid.pipeline",
+        "neurogrid.report.texts",
+        "neurogrid.report.texts.tables",
+    ]
+    model = _imports_from_source("from neurogrid.vault import store\n", "neurogrid.model.access", False)
+    assert _outside(model, ("neurogrid.kernel",)) == ["neurogrid.vault", "neurogrid.vault.store"]
+
+
 def _aliases(tree: ast.AST) -> dict[str, str]:
     """Local name -> imported dotted name, for ``import x as y`` and ``from x import y [as z]``."""
     found: dict[str, str] = {}

@@ -32,6 +32,15 @@ and it is not a medical device. It gives no legal advice.
 - Mapping patterns in `[convert] pattern` with adjacent overlapping repetitions are not detected and can make a
   run very slow (Ctrl+C ends it).
 
+## Consent records {#consent}
+
+- NeuroGrid records the user's statement about a consent (version, date, uses, withdrawal, ethics reference) and
+  checks the uses of the splits against it; it does not judge whether a consent is legally valid.
+- The consent findings of `results.json` name pseudonymous subjects together with the reason (for example a
+  withdrawal); treat `results.json` like the data it describes. The report shows them only aggregated.
+- `vault consent add` rewrites `consents.yaml` in a canonical form; comments added by hand are lost.
+- Without a split and without `[consent] dataset_uses`, M14 is not applicable, also with `--strict`.
+
 ## Platforms {#platforms}
 
 Windows 11 is verified locally. In the CI the offline bundle is verified on Windows Server (Windows PowerShell 5.1

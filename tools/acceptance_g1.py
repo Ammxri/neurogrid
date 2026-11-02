@@ -19,7 +19,8 @@ reading of the files (not the product's code that wrote them):
   value one of the explained texts (EXPLAINED_EMPTY), every cell compared with the finding (rule, status,
   clause, title, measured value, threshold values with the origin of every parameter, file, channel, time
   range, reason; _cell_problems), at most MAX_ROWS_PER_RULE rows per rule with the exact remainder named
-  (NG-F13, A-09, A-13, A-59);
+  (NG-F13, A-09, A-13, A-59); the rules on the M14 check have no finding row but one aggregated block each,
+  which names none of their subjects (D-17 option B, A-91);
 - both HTML reports: the fixed sentence as visible text of the cover and of the appendix and as the meta
   description; its copy in the print CSS does not count (REP-07, A-08);
 - every PDF: the runtime QA gate and an independent pypdf reading - only embedded Type0/CIDFontType2 subsets
@@ -92,6 +93,7 @@ from neurogrid.kernel.pdf import PLAYWRIGHT_VERSION, SHELL_REVISION, qa_gate
 from neurogrid.model.results import Results
 from neurogrid.report.output import REQUIRED_ONCE, pdf_expectation
 from neurogrid.report.render import EXPLAINED_EMPTY, FINDING_CELLS, MAX_ROWS_PER_RULE
+from neurogrid.report.tables import consent_rules
 from neurogrid.report.texts import disclaimer, tables, translator
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -495,10 +497,15 @@ def _expected_clause(f: Finding, tr: Any) -> str:
     return f.clause or str(tr("report.value.clause_missing"))
 
 
-def _row_sections(findings: Iterable[Finding]) -> Counter[tuple[bool, str, str]]:
-    """Findings per table of the findings section: placeholder or by severity, then by rule (A-59)."""
+def _row_sections(
+    findings: Iterable[Finding], aggregated: frozenset[str] = frozenset()
+) -> Counter[tuple[bool, str, str]]:
+    """Findings per table of the findings section: placeholder or by severity, then by rule (A-59); the rules
+    in ``aggregated`` (M14, D-17 option B) have no finding rows."""
     counts: Counter[tuple[bool, str, str]] = Counter()
     for finding in findings:
+        if finding.rule_id in aggregated:
+            continue
         placeholder = finding.source_status is SourceStatus.PLACEHOLDER
         counts[(placeholder, "" if placeholder else finding.severity.value, finding.rule_id)] += 1
     return counts
@@ -664,6 +671,8 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
     titles = {rule.id: rule.title_zh if lang == "zh" else rule.title_en for rule in results.rules}
     rows, repeated = finding_rows(document)
     problems = [f"row {key}: a cell class appears twice" for key in sorted(set(repeated))]
+    aggregated = consent_rules(results)
+    problems += _consent_block_problems(document, results, aggregated)
     seen: Counter[str] = Counter()
     shown: Counter[tuple[bool, str, str]] = Counter()
     for key, row in rows:
@@ -672,6 +681,9 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
         if finding is None:
             problems.append(f"row {key}: no finding with this key in results.json")
             continue
+        if finding.rule_id in aggregated:
+            problems.append(f"row {key}: a finding of {finding.rule_id} is shown per subject")
+            continue
         placeholder = finding.source_status is SourceStatus.PLACEHOLDER
         shown[(placeholder, "" if placeholder else finding.severity.value, finding.rule_id)] += 1
         title = titles.get(finding.rule_id, "")
@@ -679,7 +691,7 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
     problems.extend(f"row {key}: shown {count} times" for key, count in sorted(seen.items()) if count > 1)
     # the text a reader sees: the inline span that keeps the rule ID on one line is no part of it
     text = html_lib.unescape(re.sub(r"<[^>]*>", "", document))
-    for section, total in sorted(_row_sections(results.findings).items()):
+    for section, total in sorted(_row_sections(results.findings, aggregated).items()):
         rule = section[2]
         expected = min(total, MAX_ROWS_PER_RULE)
         if shown[section] != expected:
@@ -689,6 +701,27 @@ def check_finding_rows(document: str, results: Results, lang: str) -> RowCheck:
                 f"{rule}: the sentence naming the remaining {total - expected} findings is missing"
             )
     return RowCheck(problems, len(rows))
+
+
+def _consent_block_problems(document: str, results: Results, aggregated: frozenset[str]) -> list[str]:
+    """D-17 option B: every rule on the M14 check that has findings has its aggregated block (the table of
+    counts per use, status and reason), and the block names none of the subjects of its findings."""
+    problems = []
+    for rule in sorted(aggregated):
+        findings = [finding for finding in results.findings if finding.rule_id == rule]
+        if not findings:
+            continue
+        block = re.search(
+            rf'<div class="rule-group" data-rule="{re.escape(rule)}">(.*?)</div>', document, re.S
+        )
+        if block is None or '<table class="consent">' not in block.group(1):
+            problems.append(f"{rule}: the aggregated block is missing")
+            continue
+        text = html_lib.unescape(re.sub(r"<[^>]*>", " ", block.group(1)))
+        named = sorted({f.object for f in findings if f.object != "dataset" and f.object in text})
+        if named:
+            problems.append(f"{rule}: the aggregated block names {len(named)} object(s) of its findings")
+    return problems
 
 
 class _Sentence(HTMLParser):

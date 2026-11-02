@@ -40,6 +40,12 @@ synchronised if that matters to you.
 - Demography and class labels appear only aggregated; a table on subject level is withheld when a filled cell
   has fewer than 5 subjects.
 - No raw signals, no signal hashes and no raw ages in any output.
+- The consent records `consents.yaml` in the vault hold pseudonymous subject IDs only, never names. They are part
+  of the manifest (a change shows in `verify`); the access log names the file, never a subject. `results.json`
+  lists the M14 results per pseudonymous subject (use, reason, consent version), never dates, ethics
+  references or permitted uses; the report shows M14 only aggregated per use and reason, without subject IDs and
+  versions, and withholds a breakdown with fewer than 5 subjects in a cell. The later vault export leaves the
+  consent records out.
 - No user accounts and no log files. Access to the files is governed by the rights of the operating system.
 - Each run uses its own work folder next to its output and removes it at the end. The PDF browser's work folder
   lies in the computer's temporary folder instead (Windows limits the length of its paths) and is removed the same

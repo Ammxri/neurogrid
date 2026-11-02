@@ -7,11 +7,11 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 
 | | |
 |---|---|
-| Version | 0.1.1 |
+| Version | 0.2.0 |
 | Source | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | Source status | final |
 | Maps a norm (coverage measure) | no |
-| SHA-256 | `bf9e13bf235375654811748c5801439876811f17bbc47ba3944479c977466411` |
+| SHA-256 | `78600d6cda1ac3d3b888e9212f5ab4625b179951dc5b7bd5feb51b971cd8ce3e` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -414,6 +414,19 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Parameters | – |
 | Severity | Warning |
 | Severity with --strict | Warning |
+| Verification | automatic |
+
+### CORE-M14-01 {#CORE-M14-01}
+
+| | |
+|---|---|
+| Title | Use in the split covered by consent |
+| Clause | [M14](../metrics.md#M14) |
+| Phase | Access |
+| Check | [consent.covered](checks.md#consent.covered) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
 | Verification | automatic |
 
 ### CORE-M10-01 {#CORE-M10-01}

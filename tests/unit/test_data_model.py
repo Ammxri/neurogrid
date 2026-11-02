@@ -9,6 +9,7 @@ import pytest
 from pydantic import BaseModel
 
 from neurogrid.kernel.findings import Finding
+from neurogrid.model.consent import ConsentScope, ConsentUse
 from neurogrid.model.dataset import (
     Annotation,
     Channel,
@@ -19,7 +20,7 @@ from neurogrid.model.dataset import (
     Subject,
 )
 
-# PRD field (German) -> English field, per object. ConsentScope and AccessEvent follow in P6 (DM-08, DM-09).
+# PRD field (German) -> English field, per object. ConsentScope since P6 (DM-08); AccessEvent: DM-09.
 MAPPING: dict[type[BaseModel], dict[str, str]] = {
     Dataset: {
         "id": "id",
@@ -75,6 +76,14 @@ MAPPING: dict[type[BaseModel], dict[str, str]] = {
         "parameter": "parameters",
         "eingabe_hash": "input_hash",
         "ausgabe_hash": "output_hash",
+    },
+    ConsentScope: {
+        "subject": "subject",
+        "version": "version",
+        "datum": "date",
+        "erlaubte_nutzungen": "permitted_uses",
+        "widerruf": "withdrawn",
+        "ethikvotum_ref": "ethics_approval_ref",
     },
     Finding: {
         "regel_id": "rule_id",
@@ -155,3 +164,27 @@ def test_mapping_table_is_documented(lang: str) -> None:
         rows = set(re.findall(r"^\| (\w+) \| (\w+)", sections[model.__name__], flags=re.M | re.ASCII))
         for prd, english in fields.items():
             assert (prd, english) in rows, (lang, model.__name__, prd)
+
+
+# PRD values of erlaubte_nutzungen -> ConsentUse (DM-08, D-03)
+CONSENT_USES = {
+    "training": "training",
+    "validierung": "validation",
+    "veroeffentlichung": "publication",
+    "weitergabe": "sharing",
+    "kommerziell": "commercial",
+}
+
+
+def test_consent_scope_fields_match_prd_mapping() -> None:
+    """DM-08: ConsentScope has exactly the PRD fields under their English names, and its uses are the five
+    PRD uses; the mapping of the values is documented on data-model.md in both languages."""
+    assert set(ConsentScope.model_fields) == set(MAPPING[ConsentScope].values())
+    assert [use.value for use in ConsentUse] == list(CONSENT_USES.values())
+    for lang in ("en", "zh"):
+        doc = (Path(__file__).parent.parent.parent / "docs" / lang / "data-model.md").read_text(
+            encoding="utf-8"
+        )
+        section = " ".join(doc[doc.index("## ConsentScope") :].split("\n## ", 1)[0].split())
+        for prd, english in CONSENT_USES.items():
+            assert f"{prd} → `{english}`" in section, (lang, prd)

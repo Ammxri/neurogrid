@@ -27,6 +27,15 @@ NeuroGrid 是一个预检工具。结果只说明数据集是否通过已加载�
   获得，会作为单独的检查结果列出。
 - `[convert] pattern` 中相邻且相互重叠的重复无法被识别，可能使运行非常缓慢（Ctrl+C 可结束运行）。
 
+## 知情同意记录 {#consent}
+
+- NeuroGrid 记录用户关于知情同意的说明（版本、日期、用途、撤回、伦理审批编号），并据此检查数据划分的用途；它不判断
+  知情同意在法律上是否有效。
+- `results.json` 中的知情同意检查结果列出假名受试者及原因（例如撤回）；请像对待其所描述的数据一样对待 `results.json`。
+  报告只以汇总形式显示这些结果。
+- `vault consent add` 以规范格式重写 `consents.yaml`；手工添加的注释会丢失。
+- 既无数据划分也无 `[consent] dataset_uses` 时，M14 不适用，使用 `--strict` 时也是如此。
+
 ## 平台 {#platforms}
 
 Windows 11 已在本地验证。离线安装包已在 CI 中于 Windows Server（Windows PowerShell 5.1 和 PowerShell 7）、Debian 12、

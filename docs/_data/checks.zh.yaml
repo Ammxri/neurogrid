@@ -39,6 +39,9 @@ channels.same_set_per_task:
   object: "数据集中的每个任务"
 channels.standard_names:
   object: "记录中的每个 EEG 通道"
+consent.covered:
+  object: "每名受试者的每个所需用途；受试者未知的每条记录；没有知情同意数据时为数据集"
+  passes: "基准日期时有效的知情同意允许该用途（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时为未通过）"
 evidence.document:
   object: "规则本身（来自 evidence.yaml 的人工或半自动证明材料）"
 impedance.documented:

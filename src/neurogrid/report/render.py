@@ -577,14 +577,8 @@ def _finding_row(f: Finding, fmt: _Formatter, title: str, see_also: list[str] | 
     }
 
 
-def _group_view(
-    group: tables.RuleGroup,
-    fmt: _Formatter,
-    titles: dict[str, str],
-    see_also: dict[str, list[str]],
-    *,
-    placeholder: bool,
-) -> dict[str, Any]:
+def _aggregate(group: tables.RuleGroup, fmt: _Formatter, *, placeholder: bool) -> str:
+    """The line under a rule heading: findings and objects, the value range, the counts per status."""
     tr = fmt.tr
     parts = [tr("report.text.rule_aggregate", findings=group.total, objects=group.objects)]
     if group.value_min is not None and group.value_max is not None:
@@ -600,16 +594,64 @@ def _group_view(
             tr("report.text.status_count", status=tr(f"status.{status.value}"), count=count)
             for status, count in group.status_counts
         )
-    aggregate = tr("report.text.separator").join(parts)
+    return tr("report.text.separator").join(parts)
+
+
+def _group_view(
+    group: tables.RuleGroup,
+    fmt: _Formatter,
+    titles: dict[str, str],
+    see_also: dict[str, list[str]],
+    *,
+    placeholder: bool,
+) -> dict[str, Any]:
     title = titles.get(group.rule_id, "")
     return {
         "rule": group.rule_id,
         "title": title,  # the heading: the rule ID (unbreakable) and its title
-        "aggregate": aggregate,
+        "aggregate": _aggregate(group, fmt, placeholder=placeholder),
         "rows": [_finding_row(f, fmt, title, see_also.get(f.key)) for f in group.shown],
+        "consent": None,  # the aggregated M14 block of _consent_view
         "more": _rule_sentence(fmt, "report.text.rule_more", group.rule_id, count=group.remainder)
         if group.remainder
         else "",
+    }
+
+
+def _consent_view(
+    group: tables.RuleGroup,
+    findings: Sequence[Finding],
+    fmt: _Formatter,
+    titles: dict[str, str],
+    *,
+    placeholder: bool,
+) -> dict[str, Any]:
+    """M14 in the report (D-17 option B, A-91): one block per rule instead of finding rows, counts per use,
+    status and reason only (tables.consent_rows with the A-81 table rule); never a subject ID or a consent
+    version. The findings per subject stay in results.json."""
+    tr = fmt.tr
+    rows, _withheld = tables.consent_rows(f for f in findings if f.rule_id == group.rule_id)
+    shown = []
+    for row in rows:
+        use = tr(f"terms.consent_use.{row.use}") if row.use is not None else tr("report.consent.all_uses")
+        if row.unit == "dataset":
+            count = tr("report.consent.dataset")
+        else:
+            count = tr(f"report.consent.{row.unit}", count=row.count)
+        if row.status is None:
+            withheld = tr("report.consent.withheld")
+            shown.append({"use": use, "status": "", "reason": "", "withheld": withheld, "count": count})
+            continue
+        status = tr("report.value.placeholder_status") if placeholder else tr(f"status.{row.status.value}")
+        reason = tr(f"reason.{row.reason}") if row.reason else tr("report.value.no_details")
+        shown.append({"use": use, "status": status, "reason": reason, "withheld": "", "count": count})
+    return {
+        "rule": group.rule_id,
+        "title": titles.get(group.rule_id, ""),
+        "aggregate": _aggregate(group, fmt, placeholder=placeholder),
+        "rows": [],
+        "consent": {"rows": shown, "note": tr("report.consent.note")},
+        "more": "",
     }
 
 
@@ -639,6 +681,13 @@ def _findings(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     evaluated = [f for f in results.findings if f.source_status is not SourceStatus.PLACEHOLDER]
     placeholder = [f for f in results.findings if f.source_status is SourceStatus.PLACEHOLDER]
+    consent = tables.consent_rules(results)
+
+    def view(group: tables.RuleGroup, items: Sequence[Finding], *, draft: bool) -> dict[str, Any]:
+        if group.rule_id in consent:  # M14: aggregated, never per subject (D-17 option B)
+            return _consent_view(group, items, fmt, titles, placeholder=draft)
+        return _group_view(group, fmt, titles, see_also, placeholder=draft)
+
     sections = []
     for severity in Severity:
         items = [f for f in evaluated if f.severity is severity]
@@ -647,15 +696,10 @@ def _findings(
                 "severity": severity.value,
                 "count": len(items),
                 "heading": _severity_heading(fmt, severity, items),
-                "groups": [
-                    _group_view(g, fmt, titles, see_also, placeholder=False)
-                    for g in tables.rule_groups(items)
-                ],
+                "groups": [view(g, items, draft=False) for g in tables.rule_groups(items)],
             }
         )
-    placeholder_groups = [
-        _group_view(g, fmt, titles, see_also, placeholder=True) for g in tables.rule_groups(placeholder)
-    ]
+    placeholder_groups = [view(g, placeholder, draft=True) for g in tables.rule_groups(placeholder)]
     return sections, placeholder_groups, len(placeholder)
 
 
@@ -987,6 +1031,18 @@ def _notices(results: Results, fmt: _Formatter, known_rules: frozenset[str]) -> 
     return rows
 
 
+def _shown_settings(results: Results, fmt: _Formatter, consent: frozenset[str]) -> dict[str, Any]:
+    """The effective settings of appendix 6.5. An exception for a rule on the M14 check names a subject and
+    gives the user's reason for it: both are withheld as in 6.3 (D-17 option B; results.json keeps them)."""
+    settings: dict[str, Any] = json.loads(json.dumps(results.config.effective_settings))
+    for entry in settings.get("exceptions") or []:
+        if isinstance(entry, dict) and entry.get("rule") in consent:
+            for key in ("object", "reason"):
+                if entry.get(key) is not None:
+                    entry[key] = fmt.tr("report.consent.exception_withheld")
+    return settings
+
+
 def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[str, Any]:
     evidence_rules = frozenset(rule.id for rule in results.rules if rule.check == EVIDENCE_CHECK)
     fmt = _Formatter(
@@ -1031,8 +1087,12 @@ def build_context(results: Results, lang: str, *, font_css: str = "") -> dict[st
         "counted_statuses": [status.value for status in tables.COUNTED],
         "configuration_rows": _configuration_rows(results, fmt),
         "environment_rows": _environment_rows(results, fmt),
+        "consent_rules": tables.consent_rules(results),
         "settings_json": json.dumps(
-            results.config.effective_settings, ensure_ascii=False, sort_keys=True, indent=2
+            _shown_settings(results, fmt, tables.consent_rules(results)),
+            ensure_ascii=False,
+            sort_keys=True,
+            indent=2,
         ),
     }
 

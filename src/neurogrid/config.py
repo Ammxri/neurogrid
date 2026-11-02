@@ -18,13 +18,14 @@ from datetime import date
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal, NamedTuple
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from neurogrid.kernel import canonical
 from neurogrid.kernel.engine import ExceptionEntry
 from neurogrid.kernel.errors import ConfigError, InputError, UnsafePathError
 from neurogrid.kernel.rules import RULE_ID_PATTERN, ParamValue
 from neurogrid.kernel.safety import check_relative, decode_text, read_limited, resolve_within
+from neurogrid.model.consent import ConsentUse, ordered_uses
 
 CONFIG_DIR = ".neurogrid"
 CONFIG_NAME = "neurogrid.toml"
@@ -393,9 +394,54 @@ class AISection(_Section):
         return value
 
 
+SplitName = Literal["train", "val", "test"]
+# M14 (A-30, A-91): the use each split needs when [consent] split_use does not name the split
+DEFAULT_SPLIT_USE: dict[SplitName, tuple[ConsentUse, ...]] = {
+    "train": (ConsentUse.TRAINING,),
+    "val": (ConsentUse.VALIDATION,),
+    "test": (ConsentUse.VALIDATION,),
+}
+
+
+def _canonical_uses(value: list[ConsentUse]) -> list[ConsentUse]:
+    """A list of uses without repetition, kept in ConsentUse order (so equal settings hash equally)."""
+    if len(set(value)) != len(value):
+        raise ValueError("a use may appear only once")
+    return list(ordered_uses(value))
+
+
+_Use = Annotated[ConsentUse, Field(strict=False)]  # read from its text in neurogrid.toml
+_Uses = Annotated[list[_Use], Field(max_length=5), AfterValidator(_canonical_uses)]
+
+
 class ConsentSection(_Section):
-    split_use: dict[str, str] = Field(default_factory=dict)
-    dataset_uses: list[str] = Field(default_factory=list)
+    """M14 (A-30, A-91): the uses a recording needs. ``split_use`` maps a split to one use or a list of uses
+    (each split replaces only its own default, DEFAULT_SPLIT_USE); ``dataset_uses`` are needed by every signal
+    recording of the dataset, in a split or not. Stored as lists in ConsentUse order."""
+
+    split_use: dict[SplitName, Annotated[_Uses, Field(min_length=1)]] = Field(default_factory=dict)
+    dataset_uses: _Uses = Field(default_factory=list)
+
+    @field_validator("split_use", mode="before")
+    @classmethod
+    def _single_use(cls, value: Any) -> Any:
+        """``train = "training"`` is the one-element list ``["training"]``."""
+        if isinstance(value, dict):
+            return {key: [item] if isinstance(item, str) else item for key, item in value.items()}
+        return value
+
+    @property
+    def configured(self) -> bool:
+        """'[consent] konfiguriert' (A-82 note, A-91): a use is set. Together with strict it makes M14 without
+        consent data or with an unknown subject an error instead of not checkable."""
+        return bool(self.split_use or self.dataset_uses)
+
+    def effective_split_use(self) -> dict[str, tuple[ConsentUse, ...]]:
+        """The uses per split (train, val, test): the configured ones, else the default of that split."""
+        return {
+            split: tuple(self.split_use[split]) if split in self.split_use else default
+            for split, default in DEFAULT_SPLIT_USE.items()
+        }
 
 
 class VaultSection(_Section):

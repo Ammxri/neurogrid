@@ -20,6 +20,7 @@ from neurogrid.quality import QualityJob, QualityResult, QualitySettings, comput
 from neurogrid.quality.positions import Position, sidecar_positions
 from neurogrid.validator import ValidatorResult
 from neurogrid.validator import run as run_validator
+from neurogrid.vault.consents import LoadedConsents
 
 __all__ = ["ENTITY_FIELDS", "CheckContext", "RecordingState"]
 
@@ -86,6 +87,10 @@ class CheckContext:
     _annotations: AnnotationIndex | None = field(default=None, repr=False)
     # M10 κ per object (relative path), computed once per run by checks.annotation.cached_kappa (A-53)
     annotation_kappa: dict[PurePosixPath, object] = field(default_factory=dict, repr=False)
+    # M14 (A-30, A-91): the consent records of the vault, read before the signal pass (None: not read), and
+    # whether the run requires consent data (--strict or [check] strict, or a configured [consent] section)
+    consents: LoadedConsents | None = field(default=None, repr=False)
+    consent_required: bool = False
 
     def annotations(self) -> AnnotationIndex:
         """The annotations of every signal recording, with the annotation-only files attached to them (M10,

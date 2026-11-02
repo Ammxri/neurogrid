@@ -137,10 +137,54 @@ files that cannot be read.
 | 1 | at least one deviation |
 | 2 | tool error: the manifest is invalid |
 
+## vault {#vault}
+
+`neurogrid vault <command> [arguments and options]`
+
+The NeuroVault commands work on the vault folder: `[vault] path` in `neurogrid.toml`, relative to the project
+root, by default `.neurogrid/vault`. It holds the consent records `consents.yaml` and the hash-chained access
+log `access.jsonl` with its lock file `access.jsonl.lock`. Links in the vault path are never followed.
+`neurogrid vault consent` groups the commands for the consent records. Without a command, `neurogrid vault`
+and `neurogrid vault consent` show their help and end with exit code 2.
+
+| Code | Meaning |
+|---|---|
+| 0 | the command did its work; for `vault verify`: the access log is intact |
+| 1 | `vault verify`: at least one deviation in the access log |
+| 2 | tool error: no vault, a link in the vault path, the vault locked by another NeuroGrid process or not writable, invalid input |
+
+### vault consent add {#vault-consent-add}
+
+`neurogrid vault consent add PATH --subject S --version N --date YYYY-MM-DD (--uses U[,U] | --withdrawn)
+[--ethics-ref R]` records one consent; `neurogrid vault consent add PATH --from consents.tsv` imports a table
+([consents.tsv](reference/outputs.md#consents)). `PATH` is the dataset folder; the vault is `[vault] path` of
+`neurogrid.toml` (`--config`, default `.neurogrid/neurogrid.toml` in the dataset). Create it first with
+`neurogrid vault init`.
+
+| Option | Meaning |
+|---|---|
+| `--subject` | Pseudonymous subject, with or without `sub-`. |
+| `--version` | Version of the consent, a whole number from 1 to 1000000; a change is a new, higher version. |
+| `--date` | Date of the consent or the withdrawal, `YYYY-MM-DD`. |
+| `--uses` | Permitted uses (repeatable or comma-separated): `training`, `validation`, `publication`, `sharing`, `commercial`. A partial withdrawal is a new version with fewer uses. |
+| `--withdrawn` | Full withdrawal from the date on; no `--uses`. |
+| `--ethics-ref` | Optional ethics approval reference (no names). |
+| `--from` | Import table instead of the single fields; all rows or none are recorded. |
+| `--config` | `neurogrid.toml` with `[vault] path` and the defaults of the event fields. |
+| `--role` | Role in the access event (a role name or initials); default `[vault] role`; without a role exit code 2. |
+| `--purpose`, `--approval-ref` | Purpose and approval reference of the access event; default `[vault] purpose` and `approval_ref`, else none. |
+
+Under the vault lock the command reads the existing records, checks the new complete file (a subject and version
+recorded twice, a higher version dated before a lower one, an invalid field: exit code 2, nothing written),
+appends the access event `consent_manage` for `consents.yaml` and then replaces the file in one step. If the file
+cannot be written after the event, the command ends with exit code 2, the file is unchanged and the log keeps the
+attempt. The console names the subject and the version or the number of imported records, never the uses or the
+ethics reference. Exit code 0 when recorded, 2 on any refusal.
+
 ## Exit codes in general {#exit-codes}
 
 - **0** – no failed error rule and no open evidence for an error rule; warnings alone never change it.
 - **1** – findings: a failed error rule, open evidence for an error rule, an unreadable or unsupported data
-  file, no readable recording; for `verify` a deviation, for `convert` a file not converted.
+  file, no readable recording; for `verify` and `vault verify` a deviation, for `convert` a file not converted.
 - **2** – tool errors only: configuration, rule pack, validator, PDF browser, path not allowed, internal error,
   an explicitly given single file of unknown format. Data in the dataset never cause exit code 2.

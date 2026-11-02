@@ -1,5 +1,5 @@
-"""Command line (PRD §13): scan, convert, check, report, manifest, verify. Further commands follow in later
-phases.
+"""Command line (PRD §13): scan, convert, check, report, manifest, verify, and the NeuroVault groups 'vault'
+and 'vault consent' (v0.2). Further commands follow in later phases.
 
 Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error. manifest: 0 written, 1 files
 could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82);
@@ -22,6 +22,7 @@ import typer
 from typer.core import TyperCommand, TyperGroup
 from typer.exceptions import TyperException
 
+from neurogrid import config as config_module
 from neurogrid import pipeline
 from neurogrid.io.provenance import inside, shown_target
 from neurogrid.kernel import canonical, netguard, processes
@@ -37,6 +38,15 @@ from neurogrid.kernel.safety import (
     redact_paths,
 )
 from neurogrid.metadata import NA_IS_MISSING
+from neurogrid.model.consent import (
+    CONSENT_USES,
+    ConsentScope,
+    ConsentUse,
+    date_from_text,
+    ethics_ref_valid,
+    subject_id,
+    version_from_text,
+)
 from neurogrid.model.results import Results
 from neurogrid.report.texts import REPORT_LANGUAGES, translator
 
@@ -79,6 +89,22 @@ def _param_label(param: Any) -> str:
     if param.param_type_name == "argument":
         return str(param.name).upper()
     return ", ".join(param.opts)
+
+
+def _help_scope(ctx: Any) -> str:
+    """The help scope of a command: its dotted command path below the root ("check", "vault",
+    "vault.consent.add"), "" for the root itself. Its keys are cli.help.<scope>.about and
+    cli.help.<scope>.<param>; a group lists its commands with cli.help.<scope>.<name>.about. Nested scopes
+    keep 'vault verify' apart from the top-level 'verify' (p6 decisions 5)."""
+    names: list[str] = []
+    while ctx is not None and ctx.parent is not None:
+        names.append(str(ctx.command.name))
+        ctx = ctx.parent
+    return ".".join(reversed(names))
+
+
+def _scoped(scope: str, name: str) -> str:
+    return f"{scope}.{name}" if scope else name
 
 
 def _help_rows(command: Any, ctx: Any, scope: str) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
@@ -210,7 +236,7 @@ class _HelpCommand(TyperCommand):
 
     def format_help(self, ctx: Any, formatter: Any) -> None:
         tr = translator(_lang()).t
-        scope = str(self.name)
+        scope = _help_scope(ctx)
         pieces = [tr("cli.help.metavar.options")]
         pieces += [_param_label(p) for p in self.get_params(ctx) if p.param_type_name == "argument"]
         _write_usage(formatter, ctx, " ".join(pieces))
@@ -231,19 +257,22 @@ class _HelpCommand(TyperCommand):
 
 
 class _HelpGroup(TyperGroup):
-    """The neurogrid command group: help and unknown commands in NeuroGrid's own words (NG-N06)."""
+    """A NeuroGrid command group (the root and the nested 'vault', 'vault consent'): help and unknown commands
+    in NeuroGrid's own words (NG-N06). The root's texts are cli.help.app and cli.help.global.*, a nested
+    group's those of its help scope."""
 
     def format_help(self, ctx: Any, formatter: Any) -> None:
         tr = translator(_lang()).t
+        scope = _help_scope(ctx)
         pieces = f"{tr('cli.help.metavar.options')} {tr('cli.help.metavar.command')}"
         _write_usage(formatter, ctx, pieces)
         formatter.write_paragraph()
         formatter.indent()
-        _write_text(formatter, tr("cli.help.app"))
+        _write_text(formatter, tr(f"cli.help.{scope}.about" if scope else "cli.help.app"))
         formatter.dedent()
-        _arguments, options = _help_rows(self, ctx, "global")
+        _arguments, options = _help_rows(self, ctx, scope or "global")
         _write_section(formatter, tr("cli.help.heading.options"), options)
-        commands = [(name, tr(f"cli.help.{name}.about")) for name in self.list_commands(ctx)]
+        commands = [(name, tr(f"cli.help.{_scoped(scope, name)}.about")) for name in self.list_commands(ctx)]
         _write_section(formatter, tr("cli.help.heading.commands"), commands)
 
     def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
@@ -685,6 +714,125 @@ def verify(
     _say("cli.verify.differs" if run.exit_code else "cli.verify.matches")
     _say("disclaimer")
     raise typer.Exit(code=run.exit_code)
+
+
+# --- vault (CLI-08, CLI-09, NV-F03; A-30, A-31, D-10) -------------------------------------------------------
+# The NeuroVault commands live in the nested groups 'vault' and 'vault consent'; their help scopes are
+# "vault.<command>" and "vault.consent.<command>" (_help_scope). The commands are added to these groups.
+
+vault_app = typer.Typer(cls=_HelpGroup, no_args_is_help=True, rich_markup_mode=None)
+consent_app = typer.Typer(cls=_HelpGroup, no_args_is_help=True, rich_markup_mode=None)
+vault_app.add_typer(consent_app, name="consent")
+app.add_typer(vault_app, name="vault")
+
+
+def _consent_record(
+    ctx: typer.Context,
+    subject: str | None,
+    version: str | None,
+    when: str | None,
+    uses: list[str],
+    withdrawn: bool,
+    ethics_ref: str | None,
+) -> ConsentScope:
+    """The single record of ``vault consent add`` from its options (NV-F01). Every refusal is exit 2 and
+    names the option, never the value (A-51)."""
+    for option, value in (("--subject", subject), ("--version", version), ("--date", when)):
+        if value is None:
+            raise _UsageProblem("cli.error.missing_option", name=option, command=_clean(ctx.command_path))
+    assert subject is not None and version is not None and when is not None
+    if withdrawn and uses:
+        raise InputError("consent.withdrawn_with_uses")
+    if not withdrawn and not uses:
+        raise InputError("consent.uses_required")
+    if any(use not in CONSENT_USES for use in uses):
+        raise InputError("consent.unknown_use", allowed=", ".join(CONSENT_USES))
+    pseudo_id = subject_id(subject.strip())
+    if pseudo_id is None:
+        raise InputError("consent.subject_invalid")
+    number = version_from_text(version.strip())
+    if number is None:
+        raise InputError("consent.version_invalid")
+    moment = date_from_text(when.strip())
+    if moment is None:
+        raise InputError("consent.date_invalid")
+    if ethics_ref is not None and not ethics_ref_valid(ethics_ref):
+        raise InputError("consent.ethics_ref_invalid")
+    return ConsentScope(
+        subject=pseudo_id,
+        version=number,
+        date=moment,
+        permitted_uses=tuple(ConsentUse(use) for use in uses),
+        withdrawn=withdrawn,
+        ethics_approval_ref=ethics_ref,
+    )
+
+
+@consent_app.command("add", cls=_HelpCommand)
+def consent_add(
+    ctx: typer.Context,
+    path: Annotated[str, typer.Argument()],
+    subject: Annotated[str | None, typer.Option("--subject")] = None,
+    version: Annotated[str | None, typer.Option("--version")] = None,
+    when: Annotated[str | None, typer.Option("--date")] = None,
+    uses: Annotated[list[str] | None, typer.Option("--uses")] = None,
+    withdrawn: Annotated[bool, typer.Option("--withdrawn")] = False,
+    ethics_ref: Annotated[str | None, typer.Option("--ethics-ref")] = None,
+    from_file: Annotated[str | None, typer.Option("--from")] = None,
+    config: Annotated[str | None, typer.Option("--config")] = None,
+    role: Annotated[str | None, typer.Option("--role")] = None,
+    purpose: Annotated[str | None, typer.Option("--purpose")] = None,
+    approval_ref: Annotated[str | None, typer.Option("--approval-ref")] = None,
+) -> None:
+    """Record consent in the vault (NV-F01, CLI-08, D-10 b; p6 decisions 3-5): one record from the options or
+    every record of a consents.tsv (--from), under the vault lock, with one access event consent_manage
+    before consents.yaml is rewritten. Role: --role > [vault] role, none is exit 2; purpose and approval
+    reference: option > [vault] > none."""
+    from neurogrid.vault import consents as vault_consents
+    from neurogrid.vault import roles, store
+
+    use_list = _split_list(uses or [])
+    given = [subject, version, when, ethics_ref]
+    if from_file is not None and (any(value is not None for value in given) or uses or withdrawn):
+        raise InputError("consent.from_with_fields")
+    record = None
+    if from_file is None:
+        record = _consent_record(ctx, subject, version, when, use_list, withdrawn, ethics_ref)
+    target = pipeline.resolve_target(path)
+    if target.only is not None:
+        raise InputError("vault.target_not_folder")
+    _state["dataset_root"] = target.root
+    loaded = config_module.load(_given_path(config), target.root)
+    section = loaded.config.vault
+    chosen_role = role if role is not None else section.role
+    if chosen_role is None:
+        raise InputError("vault.role_missing")
+    roles.validate_role(chosen_role)
+    chosen_purpose = purpose if purpose is not None else section.purpose
+    chosen_ref = approval_ref if approval_ref is not None else section.approval_ref
+    location = store.locate(loaded.project_root, section.path)
+    store.require_present(location)
+    added: list[ConsentScope | vault_consents.ImportedRecord] = []
+    if record is not None:
+        added.append(record)
+    elif from_file is not None:  # the table is read before the lock: all records or none (D-10 b)
+        added.extend(vault_consents.read_consents_tsv(check_operator_path(from_file)))
+    result = vault_consents.add_consents(
+        location, added, role=chosen_role, purpose=chosen_purpose, approval_ref=chosen_ref
+    )
+    if record is not None:
+        _say("cli.vault.consent.added", subject=record.subject, version=record.version)
+    else:
+        _say("cli.vault.consent.imported", count=len(result.records))
+    future = sum(1 for item in result.records if item.date > date.today())
+    if future:
+        _say("cli.vault.consent.date_in_future", count=future)
+    long_numbers = vault_consents.subjects_with_long_numbers(result.records)
+    if long_numbers:
+        _say("cli.vault.consent.subject_hint", count=long_numbers)
+    if roles.role_looks_identifying(chosen_role):
+        _say("cli.vault.role_looks_identifying")
+    _say("disclaimer")
 
 
 def _error_text(exc: NeuroGridError) -> str:

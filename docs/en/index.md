@@ -5,7 +5,7 @@
 
 NeuroGrid is an open, local and offline tool that pre-checks EEG datasets for AI-based brain–computer interface
 (BCI) devices. It reads EDF/EDF+, BDF, BrainVision, EEGLAB and FIF recordings, converts raw folders to EEG-BIDS,
-measures the quality metrics M01–M13, evaluates them with rule packs and writes `results.json` plus a report in
+measures the quality metrics M01–M14, evaluates them with rule packs and writes `results.json` plus a report in
 Chinese and English (HTML and PDF).
 
 A result says whether a dataset *passes the checks of the loaded rule packs*.
@@ -15,7 +15,7 @@ NeuroGrid evaluates datasets only, never people, and it is not a medical device.
 ## What version 0.1 contains {#v01}
 
 - Commands `scan`, `convert --to bids`, `check`, `report`, `manifest` and `verify` ([Commands](commands.md)).
-- The rule packs `core` (metrics M01–M13, [Metrics](metrics.md)), `bids` (BIDS validator 3.0.2) and `gxdsl008`
+- The rule packs `core` (metrics M01–M14, [Metrics](metrics.md)), `bids` (BIDS validator 3.0.2) and `gxdsl008`
   (start values that the product specification quotes from T/GXDSL 008-2025, second-hand)
   ([Built-in rules](reference/rules.md)).
 - Own rule packs in YAML that use the registered checks ([Rule packs](rulepacks.md)).

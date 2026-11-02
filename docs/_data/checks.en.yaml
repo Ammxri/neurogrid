@@ -39,6 +39,9 @@ channels.same_set_per_task:
   object: "each task of the dataset"
 channels.standard_names:
   object: "each EEG channel of a recording"
+consent.covered:
+  object: "each subject and needed use; each recording with an unknown subject; the dataset without consent data"
+  passes: "the effective consent at the reference date permits the use (without consent data: not checkable, failed with --strict or a configured [consent])"
 evidence.document:
   object: "the rule itself (manual or semi-automatic evidence from evidence.yaml)"
 impedance.documented:

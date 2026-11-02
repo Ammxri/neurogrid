@@ -28,6 +28,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
+from neurogrid.checks.consent import COVERED as CONSENT_CHECK
 from neurogrid.checks.registry import REGISTRY
 from neurogrid.kernel.rules import EVIDENCE_CHECK, Bound, CheckSpec, LoadedRulepack, is_true, load_rulepack
 from neurogrid.kernel.safety import load_yaml
@@ -221,6 +222,8 @@ def threshold_block(metric: str, ctx: Context, env: Environment) -> str:
         severity = ctx.t(f"severity.{rule.severity.value}")
         if rule.strict_severity is not None:
             severity += f" (--strict: {ctx.t(f'severity.{rule.strict_severity.value}')})"
+        if rule.check == CONSENT_CHECK:  # M14: strict and [consent] change the status, not the severity
+            severity += f" ({labels['consent_note']})"
         title = rule.title_zh if ctx.lang == "zh" else rule.title_en
         rows.append(
             {

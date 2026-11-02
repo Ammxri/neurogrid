@@ -18,7 +18,7 @@ Written by `check` (`--out`, default `results.json`); `report` reads only this f
 | `dataset` | The dataset fields, without paths. |
 | `rulepacks` | Loaded packs: name, version, source, source status, norm, SHA-256 of the file. |
 | `rules` | Every loaded rule with clause, titles, phase, check, effective severity, strict severity, verification. |
-| `config` | Hash of the canonical configuration, `as_of`, seed, strict mode, sampling, effective thresholds and settings (cleaned), hash of `evidence.yaml`. |
+| `config` | Hash of the canonical configuration, `as_of`, seed, strict mode, sampling, effective thresholds and settings (cleaned), hash of `evidence.yaml`, hash of the consent records (`consents_sha256`). |
 | `recordings` | Per recording: pseudonymous ID, format, readable in blocks, metrics and the sample of M06/M09. |
 | `findings` | Every finding that is not passed, one per rule × object × sub-key, with its stable key. |
 | `passed` | Passed checks, counted per rule and object. |
@@ -50,11 +50,54 @@ Written by `manifest` (default `.neurogrid/manifest.json`; schema
 `skipped` (links, special files, names the path check refuses), `excluded` (the vault log), `processing_steps`,
 `software`, `manifest_hash` (over the canonical JSON bytes).
 
+## consents.yaml and consents.tsv {#consents}
+
+`consents.yaml` in the vault holds the consent records (schema
+[`consents.schema.json`](../../schemas/consents.schema.json)); `neurogrid vault init` creates it empty, and
+`neurogrid vault consent add` rewrites it in a canonical form (records sorted by subject and version, comments
+added by hand are not kept):
+
+<!-- example: consents.yaml -->
+```yaml
+format_version: 1
+consents:
+  - subject: sub-01
+    version: 1
+    date: 2026-03-01
+    permitted_uses: [training, validation]
+    withdrawn: false
+    ethics_approval_ref: "EC-2026-17"
+```
+
+| Field | Content |
+|---|---|
+| `subject` | Pseudonymous subject: `sub-<label>`, the label made of letters and digits (at most 64); given with or without `sub-`. |
+| `version` | Whole number 1 to 1000000; a higher version replaces a lower one, the dates must not decrease with the version. |
+| `date` | Date of the consent or the withdrawal, `YYYY-MM-DD`. |
+| `permitted_uses` | Subset of `training`, `validation`, `publication`, `sharing`, `commercial`; empty only with `withdrawn: true`. |
+| `withdrawn` | `true` for a full withdrawal from `date` on (default `false`). |
+| `ethics_approval_ref` | Optional reference of the ethics approval, 1 to 120 printable characters; never a name. |
+
+At most 20 000 records and 4 000 000 bytes. An invalid file ends `check` and `vault consent add` with exit code 2
+and names the record and the field, never a value. `consents.yaml` is part of the manifest, so `verify` reports a
+change made outside NeuroGrid.
+
+`consents.tsv` is the import table of `vault consent add --from`: UTF-8 (with or without BOM), tab-separated, a
+header row (names without regard to case) with `subject`, `version`, `date`, `permitted_uses` (or `uses`,
+comma-separated in the cell) and optionally `withdrawn` (`true`/`false`, `yes`/`no`, `1`/`0`, empty = false) and
+`ethics_approval_ref` (or `ethics_ref`). At most 10 000 000 bytes and 20 000 rows; errors name the line and the
+column, never the content of a cell.
+
+`config.consents_sha256` in `results.json` is the SHA-256 of the canonical parsed records (the same for every
+spelling of the same records), `null` without `consents.yaml` or without M14; the records themselves never reach
+`results.json`.
+
 ## Further schemas {#schemas}
 
 [`config.schema.json`](../../schemas/config.schema.json) (`neurogrid.toml`),
 [`rulepack.schema.json`](../../schemas/rulepack.schema.json) and
-[`evidence.schema.json`](../../schemas/evidence.schema.json) (`evidence.yaml`).
+[`evidence.schema.json`](../../schemas/evidence.schema.json) (`evidence.yaml`),
+[`consents.schema.json`](../../schemas/consents.schema.json) (`consents.yaml`).
 
 ## Exit codes {#exit-codes}
 

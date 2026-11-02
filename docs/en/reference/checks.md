@@ -163,6 +163,16 @@ Every check a rule pack may name in `check`, generated from the registry of this
 | Measured on | each EEG channel of a recording |
 | Built-in rules | [CORE-M04-01](rules.md#CORE-M04-01) |
 
+## consent.covered {#consent.covered}
+
+| | |
+|---|---|
+| Title | Use covered by consent |
+| Parameters | – |
+| Passes when | the effective consent at the reference date permits the use (without consent data: not checkable, failed with --strict or a configured [consent]) |
+| Measured on | each subject and needed use; each recording with an unknown subject; the dataset without consent data |
+| Built-in rules | [CORE-M14-01](rules.md#CORE-M14-01) |
+
 ## evidence.document {#evidence.document}
 
 | | |

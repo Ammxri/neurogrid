@@ -135,10 +135,50 @@
 | 1 | 至少有一处不一致 |
 | 2 | 工具错误：清单无效 |
 
+## vault {#vault}
+
+`neurogrid vault <命令> [参数和选项]`
+
+NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] path`，相对于项目根目录，默认为
+`.neurogrid/vault`。其中包含知情同意记录 `consents.yaml`、哈希链访问日志 `access.jsonl` 及其锁文件
+`access.jsonl.lock`。vault 路径中的链接从不跟随。`neurogrid vault consent` 汇集用于知情同意记录的命令。不带命令时，
+`neurogrid vault` 和 `neurogrid vault consent` 显示帮助并以退出码 2 结束。
+
+| 退出码 | 含义 |
+|---|---|
+| 0 | 命令已完成；对 `vault verify`：访问日志完整 |
+| 1 | `vault verify`：访问日志中至少有一处不一致 |
+| 2 | 工具错误：没有 vault、vault 路径中有链接、vault 被另一个 NeuroGrid 进程锁定或无法写入、输入无效 |
+
+### vault consent add {#vault-consent-add}
+
+`neurogrid vault consent add PATH --subject S --version N --date YYYY-MM-DD (--uses U[,U] | --withdrawn)
+[--ethics-ref R]` 记录一条知情同意；`neurogrid vault consent add PATH --from consents.tsv` 导入一张表格
+（[consents.tsv](reference/outputs.md#consents)）。`PATH` 是数据集文件夹；vault 为 `neurogrid.toml` 中的 `[vault] path`
+（`--config`，默认为数据集中的 `.neurogrid/neurogrid.toml`）。请先使用 `neurogrid vault init` 创建 vault。
+
+| 选项 | 含义 |
+|---|---|
+| `--subject` | 假名受试者，可带或不带 `sub-`。 |
+| `--version` | 知情同意的版本，1 到 1000000 之间的整数；更改记录为一个更高的新版本。 |
+| `--date` | 知情同意或撤回的日期，`YYYY-MM-DD`。 |
+| `--uses` | 允许的用途（可重复指定或用逗号分隔）：`training`、`validation`、`publication`、`sharing`、`commercial`。部分撤回是用途更少的新版本。 |
+| `--withdrawn` | 自该日期起完全撤回；不带 `--uses`。 |
+| `--ethics-ref` | 可选的伦理审批编号（不得含人名）。 |
+| `--from` | 用导入表代替单项字段；要么记录所有行，要么一行也不记录。 |
+| `--config` | 含 `[vault] path` 和访问事件字段默认值的 `neurogrid.toml`。 |
+| `--role` | 访问事件中的角色（角色或姓名缩写）；默认 `[vault] role`；没有角色时退出码为 2。 |
+| `--purpose`、`--approval-ref` | 访问事件的目的和批准编号；默认 `[vault] purpose` 和 `approval_ref`，否则为空。 |
+
+命令在 vault 锁下读取现有记录，检查新的完整文件（同一受试者和版本记录两次、较高版本的日期早于较低版本、字段无效：
+退出码 2，不写入任何内容），为 `consents.yaml` 追加访问事件 `consent_manage`，然后一步替换该文件。若在写入事件之后
+无法写入文件，命令以退出码 2 结束，文件保持不变，日志保留这次尝试。控制台显示受试者和版本或导入记录的数量，从不显示
+用途或伦理审批编号。记录成功时退出码为 0，任何拒绝时为 2。
+
 ## 退出码总览 {#exit-codes}
 
 - **0** – 没有未通过的错误级规则，错误级规则也没有待补的证明材料；仅有警告从不改变退出码。
 - **1** – 检查结果：未通过的错误级规则、错误级规则待补的证明材料、无法读取或不受支持的数据文件、没有可读取的记录；
-  对 `verify` 为存在不一致，对 `convert` 为有文件未转换。
+  对 `verify` 和 `vault verify` 为存在不一致，对 `convert` 为有文件未转换。
 - **2** – 仅限工具错误：配置、规则包、验证器、PDF 浏览器、不允许的路径、内部错误、明确指定的未知格式的单个文件。
   数据集中的数据从不导致退出码 2。
