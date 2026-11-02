@@ -17,6 +17,7 @@ changes to it visible; it does not prevent them.
 | `neurogrid vault log [PATH] --action … --objects … --purpose …` | Records an access by hand. |
 | `neurogrid vault log [PATH] --show` | Shows the newest entries, the head hash and the state of the chain. |
 | `neurogrid vault verify [PATH] [--expect-head HASH]` | Verifies the hash chain (exit code 0 intact, 1 deviation). |
+| `neurogrid vault export [PATH] --report FILE --out FILE.zip` | Writes the export package for an inspection: a ZIP with the five parts and `index.json` ([Export package](#export)). |
 
 Options and exit codes: [Commands](commands.md#vault).
 
@@ -58,6 +59,7 @@ the default location when an older manifest lists them, and CORE-M13-02 those of
 | `scan`, `manifest`, `verify` | action `read`, no role, purpose or approval reference | only the vault at the default location `.neurogrid/vault` |
 | `vault consent add` | action `consent_manage`, object `.neurogrid/vault/consents.yaml` | the vault of its `neurogrid.toml` |
 | `vault log` | the given action | the vault of its `neurogrid.toml` |
+| `vault export` | action `export`; objects: the manifest when it lies in the dataset, `access.jsonl`, `roles.yaml` and the PIA files | the vault of its `neurogrid.toml` |
 
 The event of a run is appended after its outputs are written; it never enters `results.json`, so two `check`
 runs on the same data give byte-identical results. Role, purpose and approval reference come from `[vault]`;
@@ -158,6 +160,33 @@ never the content of an entry:
 prints outside the vault, for example in the lab book or a ticket, and check later with
 `neurogrid vault verify --expect-head <hash>`. The head recorded then must still be part of the intact chain,
 also after later entries. Only this detects truncation at the end and complete rewriting.
+
+## Export package {#export}
+
+`neurogrid vault export` writes one ZIP for an inspection ([Commands](commands.md#vault-export)). It holds
+exactly these files, in this order, and nothing else:
+
+| Member | Content |
+|---|---|
+| `manifest.json` | The manifest of the dataset (or `--manifest`). In a raw folder without `--show-paths` a copy that names the data files by their pseudonymous IDs (`rec-<sha8>.<ext>`, as `verify` shows them; NeuroGrid's own files in `.neurogrid/` in clear); its `manifest_hash` stays the stored one, the value the report shows, and no longer matches the copy. BIDS datasets and `--show-paths` keep the file as it is. |
+| `access.jsonl` | The access log up to and including the export event. |
+| `roles.yaml` | The role register as it is. |
+| `pia/pia.zh.md`, `pia/pia.en.md` | The impact assessment files that exist (at least one). |
+| `report/report.<lang>.html`, `report/report.<lang>.pdf`, `report/dossier.pdf` | The reports given with `--report` (1 to 5, each kind once). |
+| `index.json` | Every other member with SHA-256 and size, the manifest hash, the head hash of the exported log, its number of entries and the state of its chain, the fixed sentence and the NeuroGrid version ([Output files](reference/outputs.md#export-zip)). |
+
+Never in the package: the consent records `consents.yaml`, the risk register `risks.yaml`, the retention
+periods `retention.yaml`, `results.json` and any data file – no signals and no consent data. Only regular files
+are packed; a link in the vault is never followed (exit code 2), and a part that is missing, no regular file or
+no NeuroGrid report is refused before anything is written.
+
+The export event comes before packing: everything is read and checked, then the event `export` is appended under
+the vault lock and the log is packed up to and including it, so the head hash in `index.json` is the hash of this
+event. Record it outside the vault; `neurogrid vault verify --expect-head <hash>` later shows that the log still
+holds the exported entries. A broken chain is exported as it is and named: `index.json` records it and the
+console warns. If the package cannot be written after the event, the log keeps the attempt and `--out` is
+unchanged. Every entry of the ZIP has a fixed time (1980-01-01) and the mode of a regular file; the same files and
+the same clock give the same archive on one computer.
 
 ## Limits {#limits}
 

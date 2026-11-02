@@ -1,5 +1,6 @@
 """The report files (CLI-05, NG-F13, A-08, A-26, A-27): ``report.<lang>.html`` and ``report.<lang>.pdf`` per
-language, written all or nothing.
+language and the evidence dossier ``dossier.pdf`` (REP-08, A-99: an index part and the zh and en report in
+one PDF, neurogrid.dossier, whatever languages are asked for), written all or nothing.
 
 1. ``pdf`` requested: the PDF browser is located and checked before anything is rendered, so a missing or
    wrong browser or missing Linux libraries end with exit 2 and nothing written (``html`` alone never needs
@@ -41,10 +42,11 @@ from neurogrid.kernel.pdf import (
 from neurogrid.kernel.safety import create_temporary
 from neurogrid.model.results import Results
 from neurogrid.report.glyphs import glyph_safe
+from neurogrid.report.identify import DOSSIER_FILE
 from neurogrid.report.render import VaultView, page_text, render_report
-from neurogrid.report.texts import FONT_FILES, translator
+from neurogrid.report.texts import FONT_FILES, REPORT_LANGUAGES, translator
 
-FORMATS = ("html", "pdf")
+FORMATS = ("html", "pdf", "dossier")
 # the browser context's locale per report language (kernel.pdf.LOCALES)
 LOCALES = {"zh": "zh-CN", "en": "en-US"}
 # phrases the QA gate requires once per PDF: title and the six section headings (PRD §14)
@@ -91,19 +93,44 @@ def pdf_expectation(results: Results, lang: str, document: str) -> PdfExpect:
     )
 
 
-def _print_all(results: Results, documents: Mapping[str, str], shell: ShellInstall) -> dict[str, bytes]:
+def _print_all(
+    results: Results,
+    documents: Mapping[str, str],
+    shell: ShellInstall,
+    *,
+    dossier_sha256: str | None = None,
+    vault: VaultView | None = None,
+) -> tuple[dict[str, bytes], bytes | None]:
+    """Print every document with one browser, each through the QA gate; with ``dossier_sha256`` (the SHA-256
+    of the results.json bytes) also dossier.pdf from the printed zh and en reports (dossier.build_dossier,
+    whose index part this browser prints as well)."""
     pdfs: dict[str, bytes] = {}
     with browser_work() as work, PdfPrinter(shell, work) as printer:
-        for lang, document in documents.items():
-            source = work / f"report.{lang}.html"
+
+        def print_gated(name: str, document: str, expect: PdfExpect, locale: str) -> bytes:
+            source = work / name
             source.write_bytes(document.encode("utf-8"))
-            expect = pdf_expectation(results, lang, document)
-            printed = printer.print(source, expect.meta, locale=LOCALES[lang])
+            printed = printer.print(source, expect.meta, locale=locale)
             violations = qa_gate(printed.data, expect, log=printed.log)
             if violations:
                 raise PdfError("pdf.qa_failed", checks=",".join(violations))
-            pdfs[lang] = printed.data
-    return pdfs
+            return printed.data
+
+        for lang, document in documents.items():
+            expect = pdf_expectation(results, lang, document)
+            pdfs[lang] = print_gated(f"report.{lang}.html", document, expect, LOCALES[lang])
+        if dossier_sha256 is None:
+            return pdfs, None
+        from neurogrid.dossier import INDEX_LOCALE, build_dossier  # the dossier builds on this module
+
+        dossier = build_dossier(
+            results,
+            pdfs,
+            lambda document, expect: print_gated("dossier.html", document, expect, INDEX_LOCALE),
+            results_sha256=dossier_sha256,
+            vault=vault,
+        )
+    return pdfs, dossier
 
 
 def _stage(target: Path, data: bytes) -> Path:
@@ -214,28 +241,56 @@ def write_reports(
     *,
     environ: Mapping[str, str],
     vault: VaultView | None = None,
+    results_sha256: str | None = None,
 ) -> list[Path]:
     """Write ``report.<lang>.<format>`` for every language and format into ``folder``; returns the paths in
-    the order languages × formats. PdfError (exit 2) or InputError leave no new report file behind and the
-    earlier reports in the folder unchanged (write_all). ``vault``: the access log of ``report --config``
-    (cover row and appendix note, A-30)."""
+    the order languages × formats, then dossier.pdf. PdfError (exit 2) or InputError leave no new report file
+    behind and the earlier reports in the folder unchanged (write_all). ``vault``: the access log of ``report
+    --config`` (cover row and appendix note, A-30). The format ``dossier`` (A-99) writes dossier.pdf with the
+    zh and the en report whatever ``languages`` are; it needs ``results_sha256``, the SHA-256 of the
+    results.json bytes its index part names."""
     unknown = [name for name in formats if name not in FORMATS]
     if unknown:
         raise NeuroGridError("errors.report.format_unavailable", format=unknown[0])
+    dossier = "dossier" in formats
+    if dossier and results_sha256 is None:
+        raise ValueError("the dossier names the SHA-256 of the results.json bytes")
     shell = None
-    if "pdf" in formats:  # before any rendering (A-26)
+    if "pdf" in formats or dossier:  # before any rendering (A-26)
         shell = locate_shell(environ)
         preflight(shell)
     existed = folder.exists()
-    targets = {(lang, name): folder / f"report.{lang}.{name}" for lang in languages for name in formats}
+    targets = {
+        (lang, name): folder / f"report.{lang}.{name}"
+        for lang in languages
+        for name in formats
+        if name != "dossier"
+    }
+    dossier_target = folder / DOSSIER_FILE
     try:
-        check_output_folder(folder, list(targets.values()))
-        documents = {lang: html_document(results, lang, vault) for lang in languages}
-        pdfs = _print_all(results, documents, shell) if shell is not None else {}
+        check_output_folder(folder, [*targets.values(), *([dossier_target] if dossier else [])])
+        printed = [lang for lang in languages if "pdf" in formats]
+        printed += [lang for lang in REPORT_LANGUAGES if dossier and lang not in printed]
+        documents = {
+            lang: html_document(results, lang, vault) for lang in dict.fromkeys([*languages, *printed])
+        }
+        pdfs, dossier_pdf = (
+            _print_all(
+                results,
+                {lang: documents[lang] for lang in printed},
+                shell,
+                dossier_sha256=results_sha256 if dossier else None,
+                vault=vault,
+            )
+            if shell is not None
+            else ({}, None)
+        )
         files = {
             target: documents[lang].encode("utf-8") if name == "html" else pdfs[lang]
             for (lang, name), target in targets.items()
         }
+        if dossier_pdf is not None:
+            files[dossier_target] = dossier_pdf
         write_all(files)
     except BaseException:
         if not existed and folder.is_dir() and not any(folder.iterdir()):

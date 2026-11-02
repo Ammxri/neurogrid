@@ -53,7 +53,8 @@ supported ([Installation](installation.md#platforms)).
 
 NeuroVault is partly available: the vault folder, the consent records, the hash-chained access log with
 `vault init`, `vault log` and `vault verify`, the role register, the retention periods, the risk register and the
-impact assessment ([NeuroVault](vault.md)). The export follows in a later version.
+impact assessment and the export package ([NeuroVault](vault.md)). The details of the access log that
+depend on the text of YY/T 2029 follow once the norm text has been read.
 
 - The hash chain detects changing, inserting, deleting and reordering entries inside the chain. Truncation at
   the end and complete rewriting are detected only with `vault verify --expect-head` against a head hash
@@ -70,6 +71,10 @@ impact assessment ([NeuroVault](vault.md)). The export follows in a later versio
   People's Republic of China reviews them before their first real use. That `pia` and `access_log` need a
   retention entry is NeuroGrid's reading of the PIPL. NeuroGrid deletes nothing and sets no retention period
   for EEG data.
+- The export package holds the access log up to the export event as NeuroGrid read it under its lock; the
+  chain state in `index.json` is verified the way `vault verify` reads the log. In a raw folder the archived
+  manifest names data files by pseudonymous IDs, so its `manifest_hash` no longer matches the copy. The same files
+  and clock give the same archive on one computer, not necessarily on another platform (compression).
 
 ## CI integration {#ci}
 
@@ -84,7 +89,8 @@ impact assessment ([NeuroVault](vault.md)). The export follows in a later versio
 ## Not part of version 0.1 {#not-in-v01}
 
 - `diff` (comparison of two results), NeuroVault (consent, roles, access log, M14) and the evidence dossier
-  follow in later versions. Version 0.2 adds the parts of NeuroVault named [above](#neurovault).
+  are not part of version 0.1. Version 0.2 adds the consent records, the access log and M14; version 1.0
+  the registers, the export package, `diff` and the evidence dossier ([above](#neurovault)).
 - GB/T 47127 as an input and output format follows with version 0.2.
 - The documentation is published inside the offline bundle and as a build artefact; a website for it is decided
   with the publication.

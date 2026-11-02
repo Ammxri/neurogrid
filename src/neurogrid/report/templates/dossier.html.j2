@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+{# The index part of the evidence dossier (dossier.py, A-99): bilingual, zh first; the two reports follow as
+   parts 2 and 3 of dossier.pdf. Every text is NeuroGrid's own or a value of results.json. #}
+{% macro lines(items) %}{% for line in items %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}{% endmacro %}
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:">
+<meta name="generator" content="NeuroGrid {{ version }}">
+<title>{{ title }}</title>
+<style>{{ css }}</style>
+</head>
+<body class="dossier">
+<section id="dossier-index">
+  <h1>{{ lines(title_lines) }}</h1>
+  <p class="disclaimer">{{ lines(disclaimers) }}</p>
+  <table class="cover">
+    <tbody>
+    {% for name, values, mono in cover_rows %}
+    <tr><th>{{ name }}</th><td{% if mono %} class="mono"{% endif %}>{{ lines(values) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h2>{{ label('report.dossier.parts') }}</h2>
+  <table class="dossier-parts">
+    <tbody>
+    {% for name, pages in parts %}
+    <tr><th>{{ name }}</th><td class="nowrap">{{ pages }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="note">{{ label('report.dossier.pages') }}</p>
+  <h2>{{ label('report.dossier.evidence') }}</h2>
+  {% if evidence_rows %}
+  <table class="dossier-evidence">
+    <colgroup><col class="w-drule"><col class="w-ddoc"><col class="w-dstatus"><col class="w-dsha"></colgroup>
+    <thead><tr><th>{{ label('report.label.rule') }}</th><th>{{ label('report.label.document') }}</th><th>{{ label('report.label.status') }}</th><th>{{ label('report.dossier.sha256_computed') }}<br>{{ label('report.dossier.sha256_recorded') }}</th></tr></thead>
+    <tbody>
+    {% for row in evidence_rows %}
+    <tr><td class="mono"><span class="nowrap">{{ row.rule }}</span> ({{ row.rulepack }})</td><td class="mono">{{ row.document }}</td><td>{{ lines(row.status) }}</td><td class="mono">{{ row.sha256 }}<br>{{ row.sha256_recorded }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>{{ lines(both('report.text.no_manual_rules')) }}</p>
+  {% endif %}
+  <h2>{{ label('report.dossier.manifest') }}</h2>
+  <table class="cover">
+    <tbody>
+    {% for name, values, mono in manifest_rows %}
+    <tr><th>{{ name }}</th><td{% if mono %} class="mono"{% endif %}>{{ lines(values) }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h2>{{ label('report.dossier.vault') }}</h2>
+  {% if vault_rows %}
+  <table class="dossier-vault">
+    <colgroup><col class="w-vrule"><col class="w-vtitle">{% for _ in statuses %}<col class="w-vcount">{% endfor %}</colgroup>
+    <thead><tr><th>{{ label('report.dossier.vault_rule') }}</th><th>{{ label('report.label.title') }}</th>{% for status in statuses %}<th class="num">{{ status }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in vault_rows %}
+    <tr><td class="mono"><span class="nowrap">{{ row.id }}</span></td><td>{{ lines(row.title) }}</td>
+      {% if row.note %}<td colspan="{{ statuses|length }}">{{ lines(row.note) }}</td>{% else %}{% for count in row.counts %}<td class="num">{{ count }}</td>{% endfor %}{% endif %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>{{ lines(both('report.dossier.no_vault_rules')) }}</p>
+  {% endif %}
+  {% if access_log is not none %}
+  <table class="cover">
+    <tbody>
+    <tr><th>{{ label('report.label.access_log') }}</th><td>{{ lines(access_log) }}</td></tr>
+    </tbody>
+  </table>
+  {% endif %}
+  <p class="not-included">{{ lines(both('report.dossier.not_included')) }}</p>
+</section>
+</body>
+</html>

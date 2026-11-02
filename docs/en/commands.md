@@ -89,16 +89,18 @@ The result sentence on the console names only the packs that were evaluated, nev
 
 ## report {#report}
 
-`neurogrid report RESULTS [--lang zh,en] [--format html,pdf] [--out FOLDER] [--config FILE]`
+`neurogrid report RESULTS [--lang zh,en] [--format html,pdf,dossier] [--out FOLDER] [--config FILE]`
 
 Renders the report from `results.json` alone, per language and format: `report.<lang>.html` and
 `report.<lang>.pdf` ([Reading the report](report.md)). The command prints the fixed sentence at the end.
+With `--format dossier` it also writes `dossier.pdf`, the [evidence dossier](report.md#dossier): an index
+part and the zh and the en report in one PDF, always in both languages, whatever `--lang` says.
 
 | Argument / option | Meaning |
 |---|---|
 | `RESULTS_FILE` | `results.json` written by `check`. |
 | `--lang` | Report languages `zh`, `en` (default `zh,en`). |
-| `--format` | `html`, `pdf` (default `html`); PDF needs the [PDF browser](installation.md#pdf-browser). |
+| `--format` | `html`, `pdf`, `dossier` (default `html`); PDF and the dossier need the [PDF browser](installation.md#pdf-browser). Several formats are written all or nothing. |
 | `--out FOLDER` | Output folder (default: the folder of `results.json`). |
 | `--config FILE` | `neurogrid.toml` whose vault the report shows: the cover gets the row of the access log (entries, head hash, state of the chain) read before rendering, and the report appends its access event (action `report`) after the files are written. Without `--config` the report reads and writes no vault. |
 
@@ -263,6 +265,37 @@ the limits of the chain. It records no access event.
 | `PATH` | Dataset folder (default: the current folder). |
 | `--config FILE` | `neurogrid.toml`; its `[vault] path` names the vault. |
 | `--expect-head HASH` | A head hash recorded earlier outside the vault (64 hexadecimal digits); it must still be part of the intact chain, also after later entries. Repeatable. Only this detects truncation at the end and complete rewriting. |
+
+### vault export {#vault-export}
+
+`neurogrid vault export [PATH] --report FILE [--report FILE ...] --out FILE.zip [--manifest FILE] [--show-paths]
+[--config FILE] [--role ROLE] [--purpose TEXT] [--approval-ref REF]`
+
+Writes the export package for an inspection ([NeuroVault](vault.md#export)): one ZIP with exactly the five
+parts and `index.json`, written to a temporary file next to `--out` and then moved into place, all or nothing.
+Everything is read and checked first; then the access event `export` is appended under the vault lock and the
+access log is packed up to and including this event. `index.json` names every part with its SHA-256 and size and
+the head hash of the exported log, the hash of the export event: record it outside the vault and check later with
+`neurogrid vault verify --expect-head`. Role, purpose and approval reference as for `vault log`; a role is
+required. The console prints each part with its size and SHA-256, the head hash and the path of the archive, and
+warns about an unedited impact assessment, an empty role register, a broken hash chain (the log is exported as it
+is) and an archive inside the dataset.
+
+| Argument / option | Meaning |
+|---|---|
+| `PATH` | Dataset folder (default: the current folder). |
+| `--report FILE` | A NeuroGrid report to include, unchanged as `neurogrid report` wrote it: `report.<lang>.html`, `report.<lang>.pdf` or `dossier.pdf`. Repeat the option for 1 to 5 reports, each kind once; any other file is refused. |
+| `--out FILE.zip` | The ZIP file to write; not inside the vault folder. An existing file is replaced. |
+| `--manifest FILE` | The manifest to include (default: `.neurogrid/manifest.json` in the dataset); it must be valid. |
+| `--show-paths` | Keep the real file names in the exported manifest; in a raw folder it otherwise names the files by their pseudonymous IDs, as `verify` shows them. |
+| `--config FILE` | `neurogrid.toml`; its `[vault] path` names the vault. |
+| `--role ROLE` | Role in the access event (default: `[vault] role`; without a role exit code 2). |
+| `--purpose TEXT`, `--approval-ref REF` | Purpose and approval reference of the access event (default: `[vault] purpose` and `approval_ref`, else none). |
+
+| Code | Meaning |
+|---|---|
+| 0 | the export package was written, also with a broken hash chain (`index.json` records its state) |
+| 2 | refused, nothing written and no access event: a part missing or no regular file, a link, an invalid manifest or role register, a file that is no NeuroGrid report or a report given twice, `--out` in the vault or a folder, no role; after the event only a failed write (the event stays, `--out` is unchanged) |
 
 ### Access events of the other commands {#access-events}
 

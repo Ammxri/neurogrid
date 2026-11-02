@@ -3,15 +3,17 @@ and 'vault consent' (v0.2). Further commands follow in later phases.
 
 Exit codes (NG-F14, A-12): 0 no failed error rule, 1 at least one, 2 tool error. manifest: 0 written, 1 files
 could not be read (nothing written); verify: 0 the dataset matches the manifest, 1 any deviation (A-82);
-report: 0 written, 2 tool error, e.g. no PDF browser for --format pdf (nothing written, A-26). vault init and
-vault log: 0 done, 2 every refusal; vault verify: 0 the access log is intact, 1 a deviation (also a missing
-log or an expected head not found), 2 tool error (CLI-09). An access event that cannot be written after the
-outputs of a run is a warning and never changes the exit code; check, report --config and every vault
-command end with exit 2 on a link in the vault path (A-30, p6 decisions 2 and 4).
+report: 0 written, 2 tool error, e.g. no PDF browser for --format pdf or dossier (nothing written, A-26).
+vault init, vault log and vault export: 0 done, 2 every refusal (export: never 1, A-96); vault verify: 0 the
+access log is intact, 1 a deviation (also a missing log or an expected head not found), 2 tool error
+(CLI-09). An access event that cannot be written after the outputs of a run is a warning and never changes
+the exit code; check, report --config and every vault command end with exit 2 on a link in the vault path
+(A-30, p6 decisions 2 and 4).
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import sys
@@ -683,16 +685,18 @@ def report(
     out: Annotated[str | None, typer.Option("--out")] = None,
     config: Annotated[str | None, typer.Option("--config")] = None,
 ) -> None:
-    """Render the report for each language and format (HTML; PDF with the PDF browser). With --config the
-    report finds the vault of that neurogrid.toml: the cover shows its access log, and the report appends
-    its access event after the files are written (A-30); without it no vault is read or written."""
+    """Render the report for each language and format (HTML; PDF with the PDF browser; the dossier, A-99:
+    dossier.pdf with the zh and en report whatever --lang says). With --config the report finds the vault of
+    that neurogrid.toml: the cover shows its access log, and the report appends its access event after the
+    files are written (A-30); without it no vault is read or written."""
     from neurogrid.report.output import FORMATS, write_reports
 
     source = check_operator_path(results_file)
     if not source.is_file():
         raise InputError("input.not_found")
+    data = read_limited(source, MAX_RESULTS_BYTES)
     try:
-        results = Results.model_validate_json(read_limited(source, MAX_RESULTS_BYTES))
+        results = Results.model_validate_json(data)
     except ValueError:
         raise InputError("input.results_invalid") from None
     languages = list(dict.fromkeys(normalize_language(item) for item in _split_list(lang or ["zh,en"])))
@@ -711,8 +715,13 @@ def report(
     access, view = None, None
     if config is not None:  # a link in the vault path ends here, before anything is rendered (exit 2)
         access, view = pipeline.report_vault(check_operator_path(config))
-    # all files or none (A-26); with pdf the PDF browser is checked before anything is rendered
-    for target in write_reports(results, languages, formats, folder, environ=os.environ, vault=view):
+    # all files or none (A-26); with pdf the PDF browser is checked before anything is rendered; the dossier
+    # names the SHA-256 of the results.json bytes it was made from (A-99)
+    sha256 = hashlib.sha256(data).hexdigest()
+    written = write_reports(
+        results, languages, formats, folder, environ=os.environ, vault=view, results_sha256=sha256
+    )
+    for target in written:
         _say("cli.report.written", path=_display_path(target))
     _access_messages(access, _commit(access))
     _say("disclaimer")
@@ -1069,6 +1078,49 @@ def vault_log(
     if run.role_identifying:
         _say("cli.vault.role_looks_identifying")
     _role_warning(run.role_warning)
+    _say("disclaimer")
+
+
+@vault_app.command("export", cls=_HelpCommand)
+def vault_export(
+    report: Annotated[list[str], typer.Option("--report")],
+    out: Annotated[str, typer.Option("--out")],
+    path: Annotated[str, typer.Argument()] = ".",
+    manifest_file: Annotated[str | None, typer.Option("--manifest")] = None,
+    show_paths: Annotated[bool, typer.Option("--show-paths")] = False,
+    config: Annotated[str | None, typer.Option("--config")] = None,
+    role: Annotated[str | None, typer.Option("--role")] = None,
+    purpose: Annotated[str | None, typer.Option("--purpose")] = None,
+    approval_ref: Annotated[str | None, typer.Option("--approval-ref")] = None,
+) -> None:
+    """Write the export package of the vault (NV-F07, A-30, A-96): a ZIP with the manifest, the access log,
+    the role register, the impact assessment and 1 to 5 reports, plus index.json; the access event export
+    comes first. Exit 0 written, 2 for every refusal (nothing written); a broken chain is exported and
+    named."""
+    _vault_folder(path)
+    target = _output_file(out)  # a trailing separator names a folder: refused before anything is read
+    run = pipeline.run_vault_export(
+        path,
+        _given_path(config),
+        reports=[check_operator_path(item) for item in report],  # never split: a comma is part of a path
+        out=target,
+        manifest_path=_given_path(manifest_file),
+        show_paths=show_paths,
+        role=role,
+        purpose=purpose,
+        approval_ref=approval_ref,
+    )
+    index = run.result.index
+    for part in index.parts:  # fixed names of the archive, never a name of the dataset (A-51)
+        _say("cli.vault.export.part", file=part.file, size=part.size, sha256=part.sha256)
+    _say("cli.vault.export.head", hash=index.access_log.head)
+    for warning in run.result.warnings:
+        _say(f"cli.vault.export.{warning}", deviations=index.access_log.deviations)
+    if run.inside_dataset:
+        _say("cli.vault.export.inside_dataset")
+    if run.role_identifying:
+        _say("cli.vault.role_looks_identifying")
+    _say("cli.vault.export.written", path=_written_path(target, plain=run.plain))
     _say("disclaimer")
 
 

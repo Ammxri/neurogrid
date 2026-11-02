@@ -20,7 +20,7 @@ M01–M14，用规则包对其进行评价，并写出 `results.json` 以及中�
 - 完全在本地运行，不建立任何网络连接（[隐私与离线运行](privacy.md)）。
 
 本版本不包含 YY/T 2029-2026 的任何内容。占位规则包 yyt2029（仅含一条无条款号的示例规则，须使用 `--allow-draft-rulepacks` 加载，不计入统计）同样并非依据标准原文；基于条款的规则包将在研读标准文本后提供。
-`diff` 和证明材料汇编将在后续版本中提供；NeuroVault 自 0.2 版起部分可用（[局限](limitations.md#neurovault)）。
+`diff`、证明材料汇编和 NeuroVault 检查包自 1.0 版起可用；NeuroVault 部分可用（[局限](limitations.md#neurovault)）。
 
 ## 从哪里开始 {#start}
 

@@ -1213,6 +1213,53 @@ def test_qa_gate_metadata_phrases_and_requests() -> None:
     assert pdf.pdf_text(_pdf(pages=2)) == ["", ""]
 
 
+def _says(text: str) -> bytes:
+    """A one-page PDF that shows ``text`` in a standard font (readable by the text extraction; the font
+    check fails it, which these tests leave aside)."""
+    return _pdf(fonts={"/F1": _simple("/Type1")}, content=f"BT /F1 12 Tf 72 720 Td ({text}) Tj ET".encode())
+
+
+def test_qa_gate_every_page_any_and_the_merge_of_parts() -> None:
+    """A-99: the dossier merges parts in two languages; every page holds the fixed sentence of its part's
+    language (every_page_any), and the merge copies the pages with exactly the five /Info keys, no outline,
+    no XMP and no /ID, byte-identical for the same parts."""
+    meta = PdfMeta(title="NeuroGrid dossier", as_of=AS_OF)
+    first, second = _says("Fixed one"), _says("Fixed two")
+    merged = pdf.merge_pdfs([first, second], meta, producer="NeuroGrid 9.9")
+    assert merged == pdf.merge_pdfs([first, second], meta, producer="NeuroGrid 9.9")
+    reader = pypdf.PdfReader(io.BytesIO(merged))
+    assert pdf.page_count(merged) == len(reader.pages) == 2
+    assert dict(reader.metadata or {}) == {
+        "/Title": "NeuroGrid dossier",
+        "/Creator": "NeuroGrid 9.9",
+        "/Producer": "NeuroGrid 9.9",
+        "/CreationDate": STAMP,
+        "/ModDate": STAMP,
+    }
+    assert "/ID" not in reader.trailer
+    assert set(reader.trailer["/Root"].get_object()) == {"/Type", "/Pages"}  # no /Outlines, no /Metadata
+    either = PdfExpect(meta=meta, fonts=FONTS, every_page_any=("Fixed one", "Fixed two"))
+    assert pdf.qa_gate(merged, either) == ["font_not_cid_truetype"]  # phrases and metadata pass
+    assert "phrase_missing_on_page" in pdf.qa_gate(
+        merged, PdfExpect(meta=meta, fonts=FONTS, every_page=("Fixed one",))
+    )
+    blank_between = pdf.merge_pdfs([first, _pdf(), second], meta, producer="NeuroGrid 9.9")
+    assert "phrase_missing_on_page" in pdf.qa_gate(blank_between, either)
+    assert "phrase_missing_on_page" not in pdf.qa_gate(merged, PdfExpect(meta=meta, fonts=FONTS))
+    for broken in ([b"not a pdf"], [first, b"%PDF-1.4\n"]):
+        with pytest.raises(PdfError) as info:
+            pdf.merge_pdfs(broken, meta, producer="NeuroGrid 9.9")
+        assert (info.value.message_key, info.value.params) == ("pdf.qa_failed", {"checks": "unreadable"})
+    with pytest.raises(PdfError):
+        pdf.page_count(b"not a pdf")
+    # how the product tells its own PDFs apart (report.identify, A-96): the /Info texts and the stamp form
+    assert pdf.document_info(merged)["/Title"] == "NeuroGrid dossier"
+    assert pdf.document_info(b"not a pdf") == {}
+    assert pdf.reference_date(STAMP) == AS_OF == pdf.reference_date(pdf.pdf_date(AS_OF))
+    for stamp in ("D:20261011183612+00'00'", "D:20261311000000+00'00'", "D:２０２６1011000000+00'00'", ""):
+        assert pdf.reference_date(stamp) is None, stamp
+
+
 def _shows(codes: str, font: str = "/F1") -> bytes:
     """A text object that shows the hex string ``codes`` in ``font``."""
     return f"BT {font} 12 Tf 72 720 Td <{codes}> Tj ET".encode()

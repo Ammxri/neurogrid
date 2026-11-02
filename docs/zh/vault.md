@@ -15,6 +15,7 @@ NeuroGrid 发生的访问，并使之后对日志的修改可见；它不能阻�
 | `neurogrid vault log [PATH] --action … --objects … --purpose …` | 手动记录一次访问。 |
 | `neurogrid vault log [PATH] --show` | 显示最新的条目、链头哈希值和哈希链状态。 |
 | `neurogrid vault verify [PATH] [--expect-head HASH]` | 校验哈希链（完整时退出码 0，有不一致时为 1）。 |
+| `neurogrid vault export [PATH] --report FILE --out FILE.zip` | 为检查写出检查包：一个包含五个组成部分和 `index.json` 的 ZIP（[检查包](#export)）。 |
 
 选项和退出码：[命令](commands.md#vault)。
 
@@ -53,6 +54,7 @@ vault 是 `neurogrid.toml` 中 `[vault] path` 指定的文件夹，相对于项�
 | `scan`、`manifest`、`verify` | 操作 `read`，不含角色、目的和批准编号 | 只用默认位置 `.neurogrid/vault` 的 vault |
 | `vault consent add` | 操作 `consent_manage`，对象 `.neurogrid/vault/consents.yaml` | 其 `neurogrid.toml` 的 vault |
 | `vault log` | 给定的操作 | 其 `neurogrid.toml` 的 vault |
+| `vault export` | 操作 `export`；对象：位于数据集内时的清单、`access.jsonl`、`roles.yaml` 和个人信息保护影响评估文件 | 其 `neurogrid.toml` 的 vault |
 
 每次运行的事件在其输出写入之后追加；它从不进入 `results.json`，因此对相同数据的两次 `check` 运行结果逐字节相同。
 角色、目的和批准编号取自 `[vault]`；`check --role` 和 `vault log` 的选项优先。没有角色的自动事件不记录角色，并有
@@ -147,6 +149,30 @@ print("head", previous)
 **记下链头。** 请将 `vault verify`、`vault log --show` 或报告（使用 `--config` 时）输出的链头哈希值记在 vault 之外，
 例如实验记录本或工单中，并在以后使用 `neurogrid vault verify --expect-head <hash>` 检查。当时记下的链头必须仍是
 完整哈希链的一部分，即使之后又追加了条目也是如此。只有这样才能发现末尾截断和整体重写。
+
+## 检查包 {#export}
+
+`neurogrid vault export` 为检查写出一个 ZIP（[命令](commands.md#vault-export)）。它按以下顺序恰好包含这些文件，
+别无其他：
+
+| 成员 | 内容 |
+|---|---|
+| `manifest.json` | 数据集的清单（或 `--manifest`）。在原始数据文件夹中且不使用 `--show-paths` 时，为一份以假名 ID 命名数据文件的副本（`rec-<sha8>.<ext>`，与 `verify` 的显示相同；NeuroGrid 自己在 `.neurogrid/` 中的文件以明文显示）；其 `manifest_hash` 保持原存储值，即报告显示的值，因此与副本不再一致。BIDS 数据集和 `--show-paths` 保持文件原样。 |
+| `access.jsonl` | 到导出事件为止（含该事件）的访问日志。 |
+| `roles.yaml` | 原样的角色登记册。 |
+| `pia/pia.zh.md`、`pia/pia.en.md` | 存在的个人信息保护影响评估文件（至少一份）。 |
+| `report/report.<lang>.html`、`report/report.<lang>.pdf`、`report/dossier.pdf` | 用 `--report` 给出的报告（1 至 5 份，每种一次）。 |
+| `index.json` | 其他每个成员及其 SHA-256 和大小、清单哈希值、导出日志的链头哈希值、条目数和哈希链状态、固定声明以及 NeuroGrid 版本（[输出文件](reference/outputs.md#export-zip)）。 |
+
+检查包中从不包含：知情同意记录 `consents.yaml`、风险登记册 `risks.yaml`、保存期限 `retention.yaml`、`results.json`
+以及任何数据文件——不含信号，也不含知情同意数据。只打包普通文件；vault 中的链接从不跟随（退出码 2），缺失的组成部分、
+不是普通文件或不是 NeuroGrid 报告的文件在写出任何内容之前即被拒绝。
+
+导出事件先于打包：所有内容先读取并检查，然后在 vault 锁下追加事件 `export`，日志打包到该事件为止（含该事件），因此
+`index.json` 中的链头哈希值就是该事件的哈希值。请在 vault 之外记下它；以后用 `neurogrid vault verify --expect-head <hash>`
+可以确认日志仍含有导出的条目。断裂的哈希链按原样导出并予以指明：`index.json` 记录其状态，控制台给出警告。事件之后
+若无法写出检查包，日志保留这次尝试，`--out` 不变。ZIP 中每个条目都有固定时间（1980-01-01）和普通文件的模式；在同一台
+计算机上，相同的文件和相同的时钟得到相同的归档。
 
 ## 局限 {#limits}
 

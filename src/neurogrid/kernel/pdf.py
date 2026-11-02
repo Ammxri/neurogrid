@@ -173,6 +173,7 @@ _SUBSET_FONT = re.compile(r"^/?[A-Z]{6}\+(.+)$")
 IDENTITY_ENCODINGS = frozenset({"/Identity-H", "/Identity-V"})
 INFO_KEYS = frozenset({"/Title", "/Creator", "/Producer", "/CreationDate", "/ModDate"})
 _DATE_FIELD = re.compile(rb"/(CreationDate|ModDate) ?\(D:\d{14}[+-]\d{2}'\d{2}'\)")
+_REFERENCE_STAMP = re.compile(r"D:([0-9]{4})([0-9]{2})([0-9]{2})000000\+00'00'")
 _HEAD_END = re.compile(r"</head\s*>", re.IGNORECASE)
 _WHITESPACE = re.compile(r"\s+")
 
@@ -198,12 +199,15 @@ class PdfMeta:
 @dataclass(frozen=True)
 class PdfExpect:
     """What the QA gate requires: the metadata, the fonts (PostScript names of the faces whose subsets the
-    PDF may embed, passed in by the product), phrases on every page and phrases somewhere in the text."""
+    PDF may embed, passed in by the product), phrases on every page, phrases somewhere in the text and
+    phrases of which every page holds at least one (``every_page_any``: a PDF made of parts in several
+    languages, such as the dossier, whose pages carry the fixed sentence of their part's language, A-99)."""
 
     meta: PdfMeta
     fonts: tuple[str, ...]
     every_page: tuple[str, ...] = ()
     once: tuple[str, ...] = ()
+    every_page_any: tuple[str, ...] = ()
 
 
 @dataclass
@@ -1049,8 +1053,9 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
 
     Fonts: only embedded Type0/CIDFontType2 subsets (Identity encoding) of ``expect.fonts`` with ToUnicode,
     no Type3, no system font, no glyph 0 shown (a missing glyph drawn as an empty box, _MissingGlyphs).
-    Text: no radical or compatibility code point; ``every_page`` phrases on each page, ``once`` phrases
-    somewhere (whitespace ignored, cells wrap). Metadata: exactly the five /Info keys, the title and the
+    Text: no radical or compatibility code point; ``every_page`` phrases on each page, at least one of the
+    ``every_page_any`` phrases on each page (both phrase_missing_on_page), ``once`` phrases somewhere
+    (whitespace ignored, cells wrap). Metadata: exactly the five /Info keys, the title and the
     reference date, no XMP. Requests: none but the printed file, none aborted or failed."""
     data = pdf.read_bytes() if isinstance(pdf, Path) else pdf
     missing_glyph = False
@@ -1082,6 +1087,10 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
     for phrase in expect.every_page:
         if any(_squeeze(phrase) not in text for text in squeezed):
             violations.add("phrase_missing_on_page")
+    if expect.every_page_any:
+        alternatives = [_squeeze(phrase) for phrase in expect.every_page_any]
+        if any(not any(phrase in text for phrase in alternatives) for text in squeezed):
+            violations.add("phrase_missing_on_page")
     whole = "".join(squeezed)
     if any(_squeeze(phrase) not in whole for phrase in expect.once):
         violations.add("phrase_missing")
@@ -1103,6 +1112,68 @@ def qa_gate(pdf: Path | bytes, expect: PdfExpect, *, log: RequestLog | None = No
         if log.failed:
             violations.add("requests_failed")
     return sorted(violations)
+
+
+def merge_pdfs(parts: Sequence[bytes], meta: PdfMeta, *, producer: str) -> bytes:
+    """One PDF of the pages of ``parts`` in their order (the dossier, A-99), with pypdf: the pages are copied
+    one by one (``add_page``; ``append`` would add an empty outline), no XMP, no outline, no /ID; /Info holds
+    exactly Title (``meta.title``), Creator and Producer (``producer``, the product names itself; the kernel
+    names no product, A-23) and CreationDate and ModDate = the reference date in the form of set_dates.
+    Deterministic (measured with pypdf 6.21.2 on the zh and en reports of a fixture, 18 + 20 pages printed by
+    revision 1243: the merged 38 pages are byte-identical in one process and across processes with other hash
+    seeds; pypdf writes no /ID unless one is set). An unreadable part is pdf.qa_failed (unreadable); the
+    caller runs the QA gate on the result."""
+    stamp = pdf_date(meta.as_of)
+    writer = pypdf.PdfWriter()
+    try:
+        for data in parts:
+            for page in pypdf.PdfReader(io.BytesIO(data)).pages:
+                writer.add_page(page)
+        writer.add_metadata(
+            {
+                "/Title": meta.title,
+                "/Creator": producer,
+                "/Producer": producer,
+                "/CreationDate": stamp,
+                "/ModDate": stamp,
+            }
+        )
+        buffer = io.BytesIO()
+        writer.write(buffer)
+    except (PyPdfError, ValueError, KeyError, TypeError):
+        raise PdfError("pdf.qa_failed", checks="unreadable") from None
+    return buffer.getvalue()
+
+
+def document_info(data: bytes) -> dict[str, str]:
+    """The /Info entries of a PDF as text ({} when the PDF cannot be read or has none): the product tells
+    its own PDFs apart by them (report.identify, A-96)."""
+    try:
+        info = pypdf.PdfReader(io.BytesIO(data)).metadata
+    except (PyPdfError, ValueError, KeyError, TypeError):
+        return {}
+    if info is None:
+        return {}
+    return {str(key): str(value) for key, value in info.items() if isinstance(value, str)}
+
+
+def reference_date(stamp: str) -> date | None:
+    """The reference date of a date field as pdf_date writes it (D:YYYYMMDD000000+00'00'), else None."""
+    match = _REFERENCE_STAMP.fullmatch(stamp)
+    if match is None:
+        return None
+    try:
+        return date(int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    except ValueError:
+        return None
+
+
+def page_count(data: bytes) -> int:
+    """The number of pages of a PDF (pdf.qa_failed unreadable for bytes pypdf cannot read)."""
+    try:
+        return len(pypdf.PdfReader(io.BytesIO(data)).pages)
+    except (PyPdfError, ValueError, KeyError, TypeError):
+        raise PdfError("pdf.qa_failed", checks="unreadable") from None
 
 
 def print_pdf(

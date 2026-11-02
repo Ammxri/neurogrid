@@ -21,6 +21,7 @@ from neurogrid.kernel.rules import Rulepack
 from neurogrid.model.access import AccessEvent
 from neurogrid.model.consent import ConsentFile
 from neurogrid.model.diff import DiffResult
+from neurogrid.model.export import ExportIndex
 from neurogrid.model.results import Results, ScanResult
 from neurogrid.model.retention import RetentionRegister
 from neurogrid.model.risks import RiskRegister
@@ -41,6 +42,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "retention": RetentionRegister,  # the retention periods <vault>/retention.yaml (NV-F05, A-94)
     "risks": RiskRegister,  # the risk register <vault>/risks.yaml (NV-F06, A-95)
     "diff": DiffResult,  # the JSON of `neurogrid diff` (NG-F15, CLI-07, A-97)
+    "export_index": ExportIndex,  # index.json of the export package of vault export (NV-F07, A-96)
 }
 
 
