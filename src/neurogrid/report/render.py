@@ -1187,7 +1187,8 @@ def build_context(
     see_also = _see_also(results)
     severity_sections, placeholder_groups, placeholder_count = _findings(results, fmt, titles, see_also)
     failed = tables.failed_index(results)
-    consent = tables.consent_rules(results)
+    # exceptions of M14 rules, loaded or built-in, only as their number (D-17 option B, A-81)
+    consent = tables.consent_exception_rules(results)
     passed_total, passed_note = _passed_total(results, fmt)
     css = Markup(font_css) + Markup(_static_css()) + Markup(page_css(lang, results.config.as_of.isoformat()))
     cover_rows = _cover_rows(results, fmt)
@@ -1227,7 +1228,6 @@ def build_context(
         "counted_statuses": [status.value for status in tables.COUNTED],
         "configuration_rows": _configuration_rows(results, fmt),
         "environment_rows": _environment_rows(results, fmt),
-        "consent_rules": consent,
         "exception_rows": _exception_rows(results, consent),
         "settings_json": json.dumps(
             _shown_settings(results, fmt, consent),

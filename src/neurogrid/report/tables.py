@@ -119,6 +119,19 @@ def consent_rules(results: Results) -> frozenset[str]:
     return frozenset(rule.id for rule in results.rules if rule.check == CONSENT_CHECK)
 
 
+# The rules on the M14 check in the built-in packs (tests/integration/test_consent_pipeline.py compares them
+# with the packs): an exception for one of them names a subject also when no loaded pack has the rule.
+BUILTIN_CONSENT_RULES = frozenset({"CORE-M14-01"})
+
+
+def consent_exception_rules(results: Results) -> frozenset[str]:
+    """The rules whose exceptions the report shows only as their number, never with object, use or reason
+    (D-17 option B, A-81): the loaded rules on the M14 check and the built-in M14 rules, loaded or not. An
+    [[exceptions]] entry for CORE-M14-01 names a subject and gives the user's reason for it also in a run with
+    the BIDS pack alone, where it has no effect."""
+    return consent_rules(results) | BUILTIN_CONSENT_RULES
+
+
 def _use_order(use: str) -> tuple[int, str]:
     return (CONSENT_USES.index(use) if use in CONSENT_USES else len(CONSENT_USES), use)
 

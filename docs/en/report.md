@@ -59,7 +59,8 @@ decisions: the line under the rule heading names only the number of subjects tha
 in the appendix only the total of the rule's results, the passed checks of the summary leave them out, and the
 severity heading counts only the results that are not passed. The error counts and lights of the summary and the
 exit code include them as for every rule. The results per subject are in `results.json`. Exceptions for this rule
-appear in the appendix only as their number, without subject, use or justification.
+appear in the appendix only as their number, without subject, use or justification, also in a run in which no
+loaded rule pack has the rule (for example with the BIDS pack alone).
 
 ## 4 Metrics per recording {#metrics}
 

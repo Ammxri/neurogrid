@@ -708,6 +708,76 @@ def test_exceptions_of_m14_rules_are_counted_only(tmp_path: Path) -> None:
         assert '"subkey": "validation"' not in html_lib.unescape(appendix)
 
 
+def _exception_without_m14(tmp_path: Path) -> Results:
+    """bids_ai_ok checked with the BIDS pack only and an exception for CORE-M14-01 that names a subject and
+    gives a reason with a personal name (the rule is not loaded, so the exception has no effect)."""
+    folder = _copy(tmp_path)
+    (folder / ".neurogrid").mkdir(exist_ok=True)
+    (folder / ".neurogrid" / "neurogrid.toml").write_text(
+        '[check]\nrulepacks = ["bids"]\n'
+        + EXCEPTION.format(object="sub-02", use="training", reason="re-consent asked for sub-02 ZhangSan"),
+        encoding="utf-8",
+    )
+    results = _check(folder, tmp_path)
+    assert "CORE-M14-01" not in {rule.id for rule in results.rules}
+    assert results.exceptions[0].entry.object == "sub-02"  # results.json keeps the exception
+    return results
+
+
+def test_exceptions_of_an_unloaded_m14_rule_are_withheld(tmp_path: Path) -> None:
+    """P6 review (D-17 option B): an exception for a built-in M14 rule is withheld in 6.3 and 6.5 also when
+    no loaded pack has the rule; the rules on consent.covered of a loaded pack count as well
+    (tables.consent_exception_rules)."""
+    results = _exception_without_m14(tmp_path)
+    assert tables.BUILTIN_CONSENT_RULES == {"CORE-M14-01"}
+    for lang in ("zh", "en"):
+        tr = translator(lang).t
+        appendix = section(render_report(results, lang), "appendix")
+        text = visible_text(appendix)
+        assert "ZhangSan" not in text and "re-consent" not in text and "sub-02" not in text
+        listed = appendix[appendix.index("<h3>6.3 ") : appendix.index("<h3>6.4 ")]
+        assert tr("report.consent.exceptions_total", count=1) in visible_text(listed)
+        assert "training" not in visible_text(listed)
+        assert tr("report.consent.exception_withheld") in text  # 6.5: object, use and reason
+    lab = results.model_copy(
+        update={"rules": [*results.rules, results.rules[0].model_copy(update={"id": "LAB-ACC-001"})]}
+    )
+    assert "LAB-ACC-001" not in tables.consent_exception_rules(lab)  # not on the consent check
+    on_check = results.rules[0].model_copy(update={"id": "LAB-ACC-001", "check": "consent.covered"})
+    assert "LAB-ACC-001" in tables.consent_exception_rules(results.model_copy(update={"rules": [on_check]}))
+
+
+@pytest.mark.pdf
+def test_exceptions_of_an_unloaded_m14_rule_never_reach_the_pdf(tmp_path: Path) -> None:
+    results = _exception_without_m14(tmp_path)
+    for path in write_reports(results, ["zh", "en"], ["pdf"], tmp_path / "reports", environ=os.environ):
+        tr = translator(path.name.split(".")[1]).t
+        text = re.sub(r"\s+", "", _texts(path.read_bytes()))
+        assert "ZhangSan" not in text and "re-consent" not in text
+        appendix = text.split("6.3" + re.sub(r"\s+", "", tr("report.label.exceptions")), 1)[1]
+        assert "sub-02" not in appendix  # BIDS findings name the subject, the exception does not
+        assert re.sub(r"\s+", "", tr("report.consent.exceptions_total", count=1)) in appendix
+
+
+def test_the_built_in_consent_rules_are_known() -> None:
+    """tables.BUILTIN_CONSENT_RULES names every rule on consent.covered of the built-in packs."""
+    from importlib import resources
+
+    names = sorted(
+        entry.name.removesuffix(".yaml")
+        for entry in resources.files("neurogrid.rulepacks").iterdir()
+        if entry.name.endswith(".yaml")
+    )
+    assert "core" in names
+    found = {
+        rule.id
+        for name in names
+        for rule in pipeline.load_rulepack_ref(name).pack.rules
+        if rule.check == tables.CONSENT_CHECK
+    }
+    assert found == tables.BUILTIN_CONSENT_RULES
+
+
 @pytest.mark.pdf
 def test_the_withheld_m14_counts_in_the_pdf(tmp_path: Path) -> None:
     """The same in the printed report: the sums per use and the total, never the one withdrawn subject."""
