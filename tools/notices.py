@@ -273,7 +273,8 @@ def load_lock(path: Path = LOCK) -> tuple[dict[tuple[str, str], Locked], Mapping
             continue
         wheels = tuple(
             LockedWheel(
-                filename=PurePosixPath(w["url"]).name,
+                # an index may quote the file name in its URL (torch-2.15.0%2Bcpu-..., research lock)
+                filename=urllib.parse.unquote(PurePosixPath(w["url"]).name),
                 url=w["url"],
                 sha256=w["hash"].removeprefix("sha256:"),
                 size=int(w.get("size", 0)),
@@ -382,14 +383,22 @@ def find_wheel(wheel: LockedWheel, folders: Sequence[Path]) -> Path | None:
     return find_file(wheel.filename, wheel.sha256, folders)
 
 
-def download_file(url: str, filename: str, sha256: str, size: int, cache: Path) -> Path:
+def download_file(
+    url: str,
+    filename: str,
+    sha256: str,
+    size: int,
+    cache: Path,
+    prefixes: tuple[str, ...] = DOWNLOAD_PREFIXES,
+) -> Path:
     """Fetch one pinned file (PyPI or python-build-standalone, D-06) into the cache; size and SHA-256 are
-    checked, a mismatch leaves nothing behind."""
+    checked, a mismatch leaves nothing behind. ``prefixes``: the URLs a caller may download from (the
+    research gate adds the PyTorch CPU index, D-06, A-36)."""
     cache.mkdir(parents=True, exist_ok=True)
     target = cache / filename
     if target.is_file() and _sha256(target) == sha256:
         return target
-    if not url.startswith(DOWNLOAD_PREFIXES):
+    if not url.startswith(prefixes):
         raise NoticeError(f"{filename}: only pinned PyPI and python-build-standalone URLs are downloaded")
     partial = target.with_name(target.name + ".part")
     digest = hashlib.sha256()
@@ -404,8 +413,8 @@ def download_file(url: str, filename: str, sha256: str, size: int, cache: Path) 
     return target
 
 
-def download(wheel: LockedWheel, cache: Path) -> Path:
-    return download_file(wheel.url, wheel.filename, wheel.sha256, wheel.size, cache)
+def download(wheel: LockedWheel, cache: Path, prefixes: tuple[str, ...] = DOWNLOAD_PREFIXES) -> Path:
+    return download_file(wheel.url, wheel.filename, wheel.sha256, wheel.size, cache, prefixes)
 
 
 # --- reading a wheel ----------------------------------------------------------------------------------------
@@ -1491,6 +1500,7 @@ def check_components(
     bundle: Sequence[BundleInfo] = (),
     third_party: Path = THIRD_PARTY,
     exceptions: Sequence[BundledException] | None = None,
+    accepted: Iterable[str] = (),
 ) -> list[str]:
     """Every native file and every non-Python component of the locked wheels is covered by a reviewed entry;
     its licence is on the native allowlist (D-08) or the entry is listed in known_missing.toml (text or
@@ -1499,9 +1509,10 @@ def check_components(
     validator bundle have their reviewed licence texts (check_validator_texts, with the version-bound
     exceptions of components.toml unless others are given), so have the libraries python-build-standalone
     builds in (check_library_review, D-17); every folder of ``third_party`` holds exactly the texts its
-    manifest lists (check_kept_texts)."""
+    manifest lists (check_kept_texts). ``accepted``: "<dist>:<pattern>" of entries whose licence a caller's
+    version-bound exception accepts after checking the locked version (the research gate, A-108)."""
     problems: list[str] = []
-    pending = {item["component"] for item in known_missing}
+    pending = {item["component"] for item in known_missing} | set(accepted)
     if exceptions is None:
         exceptions = load_bundled_exceptions()
     checked: set[tuple[str, str]] = set()
@@ -1540,7 +1551,7 @@ def check_components(
                 if (component.spdx == "NOASSERTION" or not ids <= allowed) and key not in pending:
                     problems.append(
                         f"{wheel.target}: {wheel.name}: licence {component.spdx} of {component.pattern} is "
-                        "not on the native allowlist and not in known_missing.toml"
+                        "not on the native allowlist and not in known_missing.toml or an accepted exception"
                     )
     for part in bundle:
         if bundle_component(components, part.name, part.version) is None:

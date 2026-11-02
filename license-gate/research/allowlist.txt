@@ -1,0 +1,29 @@
+# Allowlist of the research gate (research/neuroarena, A-36, A-108 after F10 B). Exact strings as printed by
+# pip-licenses 5.5 --from=mixed for the runtime and dev groups of research/neuroarena/uv.lock; pip-licenses
+# compares exactly (case-insensitive), never with --partial-match. Its own list: permissive licences plus
+# MPL-2.0 for unmodified dependencies (D-05); anything else passes only as a version-bound entry of
+# license-gate/research/exceptions.toml. Generated from the gate environments on 2026-11-02 and reviewed.
+#
+# Permissive licences
+Apache 2.0
+Apache Software License
+Apache-2.0
+Apache-2.0 AND MIT
+Apache-2.0 OR BSD-2-Clause
+BSD (3-clause)
+BSD License
+BSD-2-Clause
+BSD-3-Clause
+BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
+ISC License (ISCL)
+MIT
+MIT License
+MIT-0
+MIT-CMU
+PSF-2.0
+Python Software Foundation License
+# torch 2.15.0 (CPU build): PyTorch and the third-party code built into it, all permissive
+Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib
+# MPL-2.0 for unmodified dependencies (D-05): certifi (via requests), tqdm (via mne and moabb)
+Mozilla Public License 2.0 (MPL 2.0)
+MPL-2.0 AND MIT

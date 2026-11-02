@@ -1,0 +1,586 @@
+# Reviewed components of the research project that are not plain Python code (research/neuroarena; D-08,
+# A-108 after F10 B). Read by tools/licenses.py --target research --components with the reader of
+# tools/notices.py: every native file of the locked runtime wheels of both research targets (CPython 3.12 on
+# win_amd64 and on the ubuntu-24.04 runner of research.yml, manylinux up to 2_39) needs an entry; an entry that
+# matches nothing in a locked wheel fails the check (stale review).
+# Same fields as license-gate/components.toml: dist, pattern (glob inside the wheel), platform (win_amd64 |
+# linux_x86_64 | any), spdx, kind (native | bundled), notice (glob of the licence text inside the same wheel,
+# a text kept in this repository, or "" if there is none), note.
+# The research part ships no binaries (F8 A: code, lock, notebook, report, figures, CSV), so a missing text in
+# a wheel is noted, not a failure. A licence outside native_allowed (LGPL among them) passes only as a
+# version-bound entry of license-gate/research/exceptions.toml.
+# Measured 2026-11-02 from the wheels of research/neuroarena/uv.lock (zipfile, nothing installed); licences are
+# those the wheel itself states (licence files, SBOM, version strings in the binaries).
+
+# The native allowlist of the package gate (D-08) without LGPL-2.1-or-later (LGPL only version-bound, F10 B)
+# and without CC-BY-4.0 (no such part here), plus permissive licences of torch's own expression
+# (Apache-2.0 WITH LLVM-exception, BSL-1.0, ISC) and MPL-2.0 for an unmodified library (D-05, libzmq).
+native_allowed = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSD-3-Clause-Open-MPI",
+    "BSL-1.0",
+    "FTL",
+    "GPL-3.0-or-later WITH GCC-exception-3.1",  # GCC runtime libraries only, never plain GPL (D-08)
+    "IJG",
+    "ISC",
+    "LicenseRef-HDF5",
+    "LicenseRef-Microsoft-VC-Redist",
+    "MIT",
+    "MPL-2.0",
+    "X11",
+    "Zlib",
+    "libpng-2.0",
+    "libtiff",
+]
+
+# --- torch 2.15.0 (CPU build of the PyTorch index, A-36) ----------------------------------------------------
+# The wheel's License-Expression covers PyTorch and the third-party code built into its libraries (sleef,
+# fmt, protobuf, oneDNN, XNNPACK, pthreadpool, cpuinfo, kineto, miniz, pocketfft and others; the texts are in
+# torch-*.dist-info/licenses/third_party/).
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/torch*.dll"
+platform = "win_amd64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "torch.dll, torch_cpu.dll, torch_global_deps.dll and torch_python.dll: PyTorch's own libraries with the third-party code built in."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/c10.dll"
+platform = "win_amd64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "c10, PyTorch's core library."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/shm.dll"
+platform = "win_amd64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "PyTorch's shared-memory library."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/uv.dll"
+platform = "win_amd64"
+spdx = "MIT AND BSD-2-Clause AND ISC"
+kind = "native"
+notice = "torch-*.dist-info/licenses/third_party/tensorpipe/third_party/libuv/LICENSE*"
+note = "libuv 1.40.0 (version string in the DLL): MIT, with tree.h (BSD-2-Clause) and inet_pton/inet_ntop (ISC) as its LICENSE-extra states."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libiomp*.dll"
+platform = "win_amd64"
+spdx = "NOASSERTION"
+kind = "native"
+notice = ""
+note = "libiomp5md.dll and libiompstubs5md.dll: Intel OpenMP runtime 5.0.20260828 (Intel oneAPI build, 'All Rights Reserved' in the DLLs); no licence text in the wheel. Pending exception in license-gate/research/exceptions.toml (owner's decision)."
+
+[[component]]
+dist = "torch"
+pattern = "torch/bin/protoc.exe"
+platform = "win_amd64"
+spdx = "BSD-3-Clause"
+kind = "native"
+notice = "torch-*.dist-info/licenses/third_party/protobuf/LICENSE"
+note = "protoc, the compiler of Protocol Buffers (Google), built with torch."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libtorch*.so"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "libtorch, libtorch_cpu, libtorch_global_deps, libtorch_python and the test library libtorchbind_test: PyTorch's own libraries with the third-party code built in."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libc10.so"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "c10, PyTorch's core library."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libshm.so"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "PyTorch's shared-memory library."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/lib*_test.so"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "libjitbackend_test and libtorchbind_test: PyTorch's own test libraries."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libaoti_custom_ops.so"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "PyTorch's own test library for AOTInductor custom operators."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libbackend_with_compiler.so"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "PyTorch's own test library for JIT backends."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libgomp.so.1"
+platform = "linux_x86_64"
+spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
+kind = "native"
+notice = ""
+note = "GNU OpenMP runtime of GCC (sources libgomp/*.c named in the library); allowed by D-08 as a GCC runtime library. The torch wheel carries no text for it; the GCC Runtime Library Exception is quoted in the COPYING of the scikit-learn wheel of the same lock."
+
+[[component]]
+dist = "torch"
+pattern = "torch/lib/libgfortran.so.5"
+platform = "linux_x86_64"
+spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
+kind = "native"
+notice = ""
+note = "GNU Fortran runtime of GCC; allowed by D-08 as a GCC runtime library. It links libquadmath.so.0 by name, which the torch wheel does not carry. No text in the torch wheel (see libgomp)."
+
+[[component]]
+dist = "torch"
+pattern = "torch/bin/protoc*"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause"
+kind = "native"
+notice = "torch-*.dist-info/licenses/third_party/protobuf/LICENSE"
+note = "protoc and protoc-3.21.12.0, the compiler of Protocol Buffers (Google), built with torch."
+
+[[component]]
+dist = "torch"
+pattern = "torch/bin/*Test"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "FileStoreTest, HashStoreTest and TCPStoreTest: PyTorch's own C++ test programs."
+
+[[component]]
+dist = "torch"
+pattern = "torch/bin/test_*"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "PyTorch's own C++ test programs (test_api, test_jit and others)."
+
+[[component]]
+dist = "torch"
+pattern = "torch/bin/torch_shm_manager"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "PyTorch's shared-memory manager program."
+
+[[component]]
+dist = "torch"
+pattern = "torch/test/*"
+platform = "linux_x86_64"
+spdx = "Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib"
+kind = "native"
+notice = "torch-*.dist-info/licenses/LICENSE"
+note = "129 C++ test programs of PyTorch and kineto (built with torch)."
+
+# --- torchaudio 2.11.1 (braindecode) ------------------------------------------------------------------------
+
+[[component]]
+dist = "torchaudio"
+pattern = "torchaudio/lib/*.so"
+platform = "linux_x86_64"
+spdx = "BSD-2-Clause"
+kind = "native"
+notice = "torchaudio-*.dist-info/licenses/LICENSE"
+note = "_torchaudio.so, libtorchaudio.so and torchaudio_prefixctc.so: torchaudio's own libraries (no extension-module suffix). The Windows wheel has .pyd modules only."
+
+# --- debugpy 1.8.22 (ipykernel 7.4.0, nbclient) -------------------------------------------------------------
+
+[[component]]
+dist = "debugpy"
+pattern = "debugpy/_vendored/pydevd/*"
+platform = "any"
+spdx = "EPL-1.0"
+kind = "bundled"
+notice = "debugpy/ThirdPartyNotices.txt"
+note = "PyDev.Debugger vendored by debugpy, Python code and native attach helpers (EPL-1.0 per debugpy/ThirdPartyNotices.txt). Pending exception in license-gate/research/exceptions.toml (owner's decision)."
+
+# --- soundfile 0.14.0 (wfdb, braindecode) -------------------------------------------------------------------
+
+[[component]]
+dist = "soundfile"
+pattern = "_soundfile_data/libsndfile_x64.dll"
+platform = "win_amd64"
+spdx = "LGPL-2.1-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only AND BSD-3-Clause"
+kind = "native"
+notice = "_soundfile_data/COPYING"
+note = "libsndfile 1.2.2 with LAME, mpg123, FLAC, Ogg, Opus and Vorbis built in (licensing/license_notes.md of the wheel). Accepted exception in license-gate/research/exceptions.toml (F10 B)."
+
+[[component]]
+dist = "soundfile"
+pattern = "_soundfile_data/libsndfile_x86_64.so"
+platform = "linux_x86_64"
+spdx = "LGPL-2.1-or-later AND LGPL-2.0-or-later AND LGPL-2.1-only AND BSD-3-Clause"
+kind = "native"
+notice = "_soundfile_data/COPYING"
+note = "libsndfile 1.2.2 with LAME, mpg123, FLAC, Ogg, Opus and Vorbis built in (licensing/license_notes.md of the wheel). Accepted exception in license-gate/research/exceptions.toml (F10 B)."
+
+# --- h5py 3.16.0 (moabb, braindecode; the version of the package gate) ----------------------------------------
+
+[[component]]
+dist = "h5py"
+pattern = "h5py/hdf5*.dll"
+platform = "win_amd64"
+spdx = "LicenseRef-HDF5"
+kind = "native"
+notice = "h5py-*.dist-info/licenses/licenses/hdf5.txt"
+note = "HDF5 libraries hdf5 and hdf5_hl."
+
+[[component]]
+dist = "h5py"
+pattern = "h5py/z.dll"
+platform = "win_amd64"
+spdx = "Zlib"
+kind = "native"
+notice = ""
+note = "zlib 1.3.2 (version string in the DLL, as reviewed for the package gate); the wheel has no zlib text."
+
+[[component]]
+dist = "h5py"
+pattern = "h5py.libs/libhdf5*.so*"
+platform = "linux_x86_64"
+spdx = "LicenseRef-HDF5"
+kind = "native"
+notice = "h5py-*.dist-info/licenses/licenses/hdf5.txt"
+note = "HDF5 libraries hdf5 and hdf5_hl."
+
+[[component]]
+dist = "h5py"
+pattern = "h5py.libs/libaec-*.so*"
+platform = "linux_x86_64"
+spdx = "BSD-2-Clause"
+kind = "native"
+notice = "license-gate/third_party/h5py-3.16.0/libaec@1.1.4/LICENSE"
+note = "libaec 1.1.4; text as kept for the package gate (D-17)."
+
+[[component]]
+dist = "h5py"
+pattern = "h5py.libs/libsz-*.so*"
+platform = "linux_x86_64"
+spdx = "BSD-2-Clause"
+kind = "native"
+notice = "license-gate/third_party/h5py-3.16.0/libaec@1.1.4/LICENSE"
+note = "libsz of libaec 1.1.4, same text (D-17)."
+
+# --- numpy 2.5.4, scipy 1.18.1, scikit-learn 1.9.1, pandas 3.1.0 ---------------------------------------------
+
+[[component]]
+dist = "numpy"
+pattern = "numpy.libs/libscipy_openblas64_-*.dll"
+platform = "win_amd64"
+spdx = "BSD-3-Clause AND BSD-3-Clause-Open-MPI AND GPL-3.0-or-later WITH GCC-exception-3.1"
+kind = "native"
+notice = "numpy-*.dist-info/licenses/LICENSE.txt"
+note = "Blocks 'OpenBLAS', 'LAPACK' and 'GCC runtime library' (statically linked) of the wheel's LICENSE.txt."
+
+[[component]]
+dist = "numpy"
+pattern = "numpy.libs/msvcp140-*.dll"
+platform = "win_amd64"
+spdx = "LicenseRef-Microsoft-VC-Redist"
+kind = "native"
+notice = ""
+note = "Microsoft C++ runtime, reviewed as in the package gate (redistribution terms quoted in scikit-learn's COPYING)."
+
+[[component]]
+dist = "numpy"
+pattern = "numpy.libs/libscipy_openblas64_-*.so"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause AND BSD-3-Clause-Open-MPI"
+kind = "native"
+notice = "numpy-*.dist-info/licenses/LICENSE.txt"
+note = "Blocks 'OpenBLAS' and 'LAPACK' of the wheel's LICENSE.txt."
+
+[[component]]
+dist = "numpy"
+pattern = "numpy.libs/libgfortran-*.so*"
+platform = "linux_x86_64"
+spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
+kind = "native"
+notice = "numpy-*.dist-info/licenses/LICENSE.txt"
+note = "Block 'GCC runtime library' (dynamically linked); allowed with notice by D-08."
+
+[[component]]
+dist = "numpy"
+pattern = "numpy.libs/libquadmath-*.so*"
+platform = "linux_x86_64"
+spdx = "LGPL-2.1-or-later"
+kind = "native"
+notice = "numpy-*.dist-info/licenses/LICENSE.txt"
+note = "Block 'libquadmath' (dynamically linked). Accepted exception in license-gate/research/exceptions.toml (D-08, F10 B)."
+
+[[component]]
+dist = "scipy"
+pattern = "scipy.libs/libscipy_openblas-*.dll"
+platform = "win_amd64"
+spdx = "BSD-3-Clause AND BSD-3-Clause-Open-MPI AND GPL-3.0-or-later WITH GCC-exception-3.1"
+kind = "native"
+notice = "scipy-*.dist-info/LICENSE.txt"
+note = "Blocks 'OpenBLAS', 'LAPACK' and 'GCC runtime library' (statically linked) of the wheel's LICENSE.txt."
+
+[[component]]
+dist = "scipy"
+pattern = "scipy.libs/libscipy_openblas-*.so"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause AND BSD-3-Clause-Open-MPI"
+kind = "native"
+notice = "scipy-*.dist-info/LICENSE.txt"
+note = "Blocks 'OpenBLAS' and 'LAPACK' of the wheel's LICENSE.txt."
+
+[[component]]
+dist = "scipy"
+pattern = "scipy.libs/libgfortran-*.so*"
+platform = "linux_x86_64"
+spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
+kind = "native"
+notice = "scipy-*.dist-info/LICENSE.txt"
+note = "Block 'GCC runtime library' (dynamically linked); the wheel carries two builds of the library."
+
+[[component]]
+dist = "scipy"
+pattern = "scipy.libs/libquadmath-*.so*"
+platform = "linux_x86_64"
+spdx = "LGPL-2.1-or-later"
+kind = "native"
+notice = "scipy-*.dist-info/LICENSE.txt"
+note = "Block 'libquadmath' (dynamically linked), two builds. Accepted exception in license-gate/research/exceptions.toml (D-08, F10 B)."
+
+[[component]]
+dist = "scikit-learn"
+pattern = "sklearn/.libs/*.dll"
+platform = "win_amd64"
+spdx = "LicenseRef-Microsoft-VC-Redist"
+kind = "native"
+notice = "scikit_learn-*.dist-info/licenses/COPYING"
+note = "msvcp140.dll and vcomp140.dll, block 'Microsoft Visual C++ Runtime Files' of the wheel's COPYING."
+
+[[component]]
+dist = "scikit-learn"
+pattern = "scikit_learn.libs/libgomp-*.so*"
+platform = "linux_x86_64"
+spdx = "GPL-3.0-or-later WITH GCC-exception-3.1"
+kind = "native"
+notice = "scikit_learn-*.dist-info/licenses/COPYING"
+note = "Block 'GCC runtime library' (libgomp) of the wheel's COPYING, which quotes the GCC Runtime Library Exception 3.1."
+
+[[component]]
+dist = "pandas"
+pattern = "pandas.libs/msvcp140-*.dll"
+platform = "win_amd64"
+spdx = "LicenseRef-Microsoft-VC-Redist"
+kind = "native"
+notice = ""
+note = "Microsoft C++ runtime (signed by Microsoft); pandas' licence files have no block for it. Redistributable under the terms quoted in scikit-learn's COPYING (block 'Microsoft Visual C++ Runtime Files'), as for numpy in the package gate."
+
+# --- pyzmq 27.2.0 (ipykernel, jupyter-client) ---------------------------------------------------------------
+# The Windows wheel links libzmq and libsodium into its extension module.
+
+[[component]]
+dist = "pyzmq"
+pattern = "pyzmq.libs/libzmq-*.so*"
+platform = "linux_x86_64"
+spdx = "MPL-2.0"
+kind = "native"
+notice = "pyzmq-*.dist-info/licenses/licenses/LICENSE.zeromq.txt"
+note = "libzmq (ZeroMQ), MPL-2.0 per the wheel's LICENSE.zeromq.txt; used unmodified (D-05)."
+
+[[component]]
+dist = "pyzmq"
+pattern = "pyzmq.libs/libsodium-*.so*"
+platform = "linux_x86_64"
+spdx = "ISC"
+kind = "native"
+notice = "pyzmq-*.dist-info/licenses/licenses/LICENSE.libsodium.txt"
+note = "libsodium 1.0.22 (version string in the library), ISC per the wheel's LICENSE.libsodium.txt."
+
+# --- setuptools 84.2.1 (torch) ------------------------------------------------------------------------------
+
+[[component]]
+dist = "setuptools"
+pattern = "setuptools/*.exe"
+platform = "any"
+spdx = "MIT"
+kind = "native"
+notice = "setuptools-*.dist-info/licenses/LICENSE"
+note = "cli*.exe and gui*.exe: setuptools' own Windows launchers (the same pure-Python wheel on both targets)."
+
+# --- Pillow 13.0.0 (matplotlib): libraries of the Linux wheel, licences from its SBOM ------------------------
+# The Windows wheel links them statically into its extension modules. As in the package gate: the SBOM also
+# names libimagequant (GPL-3.0-or-later) and FriBiDi (LGPL-2.1-or-later) as optional; no libimagequant symbol
+# is in either wheel (measured: no 'liq_image_quantize'), and FriBiDi is only looked up on the system at run
+# time by _imagingft (fribidi-shim), not carried.
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libavif-*.so*"
+platform = "linux_x86_64"
+spdx = "BSD-2-Clause"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "libavif 1.4.2 (SBOM pillow-13.0.0.cdx.json); section LIBAVIF of the wheel's LICENSE."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libbrotli*.so*"
+platform = "linux_x86_64"
+spdx = "MIT"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "Brotli 1.2.0 (file names); section BROTLI."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libfreetype-*.so*"
+platform = "linux_x86_64"
+spdx = "FTL"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "FreeType 2.14.3 (SBOM); section FREETYPE2."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libharfbuzz-*.so*"
+platform = "linux_x86_64"
+spdx = "MIT"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "HarfBuzz 14.5.0 (SBOM); section HARFBUZZ."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libjpeg-*.so*"
+platform = "linux_x86_64"
+spdx = "IJG AND BSD-3-Clause"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "libjpeg-turbo 3.2.0 (SBOM); section LIBJPEG."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/liblcms2-*.so*"
+platform = "linux_x86_64"
+spdx = "MIT"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "Little CMS 2.19.1 (SBOM); section LCMS2."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/liblzma-*.so*"
+platform = "linux_x86_64"
+spdx = "0BSD"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "liblzma of XZ Utils 5.8.4 (file name); 0BSD as reviewed for the package gate; section LIBLZMA."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libopenjp2-*.so*"
+platform = "linux_x86_64"
+spdx = "BSD-2-Clause"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "OpenJPEG 2.5.4 (SBOM); section OPENJPEG."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libpng16-*.so*"
+platform = "linux_x86_64"
+spdx = "libpng-2.0"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "libpng; section LIBPNG states the PNG Reference Library License version 2 (not in the SBOM)."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/lib*webp*.so*"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "libwebp 1.6.0 with webpdemux and webpmux (SBOM); section LIBWEBP."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libsharpyuv-*.so*"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "sharpyuv, part of libwebp 1.6.0 (SBOM); section LIBWEBP."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libtiff-*.so*"
+platform = "linux_x86_64"
+spdx = "libtiff"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "libtiff 4.7.2 (SBOM); section LIBTIFF."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libxcb-*.so*"
+platform = "linux_x86_64"
+spdx = "X11"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "libxcb 1.17.0 (SBOM); section XCB."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libXau-*.so*"
+platform = "linux_x86_64"
+spdx = "MIT"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "libXau 1.0.9 (auditwheel SBOM, without licence); MIT as reviewed for the package gate; section XAU."
+
+[[component]]
+dist = "pillow"
+pattern = "pillow.libs/libzstd-*.so*"
+platform = "linux_x86_64"
+spdx = "BSD-3-Clause"
+kind = "native"
+notice = "pillow-*.dist-info/licenses/LICENSE"
+note = "Zstandard 1.5.7 (file name); section ZSTD of the wheel's LICENSE."
