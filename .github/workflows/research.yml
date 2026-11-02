@@ -1,0 +1,109 @@
+# NeuroArena (NG-F17, NA-01 to NA-05; A-110 after F11 B): the research project research/neuroarena with its own
+# lock, its own licence gate (A-108: both stages for the runtime and dev groups, the native components of both
+# targets read statically), lint, unit tests and a smoke step on synthetic data. Runs when the research project,
+# its gate lists, the gate tools or this workflow change, and by hand; Linux only. The full runs with the
+# downloaded MOABB datasets happen locally and are compared there (DoD 1): no job downloads a dataset, nothing is
+# uploaded. The main project is installed for NeuroGrid's command line (A-101), pip-licenses and the annotations.
+name: research
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "research/**"
+      - "license-gate/research/**"
+      - "tools/licenses.py"
+      - "tools/notices.py"
+      - ".github/workflows/research.yml"
+  pull_request:
+    paths:
+      - "research/**"
+      - "license-gate/research/**"
+      - "tools/licenses.py"
+      - "tools/notices.py"
+      - ".github/workflows/research.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.13.0"
+  PYTHONWARNDEFAULTENCODING: "1"
+  UV_PYTHON_DOWNLOADS: automatic
+
+jobs:
+  research:
+    name: research project (lock, licence gate, lint, tests, smoke)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: The research lock is current
+        run: uv lock --check --project research/neuroarena
+      - name: Install the main project (locked, no source builds)
+        run: uv sync --locked --no-build --python 3.12
+      - name: Install the research project (locked, no source builds, torch from the PyTorch CPU index)
+        run: uv sync --locked --no-build --project research/neuroarena
+      - name: Locked research wheels of both targets (cache keyed by the research lock)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .local/research-wheels
+          key: research-wheels-${{ hashFiles('research/neuroarena/uv.lock') }}
+      - name: Research licence gate, allowlist and copyleft stages (runtime, dev)
+        run: uv run --no-sync python tools/licenses.py --target research
+      - name: Research licence gate, native components of both targets
+        run: uv run --no-sync python tools/licenses.py --target research --components --download
+      - name: Lint and format (research configuration, extends the main project's rules)
+        run: |
+          uv run --no-sync --project research/neuroarena ruff check research/neuroarena
+          uv run --no-sync --project research/neuroarena ruff format --check research/neuroarena
+      - name: Unit tests
+        run: >-
+          uv run --no-sync --project research/neuroarena python -m pytest -q research/neuroarena/tests
+          -m "not smoke" --junitxml=pytest-junit.xml
+      # On failure: the failed tests as error annotations, readable without a login (TECH-05), as in ci.yml.
+      - name: Failed tests 1-10 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 0 --limit 10
+      - name: Failed tests 11-20 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 10 --limit 10
+      - name: Failed tests 21-30 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 20 --limit 10
+      - name: Failed tests 31-40 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 30 --limit 10
+      - name: Test counts as an annotation
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary --limit 40
+      # Smoke (F11 B): synthetic data, no download. Today NeuroGrid's command line through the A-101 call; areas
+      # C and D add both decoders (EEGNet with few epochs) and the headless notebook, run twice with equal
+      # numbers.
+      - name: Smoke run on synthetic data
+        run: >-
+          uv run --no-sync --project research/neuroarena python -m pytest -q research/neuroarena/tests
+          -m smoke --junitxml=pytest-junit.xml
+      - name: Failed smoke tests 1-10 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 0 --limit 10
+      - name: Failed smoke tests 11-20 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 10 --limit 10
+      - name: Failed smoke tests 21-30 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 20 --limit 10
+      - name: Failed smoke tests 31-40 as annotations
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --offset 30 --limit 10
+      - name: Smoke test counts as an annotation
+        if: failure() && hashFiles('pytest-junit.xml') != ''
+        run: uv run --no-sync python tools/junit_annotations.py pytest-junit.xml --summary --limit 40

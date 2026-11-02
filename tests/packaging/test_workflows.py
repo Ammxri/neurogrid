@@ -26,7 +26,17 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 TOOLS = ROOT / "tools"
 WORKFLOWS = ROOT / ".github" / "workflows"
-NAMES = ("ci", "offline", "corpus", "docs", "release", "publish-pypi", "mirror-gitee", "ci-integration")
+NAMES = (
+    "ci",
+    "offline",
+    "corpus",
+    "docs",
+    "release",
+    "publish-pypi",
+    "mirror-gitee",
+    "ci-integration",
+    "research",
+)
 PINS = {
     "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",  # v7.0.1
     "astral-sh/setup-uv": "07a047e608db84b3d8c06cd9a7c7dcc9c355c18e",  # v10.3.2
@@ -773,6 +783,50 @@ def test_docs_and_corpus_workflows() -> None:
     assert [u["with"]["path"] for u in uploads] == ["acceptance-summary/"]
 
 
+def test_research_workflow_runs_lock_gate_lint_tests_and_smoke() -> None:
+    """A-110 after F11 B (P11, NG-F17): research/neuroarena has its own workflow on Linux, started by changes
+    of the research project, its gate lists, the gate tools or the workflow, and by hand. It checks the
+    research lock, runs the research licence gate (both stages, A-108, and the native components of both
+    targets), ruff, the unit tests and the smoke step on synthetic data. It downloads no dataset and uploads
+    nothing (the full runs are local, F1, F3)."""
+    research = _load("research")
+    assert set(research["on"]) == {"push", "pull_request", "workflow_dispatch"}
+    watched = [
+        "research/**",
+        "license-gate/research/**",
+        "tools/licenses.py",
+        "tools/notices.py",
+        ".github/workflows/research.yml",
+    ]
+    assert research["on"]["push"] == {"branches": ["dev", "main"], "paths": watched}
+    assert research["on"]["pull_request"] == {"paths": watched}
+    assert research["concurrency"]["cancel-in-progress"] is True
+    (job,) = research["jobs"].values()
+    assert job["runs-on"] == "ubuntu-24.04"
+    steps = [str(step.get("run", "")) for step in _steps(job)]
+    order = [
+        "uv lock --check --project research/neuroarena",
+        "uv sync --locked --no-build --python 3.12",
+        "uv sync --locked --no-build --project research/neuroarena",
+        "tools/licenses.py --target research\n",
+        "tools/licenses.py --target research --components --download",
+        "ruff check research/neuroarena",
+        '-m "not smoke" --junitxml=pytest-junit.xml',
+        "-m smoke --junitxml=pytest-junit.xml",
+    ]
+    positions = [next(i for i, run in enumerate(steps) if command in run + "\n") for command in order]
+    assert positions == sorted(positions), positions
+    assert "ruff format --check research/neuroarena" in steps[positions[5]]
+    (cache,) = [s for s in _steps(job) if "actions/cache" in str(s.get("uses"))]
+    assert cache["with"] == {
+        "path": ".local/research-wheels",
+        "key": "research-wheels-${{ hashFiles('research/neuroarena/uv.lock') }}",
+    }
+    text = _text("research")
+    assert "upload-artifact" not in text and "mne_data" not in text and ".local/arena" not in text
+    assert "fetch" not in "\n".join(steps)  # no dataset download (datasets.fetch is local only)
+
+
 def test_ci_integration_runs_the_action_on_github_runners() -> None:
     """A-34, A-98 (owner answer 2 of P9): the composite action of this repository (`uses: ./`) runs on
     GitHub-hosted Ubuntu and Windows runners (both script variants) with the synthetic fixtures only. Without
@@ -840,7 +894,9 @@ def test_every_pytest_step_annotates_its_failed_tests() -> None:
                 assert annotation["if"] == f"failure() && hashFiles('{JUNIT}') != ''", (name, job_id)
             assert [a["run"] for a in after[:-1]] == [f"{tool} --offset {o} --limit 10" for o in offsets]
             assert after[-1]["run"] == f"{tool} --summary --limit {len(offsets) * junit_annotations.LIMIT}"
-    assert sorted(found) == ["ci/test", "docs/browser", "offline/build"]
+    # research.yml runs pytest twice: the unit tests and the smoke step (F11 B)
+    research = ["research/research", "research/research"]
+    assert sorted(found) == ["ci/test", "docs/browser", "offline/build", *research]
     assert JUNIT in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
 
 
