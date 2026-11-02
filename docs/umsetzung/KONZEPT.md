@@ -9,7 +9,9 @@ Stand 11.10.2026, überarbeitet nach einer Prüfung aus drei Blickwinkeln (Absch
 ergänzt am 28.10.2026 nach der zweiten CI-Fix-Runde und dem G1-Befund) sind die Abschnitte 1.1–1.4, 1.6, 2.6, 2.8, 3, 4
 und 5 (Risiko R10) an den Code angeglichen (Annahmen A-84 bis A-89); was davon noch bei STOPP G1 zu bestätigen ist,
 steht dort als „für G1 vorgemerkt“. Nach P6 (02.11.2026, `dev` 0ffdd90) sind die Abschnitte 1.2, 1.4, 2.2, 2.3, 2.5,
-2.6 und 6 (Reihenfolge nach D-19) an den Code angeglichen (Annahmen A-90 bis A-92, für STOPP G2 vorgemerkt).
+2.6 und 6 (Reihenfolge nach D-19) an den Code angeglichen (Annahmen A-90 bis A-92, für STOPP G2 vorgemerkt). Nach P9
+(02.11.2026, `dev` 5596a8d) sind die Abschnitte 1.2, 1.6, 2.1, 2.2, 2.3, 2.5, 2.6, 2.8 und 6 an den Code angeglichen
+(Annahmen A-93 bis A-99, vorgemerkt für die Freigabe nach P9).
 
 ---
 
@@ -46,6 +48,7 @@ neurogrid/
   REUSE.toml (+)  LICENSES/ (+, REUSE: nur Lizenzen eigener Dateien)  .env.example (+, alle Umgebungsvariablen ohne Werte)
   mkdocs.yml (+)  .gitattributes (+, eol=lf; Fixtures binär)
   .github/workflows/      ci.yml, offline.yml (+), corpus.yml (+), docs.yml (+), release.yml (+), publish-pypi.yml (+), mirror-gitee.yml (+)
+                          ci-integration.yml (+, P9: die Action auf GitHub-Runnern, A-98)
   license-gate/ (+)       allowlist.txt exceptions.txt components.toml known_missing.toml licence_texts.toml network_baseline.json
                           third_party/ (geprüfte Teile des Validator-Bündels und der Doku-Website; A-86)
   packaging/ (+)          install.ps1 install.cmd install.sh README.bundle.txt release-notes.md gitee-release.md bundle_lock.json
@@ -54,27 +57,32 @@ neurogrid/
     cli.py                Typer-App (pretty_exceptions_show_locals=False); Hilfe und Bedienfehler übersetzt (A-86)
     + config.py           neurogrid.toml → Pydantic (strict)
     + convert.py          BIDS-Konvertierung; ab v0.2 GB/T 47127
-    + diff.py  + dossier.py   v1.0
+    + diff.py (P9, Versionsvergleich, A-97)  + dossier.py (P9, Nachweismappe, A-99)
     kernel/               nur Standardbibliothek, Pydantic, Jinja2, PyYAML, fontTools, Playwright, pypdf (A-85); mypy --strict;
                           importiert nichts aus neurogrid.* außerhalb von kernel (A-23)
       rules.py  engine.py  findings.py  provenance.py  canonical.py  i18n.py  report.py  glob.py (+, A-14)
       + errors.py  + evidence.py (P4)
       + safety.py (Pfadprüfung A-52, Ausgabefilter A-51, sicherer YAML-Lader A-53, Arbeitsordner A-54)  + netguard.py (Audit-Hook, A-49)
-      + fonts.py (Subsets, Glyph-Zwillinge)  + pdf.py (Shell, Druck, QA-Gate)  + pdf_linux_packages.json (A-85)
+      + fonts.py (Subsets, Glyph-Zwillinge)  + pdf.py (Shell, Druck, QA-Gate; seit P9 `merge_pdfs`, `every_page_any`)
+      + pdf_linux_packages.json (A-85)
       + processes.py (Hilfsprozesse auf dem Nullgerät, `platform` ohne WMI, `quiet_pool`, `on_null_device`; A-89)
     io/                   edf.py bdf.py brainvision.py eeglab.py fif.py gbt47127.py (v0.2)  + base.py  + discover.py
     model/                dataset.py consent.py results.py  + access.py (AccessEvent, P6)
-    checks/               structure.py metadata.py signal.py annotation.py ai_dataset.py provenance.py consent.py (P6)
-                          + registry.py  + access.py (P6: CORE-NV03-01/02; Rollen ab v1.0)  + evidence.py (P4)
+                          + _registers.py roles.py retention.py risks.py export.py (ExportIndex) diff.py (DiffResult) (P9)
+    checks/               structure.py metadata.py signal.py annotation.py ai_dataset.py provenance.py consent.py (P6; P9: M14-02)
+                          + registry.py  + access.py (P6: CORE-NV03-01/02; P9: CORE-NV04-01)  + evidence.py (P4)
+                          + retention.py (P9: CORE-NV05-01..03)
     rulepacks/            core.yaml (+) bids.yaml gxdsl008.yaml yyt2029.yaml (P6, Platzhalter) gbt47127.yaml
                           + rulepack.schema.json
     vault/                ledger.py roles.py (P6)  + store.py + lock.py + consents.py + _os.py (P6, A-90/A-91)
-                          pia.py + risks.py + retention.py + export.py (v1.0, P9)
+                          + pia.py + risks.py + retention.py + export.py + templates/pia.zh.md, pia.en.md (P9, A-93..A-96)
     report/               templates/  i18n/zh.yaml en.yaml de.yaml  + render.py + tables.py + charts.py (eigenes SVG, A-84)
                           + output.py (write_reports, A-85)  + glyphs.py  + texts.py  + validator_codes.yaml
+                          + identify.py (P9: erkennt Berichte und Mappe für den Export)  templates/dossier.html.j2 (P9)
                           + fonts/ (Noto Sans SC 400/700, OFL.txt, fonts.json)
                           + wording/forbidden.yaml (Sperrliste, A-57)  + wording/statements.yaml (ARC-05, A-84)
-    + schemas/            results, rulepack, config, evidence, manifest, scan, access_event, consents (P6), diff (v1.0)
+    + schemas/            results, rulepack, config, evidence, manifest, scan, access_event, consents (P6), roles, risks,
+                          retention, export_index, diff (P9)
                           (*.schema.json, aus Pydantic erzeugt)
   tests/                  fixtures/synthetic/ (CC BY 4.0) fixtures/derived/ (mit DATA_SOURCES-Eintrag)  rules/  docs/  packaging/
                           acceptance/  perf/  …
@@ -84,11 +92,11 @@ neurogrid/
                           gen_docs.py build_docs.py mkdocs_hooks.py docs_templates/ (seit P6 mit questions.md.j2)
                           release_check.py scan_runtime_network.py strace_check.py junit_annotations.py acceptance_g1.py
                           zh_review_package.py
-  docs/                   zh/ en/ (MkDocs, je 17 Seiten, seit P6 mit vault.md; metrics.md je Metrik = Quelle der
+  docs/                   zh/ en/ (MkDocs, je 18 Seiten, seit P6 mit vault.md, seit P9 mit ci.md; metrics.md je Metrik = Quelle der
                           core-Regeln), _data/ (seit P6 mit interpretation_questions.yaml) und assets/ (Daten bzw. Code
                           der Website), umsetzung/ (nicht Teil der Website)
   research/neuroarena/ (+)  eigenes uv-Projekt mit eigenem Lock (A-36)
-  action.yml, ci-templates/gitlab-ci.yml (+, v1.0, A-34)
+  action.yml, ci-templates/gitlab-ci.yml (+, P9, A-34, A-98)
 ```
 
 Abweichend vom Plan von Phase 2: Die Notices heißen `THIRD_PARTY_NOTICES.txt`, der Ordner des Lizenz-Gates heißt
@@ -182,6 +190,11 @@ Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `valid
 - **Zeichen ohne Glyphe** und Steuerzeichen (außer Tab, LF, CR) erscheinen als sichtbarer Text `[U+XXXX]` (`report/glyphs.py`); Datensatztext führt so nie zu Exit 2.
 - **Alles oder nichts:** Mit `pdf` laufen Shell-Suche und Startprüfung vor dem Rendern. Alle Dateien werden neben ihrem Ziel bereitgestellt; erst wenn jedes PDF das QA-Gate bestanden hat, werden frühere Berichte beiseitegelegt und die neuen eingesetzt. Bei einem Fehler werden die neuen Dateien entfernt, die früheren zurückgeholt, Exit 2 (R00). `--format html` braucht nie die Shell.
 - **Seiten:** A4; Deckblatt und Zusammenfassung hoch, Abschnitte 3–6 quer; Kopfzeile mit Titel und Stichtag, fester Satz auf jeder Seite unten links, „Seite x / y“ unten rechts; Tabellenkopf wiederholt, Zeilen nie geteilt; feste Spaltenanteile, nichts ist breiter als die Seite (R01, R04). Die Ränder über CSS `@page` sind Chromium-spezifisch; die kanonische Seitenform ist das PDF.
+- **Nachweismappe** (P9, A-99): `report --format dossier` schreibt `dossier.pdf`, immer zh und en: ein zweisprachiger
+  Verzeichnisteil (`report/templates/dossier.html.j2`, beide festen Sätze im Fuß jeder Seite, Seitenbereiche der Teile),
+  dann die Berichte zh und en, zusammengeführt mit pypdf (`kernel.pdf.merge_pdfs`); `/Info` genau Title, Creator,
+  Producer, CreationDate und ModDate (Stichtag), kein XMP, keine Gliederung; QA-Gate auf der zusammengeführten Datei mit
+  `PdfExpect.every_page_any` (auf jeder Seite einer der beiden festen Sätze); zwei Bauten bytegleich.
 - **Inhalt:** Befunde höchstens 50 Zeilen je Regel plus Sammelzeile mit dem genauen Rest und dem Verweis auf results.json (A-59; Lesart von NG-F13 für G1 vorgemerkt); leere Zellen „–“ mit Grund; Verteilungsgrafiken als eigenes SVG ohne matplotlib (A-84). Eine Regel-ID bricht nie um, auch im Fließtext (A-84).
 
 **PDF** (A-26, A-85; `kernel/pdf.py`):
@@ -221,6 +234,14 @@ Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `valid
 - Paketscan: `tools/scan_runtime_network.py` sucht in jedem .py der Laufzeit nach Netzwerkmodulen und Telemetrie-Markern; jeder Treffer braucht einen geprüften Eintrag in `license-gate/network_baseline.json`.
 - Stand: Lauf auf 55335ca ganz grün (Lauf 40403791782), ebenso auf dcec9bd (Lauf 40476578452), 18da12f (Lauf 40609866836) und 27c3e90 (Lauf 40680346176).
 
+**CI-Integration beim Kunden** (A-34, A-98; P9): `action.yml` (zusammengesetzte Action, jeder Schritt in bash und in
+Windows PowerShell 5.1) führt `check`, `report` und mit `baseline` `diff` auf dem Runner des Kunden aus und lädt nichts
+hoch; sie bricht mit Exit 1 ab, wenn `runner.environment` nicht `self-hosted` ist, außer mit `allow-hosted-runner: true`
+(öffentliche oder synthetische Daten); Eingaben erreichen die Skripte nur über `env:`; `fail-on` errors, new-errors oder
+never. `ci-templates/gitlab-ci.yml` bietet die versteckten Jobs `.neurogrid` und `.neurogrid-powershell`, die nur der
+Runner mit dem Tag `$NEUROGRID_RUNNER_TAG` nimmt, ohne `artifacts:`. Die GitLab-Vorlage lief nie auf GitLab; der Lauf auf
+eigenem Runner ist vor v1.0 offen (D-19).
+
 **Workflows** (A-87; Actions per Commit-SHA gepinnt, oberste Rechte `contents: read`):
 
 | Workflow | Auslöser | Inhalt |
@@ -232,6 +253,7 @@ Ablauf- und Hilfsmodule seit P1–P4 (u. a. `pipeline.py`, `metadata.py`, `valid
 | `release.yml` | Tag `v*`, von Hand (nur auf Tags) | Release-Prüfung, Lizenzen, `ci.yml` auf dem getaggten Commit, Bündel, Signatur, Release-Entwurf |
 | `publish-pypi.yml` | von Hand | Trusted Publishing, TestPyPI dann PyPI |
 | `mirror-gitee.yml` | von Hand, veröffentlichtes Release | Spiegel per SSH, Gitee-Release vorbereiten |
+| `ci-integration.yml` (P9) | Push auf `dev`/`main`, von Hand (Eingabe `self_hosted`) | die Action dieses Repositorys mit synthetischen Daten auf GitHub-gehosteten Runnern ubuntu-24.04 und windows-latest: Ablehnung ohne `allow-hosted-runner`; check, report und diff mit dem Schalter; Job auf eigenem Runner `[self-hosted, neurogrid]` nur von Hand (A-98, D-19). Läufe auf 851031c (41442891483) und 5596a8d (41447040527): abgelehnt und mit dem Schalter gelaufen, eigener Runner übersprungen |
 
 ---
 
@@ -255,7 +277,9 @@ Die zehn PRD-Objekte behalten ihren Inhalt; Namen und Felder sind englisch. Die 
 | Finding | `Finding` | regel_id→rule_id, klausel→clause, schweregrad→severity (error/warning/info), status, messwert→measured_value, schwelle→threshold, objekt→object, belege→**details** | rulepack, rulepack_version, source_status, phase, subkey, file, channel, time_ranges, message_key, params, key |
 
 Hilfsmodelle (A-09): `Rule`, `Rulepack`, `CheckSpec`, `Measurement`, `MetricValue`, `Manifest`, `EvidenceItem`,
-`ExceptionEntry`, `Role`, `Risk`, `RetentionItem`, `RunInfo`, `Environment`, `Results`, `ScanResult`, `DiffResult`.
+`ExceptionEntry`, `Role`, `Risk`, `RetentionItem`, `RunInfo`, `Environment`, `Results`, `ScanResult`, `DiffResult`; seit P9
+dazu `ExportIndex` (`index.json` des Export-ZIP). `Role`, `Risk`, `RetentionItem` und `DiffResult` gibt es seit P9
+(A-93 bis A-95, A-97).
 
 ### 2.2 Regelpakete (RP-01, D-03, A-41)
 
@@ -281,7 +305,7 @@ rules:
 - **Prüfungen:** `check` verweist auf die Prüf-Registry, die als generierte Doku-Seite veröffentlicht wird. Manuelle Regeln nutzen `evidence.document`.
 - **Titel:** `title_de` ist nicht vorgesehen; de gibt es nur in der Kern-Sprachtabelle (A-07).
 
-**Regeln des Pakets `core`.** Quelle ist die Metrik-Doku `docs/<lang>/metrics.md#Mxx` (für NV03 `#NV03`). Bei „Annahme“ nennt die PRD keine Schwelle bzw. keinen Schweregrad. Version 0.2.0 seit P6 (`f023146`); umgesetzt sind alle Zeilen außer denen mit „(v1.0)“.
+**Regeln des Pakets `core`.** Quelle ist die Metrik-Doku `docs/<lang>/metrics.md#Mxx` (für NV03, NV04 und NV05 `#NV03`, `#NV04`, `#NV05`). Bei „Annahme“ nennt die PRD keine Schwelle bzw. keinen Schweregrad. Version 1.0.0 seit P9 (`159539d`; 0.2.0 seit P6, `f023146`); alle Zeilen sind umgesetzt, die Regeln aus P9 mit ihrer Prüfung in Klammern.
 
 | ID | Prüfung | Phase | Schweregrad | Startschwelle | Herkunft |
 |---|---|---|---|---|---|
@@ -321,13 +345,13 @@ rules:
 | CORE-M13-02 | Dateien entsprechen dem Manifest | storage | error | – | NG-F10 |
 | CORE-M13-03 | Verarbeitungsschritte und Softwareversionen dokumentiert | storage | warning | – | A-22 |
 | CORE-M14-01 | Nutzung im Split durch Einwilligung gedeckt (ohne Daten not_checkable; `--strict` oder `[consent]`: verletzt) | access | error | – | PRD, A-30, A-91 |
-| CORE-M14-02 | möglicherweise Neueinwilligung erforderlich (v1.0) | access | warning | – | NV-F06, A-30 |
+| CORE-M14-02 | möglicherweise Neueinwilligung erforderlich (`consent.reconsent`; je Proband mit gültiger Einwilligung und Risiko mit Datum ≤ Stichtag, verletzt unter `min_consent_version`; ohne Risiko not_applicable, ohne Einwilligungsdaten not_checkable, nie verschärft) | access | warning | – | NV-F06, A-30, A-95 |
 | CORE-NV03-01 | Hash-Kette des Zugriffsprotokolls intakt | access | error | – | NV-F03, A-90 |
 | CORE-NV03-02 | Zugriffsprotokoll beschreibbar (schreibgeschützter Vault: Warnung und Befund, nie Exit 2) | access | warning | – | A-30, A-90 |
-| CORE-NV04-01 | Zugriffe im Rollenregister erlaubt (v1.0) | access | warning | – | NV-F04 |
-| CORE-NV05-01 | Aufbewahrungsobjekte vollständig, Frist ≥ 3 Jahre (v1.0) | access | warning | – | NV-F05, A-30 |
-| CORE-NV05-02 | Folgenabschätzung bearbeitet (keine Rohvorlage) (v1.0) | access | warning | – | A-30 |
-| CORE-NV05-03 | Mindestaufbewahrung endet in ≤ 90 Tagen (v1.0) | access | info | 90 Tage | NV-F05 |
+| CORE-NV04-01 | Zugriffe im Rollenregister erlaubt (`roles.permitted`; je Rolle und Aktion über die Ereignisse vor dem Vortag des Stichtags, UTC; Ereignisse ohne Rolle not_checkable) | access | warning | – | NV-F04, A-30, A-93 |
+| CORE-NV05-01 | Aufbewahrungsobjekte vollständig (`retention.complete`; pia und access_log Pflicht; eine Frist unter 3 Jahren ist schon beim Lesen Exit 2) | access | warning | – | NV-F05, A-30, A-94 |
+| CORE-NV05-02 | Folgenabschätzung bearbeitet (`pia.edited`; keine Rohvorlage, keine offene Markierung) | access | warning | – | A-30, A-94 |
+| CORE-NV05-03 | Mindestaufbewahrung endet in ≤ 90 Tagen oder Prüfdatum erreicht (`retention.ending`; neutrale Erinnerung) | access | info | 90 Tage (`days`) | NV-F05, A-30, A-94 |
 
 **Paket `bids`:** `BIDS-STO-001` (Validator-Fehler, error), `BIDS-STO-002` (Validator-Warnungen, warning), `BIDS-STO-003` (HED-Schema offline nicht verfügbar, warning). Der Unterschlüssel ist der Validator-Code.
 
@@ -349,7 +373,7 @@ rules:
   "rules": [{id, rulepack, clause, title_zh, title_en, phase, check, severity (wirksam), strict_severity,
              verification, source_status}],
   "config": {canonical_sha256, as_of, seed, strict, sampling, effective_params, effective_settings (bereinigt),
-             evidence_sha256, consents_sha256 (P6)},
+             evidence_sha256, consents_sha256 (P6), roles_sha256, retention_sha256, risks_sha256 (P9)},
   "recordings": [{id (pseudonym), format, streamable, metrics (P4: metrics.annotation), sample}],
   "findings": [Finding …] (verletzte und Sonderstatus einzeln),
   "passed": [{rule_id, object, count} …] (bestandene gezählt je Regel × Objekt),
@@ -367,13 +391,15 @@ rules:
   "summary": {phases: {phase: {light, errors, warnings, open_evidence}}, coverage: {pack: value|"n/a"},
               errors, warnings, open_evidence, exit_code},
   "manifest": {sha256, status, files, changed, new, missing, skipped_changed, unreadable} | null,
-  "consent": {subjects: {use: n}} | null (P6: Probanden je Nutzung, nur wenn M14 je Proband gemessen hat) }
+  "consent": {subjects: {use: n}} | null (P6: Probanden je Nutzung, nur wenn M14 je Proband gemessen hat),
+  "reconsent": {risks: [{id, date, affected_uses, subjects, candidates} …]} | null (P9: je beurteiltem Risiko die
+               Probanden mit betroffener Nutzung und die mit gültiger Einwilligung; A-95) }
 ```
 
-Die Felder aus P4 (`evidence`, `duplicates`, `ai`, `manifest`, `strict_severity`, `evidence_sha256`, `summary.open_evidence`) und P6 (`consents_sha256`, `consent`; A-91) sind optional;
+Die Felder aus P4 (`evidence`, `duplicates`, `ai`, `manifest`, `strict_severity`, `evidence_sha256`, `summary.open_evidence`), P6 (`consents_sha256`, `consent`; A-91) und P9 (`roles_sha256`, `retention_sha256`, `risks_sha256`, `reconsent`; A-93 bis A-95) sind optional;
 results.json früherer Stände bleibt lesbar (A-80 ff., Übergreifend).
 
-Nicht enthalten: Uhrzeit, Rechner- oder Benutzername, absolute Pfade, Vault-Kopf-Hash, Zahl und Zeit der Zugriffsereignisse, Signal-Hashes, Rohalter, diagnosis_code, Daten, Ethikreferenzen und erlaubte Nutzungen der Einwilligungen (die Befunde von M14 je Proband nennen Nutzung, Grund und wirksame Version; A-91).
+Nicht enthalten: Uhrzeit, Rechner- oder Benutzername, absolute Pfade, Vault-Kopf-Hash, Zahl und Zeit der Zugriffsereignisse, Signal-Hashes, Rohalter, diagnosis_code, Daten, Ethikreferenzen und erlaubte Nutzungen der Einwilligungen (die Befunde von M14 je Proband nennen Nutzung, Grund und wirksame Version; A-91), Rollenbeschreibungen, Risikobeschreibungen und der Inhalt der Folgenabschätzung (A-93 bis A-95; die Befunde von CORE-M14-02 nennen je Proband die Einwilligungsversion, D-17 Option B).
 
 ### 2.4 `neurogrid.toml` (NG-F18, MET-02)
 
@@ -443,9 +469,14 @@ approval_ref = "EC-2026-17"
 - **Vault** (A-30; Ordner `[vault] path` relativ zur Projektwurzel, Standard `.neurogrid/vault`; ein Link im Pfad wird nie verfolgt, A-90):
   - seit P6 (v0.2): `consents.yaml` (`format_version: 1`, `consents` mit subject, version, date, permitted_uses, withdrawn, ethics_approval_ref; Teil des Manifests; A-91), `access.jsonl` (ein Ereignis je Zeile als kompaktes JSON mit sortierten Schlüsseln, Hash-Kette über `previous_hash` und `hash`, Kopf-Hash nie in results.json; A-90) und die Sperrdatei `access.jsonl.lock` (beratende Sperre jedes Lesers und Schreibers, höchstens 10 s; A-90); unter POSIX Ordner 0700 und Dateien 0600, unter Windows die ACLs des Elternordners; `vault init` legt fehlende Teile an.
   - Import `consents.tsv` für `vault consent add --from` (tabulatorgetrennt; subject, version, date, permitted_uses, withdrawn, ethics_approval_ref; A-91).
-  - ab v1.0 (P9): `roles.yaml`, `risks.yaml` ({id, date, description, affected_uses, min_consent_version}), `retention.yaml`, `pia/pia.zh.md`, `pia/pia.en.md`.
+  - seit P9 (v1.0; `vault init` legt sie nur an, wenn sie fehlen; YAML-Vorlagen mit englischem Kommentarkopf und auskommentiertem Beispiel, dann `format_version: 1` und eine leere Liste; Steuerdateien: ungültig = Exit 2 von `check`, Fehler nennen Eintrag und Feld, nie einen Wert):
+    - `roles.yaml` (A-93): `roles` mit `role`, `description` (1–200 Zeichen), `actions` (aus read, check, convert, report, export, consent_manage), `objects` (1–100 Muster nach A-14), optional `ethics_approval_ref`; höchstens 200 Rollen und 1 000 000 Byte.
+    - `risks.yaml` (A-95): `risks` mit `id`, `date`, `description` (1–500 Zeichen, nie in einer Ausgabe), `affected_uses`, `min_consent_version`; höchstens 1 000 Risiken und 1 000 000 Byte.
+    - `retention.yaml` (A-94): `objects` mit `object` (pia, access_log, roles, risks, consents; pia und access_log Pflicht), `created`, `min_until` (mindestens `created` plus drei Jahre, der 29. Februar wird zum 1. März, sonst Exit 2) und optional `review_at` (zwischen `created` und `min_until`); höchstens 100 000 Byte.
+    - `pia/pia.zh.md`, `pia/pia.en.md` (A-94): Gliederungsvorlagen der Folgenabschätzung mit Platzhalter-Kopf (keine Rechtsberatung, vor Verwendung durch eine in der VR China zugelassene Rechtsberatung prüfen), Auslösern und Prüfpunkten nach PIPL Art. 55 und 56 in eigenen Worten und Markierungen `【待填写】` bzw. `[to be completed]` (D-19).
 - **`splits.tsv`:** `recording`, `split`. Alternativ eine Spalte `split` in `participants.tsv`.
-- **`index.json` im Export-ZIP:** SHA-256 je Bestandteil, Kopf-Hash, Werkzeugversion, fester Satz.
+- **Export-ZIP** (`vault export`, P9, A-96): genau `manifest.json` (in Rohordnern ohne `--show-paths` eine Kopie mit pseudonymen Namen), `access.jsonl` (bis zum Ereignis `export`, das vor dem Packen angehängt wird), `roles.yaml`, die vorhandenen `pia/pia.zh.md` und `pia/pia.en.md`, 1 bis 5 Berichte unter `report/` (`report.<lang>.<html|pdf>` oder `dossier.pdf`) und `index.json` zuletzt; nur reguläre Dateien, feste Eintragszeit 1980-01-01 und Modi, nie Signale, `consents.yaml`, `risks.yaml`, `retention.yaml` oder results.json.
+- **`index.json` im Export-ZIP** (ExportIndex, `schemas/export_index.schema.json`, kanonisches JSON): `format_version`, `disclaimer` {zh, en}, `tool` {name, version}, `parts` [{part, file, sha256, size, lang, format}], `manifest` {manifest_hash, source_sha256, pseudonymized}, `access_log` {head, events, intact, deviations}; keine Zeit, kein Pfad außerhalb des Archivs, kein Benutzer oder Rechner.
 
 ### 2.6 Befehle (§13, A-31; Zusätze nach E3 gekennzeichnet)
 
@@ -454,15 +485,15 @@ approval_ref = "EC-2026-17"
 | `neurogrid scan PFAD` | `--out scan.json`, [E3] `--show-paths` | Formate, Probanden, Aufnahmen, Größen, nicht unterstützte Dateien | CLI-01 |
 | `neurogrid convert PFAD --to bids --out ZIEL` | `--config`, `--to gbt47127` (v0.2), [E3] `--strip-identifying-headers` | BIDS-Datensatz + ProcessingSteps + Validatorlauf | CLI-02, NG-F02, NG-F03 |
 | `neurogrid check PFAD` | `--rulepack` (mehrfach), `--config`, `--out`, `--strict`, `--manifest`, `--evidence`, `--as-of`, `--role`, `--allow-draft-rulepacks`, [E3] `--jobs`, [E3] `--show-paths` | results.json, Kurzfassung, Exit 0/1/2 | CLI-03, CLI-04 |
-| `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf` (Standard `html`), `--out` (Standard neben results.json), `--config` (P6: Zugriffsprotokoll des Vaults auf dem Deckblatt und Ereignis `report`; A-30, A-90); v1.0 `--format dossier` | `report.<lang>.<html,pdf>`, alle oder keine (A-84, A-85) | CLI-05, REP-08 |
+| `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf` (Standard `html`), `--out` (Standard neben results.json), `--config` (P6: Zugriffsprotokoll des Vaults auf dem Deckblatt und Ereignis `report`; A-30, A-90); seit P9 `--format dossier` (mit html und pdf kombinierbar, immer zh und en, A-99) | `report.<lang>.<html,pdf>`, `dossier.pdf`, alle oder keine (A-84, A-85); Exit 0/2 | CLI-05, REP-08 |
 | `neurogrid manifest PFAD` | [E3] `--out` (Standard `.neurogrid/manifest.json`), [E3] `--show-paths` | manifest.json | CLI-06 |
 | `neurogrid verify PFAD --manifest manifest.json` | [E3] `--show-paths` | geändert/neu/fehlend/Art geändert/unlesbar; Exit 0/1, 2 bei ungültigem Manifest (A-82) | CLI-06 |
-| `neurogrid diff alt.json neu.json` | `--format text,json` | neu/behoben/verändert; Exit 1 bei neuen Fehlern | CLI-07 |
-| `neurogrid vault init [PATH]` | `--config` | fehlende Teile des Vaults (Ordner, `consents.yaml`, `access.jsonl`, Sperrdatei), kein Ereignis; Exit 0/2 (A-90) | CLI-08 |
+| `neurogrid diff OLD NEW` | `--format` text, json oder text,json (Standard text auf stdout; json allein auf stdout), `--out` (JSON; Pflicht bei text,json) | neu/behoben/entfallen/verändert, Einwilligungsregeln nur gezählt (D-19), DiffResult; kein Ereignis; Exit 0, 1 bei neuen Fehlerbefunden, 2 Werkzeugfehler (A-97) | CLI-07, NG-F15 |
+| `neurogrid vault init [PATH]` | `--config` | fehlende Teile des Vaults (Ordner, `consents.yaml`, `access.jsonl`, Sperrdatei; seit P9 `roles.yaml`, `risks.yaml`, `retention.yaml`, `pia/pia.zh.md`, `pia/pia.en.md` aus Vorlagen), kein Ereignis; Exit 0/2 (A-90, A-93) | CLI-08 |
 | `neurogrid vault consent add PATH` | `--subject --version --date (--uses \| --withdrawn) [--ethics-ref]` oder [E3] `--from consents.tsv`; `--config --role --purpose --approval-ref` | `consents.yaml` kanonisch, Ereignis `consent_manage` vorher; Exit 0/2 (A-91) | CLI-08, NV-F01 |
 | `neurogrid vault log [PATH]` | `--action --objects … --purpose [--approval-ref] [--role] [--config]`; [E3] `--show` (allein, neueste 200 Einträge; `--last` entfällt) | Ereignis bzw. Anzeige mit Kopf-Hash und Zustand der Kette; Exit 0/2 (A-90) | CLI-08 |
 | `neurogrid vault verify [PATH]` | `--config`, `--expect-head HASH` (wiederholbar) | Abweichungen mit Zeile, Art, wahrscheinlicher Ursache; Exit 0 intakt, 1 Abweichung, 2 Werkzeugfehler (A-90) | CLI-09, NV-F03 |
-| `neurogrid vault export` (v1.0, P9) | `--report --out` | ZIP | CLI-08 |
+| `neurogrid vault export [PATH]` (P9) | `--report` (1 bis 5, wiederholbar), `--out` (ZIP außerhalb des Vaults), `--manifest`, `--show-paths`, `--config`, `--role`, `--purpose`, `--approval-ref` | Export-ZIP mit `index.json` (2.5), Ereignis `export` vor dem Packen; Exit 0, 2 bei jeder Ablehnung, nie 1 (A-96) | CLI-08, NV-F07 |
 | global | `--lang`, `--debug` | – | NG-N06, A-51 |
 
 ### 2.7 Exitcodes (A-12)
@@ -477,8 +508,8 @@ approval_ref = "EC-2026-17"
 
 - **Keine Benutzerkonten** (NZ-08). Zugriffsrechte regelt das Betriebssystem; Bericht und Doku sagen das ausdrücklich.
 - **Dateirechte der Ausgaben** (A-54, nach P5): results.json, Inventar, Manifest, Berichte und Zuordnungsvorlage entstehen mit 0666 abzüglich umask (unter Linux also nach der umask des Bedieners, nicht 0600); Arbeitsordner von Bibliotheksaufrufen ohne Ausgabeordner liegen unter Linux in `<temp>/neurogrid-<uid>` (0700, abgelehnt, wenn Link, fremder Besitzer oder für Gruppe oder andere beschreibbar).
-- **Rollenregister** `roles.yaml` (NV-F04): Rolle, Beschreibung, erlaubte Aktionen (read, check, convert, report, export, consent_manage), Objektbereich (Muster nach A-14), `ethics_approval_ref`. Die Vorlage enthält neutrale Beispielrollen.
-- **Beratende Durchsetzung:** Ereignisse werden gegen das Register geprüft (CORE-NV04-01). Ein Befehl warnt, wenn seine Rolle die Aktion nicht darf.
+- **Rollenregister** `roles.yaml` (NV-F04, A-93): Rolle, Beschreibung, erlaubte Aktionen (read, check, convert, report, export, consent_manage), Objektbereich (Muster nach A-14), optional `ethics_approval_ref`. Die Vorlage aus `vault init` ist ein leeres Register mit einem auskommentierten neutralen Beispiel.
+- **Beratende Durchsetzung:** Ereignisse werden gegen das Register geprüft (CORE-NV04-01, nur Ereignisse vor dem Vortag des Stichtags, damit zwei `check` bytegleich bleiben; Ereignisse ohne Rolle not_checkable). Ein Befehl warnt, wenn seine Rolle die Aktion nicht darf: `check`, `convert`, `report --config`, `vault log`, `vault consent add` und `vault export` schreiben ihr Ereignis trotzdem, der Exitcode bleibt; ohne Register oder mit leerem Register still.
 - **Personenfelder** enthalten Rollen oder Kürzel, keine Klarnamen (NZ-09, A-51).
 
 ---
@@ -574,8 +605,9 @@ STOPPs nach P5 und nach Abschluss von v0.2. Diese Abweichung von „Stopp bei fe
 
 **Reihenfolge:** P1 → P2 → P3 → P4 → P5 (**STOPP G1**) → P6 → [G-A] P7 → [G-B] P8 (**STOPP G2**) → P9 → [G-C] P10 → P11 → P12.
 Stand 02.11.2026 (D-18, D-19): P6 lief parallel zur zh- und Sichtprüfung von STOPP G1 und ist abgeschlossen; G-A und
-G-B sind nicht erfüllt (`.local/normen/` fehlt), deshalb folgt P9 vor P7 und P8 (Regel „Fehlende Normtexte“ in
-Abschnitt 5, D-13).
+G-B sind nicht erfüllt (`.local/normen/` fehlt), deshalb lief P9 vor P7 und P8 (Regel „Fehlende Normtexte“ in
+Abschnitt 5, D-13) und ist abgeschlossen (`dev` 5596a8d). G-C (ISO/IEC TS 27571) fehlt ebenfalls, deshalb folgt P11 vor
+P10; P7, P8 und P10 warten auf die Normtexte.
 
 **Jede Phase endet mit:**
 - lauffähigem Stand, Tests grün (lokal; ab E2 auch in der CI)
@@ -598,7 +630,7 @@ Abschnitt 5, D-13).
 | P7 GB/T 47127 | Norm lesen; Inventar der Pflichtelemente (Volltext nur lokal); `io/gbt47127.py` lesen/schreiben; `convert --to gbt47127`; Paket `gbt47127` | NG-F03, RP-11, ARC-04 | V-02 | Inventar ↔ Regeln vollständig; Rundreise BIDS → GB/T → `check` ohne Fehler; keine Normtext-Zitate im Repo |
 | **G-B** | YY/T 2029-Text liegt vor | – | – | sonst P9 vorziehen |
 | P8 yyt2029 Klausel-Inventar | Inventar (Klausel, 应/宜/可, Phase, Einstufung; Volltext lokal); Regeln; Prüfmethoden genau nach Norm mit Klauselverweis; `source_status: inventory`; Abdeckungsmaß; Auslegungsfragen; NV-F03-Details nach Norm | RP-02, RP-03, RP-06, RP-07, RP-08, V-02 | – | jede Muss-Klausel als Regel; Abdeckung ≥ 60 % (darunter STOPP mit Begründung); keine Normtext-Zitate; **STOPP (G2)** |
-| P9 v1.0 normunabhängig | Rollenregister; Aufbewahrung und PIA-Vorlage; Risikoregister + Neueinwilligung; Export-ZIP + index.json; `diff`; GitHub Action + GitLab-Vorlage; Nachweismappe | NV-F04, NV-F05, NV-F06, NV-F07, NG-F15, NG-F16, CLI-07, CLI-08, REP-08, CON-02, UF-02, UF-03, UF-06 | V-03 | ZIP: fünf Teile + index.json, keine Signale/Einwilligungen, nur reguläre Dateien; `min_until` < 3 Jahre → Exit 2; Neueinwilligungsliste als Befunde + Berichtsabschnitt; `diff` trennt neu/behoben/verändert; Action bricht auf GitHub-Runnern ab und läuft auf eigenem Runner (echter Lauf nach Push); Mappe vollständig |
+| P9 v1.0 normunabhängig, vorgezogen (G-A/G-B nicht erfüllt) | Rollenregister; Aufbewahrung und PIA-Vorlage; Risikoregister + Neueinwilligung; Export-ZIP + index.json; `diff`; GitHub Action + GitLab-Vorlage; Nachweismappe | NV-F04, NV-F05, NV-F06, NV-F07, NG-F15, NG-F16, CLI-07, CLI-08, REP-08, CON-02, UF-02, UF-03, UF-06 | V-03 | ZIP: fünf Teile + index.json, keine Signale/Einwilligungen, nur reguläre Dateien; `min_until` < 3 Jahre → Exit 2; Neueinwilligungsliste als Befunde + Berichtsabschnitt; `diff` trennt neu/behoben/verändert; Action bricht auf GitHub-Runnern ab und läuft auf eigenem Runner (echter Lauf nach Push); Mappe vollständig |
 | **G-C** | ISO/IEC TS 27571 gekauft (und GB/T vorhanden) | – | – | sonst P11 vorziehen |
 | P10 ISO/IEC TS 27571-Abbildung | Abbildungstabelle TS ↔ BIDS ↔ GB/T (Feldbezeichner + eigene Beschreibung) | NG-F04, V-03 | – | jedes TS-Pflichtfeld zugeordnet oder als Lücke markiert; ISO-Lizenzbedingungen vor Veröffentlichung geprüft |
 | P11 NeuroArena | `research/neuroarena` (eigenes Lock): MOABB-Daten, Qualitätsstufen (A-45), 5 Verschlechterungsstufen, EEGNet + CSP+LDA, Notebook, technischer Bericht mit Attribution und Abgrenzung | NG-F17, NA-01, NA-02, NA-03, NA-04, NA-05 | – | Notebook läuft zweimal mit gleichen Zahlen (Toleranz dokumentiert); Kurve für beide Decoder; eigenes Lizenz-Gate grün |
