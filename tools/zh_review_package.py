@@ -9,9 +9,9 @@ zh messages of tools/install_pdf_browser.py (message name), README.bundle.txt an
 the zh word lists of the wording test (forbidden.yaml, statements.yaml; never displayed, listed so the
 reviewer can check them too), and the zh texts of the NeuroArena technical report (report.py, message name;
 the rendered report/zh/report.md once it exists, line). Each string is marked when it was added or changed
-since P1 (commit a44d592, the scaffold whose texts the earlier review rounds saw): "new" = the key, or for line
-sources the line, is not in the file of that commit (or the file did not exist), "changed" = same key, other
-text.
+since P1 (commit a44d592, the scaffold whose texts the earlier review rounds saw): "new" = the key, or for
+line sources the line, is not in the file of that commit (or the file did not exist), "changed" = same key,
+other text.
 
 The package also holds two example reports as zh PDF (design H.2 of the acceptance), so the reviewer sees
 the texts in the printed layout: report.zh.pdf of run 1 of a G1 run (tools/acceptance_g1.py), copied byte
