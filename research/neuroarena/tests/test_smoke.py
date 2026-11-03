@@ -3,12 +3,11 @@ SMOKE_EEGNET_EPOCHS), run twice, compared exactly (DoD 1 in small). No download.
 
 from __future__ import annotations
 
-import os
-import shutil
 from pathlib import Path
 
 import pytest
 
+from _smoke import SMOKE_CONFIG, SmokeRuns
 from neuroarena import compare, paths, records, runner
 from neuroarena.runner import RunConfig
 
@@ -47,23 +46,13 @@ def test_runner_twice_identical_in_process(tmp_path: Path, area_b: None, inline_
 
 
 @pytest.mark.smoke
-def test_smoke_run_with_area_b_twice_identical(tmp_path: Path) -> None:
+def test_smoke_run_with_area_b_twice_identical(tmp_path: Path, smoke_runs: SmokeRuns) -> None:
     """End to end with area B's real functions (synthetic.fake_dataset, datasets.degraded_dataset,
     quality.assess with NeuroGrid's command line): two spawned workers, both decoders, two conditions, run
-    twice and compared exactly (quality.json, NeuroGrid's metrics, every fold). Needs area B."""
-    if not (shutil.which("uv") or os.environ.get("UV")):
-        pytest.skip("uv is neither on PATH nor in UV (NeuroGrid's command line, A-101)")
-    config = RunConfig(
-        run_id="smoke-a",
-        mode="smoke",
-        datasets=("Zhou2016", "Kalunga2016"),
-        conditions=("clean", "line_noise-5"),
-        processes=2,
-        neurogrid_jobs=2,
-    )
-    runs, work = tmp_path / "runs", tmp_path / "work"
-    first = runner.run(config, runs, work)
-    second = runner.run(RunConfig(**{**config.__dict__, "run_id": "smoke-b"}), runs, work)
+    twice and compared exactly (quality.json, NeuroGrid's metrics, every fold). Needs area B. The two runs are
+    conftest's ``smoke_runs`` (SMOKE_CONFIG), shared with the smoke tests of area D."""
+    assert SMOKE_CONFIG.processes == 2 and SMOKE_CONFIG.conditions == ("clean", "line_noise-5")
+    first, second, work = smoke_runs.first, smoke_runs.second, smoke_runs.work
     comparison = compare.compare_runs(first, second)
     assert comparison.exact and comparison.ok, comparison.differences[:5]
     assert comparison.compared["quality"] == 4 and comparison.compared["neurogrid"] > 0
