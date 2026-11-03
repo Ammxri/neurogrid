@@ -6,10 +6,12 @@ the built-in rule packs (rule ID), the zh validator texts (validator code), the 
 the zh labels of the generated pages (page and line, or key), the zh lines of mkdocs.yml, the docs scripts,
 the README and the English rule pack page, the installer messages of install.ps1 and install.sh (line), the
 zh messages of tools/install_pdf_browser.py (message name), README.bundle.txt and the release notes (line),
-and the zh word lists of the wording test (forbidden.yaml, statements.yaml; never displayed, listed so the
-reviewer can check them too). Each string is marked when it was added or changed since P1 (commit a44d592,
-the scaffold whose texts the earlier review rounds saw): "new" = the key, or for line sources the line, is
-not in the file of that commit (or the file did not exist), "changed" = same key, other text.
+the zh word lists of the wording test (forbidden.yaml, statements.yaml; never displayed, listed so the
+reviewer can check them too), and the zh texts of the NeuroArena technical report (report.py, message name;
+the rendered report/zh/report.md once it exists, line). Each string is marked when it was added or changed
+since P1 (commit a44d592, the scaffold whose texts the earlier review rounds saw): "new" = the key, or for line
+sources the line, is not in the file of that commit (or the file did not exist), "changed" = same key, other
+text.
 
 The package also holds two example reports as zh PDF (design H.2 of the acceptance), so the reviewer sees
 the texts in the printed layout: report.zh.pdf of run 1 of a G1 run (tools/acceptance_g1.py), copied byte
@@ -217,7 +219,16 @@ def sources(root: Path = ROOT) -> list[Source]:
         Source(
             "src/neurogrid/report/wording/statements.yaml", "word list: statements (not displayed)", yaml_zh
         ),
+        Source(
+            "research/neuroarena/src/neuroarena/report.py",
+            "texts of the NeuroArena technical report in zh (NG-F17, F9 B)",
+            python_messages,
+        ),
     ]
+    # The rendered zh report of NeuroArena, once the two final runs are published and rendered (P11).
+    rendered = "research/neuroarena/report/zh/report.md"
+    if (root / rendered).is_file():
+        found.append(Source(rendered, "NeuroArena technical report in zh (rendered)", zh_lines, keyed=False))
     return found
 
 

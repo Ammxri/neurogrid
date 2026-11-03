@@ -21,7 +21,7 @@ from neurogrid.kernel.safety import load_yaml
 ROOT = Path(__file__).parent.parent.parent
 # Tracked files with Chinese characters that the reviewer does not need: code comments and test folder names
 # (cli.py, config.py, kernel/fonts.py, mkdocs_hooks.py, CI scripts and workflows) and the lead's German
-# working documents, which are not shipped.
+# working documents, which are not shipped. Test folders (tests/ and research/neuroarena/tests/) are skipped.
 NOT_DISPLAYED = (
     "src/neurogrid/cli.py",
     "src/neurogrid/config.py",
@@ -37,7 +37,7 @@ def _tracked_with_chinese() -> set[str]:
     listed = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     found = set()
     for name in listed.splitlines():
-        if name.startswith(("tests/", "docs/umsetzung/")):
+        if name.startswith(("tests/", "research/neuroarena/tests/", "docs/umsetzung/")):
             continue
         try:
             text = (ROOT / name).read_text(encoding="utf-8")
