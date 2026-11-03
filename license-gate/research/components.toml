@@ -213,7 +213,7 @@ kind = "native"
 notice = "torch-*.dist-info/licenses/LICENSE"
 note = "129 C++ test programs of PyTorch and kineto (built with torch)."
 
-# --- torchaudio 2.11.1 (braindecode) ------------------------------------------------------------------------
+# --- torchaudio 2.11.1 (braindecode; CPU build of the PyTorch index) ----------------------------------------
 
 [[component]]
 dist = "torchaudio"
