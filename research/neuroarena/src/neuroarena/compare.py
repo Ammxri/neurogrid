@@ -64,6 +64,9 @@ class Comparison:
     tolerance: EegnetTolerance | None  # None: exact for EEGNet as well
     compared: Mapping[str, int]  # what -> number of items compared
     differences: tuple[Difference, ...]  # sorted by (what, where)
+    # The run ids (run A, run B) as area D publishes the comparison (report.publish); compare_runs and the
+    # command line leave it empty.
+    runs: tuple[str, str] | tuple[()] = ()
 
 
 def compare_runs(a: Path, b: Path, eegnet_tolerance: EegnetTolerance | None = None) -> Comparison:
@@ -118,8 +121,9 @@ def write_comparison(comparison: Comparison, path: Path) -> Path:
     """JSON (UTF-8, LF, sort_keys, two-space indent) without absolute paths or machine names (the run ids
     only); return ``path``.
 
-    The Comparison holds neither paths nor run ids (``where`` is relative to the run folder): the file is
-    ``{"version", "ok", "exact", "tolerance", "compared", "differences"}``."""
+    The Comparison holds no paths (``where`` is relative to the run folder) and run ids only in ``runs``
+    (empty unless area D set them): the file is ``{"version", "ok", "exact", "tolerance", "compared",
+    "differences", "runs"}``."""
     document = {
         "version": COMPARISON_VERSION,
         "ok": comparison.ok,
@@ -127,6 +131,7 @@ def write_comparison(comparison: Comparison, path: Path) -> Path:
         "tolerance": None if comparison.tolerance is None else asdict(comparison.tolerance),
         "compared": dict(comparison.compared),
         "differences": [asdict(difference) for difference in comparison.differences],
+        "runs": list(comparison.runs),
     }
     text = json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
     return records.write_atomic(path, text.encode("utf-8"))

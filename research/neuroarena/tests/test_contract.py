@@ -31,6 +31,7 @@ MODULES = (
     "neuroarena.paths",
     "neuroarena.quality",
     "neuroarena.records",
+    "neuroarena.report",
     "neuroarena.runner",
     "neuroarena.synthetic",
 )

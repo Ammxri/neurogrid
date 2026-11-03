@@ -1,19 +1,24 @@
 """Test doubles of area C (decoders and evaluation): area B's functions and the worker pool, replaced in this
 process with ``monkeypatch`` so that the runner's own logic runs without area B and without spawned workers.
 The doubles follow area B's documented contract (freeze_api section 4): ``degraded_dataset`` keeps subjects,
-sessions, runs and events; ``assess`` writes quality.json into ``out`` and returns the ConditionQuality."""
+sessions, runs and events; ``assess`` writes quality.json into ``out`` and returns the ConditionQuality.
+
+Also the pair of smoke runs that the smoke tests of areas C and D share (``smoke_runs``, one per session)."""
 
 from __future__ import annotations
 
 import concurrent.futures
 import contextlib
 import json
+import os
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from _smoke import SmokeRuns, make_smoke_runs
 from neuroarena import datasets, paths, quality, runner, synthetic
 from neuroarena.keys import Condition, SessionKey
 
@@ -112,6 +117,18 @@ def fake_read_quality(path: Path) -> quality.ConditionQuality:
     return quality.ConditionQuality(
         document["dataset"], Condition.from_id(document["condition"]), {}, sessions
     )
+
+
+@pytest.fixture(scope="session")
+def smoke_runs(tmp_path_factory: pytest.TempPathFactory) -> SmokeRuns:
+    """The runner twice in mode smoke with area B's real functions (synthetic.fake_dataset,
+    datasets.degraded_dataset, quality.assess with NeuroGrid's command line): two spawned workers, both
+    decoders, Zhou2016 and Kalunga2016, clean and line_noise-5. One pair per test session, shared by the smoke
+    tests of area C (runner and compare) and area D (publish, render, notebook), so the CI smoke step runs the
+    pair once (F11 B). Skipped without uv (NeuroGrid's command line, A-101)."""
+    if not (shutil.which("uv") or os.environ.get("UV")):
+        pytest.skip("uv is neither on PATH nor in UV (NeuroGrid's command line, A-101)")
+    return make_smoke_runs(tmp_path_factory.mktemp("smoke-runs"))
 
 
 @pytest.fixture
