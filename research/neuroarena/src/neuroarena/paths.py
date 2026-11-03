@@ -13,6 +13,7 @@ Run folder ``.local/arena/runs/<run-id>/`` (written by the runner, area C, and `
     neurogrid/<dataset>/<condition>/recordings.json  FIF file -> recording key (export)
     neurogrid/<dataset>/<condition>/results.json     NeuroGrid's results (A-101)
     neurogrid/<dataset>/<condition>/quality.json     quality levels per recording and session (A-102)
+    units/<dataset>/<condition>/...            the runner's atomic result file per unit (resuming; runner)
     folds/<dataset>/<condition>/<decoder>.csv  one row per fold (records.FOLD_COLUMNS)
     sessions.csv                               one row per dataset, condition, decoder and session
     curve.csv                                  accuracy over the quality level (records.CURVE_COLUMNS)

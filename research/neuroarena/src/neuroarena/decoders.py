@@ -21,8 +21,11 @@ Checked against the locked versions (2026-11-02):
   estimator, flatten=True)``.
 - MOABB 1.7.2 has no EEGNet pipeline. The training therefore follows the EEGNet authors' reference example
   (vlawhern/arl-eegmodels, ``examples/ERP.py``; lead decision 2026-11-02): Adam with its default parameters,
-  cross-entropy, batches of 16, at most 300 epochs, the weights of the epoch with the lowest validation loss,
-  the input in millivolts (``X * 1000``). A-105 adds early stopping on a 20 % stratified validation split.
+  cross-entropy, batches of 16, at most 300 epochs, the weights of the epoch with the lowest validation loss.
+  A-105 adds early stopping on a 20 % stratified validation split. The input is in microvolts (``X * 1e6``),
+  not in millivolts as in the reference example: with braindecode's batch norm (momentum 0.01) millivolt
+  input makes the validation loss meaningless for the first ~1000 batches, so early stopping ends the training
+  before EEGNet learns (measured 2026-11-02; lead decision 2026-11-03).
   Every other setting is the default of braindecode 1.8.1's ``EEGClassifier`` and skorch 1.4.0.
 """
 
@@ -60,7 +63,7 @@ EEGNET_BATCH_SIZE = 16  # reference example; skorch's own default would be 128
 EEGNET_CRITERION = "torch.nn.CrossEntropyLoss"  # reference example; braindecode 1.8.1 EEGClassifier default
 EEGNET_SHUFFLE = True  # braindecode 1.8.1 EEGClassifier default (iterator_train__shuffle), seeded order
 EEGNET_DROP_LAST = True  # braindecode 1.8.1 EEGClassifier default (iterator_train__drop_last)
-EEGNET_INPUT_SCALE = 1000.0  # reference example: X * 1000 (volts to millivolts); constant, never fitted
+EEGNET_INPUT_SCALE = 1e6  # volts to microvolts (lead 2026-11-03, module docstring); constant, never fitted
 EEGNET_EARLY_STOPPING_MONITOR = "valid_loss"  # A-105 early stopping on the validation split
 EEGNET_PATIENCE = 50  # lead choice (A-105 names no patience)
 EEGNET_LOAD_BEST = True  # reference example: keep the weights of the epoch with the lowest validation loss
@@ -137,7 +140,7 @@ def csp_lda(spec: DatasetSpec) -> Pipeline:
 
 def model_batch(items: Any) -> Any:
     """Collate function of EEGNet's data loaders: torch's default collation, then the signal times
-    ``EEGNET_INPUT_SCALE`` (MNE's volts to millivolts as in the reference example; a constant, so nothing is
+    ``EEGNET_INPUT_SCALE`` (MNE's volts to microvolts; a constant, so nothing is
     learned from the data). braindecode's loader casts the signal to float32 and the labels to int64."""
     from torch.utils.data import default_collate
 
