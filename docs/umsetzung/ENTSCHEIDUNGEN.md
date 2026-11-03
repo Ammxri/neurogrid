@@ -233,6 +233,29 @@ Antworten des Projektverantwortlichen auf die Fragen der P9-Vorgaben, aufgezeich
 - **P9 vor P7 und P8:** Keines der beiden Normtext-Gates ist erfüllt (`.local/normen/` gibt es nicht; G-A, G-B);
   nach D-13 und KONZEPT 5/6 wird die nächste normunabhängige Phase vorgezogen; der Phasenbericht nennt das.
 
+**D-20 NeuroArena (P11): Datensätze, Leitern, Lizenz-Gate, Sprache, zwei Ausnahmen und der Pilotbefund
+(02.–03.11.2026).** Antworten des Projektverantwortlichen auf die Fragen der P11-Vorlage (AskUserQuestion):
+- **Datensätze (F1 B):** Zhou2016, **Cho2017 statt PhysionetMI**, Kalunga2016; ändert die Datensatzliste von A-36.
+  Vor dem Laden Größe und Lizenz an der Download-Quelle prüfen, über 25 GB Rückfrage. Geprüft: Zhou2016 Zenodo
+  16534752 (BIDS-Konvertierung von MOABB) CC-BY-4.0, 0,126 GB; Cho2017 GigaDB 10.5524/100295 CC0-1.0 (DataCite),
+  9,97 GB; Kalunga2016 Zenodo 2392979 CC-BY-4.0, 0,110 GB; zusammen etwa 10,2 GB, keine Rückfrage.
+- **Leitern (F4a A):** eine Leiter je Art (Netzbrummen, flache Kanäle, Artefakte) mit fünf Stufen, dazu sauber: 16
+  Bedingungen.
+- **Lizenz-Gate (F10 B):** zweistufig mit eigener Allowlist unter `license-gate/research/`; LGPL nur als
+  versionsgebundene, geprüfte Ausnahme für unverändert genutzte, nie ausgelieferte Abhängigkeiten (pycountry,
+  libsndfile); GPL und AGPL verboten; Komponentenprüfung der nativen Teile wie D-08.
+- **Zwei weitere versionsgebundene Ausnahmen (02.11.2026):** debugpy 1.8.22 (EPL-1.0, gebündeltes PyDev.Debugger,
+  harte Abhängigkeit von ipykernel 7.4.0 für nbclient) und die Intel-OpenMP-DLLs im Windows-Wheel von torch
+  2.15.0+cpu (kein Lizenztext im Wheel; nur lokal genutzt, nie ausgeliefert). Beide stehen mit dieser Entscheidung
+  in `license-gate/research/exceptions.toml`.
+- **Sprache (F9 B):** Bericht in en **und** zh in P11; die muttersprachliche Prüfung der zh-Fassung gehört zur
+  zh-Prüfrunde vor v1.0 und ist kein Gate für P11, die zh-Fassung selbst schon.
+- **Pilotbefund (A-109, 03.11.2026):** Von den sauberen Aufnahmen liegen bei Zhou2016 21 von 24 (88 %) und bei
+  Cho2017 45 von 52 (87 %) bei Q4 oder schlechter, über der Rückfragegrenze von 50 %. Antwort: **weiter, als Befund
+  berichten**; Datensätze und NeuroGrid bleiben unverändert.
+- **Übrige Fragen:** Es gelten die Empfehlungen der Vorlage als Annahmen A-100 bis A-110, vorgemerkt für die
+  Freigabe nach P11.
+
 ## Annahmen (Nicht-Blocker)
 
 **A-00 Nicht ausgefüllte Eingaben des Auftrags.** Ausgangslage: neues Projekt unter `Projekte/neurogrid`.
@@ -495,7 +518,9 @@ Reine Komfort- oder Zusatzfunktionen stehen in E3 zur Freigabe.
 
 **A-36 NG-F17.**
 - **Ort:** eigenes uv-Projekt `research/neuroarena/` mit eigenem Lock; torch aus dem CPU-Index, außer CUDA wird gebraucht. Gehört nicht zum Lizenz-Gate des Pakets; hat ein eigenes Lizenz-Gate.
-- **Datensätze:** Zhou2016 (CC0), PhysionetMI (ODC-By), Kalunga2016 (CC BY 4.0), mit Attributionsblock.
+- **Datensätze:** Zhou2016 (CC0), PhysionetMI (ODC-By), Kalunga2016 (CC BY 4.0), mit Attributionsblock. Geändert
+  durch D-20: Cho2017 statt PhysionetMI; Lizenzen an der Download-Quelle siehe D-20. Präzisiert in P11 durch A-100
+  bis A-110.
 - **Qualitätsstufe:** siehe A-45.
 - **Abgrenzung im Bericht:** „gilt nur für die untersuchten öffentlichen Datensätze und Decoder; keine Aussage über Leistung oder Sicherheit eines Medizinprodukts“.
 - **Reproduzierbarkeit:** Seeds, deterministische Algorithmen, CPU-Lauf, dokumentierte Toleranz.
@@ -527,7 +552,7 @@ nach P5 (v0.1) und nach Abschluss von v0.2 sowie an den technischen Go/No-Go-Pun
 **A-44 Schweregrad der kalibrierten Metriken.** Für M06, M07 und M09 gilt warning.
 
 **A-45 Qualitätsstufe für NG-F17.** Das ungünstigste Verhältnis aus Kernmetrik und Schwelle (M06, M07, M08, M09a, M09b)
-ergibt Q1 (< 0,5) bis Q5 (≥ 1,5). Gilt nur für `research/`.
+ergibt Q1 (< 0,5) bis Q5 (≥ 1,5). Gilt nur für `research/`. Präzisiert in P11 durch A-102.
 
 **A-46 Integritätsprüfungen jenseits des Validators** innerhalb von M01–M04:
 - **M01:** Lesbarkeit, Größe gegen den Kopf, Begleitdateien.
@@ -1582,3 +1607,152 @@ A-99 sind vorgemerkt für die Freigabe nach P9 (STOPP G2).
 - **Inhalt:** nie Signale, nie Einwilligungsdaten; die Mappe enthält nur, was die Berichte enthalten (M14 zusammengefasst), und Zahlen aus results.json; kein Proband über die hinaus, die die Berichte schon zeigen.
 - **Gemessen** (Bereich Paket): pypdf 6.21.2 `add_page` mit echten Chromium-PDFs, zh 18 Seiten 201 274 B und en 20 Seiten 123 321 B zu 38 Seiten 324 173 B in 0,06–0,08 s, bytegleich in einem Prozess und mit PYTHONHASHSEED 1 und 2, Trailer `/Info /Root /Size`, keine `/ID`, `%PDF-1.4`. Mappe von `bids_ai_ok` mit core: 40 Seiten (2 + 19 + 19), 373 229 B, etwa 21 s je Bau, bytegleich in zwei frischen Prozessen und im Test (`--lang zh` gegen `en` mit html); mit `--config` unterscheiden sich zwei Bauten mit Absicht (das eigene Ereignis des Berichts rückt den Kopf weiter); das Erkennen einer Mappe von 40 Seiten (QA-Gate) dauert etwa 4 s.
 - **Tests:** `tests/integration/test_dossier.py::test_dossier_complete`, `::test_two_dossiers_byte_identical`, `::test_dossier_holds_no_consent_data`, `::test_dossier_and_reports_are_identified`; `tests/unit/test_pdf_unit.py::test_qa_gate_every_page_any_and_the_merge_of_parts`; als Teil des Export-ZIP `tests/integration/test_p9_cross.py::test_dossier_as_export_report_part`. REP-08 bleibt `nicht verifiziert` bis zur Sichtprüfung eines Dossier-PDFs durch den Projektverantwortlichen (Muster D-18 für NG-F13 und REP-00); ein Muster (40 Seiten) lag im Scratchpad des Bereichs.
+
+## Annahmen aus der Umsetzung von P11
+
+Die folgenden Annahmen schließen Lücken, die PRD, Konzept, A-36 und A-45 für NeuroArena (NG-F17, NA-01 bis NA-05)
+offenlassen (Freigabemodus A). Grundlage sind die Vorlage des Leads (`.local/p11/p11_decisions_draft.md`), die
+Antworten des Projektverantwortlichen (D-20, aufgezeichnet in `.local/p11/p11_final.md`) und der Vertrag der
+Bereiche (`.local/p11/freeze_api.md`; alle drei nicht versioniert). A-100 bis A-110 sind vorgemerkt für die Freigabe
+nach P11.
+
+**Übergreifend (gilt für A-100 bis A-110).**
+- **Bau:** Gerüst mit eingefrorenen Schnittstellen auf `p11-scaffold` (74ce4aa, 9c0556f, 80a3c5b, Gate-Ausnahmen
+  99a8c06), dann drei Bereiche in Worktrees: B „Daten und Qualität“ (Merge 519be71), C „Decoder und Auswertung“
+  (Merge 3146cc0), D „Notebook, Bericht en/zh, Abbildungen“ (`p11-report`, 942651c). Auf `dev`: a8451e0 (Gerüst, B,
+  C und die Eingabeskala von EEGNet 29cfc47), b5e4472 (D, torchaudio aus dem CPU-Index 7fed448, Wortlaut der Grenzen
+  720980a).
+- **Paket unverändert:** `src/neurogrid/`, Schwellen, Vorbedingungen und die Ausgaben von NeuroGrid bleiben, wie sie
+  sind; die Qualitätsstufe gibt es nur unter `research/` (A-45). Der Haupt-Lock bleibt unverändert.
+
+**A-100 Projekt und Ablage** (präzisiert A-36; NG-F17).
+- Eigenes uv-Projekt `research/neuroarena/` mit `pyproject.toml`, `uv.lock` und Python 3.12 (`>=3.12,<3.13`);
+  universeller Lock für win_amd64 und linux x86_64 (`required-environments`), nur Wheels (`no-build`), jede
+  ergebnisrelevante Bibliothek exakt gepinnt. torch 2.15.0 und torchaudio 2.11.1 kommen aus dem CPU-Index von
+  PyTorch (expliziter Index); torchaudio ist nur deshalb direkte Abhängigkeit (braindecode braucht es), weil das
+  Linux-Wheel von PyPI gegen CUDA linkt (`libcudart`, `libtorch_cuda`) und neben dem CPU-torch nicht lädt.
+- NeuroArena importiert `neurogrid` nie (`tests/test_contract.py`).
+- Daten, Arbeitsdateien und Läufe unter `.local/arena/` (`mne_data/`, `work/`, `runs/`), nie im Repository und nie in
+  einem CI-Cache; ins Repository kommen Code, Lock, Notebook, Bericht, Abbildungen und aggregierte CSV/JSON
+  (`notebooks/`, `report/en/`, `report/zh/`, `results/`). Die Pfade setzen die editierbare Installation voraus;
+  ein Lauf startet deshalb aus dem Checkout, in dem die Daten liegen.
+- `datasets.configure_storage` setzt `MNE_DATA`, die Download-Ordner der drei Datensätze und
+  `MOABB_DOWNLOAD_PROVIDER=upstream` (sonst lädt moabb 1.7.2 von Spiegeln statt von der geprüften Quelle).
+
+**A-101 Aufruf von NeuroGrid** (NA-02).
+- Je Datensatz und Bedingung einmal `uv run --project <repo> --locked neurogrid check <ordner> --config <toml>
+  --show-paths --jobs N --out <datei>` (`neurogrid_cli.py`); Exit 0 und 1 gelten als gelaufen. uv kommt aus PATH
+  oder `UV`.
+- Eingabe sind temporäre FIF-Dateien (float32, `single`) mit der Montage von MOABB; `recordings.json` ordnet jede
+  Datei ihrer Aufnahme zu; die FIF-Dateien einer Bedingung werden nach der Prüfung gelöscht.
+- core läuft unverändert mit Standard-Schwellen und Stichprobe. Die toml je Datensatz setzt nur `[quality]
+  min_channels` auf die Zahl der EEG-Kanäle des Datensatzes (F5d) und `[metadata.defaults] line_frequency_hz`.
+  Befunde anderer Regeln werden nicht verwendet.
+
+**A-102 Qualitätsstufe** (präzisiert A-45; NA-02).
+- Je Aufnahme r = Wert / wirksame Schwelle für CORE-M06-01, CORE-M07-01, CORE-M08-01, CORE-M08-02, CORE-M09-01 und
+  CORE-M09-02 aus results.json; M07 und M08 je Aufnahme als Maximum über die Kanäle mit endlichem Wert.
+  CORE-M07-02 (Plausibilität der Netzfrequenz) zählt nicht.
+- Grenzen 0,5 / 0,75 / 1,0 / 1,5 (`quality.BOUNDARIES`): Q1 unter 0,5, Q4 ab der Schwelle, Q5 ab 1,5; ein Wert auf
+  einer Grenze gehört zur höheren Stufe. Das größte Verhältnis bestimmt die Stufe („worst rule“).
+- Nicht messbare Regeln (`not_checkable`, `not_applicable`) fallen heraus und werden mit NeuroGrids Grund gezählt;
+  eine Aufnahme ohne messbare Regel hat keine Stufe und wird ausgewiesen, nie verworfen.
+- Die Stufe einer Sitzung ist die schlechteste ihrer Läufe mit Stufe. `quality.assess` schreibt `quality.json`
+  zuletzt und atomar und verweigert einen nicht leeren Arbeitsordner.
+
+**A-103 Verschlechterung** (NA-03; F4).
+- 16 Bedingungen (D-20): sauber und je Art fünf Stufen. Die Stufenwerte stehen in `degradation.py` und wurden vor
+  dem ersten Lauf festgelegt, nie an Ergebnisse angepasst: Netzbrummen −15/−10/−5/0/+10 dB relativ zur
+  Kanalleistung in 1–40 Hz (Sinus auf der Netzfrequenz plus erste Oberwelle mit halber Amplitude, zufällige Phase je
+  Kanal); flache Kanäle k = max(m, round(f · n)) mit f = 0,05/0,10/0,20/0,35/0,50 und m = 1–5, Wert 0 V (Montage
+  und Kanalsatz bleiben, F4b A); Artefakte in 5/10/20/35/50 % der 2-s-Epochen, je ein Artefakt, Typen zu gleichen
+  Teilen (Lidschlag, Muskel, Elektrodensprung; Formen von Bereich B, vom Lead übernommen, nicht an NeuroGrid
+  angepasst).
+- Seeds über `numpy.random.SeedSequence` aus SHA-256 von (Datensatz, Proband, Sitzung, Lauf, Art, Stufe);
+  angewendet auf das Rohsignal (Volt) vor Filter und Epochierung, nur auf EEG-Kanäle; Montage, Annotationen und
+  Ereignisse bleiben. Stufe 0 ist die Identität.
+
+**A-104 Auswertung** (F6 A).
+- Training und Test in derselben Bedingung. Fünffach stratifizierte Kreuzvalidierung innerhalb jeder Sitzung
+  (gemischt, mit Seed); eigene Kreuzvalidierung statt der von MOABB, damit Seeds und Zwischenspeicher kontrolliert
+  bleiben (MOABB liefert Daten und Paradigmen, ohne Cache).
+- Genauigkeit einer Sitzung = richtige Testvorhersagen / Testtrials aller Folds; Zufallsniveau = Anteil der
+  häufigsten Klasse der Sitzung.
+- Kurvenpunkt = Mittel der Paare (Sitzung, Bedingung) mit 95-%-Perzentil-Bootstrap-Intervall des Mittels (10 000
+  Ziehungen, Seed). Hauptkurve nach der Stufe der Sitzung (F5f A), zweite Kurve nach der Verschlechterungsstufe je
+  Art mit sauber bei 0 (F5f B).
+- Gepaartes Design: Folds und Startgewichte einer Sitzung nutzen denselben Seed in jeder Bedingung und für beide
+  Decoder.
+
+**A-105 Decoder** (NA-04; F7 A).
+- **CSP+LDA** wie MOABB v1.7.2 `pipelines/CSP.yml` (geprüft): Kovarianz OAS, CSP mit 6 Filtern, LDA (svd);
+  Motor-Imagery 8–32 Hz. SSVEP: Filterbank mit je ±0,5 Hz um jede Reizfrequenz, CSP je Band, LDA auf allen Bändern;
+  eine eigene Konstruktion aus denselben Bausteinen, kein typischer SSVEP-Decoder (MOABB hat keine solche Pipeline).
+- **EEGNet:** `braindecode.models.EEGNet` mit Standardarchitektur als skorch-Klassifikator; 4–40 Hz und 128 Hz für
+  MI und SSVEP. Training nach dem Referenzbeispiel der Autoren (arl-eegmodels `examples/ERP.py`): Adam mit
+  Lernrate 1e-3, Batch 16, CrossEntropyLoss, höchstens 300 Epochen, Gewichte der besten Validierungs-Loss-Epoche.
+  Dazu 20 % stratifizierte Validierung mit Seed (`ValidSplit(0.2, stratified=True, random_state=seed)`), Early
+  Stopping auf `valid_loss` mit Geduld 50 (Wahl des Leads). Eingabe ×1e6 (Volt → Mikrovolt) statt ×1000 wie im
+  Referenzbeispiel: Mit braindecodes Batch-Normalisierung (Momentum 0,01) brach Early Stopping bei Millivolt-Eingabe
+  ab, bevor EEGNet lernte (Bereich C, gemessen vor dem vollen Lauf: an trennbarer Synthetik in der Form von Kalunga
+  0,25 statt 0,86). Der Faktor ist konstant und wird nie angepasst. Kein Tuning an Testdaten.
+
+**A-106 Reproduzierbarkeit.**
+- Basis-Seed 20261102; alle Seeds davon abgeleitet. Worker starten mit spawn und festen Umgebungsvariablen
+  (`determinism.WORKER_ENVIRONMENT`: `PYTHONHASHSEED=0`, BLAS und OpenMP mit einem Thread);
+  `torch.use_deterministic_algorithms(True)`, ein Thread, nur CPU.
+- Der Runner ist fortsetzbar (eine atomare Ergebnisdatei je Einheit unter `units/`) und schreibt `run.json` mit
+  Konfiguration, Versionen und Lock-Hashes.
+- `compare.compare_runs` vergleicht exakt: quality.json, die NeuroGrid-Werte jeder results.json und alle Folds;
+  eine EEGNet-Toleranz (höchstens 1 Testtrial je Fold und 0,5 Prozentpunkte im Mittel einer Zelle) nur, wenn der
+  Pilot Abweichungen zeigt. Zeiten werden nie verglichen. Gleichheit wird nur je Maschine und Lock zugesichert.
+
+**A-107 Bericht** (NA-01, NA-05; F8 A, F9 B).
+- `python -m neuroarena.report publish RUN_A RUN_B` schreibt `results/` aus den beiden vollen Läufen (der erste ist
+  der berichtete, der zweite seine Wiederholung); `render` schreibt `report/en/report.md` und
+  `report/zh/report.md` allein aus `results/`. Jede Zahl des Berichts kommt aus diesen Dateien.
+- Abschnitte: Ziel, Daten mit Attributionsblock je Datensatz, Methode, Ergebnisse, Grenzen, Abgrenzung. Abgrenzung
+  en wörtlich nach A-36 („applies only to the public datasets and decoders studied; no statement about the
+  performance or safety of a medical device“), zh als Entwurf für die zh-Prüfrunde.
+- Abbildungen als SVG und PNG (bytegleich bei zweimaligem Veröffentlichen, nur englisch beschriftet); eine Stufe
+  ohne Paare hat keinen Punkt und wird ausgewiesen, nie erfunden. Die Grenzen nennen Mechanismen und die
+  gemessenen Zahlen, keine vorweggenommenen Ergebnisse.
+- Sperrliste A-57 und ARC-05 auf Bericht, Textvorlagen, Notebook und Code-Kommentaren (`tests/_wording.py`).
+  Lizenz: Bericht, Abbildungen und aggregierte Ergebnisse CC BY 4.0, Code Apache-2.0 (REUSE); die Datensätze
+  behalten ihre Lizenzen und werden nicht weitergegeben.
+- Das Notebook `notebooks/neuroarena.ipynb` liegt ohne Ausgaben im Repository, liest `results/` (oder
+  `NEUROARENA_RESULTS`) und läuft ohne Oberfläche (nbclient, Kernel `python3`).
+
+**A-108 Lizenz-Gate research** (F10 B; D-20).
+- `tools/licenses.py --target research` prüft Laufzeit- und Dev-Abhängigkeiten gegen
+  `license-gate/research/allowlist.txt`; `--components --download` prüft die nativen und gebündelten Teile der
+  Wheels beider Ziele gegen `components.toml` (wie D-08).
+- Ausnahmen nur versionsgebunden in `exceptions.toml` mit ihrer Entscheidung: pycountry und libsndfile (LGPL,
+  F10 B), libquadmath in numpy und scipy (D-08 mit F10 B), pybv (A-56), debugpy (EPL-1.0) und die
+  Intel-OpenMP-DLLs von torch (D-20). GPL und AGPL sind in Ausnahmen verboten.
+
+**A-109 Pilot und Budget** (F2 A, F3 A).
+- Vor dem vollen Lauf: (1) Q aller sauberen Aufnahmen, (2) saubere Genauigkeit beider Decoder, (3) Zeit je Einheit
+  hochgerechnet, (4) EEGNet zweimal auf einem Probanden. Rückfrage, wenn über 50 % der sauberen Aufnahmen eines
+  Datensatzes bei Q4 oder schlechter liegen, ein Decoder auf einem Datensatz sauber nicht über dem Zufallsniveau
+  liegt oder die Hochrechnung über 48 h Wandzeit je vollem Lauf liegt. Alle Probanden (F2 A), nur CPU (F3 A).
+- **Ergebnis (03.11.2026, Lauf `pilot-1`, Modus pilot: Bedingung sauber, alle Probanden, beide Decoder, 10
+  Prozesse):**
+  - (1) Q4 oder schlechter: Kalunga2016 4 von 30 Aufnahmen (13 %), Zhou2016 21 von 24 (88 %; die Stufe gab meist M06,
+    pyprep markiert fast immer O1, O2, Oz, Fp1 oder Fp2 der 14-Kanal-Montage), Cho2017 45 von 52 (87 %; meist M09a,
+    dazu 11 × M07). Auslöser für Zhou2016 und Cho2017 → Rückfrage, Antwort in D-20: weiter, als Befund berichten.
+  - (2) Mittlere Genauigkeit CSP+LDA / EEGNet gegen das mittlere Zufallsniveau: Zhou2016 0,826 / 0,787 gegen 0,334,
+    Cho2017 0,659 / 0,662 gegen 0,500, Kalunga2016 0,565 / 0,374 gegen 0,250; kein Auslöser.
+  - (3) Summe der Einheiten 72 991 s für die saubere Bedingung (davon EEGNet 70 157 s), Wandzeit 2,5 h teils unter
+    Fremdlast; hochgerechnet auf 16 Bedingungen etwa 32–40 h je vollem Lauf; kein Auslöser.
+  - (4) EEGNet zweimal auf Proband 1 jedes Datensatzes: alle Folds bitgleich → `compare_runs` ohne EEGNet-Toleranz
+    (exakt).
+- Beide vollen Läufe laufen mit denselben Einstellungen: 12 Prozesse und 6 Jobs für NeuroGrid; jede Einheit rechnet
+  einzeln in einem Prozess mit einem Thread (A-106).
+
+**A-110 CI research** (F11 B).
+- `.github/workflows/research.yml` auf Ubuntu 24.04 bei Änderungen unter `research/`, `license-gate/research/`,
+  den Gate-Werkzeugen und dem Workflow: Lock-Prüfung, beide Projekte synchronisiert, Gate beider Stufen, ruff,
+  Unit-Tests (`-m "not smoke"`) und Smoke (`-m smoke`) mit JUnit-Annotationen. Kein Datensatz-Download, kein
+  Upload. Das Smoke-Laufpaar läuft einmal je Sitzung und wird von den Smoke-Tests von C und D geteilt
+  (`conftest.smoke_runs`).

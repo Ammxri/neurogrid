@@ -235,6 +235,14 @@ Erwartung und Prüfung:
 - `.venv\Scripts\neurogrid.exe --help` zeigt die sechs Befehle und seit P6 die Gruppe `vault` (Anhang A) [G, 0ffdd90].
 - Nach jeder Änderung an `uv.lock` (z. B. P5-Merge) alle drei Umgebungen neu synchronisieren.
 
+**Forschungsumgebung (seit P11, A-100):** `research/neuroarena/.venv` mit Python 3.12 aus dem eigenen Lock des
+Forschungsprojekts (142 Pakete, torch und torchaudio aus dem CPU-Index von PyTorch); unabhängig von den drei
+Umgebungen oben, NeuroGrid läuft daraus nur als Kommandozeile der Hauptumgebung (A-101):
+```powershell
+uv sync --locked --no-build --project research/neuroarena
+uv lock --check --project research/neuroarena
+```
+
 **Hilfsumgebungen**, die Werkzeuge selbst anlegen (nie von Hand):
 - `.local/licenses/venv-runtime`, `venv-dev`, `venv-docs` – `tools/licenses.py` (aus `uv export`, A-86)
 - Worktree-Umgebungen `<worktree>\.venv` – je Worktree `uv sync --locked --no-build` (3.5)
@@ -531,6 +539,11 @@ Zeilen; Stand `181654e`: 540 Dateien, davon 111 unter `third_party`, 20 764 / 45
   Stufe 2 sperrt jede Lizenz mit „GPL“ (`--partial-match`). Getrennt für `runtime`, `dev`, `docs`. Dazu
   `--components`: statische Prüfung jeder nativen Datei der gelockten Wheels beider Zielplattformen und der
   Bündelteile gegen `license-gate/components.toml` (D-08).
+- **Lizenz-Gate des Forschungsprojekts (seit P11, A-108, D-20):** `tools/licenses.py --target research` prüft
+  Laufzeit und Dev des Forschungs-Locks gegen `license-gate/research/allowlist.txt`, Ausnahmen nur
+  versionsgebunden mit ihrer Entscheidung in `license-gate/research/exceptions.toml` (GPL und AGPL verboten);
+  `--target research --components --download` prüft die nativen und gebündelten Teile der Wheels beider Ziele gegen
+  `license-gate/research/components.toml` (Wheels in `.local/research-wheels/`).
 - Der Ordner hieß bis P4 `licenses/`; er wurde in P5 wegen der Kollision mit `LICENSES/` auf
   groß-/kleinschreibungsunabhängigen Windows-Laufwerken in `license-gate/` umbenannt (A-86).
 
@@ -2805,6 +2818,75 @@ $PY = ".\.venv\Scripts\python.exe"
 & $PY tools\check_matrix_coverage.py
 & $PY tools\check_commit_ids.py --since c1f5129
 & $PY -m pytest -q -p no:cacheprovider tests\docs\test_docs_sync.py tests\docs\test_licensing.py tests\packaging\test_packaging_texts.py tests\packaging\test_workflows.py tests\unit\test_architecture.py::test_matrix_coverage tests\unit\test_small_units.py::test_commit_message_cleanup
+```
+
+### 4.10 P11 – NeuroArena (2026-11-02 bis 11-03)
+
+Matrix: NG-F17 und NA-01 bis NA-05 (DoD in KONZEPT 6: zwei volle Läufe mit gleichen Zahlen, Kurve für beide Decoder,
+eigenes Lizenz-Gate grün). P11 lief vor P10, weil G-C fehlt. Grundlage: die Vorlage des Leads (privat:
+`.local/p11/p11_decisions_draft.md`), die Antworten des Projektverantwortlichen (D-20, `.local/p11/p11_final.md`),
+der Vertrag der Bereiche (`.local/p11/freeze_api.md`); Annahmen A-100 bis A-110. Das Paket `src/neurogrid/`, sein
+`pyproject.toml` und sein `uv.lock` bleiben unverändert [G: `git diff --stat 5596a8d b5e4472 -- src pyproject.toml
+uv.lock`].
+
+#### 4.10.1 Vorgehen
+
+| Schritt | Commits | Inhalt |
+|---|---|---|
+| Gerüst | `74ce4aa`, `9c0556f`, `80a3c5b` (Zweig `p11-scaffold`) | Forschungsprojekt mit Lock, eingefrorene Schnittstellen, Gate `--target research`, `research.yml` |
+| Gate-Ausnahmen | `99a8c06` | debugpy und Intel OpenMP nach der Antwort von D-20 |
+| Bereich B | Zweig `p11-data`: `c6d6bad`, `ac62bff`; Merge `519be71` | Datensätze, Verschlechterung, FIF-Export, Aufruf von NeuroGrid, Qualitätsstufe, Synthetik |
+| Bereich C | Zweig `p11-eval`: `433e21b`, `38ad106`, `83ca05e`; Merge `3146cc0` | Determinismus, Decoder, Auswertung, CSV, Runner, `compare_runs` |
+| Eingabeskala | `29cfc47` | EEGNet ×1e6 statt ×1000 (A-105) |
+| auf `dev` | `a8451e0` | Gerüst, B und C für die CI |
+| Bereich D | Zweig `p11-report`: `942651c`, dazu `7fed448` (torchaudio aus dem CPU-Index), `720980a` (Wortlaut der Grenzen); Merge `b5e4472` | Bericht en/zh, Abbildungen, `results/`, Notebook |
+
+Die Bereiche arbeiteten in Worktrees wie in 3.5, jeweils mit eigener Forschungsumgebung (1.4). Nach den Merges wurden
+die Worktrees nach einer Prüfung auf Reparse-Punkte (keine gefunden) entfernt; der Rest des Gerüst-Worktrees (Pfade
+über 260 Zeichen) mit `cmd /c 'rmdir /s /q "\\?\<voller Pfad>"'` [R].
+
+#### 4.10.2 Daten
+
+Lizenz und Größe jedes Datensatzes wurden vor dem Laden an der Download-Quelle geprüft (D-20). Laden einmal und
+nacheinander in `.local/arena/mne_data` (etwa 10,2 GB; 255 Dateien nach dem Laden [G]):
+```powershell
+uv run --no-sync --project research/neuroarena python -c "from neuroarena import datasets; datasets.configure_storage(); [datasets.fetch(spec) for spec in datasets.DATASETS.values()]"
+```
+`configure_storage` setzt `MOABB_DOWNLOAD_PROVIDER=upstream`; ohne das lädt moabb 1.7.2 von Spiegeln (A-100). Cho2017
+kommt von GigaDB (Webseite für automatischen Abruf nicht lesbar, die Dateien selbst schon).
+
+#### 4.10.3 Läufe
+
+Aus dem Checkout, in dem `.local/arena/` liegt (die Pfade hängen an der editierbaren Installation), mit uv auf PATH
+oder in `UV` (A-101):
+```powershell
+uv run --project research/neuroarena --locked python -m neuroarena.runner --run-id pilot-1 --mode pilot --processes 10 --neurogrid-jobs 6
+uv run --project research/neuroarena --locked python -m neuroarena.runner --run-id full-1 --mode full --processes 12 --neurogrid-jobs 6
+uv run --project research/neuroarena --locked python -m neuroarena.runner --run-id full-2 --mode full --processes 12 --neurogrid-jobs 6
+uv run --no-sync --project research/neuroarena python -m neuroarena.report publish full-1 full-2
+uv run --no-sync --project research/neuroarena python -m neuroarena.report render
+```
+Der Runner ist fortsetzbar: Ein abgebrochener Lauf wird mit derselben Run-ID und derselben Konfiguration neu
+gestartet und überspringt fertige Einheiten. `publish` gibt Exit 1, wenn die Läufe verschieden sind; die Dateien sind
+dann trotzdem geschrieben und `run_compare.json` nennt die Unterschiede.
+
+#### 4.10.4 Lizenz-Gate und CI
+
+```powershell
+& $PY tools\licenses.py --target research
+& $PY tools\licenses.py --target research --components --download
+```
+In `research.yml` brach der erste Lauf auf `a8451e0` in den Unit-Tests ab: Das Linux-Wheel von torchaudio auf PyPI
+linkt gegen CUDA (`libcudart.so.13`, `libtorch_cuda.so`; gelesen aus den Bibliotheken des Wheels [G]) und lädt neben
+`torch 2.15.0+cpu` nicht, braindecode importiert torchaudio. Behoben in `7fed448`: torchaudio 2.11.1 als direkte
+Abhängigkeit aus dem CPU-Index.
+
+#### 4.10.5 Tests
+
+```powershell
+cd research\neuroarena
+uv run --no-sync pytest -q -m "not smoke"
+uv run --no-sync pytest -q -m smoke     # braucht uv für die Kommandozeile von NeuroGrid
 ```
 
 ---

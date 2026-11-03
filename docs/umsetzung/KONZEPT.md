@@ -95,7 +95,11 @@ neurogrid/
   docs/                   zh/ en/ (MkDocs, je 18 Seiten, seit P6 mit vault.md, seit P9 mit ci.md; metrics.md je Metrik = Quelle der
                           core-Regeln), _data/ (seit P6 mit interpretation_questions.yaml) und assets/ (Daten bzw. Code
                           der Website), umsetzung/ (nicht Teil der Website)
-  research/neuroarena/ (+)  eigenes uv-Projekt mit eigenem Lock (A-36)
+  research/neuroarena/ (+)  eigenes uv-Projekt mit eigenem Lock (A-36, A-100; seit P11): src/neuroarena/ (keys paths
+                          datasets degradation export neurogrid_cli quality synthetic determinism decoders evaluation
+                          records runner compare report), tests/, notebooks/, report/en/ report/zh/, results/
+  license-gate/research/ (+, P11)  allowlist.txt, components.toml, exceptions.toml (A-108)
+  .github/workflows/research.yml (+, P11, A-110)
   action.yml, ci-templates/gitlab-ci.yml (+, P9, A-34, A-98)
 ```
 
@@ -607,7 +611,8 @@ STOPPs nach P5 und nach Abschluss von v0.2. Diese Abweichung von „Stopp bei fe
 Stand 02.11.2026 (D-18, D-19): P6 lief parallel zur zh- und Sichtprüfung von STOPP G1 und ist abgeschlossen; G-A und
 G-B sind nicht erfüllt (`.local/normen/` fehlt), deshalb lief P9 vor P7 und P8 (Regel „Fehlende Normtexte“ in
 Abschnitt 5, D-13) und ist abgeschlossen (`dev` 5596a8d). G-C (ISO/IEC TS 27571) fehlt ebenfalls, deshalb folgt P11 vor
-P10; P7, P8 und P10 warten auf die Normtexte.
+P10; P7, P8 und P10 warten auf die Normtexte. Stand 03.11.2026 (D-20): P11 mit den Datensätzen Zhou2016, Cho2017 und
+Kalunga2016, 16 Bedingungen, Bericht en und zh.
 
 **Jede Phase endet mit:**
 - lauffähigem Stand, Tests grün (lokal; ab E2 auch in der CI)

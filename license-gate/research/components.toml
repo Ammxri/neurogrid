@@ -222,7 +222,7 @@ platform = "linux_x86_64"
 spdx = "BSD-2-Clause"
 kind = "native"
 notice = "torchaudio-*.dist-info/licenses/LICENSE"
-note = "_torchaudio.so, libtorchaudio.so and torchaudio_prefixctc.so: torchaudio's own libraries (no extension-module suffix). The Windows wheel has .pyd modules only."
+note = "_torchaudio.so and libtorchaudio.so: torchaudio's own libraries (no extension-module suffix), linked against the CPU torch only. The Windows wheel has .pyd modules only."
 
 # --- debugpy 1.8.22 (ipykernel 7.4.0, nbclient) -------------------------------------------------------------
 
