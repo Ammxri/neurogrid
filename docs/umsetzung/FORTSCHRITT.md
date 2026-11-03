@@ -120,7 +120,7 @@ Projektverantwortlichen.
 
 ## Für STOPP G2 vorgemerkt
 
-Stand 02.11.2026 (nach P6 und P9). STOPP G2 folgt nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf
+Stand 03.11.2026 (nach P6, P9 und P11). STOPP G2 folgt nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf
 die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
 - **Annahmen A-90 bis A-92 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P6“), darunter die Lesarten:
   - A-90: Zugriffsereignisse von `scan`, `manifest` und `verify` nur im Vault am Standardort, von `report` nur mit
@@ -190,6 +190,32 @@ die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
   im Speicher; Risiko-IDs erscheinen im Bericht wie geschrieben; Differenzen zweier veröffentlichter, sich
   überschneidender Risiken können Zahlen von 1 bis 4 ergeben (A-81 gilt je Tabelle); das Export-ZIP ist nur in einer
   Umgebung bytegleich (zlib); die Leistung mit etwa 1 000 Risiken ist nicht gemessen.
+- **Annahmen A-100 bis A-110 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P11“; vorgemerkt für die
+  Freigabe nach P11), darunter die Lesarten:
+  - A-100: torchaudio als direkte Abhängigkeit aus dem CPU-Index von PyTorch (das Linux-Wheel von PyPI linkt CUDA);
+    ein Lauf startet aus dem Checkout, in dem die Daten liegen.
+  - A-101 und A-102: NeuroGrid über die CLI auf temporären FIF-Dateien, die toml setzt nur `min_channels` und die
+    Netzfrequenz; die Stufe aus dem größten Verhältnis zu den wirksamen Schwellen von M06, M07, M08 und M09, die Stufe
+    einer Sitzung ist die schlechteste ihrer Läufe.
+  - A-103: Stufenwerte vor dem ersten Lauf festgelegt; die Artefaktformen stammen von Bereich B und sind nicht an
+    NeuroGrid angepasst.
+  - A-104: Kreuzvalidierung innerhalb jeder Sitzung, Zufallsniveau als Anteil der häufigsten Klasse, gepaartes Design.
+  - A-105: die SSVEP-Filterbank mit CSP ist eine eigene Konstruktion (MOABB hat keine); **Abweichung vom
+    Referenzbeispiel von EEGNet:** Eingabe ×1e6 statt ×1000, dazu 20 % Validierung und Geduld 50 als Wahl des Leads.
+  - A-106: Gleichheit zweier Läufe nur je Maschine und Lock.
+  - A-107: die zh-Abgrenzung ist ein Entwurf für die zh-Prüfrunde.
+  - A-108: Ausnahmen des Forschungs-Gates (pycountry, libsndfile, libquadmath, pybv, debugpy, Intel OpenMP),
+    versionsgebunden.
+  - A-109: Pilotbefund Q4 oder schlechter bei Zhou2016 (88 %) und Cho2017 (87 %) der sauberen Aufnahmen, nach D-20 als
+    Befund berichtet.
+  - A-110: `research.yml` nur auf Ubuntu 24.04, ohne Datensatz-Download.
+- **zh-Prüfung des NeuroArena-Berichts** (F9 B, D-20; die Prüfung ist kein Gate für P11):
+  `research/neuroarena/report/zh/report.md` und die zh-Texte in `research/neuroarena/src/neuroarena/report.py`, beide
+  im zh-Prüfpaket (`tools/zh_review_package.py`). Unsichere Begriffe aus Bereich D: 劣化 und 劣化阶梯
+  (Verschlechterung, Leiter), 会话 (Sitzung), 运行 (Lauf), 组合 (Paar aus Sitzung und Bedingung), 随机水平
+  (Zufallsniveau), 自助法区间 (Bootstrap-Intervall), 平直通道 (flacher Kanal), 电极跳变 (Elektrodensprung), 肌电爆发
+  (Muskelartefakt), 早停 (Early Stopping), 耐心值 (Geduld), 比值最大 (größtes Verhältnis), 适用范围声明
+  (Abgrenzung) und der Satz der Abgrenzung; Artikelverweise der Form „第…条“ kommen nicht vor.
 
 ## Verlauf
 
