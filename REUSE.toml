@@ -39,10 +39,23 @@ path = [
     "docs/assets/**",
     "action.yml",
     "ci-templates/**",
+    "research/**",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Ammar Ahad"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Research part NeuroArena (NG-F17, F8 A): its README, the report, figures and aggregated results are
+# documentation (CC BY 4.0); its code, lock, tests and notebooks are code (Apache-2.0, table above)
+[[annotations]]
+path = [
+    "research/neuroarena/README.md",
+    "research/neuroarena/report/**",
+    "research/neuroarena/results/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Ammar Ahad"
+SPDX-License-Identifier = "CC-BY-4.0"
 
 # Third-party notices: NeuroGrid's own prose is CC BY 4.0; the licence texts, notices and headers it
 # reproduces word for word keep their own terms and authors (LICENSES/LicenseRef-NeuroGrid-Reproduced-
