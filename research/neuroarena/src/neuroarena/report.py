@@ -1008,12 +1008,13 @@ TEXTS: dict[str, dict[str, Any]] = {
             "- **Clean data at {worse} (pilot finding, A-109).** Clean recordings at {worse}: {shares}. The "
             "rule that gave the level of the clean recordings (worst rule): {worst}. The pilot measured this "
             "before the full run; the owner decided to continue and to report it as a finding, with the "
-            "datasets and NeuroGrid unchanged. NeuroGrid's thresholds were calibrated on other public "
-            "recordings and are not adapted to these datasets; where clean data lie at or above a threshold, "
-            "the quality axis of that dataset has little range below {threshold_level}."
+            "datasets and NeuroGrid unchanged. NeuroGrid's calibrated thresholds (M06, M07, M09) are the "
+            "95th percentile of a public test corpus of other recordings and are not adapted to these "
+            "datasets; where clean data lie at or above a threshold, the quality axis of that dataset has "
+            "little range below {threshold_level}."
         ),
         "lim_m09a": (
-            "- **M09a hardly reacts to local artefacts.** M09a is the share of epochs that local autoreject "
+            "- **M09a can miss local artefacts.** M09a is the share of epochs that local autoreject "
             "rejects, and autoreject first interpolates a few bad channels of an epoch: an artefact on one "
             "or a few channels (an electrode pop, a frontal blink) is repaired rather than rejected."
         ),
@@ -1036,7 +1037,7 @@ TEXTS: dict[str, dict[str, Any]] = {
             "- **Band-pass filters remove most line noise before decoding.** CSP+LDA decodes motor imagery "
             "in {mi_band} Hz and SSVEP in narrow bands around the stimulus frequencies, EEGNet uses "
             "{eegnet_band} Hz, all below the line frequencies of the datasets ({lines} Hz): the line-noise "
-            "ladder moves the quality level (M07) more than the accuracy."
+            "ladder can therefore move the quality level (M07) without moving the accuracy."
         ),
         "lim_line_data": "Mean accuracy, clean and at the highest line-noise level of the run: {values}.",
         "lim_equality": (
@@ -1297,12 +1298,12 @@ TEXTS: dict[str, dict[str, Any]] = {
         "lim_clean": (
             "- **干净数据已处于 {worse}（试运行发现，A-109）。** 处于 {worse}的干净记录：{shares}。决定干净记"
             "录等级的规则（比值最大）：{worst}。试运行在完整运行之前就测得了这一点；负责人决定继续，并将其作"
-            "为一项发现报告，数据集和 NeuroGrid 均保持不变。NeuroGrid 的阈值是在其他公开记录上校准的，并未针"
-            "对这些数据集调整；当干净数据已达到或超过某个阈值时，该数据集的质量轴在 {threshold_level} 以下几"
-            "乎没有跨度。"
+            "为一项发现报告，数据集和 NeuroGrid 均保持不变。NeuroGrid 的校准阈值（M06、M07、M09）取自由其他记"
+            "录组成的公开测试语料的第 95 百分位数，并未针对这些数据集调整；当干净数据已达到或超过某个阈值"
+            "时，该数据集的质量轴在 {threshold_level} 以下几乎没有跨度。"
         ),
         "lim_m09a": (
-            "- **M09a 对局部伪迹几乎没有反应。** M09a 是局部 autoreject 拒绝的分段所占比例，而 autoreject 会"
+            "- **M09a 可能漏掉局部伪迹。** M09a 是局部 autoreject 拒绝的分段所占比例，而 autoreject 会"
             "先对一个分段中少数坏通道进行插值：只影响一个或少数几个通道的伪迹（电极跳变、额部眨眼）会被修复，"
             "而不是被拒绝。"
         ),
@@ -1320,8 +1321,8 @@ TEXTS: dict[str, dict[str, Any]] = {
         "lim_saturation_data": "通道阶梯第一级处于 Q{top} 的记录：{values}。",
         "lim_line": (
             "- **带通滤波在解码前去除了大部分工频干扰。** CSP+LDA 对运动想象使用 {mi_band} Hz，对 SSVEP 使用"
-            "刺激频率附近的窄频带，EEGNet 使用 {eegnet_band} Hz，均低于各数据集的工频（{lines} Hz）：工频干扰"
-            "阶梯对质量等级（M07）的影响大于对准确率的影响。"
+            "刺激频率附近的窄频带，EEGNet 使用 {eegnet_band} Hz，均低于各数据集的工频（{lines} Hz）：因此工频"
+            "干扰阶梯可能改变质量等级（M07），而准确率不变。"
         ),
         "lim_line_data": "干净数据和本次运行中最高工频干扰等级下的平均准确率：{values}。",
         "lim_equality": (
