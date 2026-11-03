@@ -7,6 +7,10 @@ promised only per machine and lock (A-106); across machines nothing is claimed (
 
 from __future__ import annotations
 
+import hashlib
+import os
+import sys
+
 # Environment of every worker process, set before the worker imports numpy or torch (spawn start method).
 # Variables of other programs (BLAS, OpenMP, Python); not NeuroArena's own.
 WORKER_ENVIRONMENT = {
@@ -26,7 +30,8 @@ def derive_seed(*parts: str | int) -> int:
     """A seed in [0, 2**32) from ``BASE_SEED`` and ``parts`` (e.g. dataset, condition id, subject, session,
     decoder, fold): the first four bytes (big endian) of SHA-256 over the UTF-8 of ``"|".join(map(str,
     (BASE_SEED, *parts)))``. Never Python's ``hash``."""
-    raise NotImplementedError("area C")
+    text = "|".join(map(str, (BASE_SEED, *parts)))
+    return int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:4], "big")
 
 
 def seed_everything(seed: int) -> None:
@@ -34,10 +39,24 @@ def seed_everything(seed: int) -> None:
     ``torch.use_deterministic_algorithms(True)``, ``torch.set_num_threads(1)`` and keep the device on the CPU.
     Called before every fit (EEGNet) and before the CV split. braindecode's ``set_random_seeds`` does not set
     the deterministic algorithms itself (draft 2.4, braindecode issue 333)."""
-    raise NotImplementedError("area C")
+    import random
+
+    import numpy as np
+    import torch
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)  # the CPU generator; NeuroArena never moves a model to another device (F3 A)
+    torch.use_deterministic_algorithms(True)
+    torch.set_num_threads(1)
 
 
 def check_environment() -> None:
     """Raise RuntimeError if this process does not run with ``WORKER_ENVIRONMENT`` (a worker started without
     it would not be reproducible)."""
-    raise NotImplementedError("area C")
+    wrong = sorted(name for name, value in WORKER_ENVIRONMENT.items() if os.environ.get(name) != value)
+    # PYTHONHASHSEED acts at interpreter start only: setting the variable later leaves hashing randomised.
+    if sys.flags.hash_randomization:
+        wrong.append("hash randomisation is on (PYTHONHASHSEED=0 was not set at the start)")
+    if wrong:
+        raise RuntimeError(f"not a reproducible worker environment: {', '.join(wrong)}")
