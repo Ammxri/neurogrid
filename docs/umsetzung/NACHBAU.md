@@ -2974,6 +2974,96 @@ $PY = ".\.venv\Scripts\python.exe"
 uv run --no-sync --project research/neuroarena pytest -q research/neuroarena/tests/test_published_results.py
 ```
 
+### 4.11 P7 – GB/T 47127 (2026-11-09)
+
+#### 4.11.1 Normtext und Inventar
+
+Den Normtext GB/T 47127—2026 übergibt der Projektverantwortliche (D-22). Er liegt unversioniert als
+`.local/normen/GBT-47127-2026.pdf` (23 Seiten, Text auslesbar). Der Text wird mit pypdf ausgelesen, im
+Layout-Modus nach `GBT-47127-2026.layout.txt` und kompakt ohne Leerzeilen [R].
+
+Beim Auslesen fehlen in manchen Bezeichnern der Tabellen Buchstaben, etwa „SamlinFreuenc“ für
+SamplingFrequency. Maßgeblich ist die Tabelle (A-113).
+
+Das Inventar steht in `.local/p7/inventory.md`: Pflichtelemente G-01 bis G-27 mit Klausel und Verbindlichkeit (应
+heißt „muss“, 宜 „soll“, 可 „kann“) sowie die Auslegungsfragen AF-1 bis AF-10. Ins Repository kommen nur
+Klauselnummern, Bezeichner und eigene Kurztexte (A-55).
+
+#### 4.11.2 Aufbau
+
+| Teil | Datei | Inhalt |
+|---|---|---|
+| Leser | `src/neurogrid/io/gbt47127.py` | `read_dataset` (Layout nach 6.1/6.2, Dateinamen nach 7.5.7/7.6, JSON/XML und TSV/CSV, Leseprobleme als Schlüssel statt Ausnahmen), `looks_like_gbt47127` (Erkennung, A-115) |
+| Schreiber | ebenda | `from_bids` (BIDS → GB/T, Feldabbildung, BrainVision mit umbenannter Daten- und Markerdatei, Lücken statt erfundener Werte, A-114) |
+| Prüfungen | `src/neurogrid/checks/gbt47127.py` | 18 Prüfungen; Feldtabellen je Modalität (Tabellen 1–19); `structure_counts` für `convert` |
+| Regelpaket | `src/neurogrid/rulepacks/gbt47127.yaml` | 18 Regeln, `source_status: final`, `norm: true` |
+| Konvertierung | `src/neurogrid/pipeline.py` | `_run_convert_gbt47127` (über BIDS, Verarbeitungsschritte, Strukturprüfung) |
+| Kern | `io/discover.py`, `metadata.py`, `io/participants.py` | Feld `is_gbt47127`, Metadaten aus GB/T, ParticipantId als `participant_id` |
+| Texte | `report/i18n/{en,zh,de}.yaml`, `docs/_data/checks.{en,zh}.yaml`, `interpretation_questions.yaml` | Prüftitel und Gründe, Referenzseiten, IQ-001 bis IQ-005 |
+| Tests | `tests/integration/test_gbt47127.py` | 35 Tests (siehe 4.11.4) |
+
+#### 4.11.3 Benutzung
+
+Aus dem Projektordner [R]:
+```powershell
+$PY = ".\.venv\Scripts\python.exe"
+& .\.venv\Scripts\neurogrid.exe convert tests\fixtures\synthetic\bids_ok --to gbt47127 --out <Arbeitsordner>\gbt
+& .\.venv\Scripts\neurogrid.exe check <Arbeitsordner>\gbt --rulepack gbt47127 --out <Arbeitsordner>\results.json
+& .\.venv\Scripts\neurogrid.exe convert tests\fixtures\synthetic\edf_ok --to gbt47127 --config tests\fixtures\documented.toml --out <Arbeitsordner>\gbt_raw
+```
+
+Erwartet [G]:
+- **BIDS-Fixture:** `Converted recordings: 2` und die Strukturprüfung mit 0 Fehlern. `check` ergibt 0 Fehler und
+  7 Warnungen, so viele wie die BIDS-Quelle, bei Abdeckung `gbt47127` 1.0. Die einzige GB/T-Meldung ist der
+  Hinweis STO-002: Der Name der Fixture enthält Leerzeichen.
+- **Rohordner `edf_ok`:**
+  - Name und Elektrodenpositionen werden als Lücken gemeldet; sie sind nirgends belegt.
+  - Die Strukturprüfung zeigt 3 Fehler, Exit 1.
+  - `processing_steps.json` enthält `convert_to_bids` und `convert_to_gbt47127`.
+
+Fallen: Ohne `[[convert.files]]` oder ein passendes Muster schreibt `convert` die Vorlage
+`.neurogrid/mapping-template.toml` in den Eingabeordner, auch in eine Test-Fixture. Deshalb immer eine Kopie
+konvertieren.
+
+#### 4.11.4 Tests
+
+`tests/integration/test_gbt47127.py` (35):
+- der vollständige Datensatz aus `bids_ok` besteht jede Regel;
+- 19 Störungen, je eine Regel mit ihrem Grund;
+- XML und CSV werden gelesen;
+- DOCTYPE wird abgelehnt;
+- Teile der Dateinamen;
+- Pseudonyme in fremden Ordnern (A-117);
+- Rundreise BIDS → GB/T → `check` ohne Fehler;
+- Rohordner mit Lücken;
+- BrainVision mit Begleitdateien;
+- Runs ohne Zeitstempel;
+- volle Ausgabe wird abgelehnt;
+- jede der sechs Modalitäten vollständig und mit fehlendem Pflichtfeld.
+
+Angepasst an den neuen Stand, nicht abgeschwächt:
+- die Paketlisten in `test_message_tables.py`, `test_norm_independence.py` (KNOWN) und `tools/gen_docs.py`;
+- die ausgelieferten Auslegungsfragen in `test_docs_build.py` (vorher leer, jetzt IQ-001 bis IQ-005);
+- `--to` im Konvertierungstest, `gbt47127` nicht mehr „nicht verfügbar“.
+
+Das zh-Prüfpaket nimmt `interpretation_questions.yaml` auf.
+
+CI auf 2358e45: `ci` war rot am Typcheck (`mypy src/neurogrid tools`; 9 Stellen in `checks/gbt47127.py`, an
+denen `None` nicht eingegrenzt war). Behoben in f842fc0 mit der Hilfsfunktion `_as_float` und ausdrücklichen Prüfungen. Vor dem
+Push also auch `mypy` laufen lassen: `uv run --no-sync mypy src/neurogrid tools` [R].
+
+CI auf f842fc0: `ci` rot an `tests/rules/test_builtin_rules.py::test_every_builtin_rule_has_positive_and_negative_case`:
+jede Regel eines eingebauten Pakets braucht einen positiven und einen negativen Fall (NG-N08). Ergänzt in 36b9ddf mit
+`tests/rules/gbt47127_setups.py` (der GB/T-Datensatz entsteht zur Laufzeit aus `bids_ok`). Lokal vor dem Push also auch
+`tests/rules` laufen lassen.
+
+#### 4.11.5 Stand heute und was offen ist
+
+- Die Annahmen A-113 bis A-117 warten auf die Freigabe bei STOPP G2.
+- Echte GB/T-Datensätze von Geräten gibt es nicht öffentlich: Die Tests nutzen synthetische Daten.
+- Die XML-Struktur ist eine Lesart (IQ-004).
+- Für NG-F04 (Abbildung ISO/IEC TS 27571 ↔ BIDS ↔ GB/T, P10) liegt die GB/T-Seite jetzt vor.
+
 ---
 
 ## 5 Prüfwerkzeuge (`tools/`)

@@ -6,7 +6,8 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P11 abgeschlossen (Ergebnisse 00f63a5 auf `dev`, Phasencommit danach: NeuroArena unter `research/neuroarena` mit eigenem Lock und Lizenz-Gate, zwei volle Läufe `full-1` und `full-2` exakt gleich, Bericht en und zh mit dem Befund A-111; vor P10 gezogen, weil G-C fehlt); CI auf 00f63a5 grün bis auf `offline` (Bündelbau in der CI abgebrochen, lokal ohne Fehler nachgebaut). Nächste Phase P7: GB/T 47127 liegt seit 09.11.2026 in `.local/normen/` (G-A erfüllt); P8 und P10 warten auf YY/T 2029 (G-B) und ISO/IEC TS 27571 (G-C).**
+**Phase P7 abgeschlossen (`dev` 2358e45, f842fc0, 36b9ddf und Phasencommit danach: GB/T 47127 – Leser und Schreiber, Regelpaket `gbt47127` mit 18 Regeln, `convert --to gbt47127`, Rundreise ohne Fehler; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub)). P8 wartet auf YY/T 2029 (G-B), P10 auf ISO/IEC TS 27571 (G-C).**
+Stand P11: abgeschlossen (Ergebnisse 00f63a5, Phasencommit f103c85, CI auf f103c85 ganz grün: `ci` 42588250869, `offline` 42588250867, `ci-integration` 42588250897; NeuroArena, zwei volle Läufe exakt gleich, Bericht en und zh mit dem Befund A-111).
 Stand P9: `dev` 5596a8d (Bereiche Register, Neueinwilligung, Paket und Vergleich; vor P7 und P8 vorgezogen nach D-13
 und D-19), CI grün (`ci` 41447040471, `offline` 41447040492, `ci-integration` 41447040527).
 Freigabemodus A. Git: `main` (Doku-Commit), Arbeitszweig `dev`, gepusht nach `https://github.com/Ammxri/neurogrid`
@@ -186,6 +187,35 @@ den Projektverantwortlichen.
   `accuracy_over_degradation.{svg,png}`; eingebunden in beide Berichte.
 
 ## Verlauf
+
+### 2026-11-09 – P7 GB/T 47127: Leser und Schreiber, Regelpaket gbt47127, convert --to gbt47127 (NG-F03, RP-11, ARC-04)
+- **Abgeschlossen:** NG-F03, RP-11, ARC-04 (Code 2358e45, f842fc0, 36b9ddf; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub)).
+- **Beigetragen zu:** V-02 (GB/T-Teil; yyt2029 wartet auf G-B), CLI-02 (`--to gbt47127`).
+- **Gebaut** (Normtext seit D-22 lokal, Inventar `.local/p7/inventory.md`):
+  - Leser und Schreiber `io/gbt47127.py`.
+  - Regelpaket `gbt47127`: 18 Regeln über alle sechs Modalitäten; Muss-Klauseln als Fehler, Abdeckung 1.
+  - `convert --to gbt47127`: von BIDS oder über BIDS aus einem Rohordner; mit Verarbeitungsschritten und
+    Strukturprüfung.
+  - Erkennung eines GB/T-Datensatzes. Bisher galt jeder Ordner mit `dataset_description.json` als BIDS.
+  - Die Kernprüfungen lesen ihre Metadaten aus GB/T-Begleitdateien und -Tabellen.
+  - Texte en, zh und de; Referenzseiten; Auslegungsfragen IQ-001 bis IQ-005; Benutzer-Doku (commands,
+    rulepacks, index, limitations) en und zh.
+- **Ergebnis:**
+  - Die Rundreise BIDS-Fixture → GB/T → `check` ergibt 0 Fehler und 7 Warnungen, wie die BIDS-Quelle;
+    Abdeckung `gbt47127` 1.0.
+  - Rohordner → GB/T meldet Name und Elektrodenpositionen als Lücken und erfindet nichts.
+- **Tests:**
+  - `tests/integration/test_gbt47127.py`: 35 bestanden; `tests/rules`: je Regel ein positiver und ein negativer Fall (36 Fälle, `gbt47127_setups.py`), mit allen Regelfällen 360 bestanden.
+  - Lokaler Lauf über Unit, Doku, Konvertierung und Kommandozeile: 3450 bestanden. Die 8 Fehlschläge:
+    - 2 aus der Umgebung: WSL-bash; ein Prozesstest, der einzeln besteht.
+    - 6 behoben: Rekursionsschutz für JSON, Paketlisten, KNOWN, ausgelieferte Auslegungsfragen, zh-Paket,
+      `--to` im CLI-Test.
+  - CI: CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub).
+- **Annahmen:** A-113 bis A-117, Freigabe offen (STOPP G2). Dazu A-112 (zh-Prüfung, D-22).
+- **Nicht verifiziert:**
+  - echte GB/T-Datensätze von Geräten (nicht öffentlich verfügbar; nur synthetische Daten);
+  - die XML-Lesart (IQ-004) an Dateien Dritter;
+  - die Felder der Modalitäten außer EEG nur an synthetischen Ordnern.
 
 ### 2026-11-09 – P11 NeuroArena: Benchmark der Datenqualität gegen die Decoderleistung, Bericht en und zh (NG-F17, NA-01, NA-02, NA-03, NA-04, NA-05)
 - **Abgeschlossen:** NG-F17, NA-01 bis NA-05. Die Ergebnisse und Berichte der beiden vollen Läufe liegen in 00f63a5;
@@ -857,8 +887,7 @@ den Projektverantwortlichen.
 
 P11 ist abgeschlossen (Ergebnisse 00f63a5; CI siehe den Eintrag von P11). Keine normunabhängige Phase ist mehr
 offen.
-- **P7:** Als Nächstes folgt P7 (GB/T 47127). Den Normtext hat der Projektverantwortliche am 09.11.2026 übergeben. Er
-  liegt als `.local/normen/GBT-47127-2026.pdf`, 23 Seiten, Text auslesbar; G-A ist damit erfüllt.
+- **P7:** abgeschlossen am 09.11.2026 (2358e45, f842fc0, 36b9ddf; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub)).
 - **P8 und P10:** P8 wartet auf den YY/T-2029-Text (G-B), P10 auf ISO/IEC TS 27571 (G-C). Empfehlung an den
   Projektverantwortlichen: YY/T 2029 jetzt beschaffen, über den Kauf der TS nach P8 entscheiden.
 - **Keine Normtexte:** Die am 07.11.2026 übergebene Zusammenfassung „BCI-Datenstandards“ ist eine Sekundärquelle und
