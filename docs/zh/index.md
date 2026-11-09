@@ -12,7 +12,7 @@ M01–M14，用规则包对其进行评价，并写出 `results.json` 以及中�
 
 ## 0.1 版包含的内容 {#v01}
 
-- 命令 `scan`、`convert --to bids`、`check`、`report`、`manifest` 和 `verify`（[命令](commands.md)）。
+- 命令 `scan`、`convert --to bids|gbt47127`、`check`、`report`、`manifest` 和 `verify`（[命令](commands.md)）。
 - 规则包 `core`（指标 M01–M14，[指标](metrics.md)）、`bids`（BIDS 验证器 3.0.2）和 `gxdsl008`（产品规格书转引的
   T/GXDSL 008-2025 初始值，二手来源）（[内置规则](reference/rules.md)）。
 - 使用已注册检查项编写的自定义 YAML 规则包（[规则包](rulepacks.md)）。

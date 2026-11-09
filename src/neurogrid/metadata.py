@@ -15,7 +15,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from neurogrid.config import Config
-from neurogrid.io import bids
+from neurogrid.io import bids, gbt47127
 from neurogrid.io.discover import FoundFile
 from neurogrid.model.dataset import Channel, Recording
 
@@ -143,21 +143,26 @@ def mapped_entities(found: FoundFile, cfg: Config) -> dict[str, str]:
     return {}
 
 
-def entities_for(found: FoundFile, cfg: Config, is_bids: bool) -> dict[str, Documented]:
-    if is_bids:
+def entities_for(
+    found: FoundFile, cfg: Config, is_bids: bool, gbt47127: bool = False
+) -> dict[str, Documented]:
+    if is_bids or gbt47127:
         names = dict(found.entities)
-        return {
-            name: Documented(names[key], "bids_filename") for name, key in ENTITY_FIELDS if names.get(key)
-        }
+        source = "gbt_filename" if gbt47127 else "bids_filename"
+        return {name: Documented(names[key], source) for name, key in ENTITY_FIELDS if names.get(key)}
     return {name: Documented(value, "mapping") for name, value in mapped_entities(found, cfg).items()}
 
 
 def _with_channel_sidecars(
-    root: Path, found: FoundFile, recording: Recording
+    root: Path, found: FoundFile, recording: Recording, gbt47127: bool = False
 ) -> tuple[Recording, list[dict[str, str]] | None, list[str]]:
-    """Types, units and status from channels.tsv; positions and impedances from electrodes.tsv."""
-    channels_table = bids.nearest_tsv(root, found.relative, "channels")
-    electrodes_table = bids.nearest_tsv(root, found.relative, "electrodes", ignore=("space",))
+    """Types, units and status from channels.tsv; positions and impedances from electrodes.tsv; for a GB/T
+    47127 data set from its channel and electrode table (A-115)."""
+    if gbt47127:
+        channels_table, electrodes_table = _gbt_tables(root, found)
+    else:
+        channels_table = bids.nearest_tsv(root, found.relative, "channels")
+        electrodes_table = bids.nearest_tsv(root, found.relative, "electrodes", ignore=("space",))
     header_cols: list[str] = []
     rows: list[dict[str, str]] | None = None
     by_name: dict[str, dict[str, str]] = {}
@@ -212,6 +217,69 @@ def _with_channel_sidecars(
     return updated, rows, header_cols
 
 
+# GB/T 47127 sidecar field -> the field name the checks use (A-115); numbers of an XML sidecar are text
+_GBT_FIELDS = (
+    ("TaskName", "TaskName"),
+    ("EEGReference", "EEGReference"),
+    ("SamplingFrequency", "SamplingFrequency"),
+    ("PowerlineFrequency", "PowerLineFrequency"),
+    ("SoftwareFilters", "SoftwareFilters"),
+    ("HardwareFilters", "HardwareFilters"),
+)
+_GBT_NUMBERS = frozenset({"SamplingFrequency", "PowerLineFrequency"})
+
+
+def _gbt_sidecar(root: Path, found: FoundFile) -> tuple[dict[str, Any], bool]:
+    """The fields of the GB/T sidecar of a signal file (same name, .json or .xml), under the names the checks
+    use; True when exactly one readable sidecar exists."""
+    stem = (
+        found.relative.name[: -len(found.relative.suffix)] if found.relative.suffix else found.relative.name
+    )
+    found_files = [
+        gbt47127.read_key_value(root, found.relative.with_name(stem + suffix))
+        for suffix in gbt47127.KEY_VALUE_SUFFIXES
+        if (root / found.relative.with_name(stem + suffix)).is_file()
+    ]
+    if len(found_files) != 1 or found_files[0].data is None:
+        return {}, False
+    data = found_files[0].data
+    out: dict[str, Any] = {}
+    for gbt_name, name in _GBT_FIELDS:
+        value = data.get(gbt_name)
+        if name in _GBT_NUMBERS and isinstance(value, str):
+            value = _float(value.strip())
+        if value is not None:
+            out[name] = value
+    return out, True
+
+
+def _gbt_tables(root: Path, found: FoundFile) -> tuple[tuple[list[str], list[dict[str, str]]] | None, ...]:
+    """The channel and electrode table of a GB/T signal file (per modality folder and task), as BIDS
+    columns."""
+    name = gbt47127.parse_name(found.relative.name.rsplit(".", 1)[0])
+    if name.task is None:
+        return None, None
+    prefix = f"sub-{name.subject}" + (f"_ses-{name.session}" if name.session else "") + f"_task-{name.task}"
+    out: list[tuple[list[str], list[dict[str, str]]] | None] = []
+    for kind, columns in (
+        ("channels", (("Name", "name"), ("Type", "type"), ("Unit", "units"))),
+        ("electrodes", (("Name", "name"), ("X", "x"), ("Y", "y"), ("Z", "z"))),
+    ):
+        tables = [
+            gbt47127.read_table(root, found.relative.with_name(f"{prefix}_{kind}{suffix}"))
+            for suffix in gbt47127.TABLE_SUFFIXES
+            if (root / found.relative.with_name(f"{prefix}_{kind}{suffix}")).is_file()
+        ]
+        if len(tables) != 1 or tables[0].problem is not None:
+            out.append(None)
+            continue
+        rows = [
+            {bids_name: row.get(gbt_name, "") for gbt_name, bids_name in columns} for row in tables[0].rows
+        ]
+        out.append(([bids_name for gbt_name, bids_name in columns if gbt_name in tables[0].columns], rows))
+    return tuple(out)
+
+
 def _float(value: str | None) -> float | None:
     if value is None:
         return None
@@ -223,10 +291,18 @@ def _float(value: str | None) -> float | None:
 
 
 def collect(
-    root: Path, found: FoundFile, recording: Recording | None, cfg: Config, is_bids: bool
+    root: Path,
+    found: FoundFile,
+    recording: Recording | None,
+    cfg: Config,
+    is_bids: bool,
+    *,
+    gbt47127: bool = False,
 ) -> tuple[Recording | None, RecordingMetadata]:
-    """Merge all sources for one recording. ``recording`` is None if the header could not be read."""
-    meta = RecordingMetadata(entities=entities_for(found, cfg, is_bids))
+    """Merge all sources for one recording. ``recording`` is None if the header could not be read. In a
+    GB/T 47127 data set the sidecar and the channel and electrode tables of the format take the place of the
+    BIDS sidecars (A-115)."""
+    meta = RecordingMetadata(entities=entities_for(found, cfg, is_bids, gbt47127))
     defaults = cfg.metadata.defaults
     header = recording  # the recording as the format header describes it, before channels.tsv
     channel_rows: list[dict[str, str]] | None = None
@@ -241,6 +317,10 @@ def collect(
             table = bids.nearest_tsv(root, found.relative, "channels")
             if table is not None:
                 columns, channel_rows = table
+    elif gbt47127:
+        meta.sidecar, meta.has_sidecar = _gbt_sidecar(root, found)
+        if recording is not None:
+            recording, channel_rows, columns = _with_channel_sidecars(root, found, recording, gbt47127=True)
     meta.channels_tsv = channel_rows
 
     def pick(name: str, *candidates: tuple[Any, str]) -> None:

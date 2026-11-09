@@ -10,6 +10,7 @@ from neurogrid.checks import (
     annotation,
     bids,
     consent,
+    gbt47127,
     metadata,
     provenance,
     quality,
@@ -37,6 +38,7 @@ _MODULES = (
     consent,
     access,
     retention,
+    gbt47127,
 )
 
 REGISTRY: dict[str, CheckSpec] = {spec.id: spec for module in _MODULES for spec in module.SPECS}

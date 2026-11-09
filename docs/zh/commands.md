@@ -34,23 +34,29 @@
 
 ## convert {#convert}
 
-`neurogrid convert PATH --to bids --out FOLDER [--config FILE] [--strip-identifying-headers]`
+`neurogrid convert PATH --to bids|gbt47127 --out FOLDER [--config FILE] [--strip-identifying-headers]`
 
-将原始数据文件夹转换为 EEG-BIDS（MNE-BIDS 0.20.0），并对结果运行 BIDS 验证器。任何地方都没有记录的必填元数据
-写为 `n/a` 并列出；名称和作者从不编造。
+`--to bids` 将原始数据文件夹转换为 EEG-BIDS（MNE-BIDS 0.20.0），并对结果运行 BIDS 验证器。任何地方都没有记录的必填
+元数据写为 `n/a` 并列出；名称和作者从不编造。
+
+`--to gbt47127` 将 BIDS 数据集或原始数据文件夹中的 EEG 记录写成 GB/T 47127 多模态数据格式：原始数据文件夹先按相同规则在
+工作文件夹中转换为 BIDS。输出采用模态目录 `EEG`、JSON 格式的附属元数据文件和 TSV 格式的元数据表，字段名为该格式的标识符，
+`Version` 写明所遵循的格式。GB/T 47127 没有运行编号：同一会话中同一任务的多条记录依据 `scans.tsv` 中的采集时间区分，
+没有采集时间则不写出；BIDS 输入中的 EEGLAB 文件不写出（请改为转换原始数据文件夹）。任何地方都没有记录的必备值会被省略
+并列出，从不编造；随后对结果运行规则包 `gbt47127` 的结构检查。
 
 | 参数 / 选项 | 含义 |
 |---|---|
-| `PATH` | 原始数据文件夹或单个数据文件（以 BIDS 数据集作为输入时以退出码 2 结束）。 |
-| `--to bids` | 目标结构；0.1 版支持 `bids`。 |
+| `PATH` | 原始数据文件夹或单个数据文件；使用 `--to gbt47127` 时也可以是 BIDS 数据集（使用 `--to bids` 时，以 BIDS 数据集作为输入会以退出码 2 结束）。 |
+| `--to bids\|gbt47127` | 目标结构：`bids` 或 `gbt47127`。 |
 | `--out FOLDER` | 输出文件夹；必须为空或尚不存在，且位于输入之外。 |
 | `--config FILE` | `neurogrid.toml`（默认：原始数据文件夹中的 `.neurogrid/neurogrid.toml`），其中记录文件到受试者、会话、任务和运行编号的映射。 |
 | `--strip-identifying-headers` | 在转换后的副本中，将可识别身份的文件头字段（EDF/BDF 的患者字段和记录字段、开始日期、BrainVision 注释）替换为占位值。 |
 
 | 退出码 | 含义 |
 |---|---|
-| 0 | 所有记录均已转换，验证器未报告错误 |
-| 1 | 有文件未转换，或验证器报告了错误 |
+| 0 | 所有记录均已转换，验证器（`bids`）或结构检查（`gbt47127`）未报告错误 |
+| 1 | 有文件未转换，或验证器或结构检查报告了错误 |
 | 2 | 工具错误：缺少映射（会写出模板）、输出文件夹不可用、验证器无法运行 |
 
 ## check {#check}

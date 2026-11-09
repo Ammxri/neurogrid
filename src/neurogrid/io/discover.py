@@ -29,6 +29,7 @@ from pathlib import Path, PurePosixPath
 from neurogrid.io import ADAPTERS, KNOWN_UNSUPPORTED, KNOWN_UNSUPPORTED_DIRS, ORPHAN_SUFFIXES
 from neurogrid.io.brainvision import BrainVisionAdapter
 from neurogrid.io.eeglab import referenced_fdt
+from neurogrid.io.gbt47127 import looks_like_gbt47127
 from neurogrid.io.identifying import display_text
 from neurogrid.kernel.safety import is_link
 
@@ -132,6 +133,8 @@ class FoundFile:
 class DatasetScan:
     root: Path
     is_bids: bool
+    # a GB/T 47127 data set (io.gbt47127.looks_like_gbt47127, A-115): metadata from its sidecars and tables
+    is_gbt47127: bool = False
     description: dict[str, str] = field(default_factory=dict)
     recordings: list[FoundFile] = field(default_factory=list)
     unsupported: list[FoundFile] = field(default_factory=list)
@@ -220,14 +223,15 @@ class _Collector:
         self.show_paths = show_paths
 
     def found(self, relative: PurePosixPath, suffix: str, size: int) -> FoundFile:
-        plain = self.result.is_bids or self.show_paths
+        # structured names of BIDS and GB/T 47127 data sets are shown as written (A-115)
+        plain = self.result.is_bids or self.result.is_gbt47127 or self.show_paths
         display = _printable(relative.as_posix()) if plain else pseudonym(relative)
         return FoundFile(
             relative=relative,
             display_id=display,
             suffix=suffix,
             size_bytes=size,
-            entities=_entities(relative, self.result.is_bids),
+            entities=_entities(relative, self.result.is_bids or self.result.is_gbt47127),
         )
 
     def add_file(self, path: Path, relative: PurePosixPath, companions: frozenset[str]) -> None:
@@ -268,9 +272,15 @@ class _Collector:
 def scan(root: Path, *, show_paths: bool = False, only: PurePosixPath | None = None) -> DatasetScan:
     root = root.resolve(strict=True)
     description_path = root / "dataset_description.json"
-    is_bids = os.path.lexists(description_path)
+    # a GB/T 47127 data set also has a data set description, but no BIDSVersion (A-115); a single file is
+    # checked like a raw folder with exactly this file (A-66)
+    is_gbt47127 = only is None and looks_like_gbt47127(root)
+    is_bids = os.path.lexists(description_path) and not is_gbt47127
     result = DatasetScan(
-        root=root, is_bids=is_bids, description=_description(description_path) if is_bids else {}
+        root=root,
+        is_bids=is_bids,
+        is_gbt47127=is_gbt47127,
+        description=_description(description_path) if is_bids else {},
     )
     collect = _Collector(result, show_paths)
     if only is not None:

@@ -34,23 +34,31 @@ unsupported and unreadable files, links that are not followed, and a hint if fil
 
 ## convert {#convert}
 
-`neurogrid convert PATH --to bids --out FOLDER [--config FILE] [--strip-identifying-headers]`
+`neurogrid convert PATH --to bids|gbt47127 --out FOLDER [--config FILE] [--strip-identifying-headers]`
 
-Converts a raw folder to EEG-BIDS (MNE-BIDS 0.20.0) and runs the BIDS validator on the result. Required metadata
-that is documented nowhere is written as `n/a` and listed; names and authors are never invented.
+`--to bids` converts a raw folder to EEG-BIDS (MNE-BIDS 0.20.0) and runs the BIDS validator on the result.
+Required metadata that is documented nowhere is written as `n/a` and listed; names and authors are never invented.
+
+`--to gbt47127` writes the EEG recordings of a BIDS dataset, or of a raw folder, in the GB/T 47127 multi-modal
+data format: a raw folder is first converted to BIDS in the work folder with the same rules. The output has the
+modality folder `EEG`, JSON sidecars and TSV tables with the field names of the format, `Version` names the
+format. GB/T 47127 has no run label: several recordings of one task in one session are told apart by the
+acquisition time from `scans.tsv` and are not written without it; EEGLAB files of a BIDS input are not written
+(convert the raw folder instead). Required values that are documented nowhere are left out and listed, never
+invented; the structure checks of the pack `gbt47127` run on the result.
 
 | Argument / option | Meaning |
 |---|---|
-| `PATH` | Raw data folder or single data file (a BIDS dataset as input ends with exit code 2). |
-| `--to bids` | Target structure; v0.1 knows `bids`. |
+| `PATH` | Raw data folder or single data file; with `--to gbt47127` also a BIDS dataset (a BIDS dataset with `--to bids` ends with exit code 2). |
+| `--to bids\|gbt47127` | Target structure: `bids` or `gbt47127`. |
 | `--out FOLDER` | Output folder; must be empty or new and outside the input. |
 | `--config FILE` | `neurogrid.toml` (default: `.neurogrid/neurogrid.toml` in the raw folder) with the mapping of files to subject, session, task and run. |
 | `--strip-identifying-headers` | Replace identifying header fields (EDF/BDF patient field and recording field, start date, BrainVision comment) by placeholders in the copies. |
 
 | Code | Meaning |
 |---|---|
-| 0 | every recording converted and the validator reports no error |
-| 1 | a file was not converted or the validator reports errors |
+| 0 | every recording converted and the validator (`bids`) or the structure checks (`gbt47127`) report no error |
+| 1 | a file was not converted, or the validator or the structure checks report errors |
 | 2 | tool error: mapping missing (a template is written), output folder not usable, validator not runnable |
 
 ## check {#check}

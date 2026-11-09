@@ -21,4 +21,86 @@
 # Chinese text belongs only in the *_zh fields (and zh of a reading); no word of the wording list
 # (src/neurogrid/report/wording/forbidden.yaml).
 format_version: 1
-questions: []
+questions:
+  - id: IQ-001
+    rulepack: gbt47127
+    clause: "6.2"
+    rules: [GBT47127-STO-007]
+    topic_en: "Spelling of the modality folders"
+    topic_zh: "模态目录名的大小写"
+    question_en: "Clause 6.2 says the modality folders use English lower-case abbreviations, but its list writes EEG, fNIRS, MEG, fMRI, iEEG and uEphys, and the file name suffixes of 7.5.7.1 use the same mixed spelling. Which spelling is required?"
+    question_zh: "6.2 规定模态目录采用英文小写字母缩写，但其列表写作 EEG、fNIRS、MEG、fMRI、iEEG 和 uEphys，7.5.7.1 中的文件名后缀也采用同样的大小写混合写法。应采用哪种写法？"
+    readings:
+      - {id: a, en: "Only the spelling of the list (EEG, fNIRS …).", zh: "只能采用列表中的写法（EEG、fNIRS 等）。"}
+      - {id: b, en: "Only lower case (eeg, fnirs …).", zh: "只能采用全小写（eeg、fnirs 等）。"}
+      - {id: c, en: "Both: the spelling of the list or lower case.", zh: "两者均可：列表中的写法或全小写。"}
+    chosen: c
+    rationale_en: "The sentence and the list disagree; NeuroGrid accepts both and reports any other spelling. convert writes the spelling of the list, the same as the file name suffix."
+    rationale_zh: "条文与列表不一致；NeuroGrid 两种写法都接受，只报告其他写法。convert 采用列表中的写法，与文件名后缀一致。"
+    status: open
+    effect: none
+  - id: IQ-002
+    rulepack: gbt47127
+    clause: "7.2, Table 1"
+    rules: [GBT47127-STO-002]
+    topic_en: "Special characters in the data set name"
+    topic_zh: "数据集名称中的特殊字符"
+    question_en: "Table 1 asks the data set name to avoid special characters and spaces but does not define special characters. Which characters may a name contain?"
+    question_zh: "表 1 要求数据集名称避免使用特殊字符和空格，但未定义何为特殊字符。名称可以包含哪些字符？"
+    readings:
+      - {id: a, en: "Letters, digits, '.', '_' and '-'.", zh: "字母、数字、'.'、'_' 和 '-'。"}
+      - {id: b, en: "Letters and digits only.", zh: "只能是字母和数字。"}
+      - {id: c, en: "Any printable character except spaces.", zh: "除空格外的任何可打印字符。"}
+    chosen: a
+    rationale_en: "The characters that are safe in file and folder names on every system; the rule is an info only."
+    rationale_zh: "这些字符在各操作系统的文件名和目录名中都安全可用；该规则仅为提示。"
+    status: open
+    effect: none
+  - id: IQ-003
+    rulepack: gbt47127
+    clause: "7.6"
+    rules: [GBT47127-ANN-002, GBT47127-STO-008]
+    topic_en: "<matches> of the event table"
+    topic_zh: "事件元数据文件中的 <matches>"
+    question_en: "Clause 7.6 names an event table <matches>_events.<extension>, where <matches> is the file name of the signal file. Does <matches> include the extension of the signal file?"
+    question_zh: "7.6 规定事件元数据文件命名为 <matches>_events.<extension>，其中 <matches> 为对应信号记录数据文件的文件名。<matches> 是否包含信号记录数据文件的扩展名？"
+    readings:
+      - {id: a, en: "Without the extension (sub-01_task-rest_EEG_events.tsv).", zh: "不含扩展名（sub-01_task-rest_EEG_events.tsv）。"}
+      - {id: b, en: "With the extension (sub-01_task-rest_EEG.edf_events.tsv).", zh: "含扩展名（sub-01_task-rest_EEG.edf_events.tsv）。"}
+    chosen: a
+    rationale_en: "The sidecar shares the name without its extension (7.5.7.2), and so do the channel and electrode tables; NeuroGrid reads both forms and reports the second as an info."
+    rationale_zh: "附属元数据文件与信号记录数据文件仅扩展名不同（7.5.7.2），通道和电极元数据文件的命名也不含扩展名；NeuroGrid 两种形式都能读取，对第二种给出提示。"
+    status: open
+    effect: none
+  - id: IQ-004
+    rulepack: gbt47127
+    clause: "7.1"
+    rules: [GBT47127-STO-001, GBT47127-STO-010, GBT47127-ACQ-001]
+    topic_en: "Structure of a key-value file in XML"
+    topic_zh: "XML 格式的键值型元数据文件的结构"
+    question_en: "Clause 7.1 allows key-value metadata in XML but gives no structure. How are fields, lists and types written in XML?"
+    question_zh: "7.1 允许以 XML 保存键值型元数据，但未规定其结构。字段、数组和数据类型在 XML 中如何表示？"
+    readings:
+      - {id: a, en: "One root element; each child element is a field named by its identifier; a repeated child is a list; numbers and Booleans are written as text.", zh: "一个根元素；每个子元素是一个以标识符命名的字段；重复出现的子元素为数组；数字和布尔值以文本表示。"}
+      - {id: b, en: "Fields as attributes of the root element.", zh: "字段作为根元素的属性。"}
+    chosen: a
+    rationale_en: "The direct mapping of the JSON form; documents with a DOCTYPE or entity declaration are refused for safety."
+    rationale_zh: "这是 JSON 形式的直接映射；出于安全考虑，含 DOCTYPE 或实体声明的文档不予读取。"
+    status: open
+    effect: none
+  - id: IQ-005
+    rulepack: gbt47127
+    clause: "7.5.2, Table 8"
+    rules: [GBT47127-ACQ-003]
+    topic_en: "Values of the optode type"
+    topic_zh: "光极类型的取值"
+    question_en: "Table 8 says the optode type is a source or a detector. Which values does the column hold?"
+    question_zh: "表 8 规定光极类型为光源或光探测器。该列应填写哪些取值？"
+    readings:
+      - {id: a, en: "The Chinese terms for source and detector or the English source and detector.", zh: "中文的“光源”和“光探测器”，或英文的 source 和 detector。"}
+      - {id: b, en: "Only the Chinese terms.", zh: "只能是中文术语。"}
+    chosen: a
+    rationale_en: "The identifiers of the format are English, the definitions Chinese; both forms are accepted, without regard to case."
+    rationale_zh: "该格式的标识符为英文，定义为中文；两种形式均接受，不区分大小写。"
+    status: open
+    effect: none

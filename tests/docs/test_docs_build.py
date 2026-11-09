@@ -180,18 +180,24 @@ def _entry(**changes: Any) -> dict[str, Any]:
 
 
 def test_interpretation_questions_template() -> None:
-    """The shipped file is empty and valid; its block in rulepacks.md shows the empty text (en/zh). A valid
-    entry renders its clause, readings and role, never a person."""
+    """The shipped file is valid and holds the open questions of GB/T 47127 (P7, A-116); its block in
+    rulepacks.md shows each of them and not the empty text (en/zh). A valid entry renders its clause,
+    readings and role, never a person."""
     shipped = gen_docs.load_questions(gen_docs.QUESTIONS)
-    assert shipped.format_version == 1 and shipped.questions == []
+    assert shipped.format_version == 1 and [q.id for q in shipped.questions] == [
+        f"IQ-00{n}" for n in range(1, 6)
+    ]
+    assert {(q.rulepack, q.status, q.effect) for q in shipped.questions} == {("gbt47127", "open", "none")}
     raw = yaml.safe_load(gen_docs.QUESTIONS.read_text(encoding="utf-8"))
-    assert raw == {"format_version": 1, "questions": []}
+    assert raw["format_version"] == 1 and len(raw["questions"]) == len(shipped.questions)
     for lang in LANGUAGES:
         labels = gen_docs.context(lang).labels["questions"]
         page = (DOCS / lang / "rulepacks.md").read_text(encoding="utf-8")
         block = page[page.index("<!-- BEGIN GENERATED interpretation questions -->") :]
         block = block[: block.index("<!-- END GENERATED -->")]
-        assert " ".join(str(labels["empty"]).split()) in block and str(labels["title"]) in block
+        assert " ".join(str(labels["empty"]).split()) not in block and str(labels["title"]) in block
+        assert all(f"{{#{q.id}}}" in block for q in shipped.questions), lang
+        assert str(labels["empty"]).strip(), lang
         assert page.index("{#feedback}") < page.index("<!-- BEGIN GENERATED interpretation questions -->")
         for name in (*gen_docs.QUESTION_STATUSES, *(f"role_{r}" for r in gen_docs.ASKED_ROLES)):
             key = name if name.startswith("role_") else f"status_{name}"

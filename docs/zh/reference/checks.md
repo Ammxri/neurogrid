@@ -213,6 +213,186 @@
 | 测量对象 | 规则本身（来自 evidence.yaml 的人工或半自动证明材料） |
 | 内置规则 | [GXDSL008-ACC-001](rules.md#GXDSL008-ACC-001) |
 
+## gbt47127.channels {#gbt47127.channels}
+
+| | |
+|---|---|
+| 名称 | 通道元数据文件存在且完整 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个模态目录和任务的通道元数据文件：表 6、9、11、15、18 的每一列 |
+| 内置规则 | [GBT47127-ACQ-002](rules.md#GBT47127-ACQ-002) |
+
+## gbt47127.description {#gbt47127.description}
+
+| | |
+|---|---|
+| 名称 | 数据集元数据文件含名称和版本号 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 数据集元数据文件（dataset_description.json 或 .xml）：表 1 的每个字段 |
+| 内置规则 | [GBT47127-STO-001](rules.md#GBT47127-STO-001) |
+
+## gbt47127.description_name {#gbt47127.description_name}
+
+| | |
+|---|---|
+| 名称 | 数据集名称不含空格和特殊字符 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 数据集元数据文件中的 Name |
+| 内置规则 | [GBT47127-STO-002](rules.md#GBT47127-STO-002) |
+
+## gbt47127.events {#gbt47127.events}
+
+| | |
+|---|---|
+| 名称 | 事件元数据文件完整 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个事件元数据文件：表 19 的每一列 |
+| 内置规则 | [GBT47127-ANN-001](rules.md#GBT47127-ANN-001) |
+
+## gbt47127.events_name {#gbt47127.events_name}
+
+| | |
+|---|---|
+| 名称 | 事件元数据文件名不含信号文件的扩展名 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 信号记录数据文件旁的每个事件元数据文件 |
+| 内置规则 | [GBT47127-ANN-002](rules.md#GBT47127-ANN-002) |
+
+## gbt47127.file_names {#gbt47127.file_names}
+
+| | |
+|---|---|
+| 名称 | 文件名遵循命名规则 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 模态目录中的每个文件以及每个共享的事件元数据文件 |
+| 内置规则 | [GBT47127-STO-008](rules.md#GBT47127-STO-008) |
+
+## gbt47127.identifying_ids {#gbt47127.identifying_ids}
+
+| | |
+|---|---|
+| 名称 | 被试者标签不含疑似证件号码的长数字串 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个被试者和会话标签以及每个 ParticipantId |
+| 内置规则 | [GBT47127-STO-012](rules.md#GBT47127-STO-012) |
+
+## gbt47127.metadata_formats {#gbt47127.metadata_formats}
+
+| | |
+|---|---|
+| 名称 | 元数据采用 JSON/XML 或 TSV/CSV 格式 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 按目录结构中元数据文件命名的每个文件 |
+| 内置规则 | [GBT47127-STO-009](rules.md#GBT47127-STO-009) |
+
+## gbt47127.modality_folders {#gbt47127.modality_folders}
+
+| | |
+|---|---|
+| 名称 | 模态目录按模态缩写命名 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个模态目录和每个会话目录 |
+| 内置规则 | [GBT47127-STO-007](rules.md#GBT47127-STO-007) |
+
+## gbt47127.participants {#gbt47127.participants}
+
+| | |
+|---|---|
+| 名称 | 被试者元数据文件中的 ParticipantId 有效且唯一 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 被试者元数据文件（participants.tsv 或 .csv）：表 2 的每一列以及 ParticipantId 的取值 |
+| 内置规则 | [GBT47127-STO-003](rules.md#GBT47127-STO-003) |
+
+## gbt47127.positions {#gbt47127.positions}
+
+| | |
+|---|---|
+| 名称 | 电极或光极元数据文件存在且完整 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个模态目录和任务的电极或光极元数据文件：表 5、8、14、17 的每一列 |
+| 内置规则 | [GBT47127-ACQ-003](rules.md#GBT47127-ACQ-003) |
+
+## gbt47127.sessions {#gbt47127.sessions}
+
+| | |
+|---|---|
+| 名称 | 会话目录与会话元数据文件一致 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每名被试者的会话目录和会话元数据文件（sessions.tsv 或 .csv） |
+| 内置规则 | [GBT47127-STO-005](rules.md#GBT47127-STO-005) |
+
+## gbt47127.sidecar {#gbt47127.sidecar}
+
+| | |
+|---|---|
+| 名称 | 每个信号记录数据文件有一个可读取的附属元数据文件 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个信号记录数据文件：其附属元数据文件 |
+| 内置规则 | [GBT47127-STO-010](rules.md#GBT47127-STO-010) |
+
+## gbt47127.sidecar_fields {#gbt47127.sidecar_fields}
+
+| | |
+|---|---|
+| 名称 | 附属元数据文件的必备字段齐全且类型正确 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个附属元数据文件：其模态对应表（表 4、7、10、12、13、16）的每个字段 |
+| 内置规则 | [GBT47127-ACQ-001](rules.md#GBT47127-ACQ-001) |
+
+## gbt47127.signal_consistency {#gbt47127.signal_consistency}
+
+| | |
+|---|---|
+| 名称 | 附属元数据文件中的采样频率和通道数量与数据一致 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | NeuroGrid 能读取的每个 EEG 和 iEEG 信号记录数据文件：其附属元数据文件中的 SamplingFrequency 和 ChannelCount；各模态的 ChannelCount 与通道元数据文件对比 |
+| 内置规则 | [GBT47127-ACQ-004](rules.md#GBT47127-ACQ-004) |
+
+## gbt47127.subject_folders {#gbt47127.subject_folders}
+
+| | |
+|---|---|
+| 名称 | 被试者目录命名正确并与 ParticipantId 一一对应 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个被试者目录和每个 ParticipantId |
+| 内置规则 | [GBT47127-STO-004](rules.md#GBT47127-STO-004) |
+
+## gbt47127.timestamp {#gbt47127.timestamp}
+
+| | |
+|---|---|
+| 名称 | 文件名中的采集时间采用 YYYYMMDD-HHMMSS 格式 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个带采集时间的信号记录数据文件名 |
+| 内置规则 | [GBT47127-STO-011](rules.md#GBT47127-STO-011) |
+
+## gbt47127.zero_padding {#gbt47127.zero_padding}
+
+| | |
+|---|---|
+| 名称 | 数字标签使用零填充编号 |
+| 参数 | – |
+| 通过条件 | 未发现偏差 |
+| 测量对象 | 每个数字形式的被试者和会话标签 |
+| 内置规则 | [GBT47127-STO-006](rules.md#GBT47127-STO-006) |
+
 ## impedance.documented {#impedance.documented}
 
 | | |

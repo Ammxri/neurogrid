@@ -14,7 +14,7 @@ NeuroGrid evaluates datasets only, never people, and it is not a medical device.
 
 ## What version 0.1 contains {#v01}
 
-- Commands `scan`, `convert --to bids`, `check`, `report`, `manifest` and `verify` ([Commands](commands.md)).
+- Commands `scan`, `convert --to bids|gbt47127`, `check`, `report`, `manifest` and `verify` ([Commands](commands.md)).
 - The rule packs `core` (metrics M01–M14, [Metrics](metrics.md)), `bids` (BIDS validator 3.0.2) and `gxdsl008`
   (start values that the product specification quotes from T/GXDSL 008-2025, second-hand)
   ([Built-in rules](reference/rules.md)).

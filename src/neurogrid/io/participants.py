@@ -336,6 +336,8 @@ def parse_participants(
     for name in lines[0].split("\t"):
         header.append(canonical(name))
         headers.setdefault(canonical(name), name.strip())  # duplicate columns: the first one counts
+    if "participant_id" not in header and "participantid" in header:
+        header[header.index("participantid")] = "participant_id"  # GB/T 47127 ParticipantId (A-115)
     if "participant_id" not in header:
         return ParticipantsTable(usable=False)
     position = {name: header.index(name) for name in header}  # duplicate columns: the first one counts

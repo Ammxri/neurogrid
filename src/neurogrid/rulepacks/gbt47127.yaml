@@ -1,0 +1,173 @@
+# NeuroGrid rule pack for the GB/T 47127—2026 multi-modal data format of brain-computer interfaces (NG-F03,
+# RP-11; P7). Built from the norm text the owner handed over (D-22): every element of the clause inventory has a
+# rule (KONZEPT P7 DoD). Clause numbers and table numbers only, titles are own short texts (A-55); the field
+# identifiers live in neurogrid/checks/gbt47127.py. Shall clauses are errors, should clauses infos; the
+# readings of open questions are A-113 to A-118 (AF-1 to AF-10 of the inventory). Rule IDs follow
+# PACK-PHASE-NNN.
+rulepack: gbt47127
+version: "1.0.0"
+source: "GB/T 47127-2026, clause inventory of the norm text (P7)"
+source_status: final
+norm: true
+rules:
+  - id: GBT47127-STO-001
+    clause: "7.2, Table 1"
+    title_zh: 数据集元数据文件存在，并含名称（Name）和版本号（Version）
+    title_en: Data set description present with Name and Version
+    phase: storage
+    check: gbt47127.description
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-STO-002
+    clause: "Table 1 (Name)"
+    title_zh: 数据集名称（Name）不含空格和特殊字符
+    title_en: Data set name without spaces or special characters
+    phase: storage
+    check: gbt47127.description_name
+    severity: info
+    verification: automatic
+
+  - id: GBT47127-STO-003
+    clause: "7.3, Table 2"
+    title_zh: 被试者元数据文件存在，ParticipantId 有效且唯一
+    title_en: Subject table present with valid, unique ParticipantId
+    phase: storage
+    check: gbt47127.participants
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-STO-004
+    clause: "6.1, 6.2 (subject folders)"
+    title_zh: 被试者目录命名正确，与 ParticipantId 一一对应且含有数据
+    title_en: Subject folders named, holding data and matched to ParticipantId
+    phase: storage
+    check: gbt47127.subject_folders
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-STO-005
+    clause: "6.1, 6.2, 7.4, Table 3"
+    title_zh: 会话目录与会话元数据文件一致
+    title_en: Session folders and session table consistent
+    phase: storage
+    check: gbt47127.sessions
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-STO-006
+    clause: "6.2 (zero padding)"
+    title_zh: 数字标签使用零填充编号
+    title_en: Numeric labels zero-padded
+    phase: storage
+    check: gbt47127.zero_padding
+    severity: info
+    verification: automatic
+
+  - id: GBT47127-STO-007
+    clause: "6.1, 6.2 (modality folders)"
+    title_zh: 模态目录按模态缩写命名，每个会话至少有一个
+    title_en: Modality folders named by the modality list, at least one per session
+    phase: storage
+    check: gbt47127.modality_folders
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-STO-008
+    clause: "7.5.7, 7.6 (file names)"
+    title_zh: 模态目录中的文件名遵循命名规则
+    title_en: File names in modality folders follow the naming rules
+    phase: storage
+    check: gbt47127.file_names
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-STO-009
+    clause: "7.1"
+    title_zh: 元数据文件采用 JSON/XML 或 TSV/CSV 格式
+    title_en: Metadata files in JSON/XML or TSV/CSV
+    phase: storage
+    check: gbt47127.metadata_formats
+    severity: info
+    verification: automatic
+
+  - id: GBT47127-STO-010
+    clause: "7.5, 7.5.7.2 (sidecar)"
+    title_zh: 每个信号记录数据文件有一个可读取的附属元数据文件
+    title_en: One readable sidecar per signal file
+    phase: storage
+    check: gbt47127.sidecar
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-STO-011
+    clause: "7.5.7.1 (timestamp)"
+    title_zh: 文件名中的采集时间采用 YYYYMMDD-HHMMSS 格式
+    title_en: Timestamp in file names as YYYYMMDD-HHMMSS
+    phase: storage
+    check: gbt47127.timestamp
+    severity: info
+    verification: automatic
+
+  - id: GBT47127-STO-012
+    clause: "Table 2 (ParticipantId)"
+    title_zh: 被试者标签不含疑似证件号码的长数字串
+    title_en: Subject labels without digit runs that may be ID numbers
+    phase: storage
+    check: gbt47127.identifying_ids
+    severity: warning
+    verification: automatic
+
+  - id: GBT47127-ACQ-001
+    clause: "Tables 4, 7, 10, 12, 13, 16"
+    title_zh: 附属元数据文件的必备字段齐全且类型正确
+    title_en: Required sidecar fields present and typed
+    phase: acquisition
+    check: gbt47127.sidecar_fields
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-ACQ-002
+    clause: "Tables 6, 9, 11, 15, 18"
+    title_zh: 通道元数据文件存在且完整
+    title_en: Channel table present and complete
+    phase: acquisition
+    check: gbt47127.channels
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-ACQ-003
+    clause: "Tables 5, 8, 14, 17"
+    title_zh: 电极或光极元数据文件存在且完整
+    title_en: Electrode or optode table present and complete
+    phase: acquisition
+    check: gbt47127.positions
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-ACQ-004
+    clause: "Tables 4, 13 (data)"
+    title_zh: 附属元数据文件中的采样频率和通道数量与数据一致
+    title_en: Sidecar sampling frequency and channel count match the data
+    phase: acquisition
+    check: gbt47127.signal_consistency
+    severity: warning
+    verification: automatic
+
+  - id: GBT47127-ANN-001
+    clause: "7.6, Table 19"
+    title_zh: 事件元数据文件完整
+    title_en: Event tables complete
+    phase: annotation
+    check: gbt47127.events
+    severity: error
+    verification: automatic
+
+  - id: GBT47127-ANN-002
+    clause: "7.6 (matches)"
+    title_zh: 事件元数据文件以不含扩展名的信号文件名命名
+    title_en: Event table named after the signal file without its extension
+    phase: annotation
+    check: gbt47127.events_name
+    severity: info
+    verification: automatic

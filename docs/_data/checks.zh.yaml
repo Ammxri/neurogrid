@@ -51,6 +51,42 @@ consent.reconsent:
   passes: "受试者有效知情同意的版本不低于该风险的 min_consent_version（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时亦然；没有有效知情同意的受试者由 consent.covered 处理）"
 evidence.document:
   object: "规则本身（来自 evidence.yaml 的人工或半自动证明材料）"
+gbt47127.channels:
+  object: "每个模态目录和任务的通道元数据文件：表 6、9、11、15、18 的每一列"
+gbt47127.description:
+  object: "数据集元数据文件（dataset_description.json 或 .xml）：表 1 的每个字段"
+gbt47127.description_name:
+  object: "数据集元数据文件中的 Name"
+gbt47127.events:
+  object: "每个事件元数据文件：表 19 的每一列"
+gbt47127.events_name:
+  object: "信号记录数据文件旁的每个事件元数据文件"
+gbt47127.file_names:
+  object: "模态目录中的每个文件以及每个共享的事件元数据文件"
+gbt47127.identifying_ids:
+  object: "每个被试者和会话标签以及每个 ParticipantId"
+gbt47127.metadata_formats:
+  object: "按目录结构中元数据文件命名的每个文件"
+gbt47127.modality_folders:
+  object: "每个模态目录和每个会话目录"
+gbt47127.participants:
+  object: "被试者元数据文件（participants.tsv 或 .csv）：表 2 的每一列以及 ParticipantId 的取值"
+gbt47127.positions:
+  object: "每个模态目录和任务的电极或光极元数据文件：表 5、8、14、17 的每一列"
+gbt47127.sessions:
+  object: "每名被试者的会话目录和会话元数据文件（sessions.tsv 或 .csv）"
+gbt47127.sidecar:
+  object: "每个信号记录数据文件：其附属元数据文件"
+gbt47127.sidecar_fields:
+  object: "每个附属元数据文件：其模态对应表（表 4、7、10、12、13、16）的每个字段"
+gbt47127.signal_consistency:
+  object: "NeuroGrid 能读取的每个 EEG 和 iEEG 信号记录数据文件：其附属元数据文件中的 SamplingFrequency 和 ChannelCount；各模态的 ChannelCount 与通道元数据文件对比"
+gbt47127.subject_folders:
+  object: "每个被试者目录和每个 ParticipantId"
+gbt47127.timestamp:
+  object: "每个带采集时间的信号记录数据文件名"
+gbt47127.zero_padding:
+  object: "每个数字形式的被试者和会话标签"
 impedance.documented:
   object: "每条记录"
   passes: "每个 EEG 通道都有阻抗值"

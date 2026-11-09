@@ -1,8 +1,9 @@
 # Rule packs {#rulepacks}
 
 A rule pack is a YAML file that turns measurements into findings: each rule names a registered check, its
-parameters, a phase, a severity and how it is verified. NeuroGrid ships four packs: `core`, `bids`, `gxdsl008`
-and the placeholder pack `yyt2029` ([Built-in rules](reference/rules.md), [Placeholder packs](#placeholder)); a
+parameters, a phase, a severity and how it is verified. NeuroGrid ships five packs: `core`, `bids`,
+`gbt47127` (the GB/T 47127 multi-modal data format), `gxdsl008` and the placeholder pack `yyt2029`
+([Built-in rules](reference/rules.md), [Placeholder packs](#placeholder)); a
 test institute, a manufacturer or the author of a standard can write their own pack without changing code and
 load it with `--rulepack <file>` or `[check] rulepacks`.
 
@@ -129,5 +130,88 @@ repository; the list of interpretation questions below records each such clause.
 
 Clauses that can be read in more than one way, with the possible readings, the reading NeuroGrid implements and whom the question was put to (by role, never by name). The list is generated from `docs/_data/interpretation_questions.yaml`; it names no pack of its own, so every rule pack that maps a norm uses it.
 
-No interpretation questions are recorded yet. Entries are added when a norm text is turned into rules; each one names the clause, the possible readings, the reading NeuroGrid implements and whom it was asked (by role).
+#### IQ-001 {#IQ-001}
+
+| | |
+|---|---|
+| ID | IQ-001 |
+| Topic | Spelling of the modality folders |
+| Rule pack | gbt47127 |
+| Clause | 6.2 |
+| Rules | [GBT47127-STO-007](reference/rules.md#GBT47127-STO-007) |
+| Question | Clause 6.2 says the modality folders use English lower-case abbreviations, but its list writes EEG, fNIRS, MEG, fMRI, iEEG and uEphys, and the file name suffixes of 7.5.7.1 use the same mixed spelling. Which spelling is required? |
+| Possible readings | (a) Only the spelling of the list (EEG, fNIRS …).; (b) Only lower case (eeg, fnirs …).; (c) Both: the spelling of the list or lower case. |
+| Reading implemented | (c) The sentence and the list disagree; NeuroGrid accepts both and reports any other spelling. convert writes the spelling of the list, the same as the file name suffix. |
+| Status | open |
+| Asked (role, date) | – |
+| Answer | – |
+| Effect on the rules | no change |
+
+#### IQ-002 {#IQ-002}
+
+| | |
+|---|---|
+| ID | IQ-002 |
+| Topic | Special characters in the data set name |
+| Rule pack | gbt47127 |
+| Clause | 7.2, Table 1 |
+| Rules | [GBT47127-STO-002](reference/rules.md#GBT47127-STO-002) |
+| Question | Table 1 asks the data set name to avoid special characters and spaces but does not define special characters. Which characters may a name contain? |
+| Possible readings | (a) Letters, digits, '.', '_' and '-'.; (b) Letters and digits only.; (c) Any printable character except spaces. |
+| Reading implemented | (a) The characters that are safe in file and folder names on every system; the rule is an info only. |
+| Status | open |
+| Asked (role, date) | – |
+| Answer | – |
+| Effect on the rules | no change |
+
+#### IQ-003 {#IQ-003}
+
+| | |
+|---|---|
+| ID | IQ-003 |
+| Topic | <matches> of the event table |
+| Rule pack | gbt47127 |
+| Clause | 7.6 |
+| Rules | [GBT47127-ANN-002](reference/rules.md#GBT47127-ANN-002), [GBT47127-STO-008](reference/rules.md#GBT47127-STO-008) |
+| Question | Clause 7.6 names an event table <matches>_events.<extension>, where <matches> is the file name of the signal file. Does <matches> include the extension of the signal file? |
+| Possible readings | (a) Without the extension (sub-01_task-rest_EEG_events.tsv).; (b) With the extension (sub-01_task-rest_EEG.edf_events.tsv). |
+| Reading implemented | (a) The sidecar shares the name without its extension (7.5.7.2), and so do the channel and electrode tables; NeuroGrid reads both forms and reports the second as an info. |
+| Status | open |
+| Asked (role, date) | – |
+| Answer | – |
+| Effect on the rules | no change |
+
+#### IQ-004 {#IQ-004}
+
+| | |
+|---|---|
+| ID | IQ-004 |
+| Topic | Structure of a key-value file in XML |
+| Rule pack | gbt47127 |
+| Clause | 7.1 |
+| Rules | [GBT47127-STO-001](reference/rules.md#GBT47127-STO-001), [GBT47127-STO-010](reference/rules.md#GBT47127-STO-010), [GBT47127-ACQ-001](reference/rules.md#GBT47127-ACQ-001) |
+| Question | Clause 7.1 allows key-value metadata in XML but gives no structure. How are fields, lists and types written in XML? |
+| Possible readings | (a) One root element; each child element is a field named by its identifier; a repeated child is a list; numbers and Booleans are written as text.; (b) Fields as attributes of the root element. |
+| Reading implemented | (a) The direct mapping of the JSON form; documents with a DOCTYPE or entity declaration are refused for safety. |
+| Status | open |
+| Asked (role, date) | – |
+| Answer | – |
+| Effect on the rules | no change |
+
+#### IQ-005 {#IQ-005}
+
+| | |
+|---|---|
+| ID | IQ-005 |
+| Topic | Values of the optode type |
+| Rule pack | gbt47127 |
+| Clause | 7.5.2, Table 8 |
+| Rules | [GBT47127-ACQ-003](reference/rules.md#GBT47127-ACQ-003) |
+| Question | Table 8 says the optode type is a source or a detector. Which values does the column hold? |
+| Possible readings | (a) The Chinese terms for source and detector or the English source and detector.; (b) Only the Chinese terms. |
+| Reading implemented | (a) The identifiers of the format are English, the definitions Chinese; both forms are accepted, without regard to case. |
+| Status | open |
+| Asked (role, date) | – |
+| Answer | – |
+| Effect on the rules | no change |
 <!-- END GENERATED -->

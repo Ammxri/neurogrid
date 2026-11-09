@@ -55,13 +55,13 @@ KNOWN = {
     # the user pages of the scaffold: the four built-in packs, the command, the --rulepack row
     (
         "docs/en/rulepacks.md",
-        "and the placeholder pack `yyt2029` ([Built-in rules](reference/rules.md), "
-        "[Placeholder packs](#placeholder)); a",
+        "`gbt47127` (the GB/T 47127 multi-modal data format), `gxdsl008` and the placeholder pack `yyt2029`",
     ),
     ("docs/en/rulepacks.md", "neurogrid check DATA --rulepack yyt2029 --allow-draft-rulepacks"),
     (
         "docs/zh/rulepacks.md",
-        "和核验方式。NeuroGrid 内置四个规则包：`core`、`bids`、`gxdsl008` 和占位规则包 `yyt2029`",
+        "和核验方式。NeuroGrid 内置五个规则包：`core`、`bids`、`gbt47127`（GB/T 47127 多模态数据格式）、"
+        "`gxdsl008` 和占位规则包 `yyt2029`",
     ),
     ("docs/zh/rulepacks.md", "neurogrid check DATA --rulepack yyt2029 --allow-draft-rulepacks"),
     (
@@ -90,7 +90,7 @@ KNOWN = {
     ("src/neurogrid/rulepacks/yyt2029.yaml", "rulepack: yyt2029"),
     ("src/neurogrid/rulepacks/yyt2029.yaml", 'source: "YY/T 2029-2026, norm text not read"'),
     ("src/neurogrid/rulepacks/yyt2029.yaml", "- id: YYT2029-ACQ-001"),
-    ("tools/gen_docs.py", 'PACKS = ("core", "bids", "gxdsl008", "yyt2029")'),
+    ("tools/gen_docs.py", 'PACKS = ("core", "bids", "gbt47127", "gxdsl008", "yyt2029")'),
     # the generator's copy of CLAUSE for the interpretation questions (test_generator_guard_is_this_guard)
     (
         "tools/gen_docs.py",
@@ -109,7 +109,10 @@ KNOWN = {
     ),
     ("docs/zh/reference/checks.md", "| 内置规则 | [YYT2029-ACQ-001](rules.md#YYT2029-ACQ-001)（占位） |"),
     # the tests of the scaffold name the pack and its rule once per file
-    ("tests/unit/test_message_tables.py", 'BUILTIN_PACKS = ("core", "bids", "gxdsl008", "yyt2029")'),
+    (
+        "tests/unit/test_message_tables.py",
+        'BUILTIN_PACKS = ("core", "bids", "gbt47127", "gxdsl008", "yyt2029")',
+    ),
     (
         "tests/rules/test_builtin_rules.py",
         'YYT = ("yyt2029",)  # the placeholder scaffold, with the flag (A-92)',

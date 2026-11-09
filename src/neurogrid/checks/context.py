@@ -90,6 +90,8 @@ class CheckContext:
     _validator: ValidatorResult | None = field(default=None, repr=False)
     # M11/M12 dataset structure (participants, splits, labels), built once by checks.ai_dataset (A-81)
     ai_structure: object = field(default=None, repr=False)
+    # the GB/T 47127 view of the dataset folder, read once by checks.gbt47127 (P7)
+    gbt47127: object = field(default=None, repr=False)
     _provenance: ProvenanceState | None = field(default=None, repr=False)
     _annotations: AnnotationIndex | None = field(default=None, repr=False)
     # M10 κ per object (relative path), computed once per run by checks.annotation.cached_kappa (A-53)
@@ -228,7 +230,9 @@ class CheckContext:
             except (ArithmeticError, ValueError):  # defensive: a header value no model can hold (A-75)
                 recording = None
                 state.header_error = "header.number_field"
-            state.recording, state.metadata = collect(scan.root, found, recording, config, scan.is_bids)
+            state.recording, state.metadata = collect(
+                scan.root, found, recording, config, scan.is_bids, gbt47127=scan.is_gbt47127
+            )
             states.append(state)
         return cls(
             root=scan.root,

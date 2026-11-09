@@ -22,7 +22,7 @@ steht dort als „für G1 vorgemerkt“. Nach P6 (02.11.2026, `dev` 0ffdd90) sin
 Der Aufbau folgt den fünf Stufen des Architekturbilds der PRD (ARC-01). Prüfer messen, nur der Regelmotor bewertet (ARC-02).
 
 ```
-Datensatz (EDF/EDF+[C|D], BDF, BrainVision, EEGLAB, FIF; ab v0.2 GB/T 47127)
+Datensatz (EDF/EDF+[C|D], BDF, BrainVision, EEGLAB, FIF; GB/T-47127-Layout seit P7)
    │  io/            Adapter → Datenmodell (nur gelistete Felder, A-51)   ← neurogrid.toml, BIDS-Sidecars
    ▼
 Prüfer  checks/      Messwerte je Objekt (Datensatz, Aufnahme, Kanal, Datei)
@@ -56,7 +56,7 @@ neurogrid/
   src/neurogrid/
     cli.py                Typer-App (pretty_exceptions_show_locals=False); Hilfe und Bedienfehler übersetzt (A-86)
     + config.py           neurogrid.toml → Pydantic (strict)
-    + convert.py          BIDS-Konvertierung; ab v0.2 GB/T 47127
+    + convert.py          BIDS-Konvertierung; GB/T 47127 über BIDS (P7, A-114)
     + diff.py (P9, Versionsvergleich, A-97)  + dossier.py (P9, Nachweismappe, A-99)
     kernel/               nur Standardbibliothek, Pydantic, Jinja2, PyYAML, fontTools, Playwright, pypdf (A-85); mypy --strict;
                           importiert nichts aus neurogrid.* außerhalb von kernel (A-23)
@@ -66,7 +66,7 @@ neurogrid/
       + fonts.py (Subsets, Glyph-Zwillinge)  + pdf.py (Shell, Druck, QA-Gate; seit P9 `merge_pdfs`, `every_page_any`)
       + pdf_linux_packages.json (A-85)
       + processes.py (Hilfsprozesse auf dem Nullgerät, `platform` ohne WMI, `quiet_pool`, `on_null_device`; A-89)
-    io/                   edf.py bdf.py brainvision.py eeglab.py fif.py gbt47127.py (v0.2)  + base.py  + discover.py
+    io/                   edf.py bdf.py brainvision.py eeglab.py fif.py gbt47127.py (P7: Layout lesen/schreiben)  + base.py  + discover.py
     model/                dataset.py consent.py results.py  + access.py (AccessEvent, P6)
                           + _registers.py roles.py retention.py risks.py export.py (ExportIndex) diff.py (DiffResult) (P9)
     checks/               structure.py metadata.py signal.py annotation.py ai_dataset.py provenance.py consent.py (P6; P9: M14-02)
@@ -487,7 +487,7 @@ approval_ref = "EC-2026-17"
 | Befehl | Optionen | Ausgabe | IDs |
 |---|---|---|---|
 | `neurogrid scan PFAD` | `--out scan.json`, [E3] `--show-paths` | Formate, Probanden, Aufnahmen, Größen, nicht unterstützte Dateien | CLI-01 |
-| `neurogrid convert PFAD --to bids --out ZIEL` | `--config`, `--to gbt47127` (v0.2), [E3] `--strip-identifying-headers` | BIDS-Datensatz + ProcessingSteps + Validatorlauf | CLI-02, NG-F02, NG-F03 |
+| `neurogrid convert PFAD --to bids --out ZIEL` | `--config`, `--to gbt47127` (P7, A-114), [E3] `--strip-identifying-headers` | BIDS-Datensatz + ProcessingSteps + Validatorlauf; bei gbt47127 GB/T-Datensatz + ProcessingSteps + Strukturprüfung | CLI-02, NG-F02, NG-F03 |
 | `neurogrid check PFAD` | `--rulepack` (mehrfach), `--config`, `--out`, `--strict`, `--manifest`, `--evidence`, `--as-of`, `--role`, `--allow-draft-rulepacks`, [E3] `--jobs`, [E3] `--show-paths` | results.json, Kurzfassung, Exit 0/1/2 | CLI-03, CLI-04 |
 | `neurogrid report results.json` | `--lang zh,en`, `--format html,pdf` (Standard `html`), `--out` (Standard neben results.json), `--config` (P6: Zugriffsprotokoll des Vaults auf dem Deckblatt und Ereignis `report`; A-30, A-90); seit P9 `--format dossier` (mit html und pdf kombinierbar, immer zh und en, A-99) | `report.<lang>.<html,pdf>`, `dossier.pdf`, alle oder keine (A-84, A-85); Exit 0/2 | CLI-05, REP-08 |
 | `neurogrid manifest PFAD` | [E3] `--out` (Standard `.neurogrid/manifest.json`), [E3] `--show-paths` | manifest.json | CLI-06 |
@@ -611,7 +611,8 @@ STOPPs nach P5 und nach Abschluss von v0.2. Diese Abweichung von „Stopp bei fe
 Stand 02.11.2026 (D-18, D-19): P6 lief parallel zur zh- und Sichtprüfung von STOPP G1 und ist abgeschlossen; G-A und
 G-B sind nicht erfüllt (`.local/normen/` fehlt), deshalb lief P9 vor P7 und P8 (Regel „Fehlende Normtexte“ in
 Abschnitt 5, D-13) und ist abgeschlossen (`dev` 5596a8d). G-C (ISO/IEC TS 27571) fehlt ebenfalls, deshalb folgt P11 vor
-P10; P7, P8 und P10 warten auf die Normtexte. Stand 03.11.2026 (D-20): P11 mit den Datensätzen Zhou2016, Cho2017 und
+P10; P7, P8 und P10 warten auf die Normtexte. Seit 09.11.2026 liegt GB/T 47127 vor (D-22, G-A erfüllt): P7 nach P11.
+Stand 03.11.2026 (D-20): P11 mit den Datensätzen Zhou2016, Cho2017 und
 Kalunga2016, 16 Bedingungen, Bericht en und zh.
 
 **Jede Phase endet mit:**

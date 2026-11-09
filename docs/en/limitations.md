@@ -94,6 +94,8 @@ depend on the text of YY/T 2029 follow once the norm text has been read.
 - `diff` (comparison of two results), NeuroVault (consent, roles, access log, M14) and the evidence dossier
   are not part of version 0.1. Version 0.2 adds the consent records, the access log and M14; version 1.0
   the registers, the export package, `diff` and the evidence dossier ([above](#neurovault)).
-- GB/T 47127 as an input and output format follows with version 0.2.
+- GB/T 47127: the pack `gbt47127` checks the metadata of all six modalities of the format; it compares
+  sidecars with the signal only for EEG and iEEG files in a format NeuroGrid reads, and `convert --to gbt47127`
+  writes EEG only. The readings of open questions of the norm are listed on the rule pack page.
 - The documentation is published inside the offline bundle and as a build artefact; a website for it is decided
   with the publication.

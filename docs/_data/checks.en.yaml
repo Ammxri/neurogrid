@@ -51,6 +51,42 @@ consent.reconsent:
   passes: "the version of the subject's effective consent is at least the min_consent_version of the risk (without consent data: not checkable, also with --strict or a configured [consent]; a subject without a valid consent is left to consent.covered)"
 evidence.document:
   object: "the rule itself (manual or semi-automatic evidence from evidence.yaml)"
+gbt47127.channels:
+  object: "the channel table of each modality folder and task: each column of tables 6, 9, 11, 15 and 18"
+gbt47127.description:
+  object: "the data set description (dataset_description.json or .xml): each field of table 1"
+gbt47127.description_name:
+  object: "the Name of the data set description"
+gbt47127.events:
+  object: "each event table: each column of table 19"
+gbt47127.events_name:
+  object: "each event table next to a signal file"
+gbt47127.file_names:
+  object: "each file of a modality folder and each shared event table"
+gbt47127.identifying_ids:
+  object: "each subject and session label and each ParticipantId"
+gbt47127.metadata_formats:
+  object: "each file named as a metadata file of the layout"
+gbt47127.modality_folders:
+  object: "each modality folder and each session folder"
+gbt47127.participants:
+  object: "the subject table (participants.tsv or .csv): each column of table 2 and the ParticipantId values"
+gbt47127.positions:
+  object: "the electrode or optode table of each modality folder and task: each column of tables 5, 8, 14 and 17"
+gbt47127.sessions:
+  object: "each subject's session folders and session table (sessions.tsv or .csv)"
+gbt47127.sidecar:
+  object: "each signal file: its sidecar"
+gbt47127.sidecar_fields:
+  object: "each sidecar: each field of the table of its modality (tables 4, 7, 10, 12, 13, 16)"
+gbt47127.signal_consistency:
+  object: "each EEG and iEEG signal file NeuroGrid reads: SamplingFrequency and ChannelCount of its sidecar; for every modality ChannelCount against the channel table"
+gbt47127.subject_folders:
+  object: "each subject folder and each ParticipantId"
+gbt47127.timestamp:
+  object: "each signal file name with a timestamp"
+gbt47127.zero_padding:
+  object: "each numeric subject and session label"
 impedance.documented:
   object: "each recording"
   passes: "every EEG channel has an impedance value"

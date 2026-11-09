@@ -621,6 +621,250 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Severity with --strict | Warning |
 | Verification | automatic |
 
+## Rule pack gbt47127 {#pack-gbt47127}
+
+| | |
+|---|---|
+| Version | 1.0.0 |
+| Source | GB/T 47127-2026, clause inventory of the norm text (P7) |
+| Source status | final |
+| Maps a norm (coverage measure) | yes |
+| SHA-256 | `5273c67ece8691392cbbf47e90669f01d20257be14c399843a40b242b4b46d6b` |
+
+### GBT47127-STO-001 {#GBT47127-STO-001}
+
+| | |
+|---|---|
+| Title | Data set description present with Name and Version |
+| Clause | 7.2, Table 1 |
+| Phase | Storage |
+| Check | [gbt47127.description](checks.md#gbt47127.description) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-STO-002 {#GBT47127-STO-002}
+
+| | |
+|---|---|
+| Title | Data set name without spaces or special characters |
+| Clause | Table 1 (Name) |
+| Phase | Storage |
+| Check | [gbt47127.description_name](checks.md#gbt47127.description_name) |
+| Parameters | – |
+| Severity | Note |
+| Severity with --strict | Note |
+| Verification | automatic |
+
+### GBT47127-STO-003 {#GBT47127-STO-003}
+
+| | |
+|---|---|
+| Title | Subject table present with valid, unique ParticipantId |
+| Clause | 7.3, Table 2 |
+| Phase | Storage |
+| Check | [gbt47127.participants](checks.md#gbt47127.participants) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-STO-004 {#GBT47127-STO-004}
+
+| | |
+|---|---|
+| Title | Subject folders named, holding data and matched to ParticipantId |
+| Clause | 6.1, 6.2 (subject folders) |
+| Phase | Storage |
+| Check | [gbt47127.subject_folders](checks.md#gbt47127.subject_folders) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-STO-005 {#GBT47127-STO-005}
+
+| | |
+|---|---|
+| Title | Session folders and session table consistent |
+| Clause | 6.1, 6.2, 7.4, Table 3 |
+| Phase | Storage |
+| Check | [gbt47127.sessions](checks.md#gbt47127.sessions) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-STO-006 {#GBT47127-STO-006}
+
+| | |
+|---|---|
+| Title | Numeric labels zero-padded |
+| Clause | 6.2 (zero padding) |
+| Phase | Storage |
+| Check | [gbt47127.zero_padding](checks.md#gbt47127.zero_padding) |
+| Parameters | – |
+| Severity | Note |
+| Severity with --strict | Note |
+| Verification | automatic |
+
+### GBT47127-STO-007 {#GBT47127-STO-007}
+
+| | |
+|---|---|
+| Title | Modality folders named by the modality list, at least one per session |
+| Clause | 6.1, 6.2 (modality folders) |
+| Phase | Storage |
+| Check | [gbt47127.modality_folders](checks.md#gbt47127.modality_folders) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-STO-008 {#GBT47127-STO-008}
+
+| | |
+|---|---|
+| Title | File names in modality folders follow the naming rules |
+| Clause | 7.5.7, 7.6 (file names) |
+| Phase | Storage |
+| Check | [gbt47127.file_names](checks.md#gbt47127.file_names) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-STO-009 {#GBT47127-STO-009}
+
+| | |
+|---|---|
+| Title | Metadata files in JSON/XML or TSV/CSV |
+| Clause | 7.1 |
+| Phase | Storage |
+| Check | [gbt47127.metadata_formats](checks.md#gbt47127.metadata_formats) |
+| Parameters | – |
+| Severity | Note |
+| Severity with --strict | Note |
+| Verification | automatic |
+
+### GBT47127-STO-010 {#GBT47127-STO-010}
+
+| | |
+|---|---|
+| Title | One readable sidecar per signal file |
+| Clause | 7.5, 7.5.7.2 (sidecar) |
+| Phase | Storage |
+| Check | [gbt47127.sidecar](checks.md#gbt47127.sidecar) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-STO-011 {#GBT47127-STO-011}
+
+| | |
+|---|---|
+| Title | Timestamp in file names as YYYYMMDD-HHMMSS |
+| Clause | 7.5.7.1 (timestamp) |
+| Phase | Storage |
+| Check | [gbt47127.timestamp](checks.md#gbt47127.timestamp) |
+| Parameters | – |
+| Severity | Note |
+| Severity with --strict | Note |
+| Verification | automatic |
+
+### GBT47127-STO-012 {#GBT47127-STO-012}
+
+| | |
+|---|---|
+| Title | Subject labels without digit runs that may be ID numbers |
+| Clause | Table 2 (ParticipantId) |
+| Phase | Storage |
+| Check | [gbt47127.identifying_ids](checks.md#gbt47127.identifying_ids) |
+| Parameters | – |
+| Severity | Warning |
+| Severity with --strict | Warning |
+| Verification | automatic |
+
+### GBT47127-ACQ-001 {#GBT47127-ACQ-001}
+
+| | |
+|---|---|
+| Title | Required sidecar fields present and typed |
+| Clause | Tables 4, 7, 10, 12, 13, 16 |
+| Phase | Acquisition |
+| Check | [gbt47127.sidecar_fields](checks.md#gbt47127.sidecar_fields) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-ACQ-002 {#GBT47127-ACQ-002}
+
+| | |
+|---|---|
+| Title | Channel table present and complete |
+| Clause | Tables 6, 9, 11, 15, 18 |
+| Phase | Acquisition |
+| Check | [gbt47127.channels](checks.md#gbt47127.channels) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-ACQ-003 {#GBT47127-ACQ-003}
+
+| | |
+|---|---|
+| Title | Electrode or optode table present and complete |
+| Clause | Tables 5, 8, 14, 17 |
+| Phase | Acquisition |
+| Check | [gbt47127.positions](checks.md#gbt47127.positions) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-ACQ-004 {#GBT47127-ACQ-004}
+
+| | |
+|---|---|
+| Title | Sidecar sampling frequency and channel count match the data |
+| Clause | Tables 4, 13 (data) |
+| Phase | Acquisition |
+| Check | [gbt47127.signal_consistency](checks.md#gbt47127.signal_consistency) |
+| Parameters | – |
+| Severity | Warning |
+| Severity with --strict | Warning |
+| Verification | automatic |
+
+### GBT47127-ANN-001 {#GBT47127-ANN-001}
+
+| | |
+|---|---|
+| Title | Event tables complete |
+| Clause | 7.6, Table 19 |
+| Phase | Annotation |
+| Check | [gbt47127.events](checks.md#gbt47127.events) |
+| Parameters | – |
+| Severity | Error |
+| Severity with --strict | Error |
+| Verification | automatic |
+
+### GBT47127-ANN-002 {#GBT47127-ANN-002}
+
+| | |
+|---|---|
+| Title | Event table named after the signal file without its extension |
+| Clause | 7.6 (matches) |
+| Phase | Annotation |
+| Check | [gbt47127.events_name](checks.md#gbt47127.events_name) |
+| Parameters | – |
+| Severity | Note |
+| Severity with --strict | Note |
+| Verification | automatic |
+
 ## Rule pack gxdsl008 {#pack-gxdsl008}
 
 | | |

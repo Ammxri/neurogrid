@@ -21,7 +21,7 @@ PLACEHOLDER = re.compile(r"\{[a-z_]+\}")
 # Two Latin words in a row: prose. A Chinese text may contain names (neurogrid.toml, EEGChannelCount, N),
 # placeholders and punctuation without any Han character, but never an English sentence.
 PROSE = re.compile(r"[A-Za-z]{2,}[ \t]+[A-Za-z]{2,}")
-BUILTIN_PACKS = ("core", "bids", "gxdsl008", "yyt2029")
+BUILTIN_PACKS = ("core", "bids", "gbt47127", "gxdsl008", "yyt2029")
 
 
 def untranslated(zh: str) -> bool:

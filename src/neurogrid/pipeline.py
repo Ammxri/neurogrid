@@ -65,6 +65,7 @@ from neurogrid.kernel.provenance import (
     Exclusions,
     Manifest,
     ManifestError,
+    ProcessingStep,
     build_manifest,
     compare,
     manifest_bytes,
@@ -199,7 +200,7 @@ def run_scan(raw_target: str | Path, *, show_paths: bool = False) -> ScanResult:
     target = resolve_target(raw_target)
     found = scan(target.root, show_paths=show_paths, only=target.only)
     subjects = found.subjects
-    if not found.is_bids and found.recordings:
+    if not found.is_bids and not found.is_gbt47127 and found.recordings:
         from neurogrid.metadata import mapped_entities
 
         cfg = config_module.load(None, target.root).config
@@ -447,7 +448,7 @@ def run_check(raw_target: str | Path, options: CheckOptions | None = None) -> Re
         )
     )
     manifest = ctx.provenance().info()
-    plain_names = found.is_bids or options.show_paths
+    plain_names = found.is_bids or found.is_gbt47127 or options.show_paths
     notices = list(result.notices)
     identifying_evidence = evidence_module.identifying_entries(evidence.entries)
     if identifying_evidence:
@@ -842,6 +843,7 @@ class ConvertSummary:
     validator_warnings: int
     steps_file: Path
     access: PendingAccess | None = None  # the event for the source project's vault (p6 decisions 4)
+    target: str = "bids"  # bids or gbt47127 (P7)
 
     @property
     def exit_code(self) -> int:
@@ -856,8 +858,9 @@ def run_convert(
     config_path: Path | None = None,
     strip_identifying_headers: bool = False,
     work_base: Path | None = None,
+    to: str = "bids",
 ) -> ConvertSummary:
-    """Convert, then validate the output (A-77).
+    """Convert, then validate the output (A-77); ``to`` gbt47127 converts to GB/T 47127 (P7).
 
     Paths with a comma are refused before anything is written: deno splits its permission lists at commas
     (A-06), so the validator could not run afterwards. The run's work folder (staging, validator output, A-54)
@@ -886,6 +889,17 @@ def run_convert(
             raise ValidatorError("validator.comma_path")
     created = not output.exists()
     was_empty = output.is_dir() and not any(output.iterdir())
+    if to == "gbt47127":
+        return _run_convert_gbt47127(
+            target,
+            output,
+            cfg,
+            access=access,
+            base=base,
+            strip_identifying_headers=strip_identifying_headers,
+            created=created,
+            was_empty=was_empty,
+        )
     finished = False
     try:
         with ExitStack() as stack:
@@ -929,6 +943,102 @@ def run_convert(
         validator_warnings=warnings,
         steps_file=output / ".neurogrid" / "processing_steps.json",
         access=access,
+    )
+
+
+def _run_convert_gbt47127(
+    target: Target,
+    output: Path,
+    cfg: Config,
+    *,
+    access: PendingAccess | None,
+    base: Path,
+    strip_identifying_headers: bool,
+    created: bool,
+    was_empty: bool,
+) -> ConvertSummary:
+    """convert --to gbt47127 (NG-F03, P7, A-114 ff.): a BIDS data set is mapped directly; a raw folder is
+    converted to BIDS in the run's work folder with every rule of ``--to bids`` (A-04, A-05, A-77), then
+    mapped. One processing step per written recording (DM-07), after the BIDS step for a raw input. Instead
+    of the BIDS validator the pack's structure checks run on the output."""
+    from neurogrid.checks import gbt47127 as gbt_checks
+    from neurogrid.convert import convert_to_bids, files_hash, remove_output
+    from neurogrid.io import gbt47127 as gbt_io
+
+    if output.exists() and not output.is_dir():
+        raise InputError("output.not_writable")
+    if output.exists() and any(output.iterdir()):
+        raise InputError("convert.output_not_empty")
+    if output.resolve().is_relative_to(target.root.resolve()):
+        raise InputError("convert.output_inside_input")
+    source_is_bids = target.only is None and scan(target.root).is_bids
+    finished = False
+    steps: list[ProcessingStep] = []
+    skipped: list[tuple[str, str]] = []
+    errors = warnings = 0
+    try:
+        with ExitStack() as stack:
+            folders: list[Path] = []
+
+            def work() -> Path:
+                if not folders:
+                    folders.append(stack.enter_context(work_directory(base)))
+                return folders[0]
+
+            if source_is_bids:
+                bids_root = target.root
+            else:
+                bids_root = work() / "bids"
+                staged = convert_to_bids(
+                    target.root,
+                    bids_root,
+                    cfg,
+                    only=target.only,
+                    strip_identifying_headers=strip_identifying_headers,
+                    work=work,
+                )
+                steps += staged.steps
+                skipped += [(item.display_id, reason) for item, reason in staged.skipped]
+            written = gbt_io.from_bids(bids_root, output, name=cfg.dataset.name)
+            skipped += written.skipped
+            for item in written.written:
+                steps.append(
+                    ProcessingStep(
+                        step="convert_to_gbt47127",
+                        tool="neurogrid",
+                        version=neurogrid.__version__,
+                        parameters={
+                            "input_format": "BIDS",
+                            "format_version": gbt_io.FORMAT_VERSION,
+                            "target": item.target,
+                        },
+                        input_hash=files_hash(item.input_files),
+                        output_hash=files_hash(item.output_files),
+                    )
+                )
+            if written.written:
+                steps_path = output / ".neurogrid" / "processing_steps.json"
+                steps_path.parent.mkdir(parents=True, exist_ok=True)
+                steps_path.write_bytes(canonical.dumps(steps))
+                pack = load_rulepack_ref(gbt_io.FORMAT)
+                severities = {rule.check: rule.severity.value for rule in pack.pack.rules}
+                errors, warnings = gbt_checks.structure_counts(output, severities)
+            elif created or was_empty:
+                remove_output(output, keep_folder=not created)
+        finished = True
+    finally:
+        if not finished and (created or was_empty):
+            remove_output(output, keep_folder=not created)
+    return ConvertSummary(
+        converted=len(written.written),
+        skipped=skipped,
+        missing_fields=dict(sorted(written.gaps.items())),
+        name_missing=False,
+        validator_errors=errors,
+        validator_warnings=warnings,
+        steps_file=output / ".neurogrid" / "processing_steps.json",
+        access=access,
+        target=gbt_io.FORMAT,
     )
 
 

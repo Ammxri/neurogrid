@@ -649,8 +649,9 @@ def convert(
     config: Annotated[str | None, typer.Option("--config")] = None,
     strip_identifying_headers: Annotated[bool, typer.Option("--strip-identifying-headers")] = False,
 ) -> None:
-    """Convert a raw folder to EEG-BIDS and validate the result."""
-    if to.strip().lower() != "bids":
+    """Convert a raw folder to EEG-BIDS, or a raw or BIDS folder to GB/T 47127 (P7), and check the result."""
+    target = to.strip().lower()
+    if target not in ("bids", "gbt47127"):
         raise NeuroGridError("errors.convert.target_unavailable", target=to)
     _state["dataset_root"] = pipeline.resolve_target(path).root
     output = check_operator_path(out)
@@ -660,22 +661,31 @@ def convert(
         config_path=_given_path(config),
         strip_identifying_headers=strip_identifying_headers,
         work_base=output.absolute().parent,
+        to=target,
     )
-    outcome = _commit(summary.access)  # after the BIDS output and the validator run
+    outcome = _commit(summary.access)  # after the output and its check
     _say("cli.convert.converted", count=summary.converted)
     for item_id, reason in summary.skipped:
         _say("cli.convert.skipped", id=_clean(item_id), reason=translator(_lang()).t(f"reason.{reason}"))
+    gbt = summary.target == "gbt47127"
     for name, count in summary.missing_fields.items():
-        # n/a documents SoftwareFilters in BIDS (A-03), so 'check' reports only the other fields
-        key = "cli.convert.missing_field" if name in NA_IS_MISSING else "cli.convert.missing_field_na_valid"
+        # n/a documents SoftwareFilters in BIDS (A-03), so 'check' reports only the other fields;
+        # GB/T 47127: undocumented values are left out
+        if gbt:
+            key = "cli.convert.gbt_gap"
+        else:
+            key = (
+                "cli.convert.missing_field" if name in NA_IS_MISSING else "cli.convert.missing_field_na_valid"
+            )
         _say(key, field=name, count=count)
     if summary.name_missing:
         _say("cli.convert.missing_name")
     if summary.converted:
-        _say("cli.convert.validator", errors=summary.validator_errors, warnings=summary.validator_warnings)
-        _say("cli.convert.written", path=_display_path(output))
+        check_key = "cli.convert.gbt_check" if gbt else "cli.convert.validator"
+        _say(check_key, errors=summary.validator_errors, warnings=summary.validator_warnings)
+        _say("cli.convert.gbt_written" if gbt else "cli.convert.written", path=_display_path(output))
     else:
-        _say("cli.convert.nothing")
+        _say("cli.convert.gbt_nothing" if gbt else "cli.convert.nothing")
     _access_messages(summary.access, outcome)
     _say("disclaimer")
     raise typer.Exit(code=summary.exit_code)

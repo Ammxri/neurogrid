@@ -213,6 +213,186 @@ Every check a rule pack may name in `check`, generated from the registry of this
 | Measured on | the rule itself (manual or semi-automatic evidence from evidence.yaml) |
 | Built-in rules | [GXDSL008-ACC-001](rules.md#GXDSL008-ACC-001) |
 
+## gbt47127.channels {#gbt47127.channels}
+
+| | |
+|---|---|
+| Title | Channel table present and complete |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the channel table of each modality folder and task: each column of tables 6, 9, 11, 15 and 18 |
+| Built-in rules | [GBT47127-ACQ-002](rules.md#GBT47127-ACQ-002) |
+
+## gbt47127.description {#gbt47127.description}
+
+| | |
+|---|---|
+| Title | Data set description with Name and Version |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the data set description (dataset_description.json or .xml): each field of table 1 |
+| Built-in rules | [GBT47127-STO-001](rules.md#GBT47127-STO-001) |
+
+## gbt47127.description_name {#gbt47127.description_name}
+
+| | |
+|---|---|
+| Title | Data set name without spaces or special characters |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the Name of the data set description |
+| Built-in rules | [GBT47127-STO-002](rules.md#GBT47127-STO-002) |
+
+## gbt47127.events {#gbt47127.events}
+
+| | |
+|---|---|
+| Title | Event tables complete |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each event table: each column of table 19 |
+| Built-in rules | [GBT47127-ANN-001](rules.md#GBT47127-ANN-001) |
+
+## gbt47127.events_name {#gbt47127.events_name}
+
+| | |
+|---|---|
+| Title | Event table named without the signal file's extension |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each event table next to a signal file |
+| Built-in rules | [GBT47127-ANN-002](rules.md#GBT47127-ANN-002) |
+
+## gbt47127.file_names {#gbt47127.file_names}
+
+| | |
+|---|---|
+| Title | File names follow the naming rules |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each file of a modality folder and each shared event table |
+| Built-in rules | [GBT47127-STO-008](rules.md#GBT47127-STO-008) |
+
+## gbt47127.identifying_ids {#gbt47127.identifying_ids}
+
+| | |
+|---|---|
+| Title | Subject labels without ID-like digit runs |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each subject and session label and each ParticipantId |
+| Built-in rules | [GBT47127-STO-012](rules.md#GBT47127-STO-012) |
+
+## gbt47127.metadata_formats {#gbt47127.metadata_formats}
+
+| | |
+|---|---|
+| Title | Metadata in JSON/XML or TSV/CSV |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each file named as a metadata file of the layout |
+| Built-in rules | [GBT47127-STO-009](rules.md#GBT47127-STO-009) |
+
+## gbt47127.modality_folders {#gbt47127.modality_folders}
+
+| | |
+|---|---|
+| Title | Modality folders named by the modality list |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each modality folder and each session folder |
+| Built-in rules | [GBT47127-STO-007](rules.md#GBT47127-STO-007) |
+
+## gbt47127.participants {#gbt47127.participants}
+
+| | |
+|---|---|
+| Title | Subject table with valid, unique ParticipantId |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the subject table (participants.tsv or .csv): each column of table 2 and the ParticipantId values |
+| Built-in rules | [GBT47127-STO-003](rules.md#GBT47127-STO-003) |
+
+## gbt47127.positions {#gbt47127.positions}
+
+| | |
+|---|---|
+| Title | Electrode or optode table present and complete |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | the electrode or optode table of each modality folder and task: each column of tables 5, 8, 14 and 17 |
+| Built-in rules | [GBT47127-ACQ-003](rules.md#GBT47127-ACQ-003) |
+
+## gbt47127.sessions {#gbt47127.sessions}
+
+| | |
+|---|---|
+| Title | Session folders and session table consistent |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each subject's session folders and session table (sessions.tsv or .csv) |
+| Built-in rules | [GBT47127-STO-005](rules.md#GBT47127-STO-005) |
+
+## gbt47127.sidecar {#gbt47127.sidecar}
+
+| | |
+|---|---|
+| Title | One readable sidecar per signal file |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each signal file: its sidecar |
+| Built-in rules | [GBT47127-STO-010](rules.md#GBT47127-STO-010) |
+
+## gbt47127.sidecar_fields {#gbt47127.sidecar_fields}
+
+| | |
+|---|---|
+| Title | Required sidecar fields present and typed |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each sidecar: each field of the table of its modality (tables 4, 7, 10, 12, 13, 16) |
+| Built-in rules | [GBT47127-ACQ-001](rules.md#GBT47127-ACQ-001) |
+
+## gbt47127.signal_consistency {#gbt47127.signal_consistency}
+
+| | |
+|---|---|
+| Title | Sidecar sampling frequency and channel count match the data |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each EEG and iEEG signal file NeuroGrid reads: SamplingFrequency and ChannelCount of its sidecar; for every modality ChannelCount against the channel table |
+| Built-in rules | [GBT47127-ACQ-004](rules.md#GBT47127-ACQ-004) |
+
+## gbt47127.subject_folders {#gbt47127.subject_folders}
+
+| | |
+|---|---|
+| Title | Subject folders named and matched to ParticipantId |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each subject folder and each ParticipantId |
+| Built-in rules | [GBT47127-STO-004](rules.md#GBT47127-STO-004) |
+
+## gbt47127.timestamp {#gbt47127.timestamp}
+
+| | |
+|---|---|
+| Title | Timestamp in file names as YYYYMMDD-HHMMSS |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each signal file name with a timestamp |
+| Built-in rules | [GBT47127-STO-011](rules.md#GBT47127-STO-011) |
+
+## gbt47127.zero_padding {#gbt47127.zero_padding}
+
+| | |
+|---|---|
+| Title | Numeric labels zero-padded |
+| Parameters | – |
+| Passes when | no deviation found |
+| Measured on | each numeric subject and session label |
+| Built-in rules | [GBT47127-STO-006](rules.md#GBT47127-STO-006) |
+
 ## impedance.documented {#impedance.documented}
 
 | | |

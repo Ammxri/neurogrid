@@ -1217,11 +1217,13 @@ def test_cli_passes_strip_and_config_to_the_conversion(
         "config_path": config,
         "strip_identifying_headers": True,
         "work_base": out.absolute().parent,
+        "to": "bids",
     }
     assert kwargs_keep == {
         "config_path": None,
         "strip_identifying_headers": False,
         "work_base": out.absolute().parent,
+        "to": "bids",
     }
 
 
@@ -1282,8 +1284,8 @@ def _cli_case(tmp_path: Path, case: str) -> tuple[list[str], str]:
             ".neurogrid/mapping-template.toml."
         )
     if case == "target_unavailable":
-        return [str(raw), "--to", "gbt47127", "--out", str(out)], (
-            "Error: Conversion target 'gbt47127' is not available in this version (bids)."
+        return [str(raw), "--to", "nwb", "--out", str(out)], (
+            "Error: Conversion target 'nwb' is not available in this version (bids, gbt47127)."
         )
     if case == "duplicate_target":
         _write_config(raw, METADATA + _row("rec_a.edf", "07") + _row("rec_b.edf", "07"))

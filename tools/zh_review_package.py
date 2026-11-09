@@ -190,6 +190,14 @@ def sources(root: Path = ROOT) -> list[Source]:
     found += [Source(page, "documentation page", zh_lines, keyed=False) for page in pages]
     data = sorted(path.relative_to(root).as_posix() for path in (root / "docs" / "_data").glob("*.zh.yaml"))
     found += [Source(name, "labels of the generated documentation pages", yaml_zh) for name in data]
+    found.append(
+        Source(
+            "docs/_data/interpretation_questions.yaml",
+            "interpretation questions of the rule packs (RP-08)",
+            zh_lines,
+            keyed=False,
+        )
+    )
     found += [
         Source("mkdocs.yml", "site navigation and footer", zh_lines, keyed=False),
         Source(

@@ -1895,3 +1895,103 @@ D-15 und D-17).
 - **Nebenwirkung:** Die PIA-Vorlage `pia.zh.md` hat sich geändert. Ein vor dieser Änderung angelegter Tresor gilt
   deshalb nicht mehr als „unveränderte Vorlage“. Es gibt noch keinen echten Tresor, also keine Auswirkung.
 - Freigabe: offen (Liste STOPP G2).
+
+## Annahmen aus der Umsetzung von P7
+
+**A-113 Regelpaket `gbt47127`: Umfang und Einstufung** (NG-F03, RP-11; Normtext seit D-22 lokal in
+`.local/normen/`, Inventar `.local/p7/inventory.md`).
+- **Umfang:** NG-F03 verlangt „alle Pflichtelemente des Normtexts“.
+  - Das Paket prüft die Metadaten aller sechs Modalitäten der Norm, nicht nur EEG: Ordner, Dateinamen,
+    Pflichtfelder, Datentypen und Eindeutigkeit der Tabellen 1 bis 19.
+  - Den Abgleich mit der Signaldatei gibt es nur, wo NeuroGrid die Datei lesen kann (EEG und iEEG in den fünf
+    Formaten der Adapter).
+- **18 Regeln** `GBT47127-<PHASE>-NNN`, je Inventarzeile mindestens eine Regel:
+  - Was die Norm mit „应“ fordert, ist ein Fehler; „宜“ ist ein Hinweis.
+  - Zwei Regeln bewertet der Lead als Warnung:
+    - STO-012 (Tabelle 2 verbietet identifizierende Angaben in der ParticipantId; NeuroGrid kann das nur an
+      Ziffernfolgen ab sechs Stellen erkennen);
+    - ACQ-004 (die Begleitdatei nennt Abtastfrequenz und Kanalzahl der Aufnahme; der Abgleich mit Daten und
+      Kanaltabelle ist eine Folgerung aus den Felddefinitionen, keine ausdrückliche Klausel).
+  - `source_status: final`, `norm: true`. Abdeckung 1, weil jede Muss-Klausel eine automatische Fehlerregel hat.
+- **Feldtabellen:** Bezeichner und Datentypen stehen im Code (`checks/gbt47127.py`), ohne Normtext (A-55).
+  - Die Norm schreibt `InstituteName` bei EEG, fNIRS und MEG, aber `InstitutionName` bei fMRI, iEEG und uEphys.
+    Das ist so übernommen.
+  - Beim Auslesen der PDF fehlen in einigen Bezeichnern Buchstaben (etwa „SamlinFreuenc“). Maßgeblich ist die
+    Lesart der Tabelle: SamplingFrequency, HighCutoff, Type, Age, MagneticFieldStrength, SliceTiming.
+  - Felder, die nicht aufgeführt sind, dürfen vorkommen (die Norm schreibt „等“).
+  - Ein Pflichtfeld fehlt, wenn es leer ist oder `n/a` enthält. Ein optionales Feld zählt nur, wenn es vorhanden
+    ist und den falschen Typ hat.
+- Freigabe: offen (Liste STOPP G2).
+
+**A-114 `convert --to gbt47127`** (NG-F03, CLI-02).
+- **Weg:**
+  - Ein BIDS-Datensatz wird direkt abgebildet.
+  - Ein Rohordner geht zuerst mit allen Regeln von `--to bids` (A-04, A-05, A-77) nach BIDS in den Arbeitsordner.
+    Signalverarbeitung, Header und Zuordnung gibt es damit nur einmal.
+- **Ausgabe:**
+  - Modalitätsordner `EEG`.
+  - Signaldatei im Format der BIDS-Ausgabe: EDF und BDF kopiert. BrainVision mit umbenannter Daten- und
+    Markerdatei und angepassten Verweisen.
+  - Begleitdatei als JSON, Tabellen als TSV.
+  - `Version` = „GB/T 47127-2026“. Tabelle 1 versteht darunter die Version des Formats, dem der Datensatz folgt.
+  - Kanal- und Elektrodentabelle je Aufgabe, aus der ersten Aufnahme.
+- **Runs:** GB/T 47127 hat kein Run-Label.
+  - Mehrere Aufnahmen einer Aufgabe in einer Sitzung unterscheidet der Zeitstempel aus `scans.tsv` (acq_time).
+  - Ohne verschiedene Zeitstempel werden sie nicht geschrieben (`convert.gbt_runs`).
+- **EEGLAB als BIDS-Eingabe** wird nicht geschrieben (`convert.gbt_eeglab`): Die Datendatei, die in der .set
+  steht, lässt sich nicht umbenennen. Ein Rohordner mit EEGLAB geht über den BIDS-Weg als BrainVision.
+- **Nichts erfinden:**
+  - Was BIDS nicht belegt, bleibt weg und wird als Lücke gezählt: Pflichtfelder, Elektrodenpositionen,
+    `Value` der Ereignisse, der Datensatzname.
+  - `SoftwareFilters` = `n/a` wird übernommen. Das ist in BIDS eine Angabe („kein Softwarefilter“, A-03).
+- **Prüfung danach:**
+  - Statt des BIDS-Validators laufen die Strukturprüfungen des Pakets, ohne den Signalabgleich.
+  - Exit 0 nur, wenn alles konvertiert ist und kein Fehler bleibt (A-77).
+  - Je geschriebener Aufnahme ein Verarbeitungsschritt `convert_to_gbt47127` (DM-07); bei einem Rohordner davor
+    der BIDS-Schritt.
+- Freigabe: offen (Liste STOPP G2).
+
+**A-115 Erkennung und Kernprüfungen in einem GB/T-47127-Datensatz** (NG-F03, ARC-04).
+- **Erkennung:** Ein Ordner gilt als GB/T 47127, wenn alles drei zutrifft:
+  - eine Datensatzbeschreibung ist vorhanden;
+  - keine JSON-Beschreibung nennt `BIDSVersion`;
+  - es gibt einen Modalitätsordner unter `sub-*`, der entweder in der Schreibweise der Liste von 6.2 steht (`EEG`
+    usw.; BIDS schreibt klein) oder zu dem eine XML-Beschreibung gehört.
+- **Folgen der Erkennung:**
+  - Ein solcher Ordner ist kein BIDS-Datensatz mehr (`is_bids` false, Feld `is_gbt47127` im Scan). Bisher galt
+    jeder Ordner mit `dataset_description.json` als BIDS.
+  - Ein kleingeschriebener `eeg`-Ordner mit JSON-Beschreibung bleibt BIDS-Kandidat. `check --rulepack gbt47127`
+    liest auch ihn als GB/T.
+- **Namen:** wie bei BIDS im Klartext; die Namen sind strukturiert, und die Norm verbietet identifizierende
+  Angaben in der ParticipantId.
+- **Kernprüfungen:**
+  - Die Metadaten kommen aus der GB/T-Begleitdatei: TaskName, EEGReference, SamplingFrequency,
+    PowerlineFrequency → PowerLineFrequency, Filter. Zahlen aus XML werden aus dem Text gelesen.
+  - Typ, Einheit und Positionen kommen aus Kanal- und Elektrodentabelle.
+  - ParticipantId gilt als Spalte `participant_id`.
+  - Die GB/T-Positionen nutzen die Qualitätsmetriken nicht, weil die Norm kein Koordinatensystem und keine Einheit
+    nennt (AF-8). Dort gilt die Rückfallebene der Standardnamen wie im Rohordner.
+  - Impedanzen kennt das Format nicht.
+- **Wiederverwendung (ARC-04):** `neurogrid.io.gbt47127.read_dataset` und `from_bids` sind die Schnittstelle des
+  Adapters.
+- Freigabe: offen (Liste STOPP G2).
+
+**A-116 Auslegungsfragen von GB/T 47127** (RP-08). Eingetragen in `docs/_data/interpretation_questions.yaml`, auf
+der Seite der Regelpakete, alle mit Status `open`:
+- **IQ-001**, Schreibweise der Modalitätsordner (6.2): Liste oder klein, beides gilt.
+- **IQ-002**, Sonderzeichen im Datensatznamen (Tabelle 1): Buchstaben, Ziffern, `.`, `_`, `-`; nur Hinweis.
+- **IQ-003**, `<matches>` der Ereignisdatei (7.6): ohne Endung; mit Endung gelesen, als Hinweis.
+- **IQ-004**, XML-Struktur der Schlüssel-Wert-Dateien (7.1): Wurzel mit einem Kindelement je Feld, wiederholtes
+  Element als Liste. DOCTYPE und Entity-Deklarationen werden abgelehnt.
+- **IQ-005**, Werte des Optodentyps (Tabelle 8): 光源/光探测器 oder source/detector, ohne Groß- und Kleinschreibung.
+- **Ohne eigene Frage:**
+  - Das Format der Signaldatei legt die Norm nicht fest. NeuroGrid liest seine fünf Formate, andere Dateien zählen
+    nur für die Strukturregeln.
+  - Beim Schreiben entsteht die Sitzungsebene nur, wenn BIDS Sitzungen hat.
+  - Die Einheit der Koordinaten nennt die Norm nicht. Zahlen werden wie in der Quelle geschrieben.
+- Freigabe: offen (Liste STOPP G2).
+
+**A-117 Namen in fremden Ordnern** (A-51). Prüft `--rulepack gbt47127` einen Ordner, der weder BIDS noch GB/T ist:
+- Objekte und Dateien erscheinen pseudonym wie jeder Name eines Rohordners.
+- Werte aus den Daten als Teilschlüssel oder Liste entfallen, etwa eine ParticipantId.
+- Freigabe: offen (Liste STOPP G2).
