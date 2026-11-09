@@ -5,7 +5,7 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 
 ## results.json {#results-json}
 
-由 `check` 写入（`--out`，默认 `results.json`）；`report` 只读取该文件。JSON 模式：
+由 `check` 写入（`--out`，默认 `results.json`）；`report` 只读取该文件。JSON schema：
 [`results.schema.json`](../../schemas/results.schema.json)。
 
 | 字段 | 内容 |
@@ -18,20 +18,20 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 | `rulepacks` | 已加载的规则包：名称、版本、来源、来源状态、是否对应标准、文件的 SHA-256。 |
 | `rules` | 每条已加载的规则，含条款、名称、阶段、检查项、生效的严重程度、严格模式下的严重程度、核验方式。 |
 | `config` | 规范化配置的哈希值、`as_of`、随机种子、严格模式、抽样、生效阈值和设置（已清理）、`evidence.yaml` 的哈希值、知情同意记录的哈希值（`consents_sha256`）、vault 中各登记册的哈希值（`roles_sha256`、`retention_sha256`、`risks_sha256`；[登记册](#registers)）。 |
-| `recordings` | 每条记录：假名 ID、格式、能否分块读取、指标以及 M06/M09 的抽样。 |
+| `recordings` | 每条记录：假名化 ID、格式、能否分块读取、指标以及 M06/M09 的抽样。 |
 | `findings` | 每条未通过的检查结果，每个“规则 × 对象 × 子键”一条，带稳定的键。 |
 | `passed` | 通过的检查，按规则和对象计数。 |
 | `notices` | 本次运行的提示（级别、消息键、参数）。 |
 | `evidence` | 来自 `evidence.yaml` 的证明材料记录，含计算出的和记录的 SHA-256。 |
 | `exceptions` | 配置的例外及其是否被使用。 |
-| `duplicates` | 信号相同的记录组（假名 ID），或 `null`。 |
-| `ai` | 汇总的标签、人口学信息和数据划分计数（每个单元格少于 5 名受试者时扣留），或 `null`。 |
+| `duplicates` | 信号相同的记录组（假名化 ID），或 `null`。 |
+| `ai` | 汇总的标签、人口学信息和数据划分计数（每个单元格少于 5 名受试者时不予显示），或 `null`。 |
 | `summary` | 每个阶段的信号灯、错误、警告、待补的证明材料；每个规则包的覆盖率；合计和退出码。 |
 | `manifest` | 清单比对的结果，或 `null`。 |
 | `consent` | M14：每种用途需要知情同意覆盖的受试者人数（报告中知情同意表格的合计），或 `null`。 |
 | `reconsent` | CORE-M14-02：日期在 `as_of` 当日或之前的每项风险的 ID、日期和所涉用途，其记录需要所涉用途的受试者人数，以及其中知情同意有效的人数（报告中重新取得知情同意表格的合计；从不包含风险描述），或 `null`。 |
 
-不包含：时刻、计算机名或用户名、绝对路径、信号哈希值、原始年龄；关于 vault 访问日志，除 CORE-NV03-01/02 的发现外不含任何
+不包含：时刻、计算机名或用户名、绝对路径、信号哈希值、原始年龄；关于 vault 访问日志，除 CORE-NV03-01/02 的检查结果外不含任何
 内容：没有链头哈希值，也没有事件的数量或时间。本次运行自身的访问事件在写入 `results.json` 之后才追加。
 
 ## 清点 JSON {#scan-json}
@@ -90,7 +90,7 @@ consents:
 
 | 字段 | 内容 |
 |---|---|
-| `subject` | 假名受试者：`sub-<标签>`，标签由字母和数字组成（最多 64 个字符）；输入时可带或不带 `sub-`。 |
+| `subject` | 假名化受试者：`sub-<标签>`，标签由字母和数字组成（最多 64 个字符）；输入时可带或不带 `sub-`。 |
 | `version` | 1 到 1000000 之间的整数；较高版本取代较低版本，日期不得随版本升高而提前。 |
 | `date` | 知情同意或撤回的日期，`YYYY-MM-DD`。 |
 | `permitted_uses` | `training`、`validation`、`publication`、`sharing`、`commercial` 的子集；只有 `withdrawn: true` 时可为空。 |
@@ -113,7 +113,7 @@ consents:
 vault 中的 `roles.yaml`、`risks.yaml` 和 `retention.yaml` 分别保存角色登记册、风险登记册和保存期限（模式
 [`roles.schema.json`](../../schemas/roles.schema.json)、[`risks.schema.json`](../../schemas/risks.schema.json)、
 [`retention.schema.json`](../../schemas/retention.schema.json)；字段见 [NeuroVault](../vault.md#roles)）。
-`neurogrid vault init` 写入的每个文件都带有英文注释说明、注释示例和空列表；NeuroGrid 从不改写这些文件。编码为带或不带
+`neurogrid vault init` 写入的每个文件都带有英文注释说明、已注释掉的示例和空列表；NeuroGrid 从不改写这些文件。编码为带或不带
 BOM 的 UTF-8；当有规则读取某文件时，无效内容会使 `check` 以退出码 2 结束，错误信息指出条目和字段，从不显示值。
 `pia/pia.zh.md` 和 `pia/pia.en.md` 是个人信息保护影响评估的草稿（[NeuroVault](../vault.md#pia)）。这些文件都属于清单。
 
@@ -132,12 +132,12 @@ vault（`[vault] path`，默认 `.neurogrid/vault`）中的 `access.jsonl`，由
 ## 检查包（ZIP） {#export-zip}
 
 由 `vault export` 写入 `--out`（[NeuroVault](../vault.md#export)）：成员依次为 `manifest.json`、`access.jsonl`、
-`roles.yaml`、`pia/pia.zh.md` 和 `pia/pia.en.md`（存在的）、`report/report.<lang>.html`、`report/report.<lang>.pdf`
-和 `report/dossier.pdf`（给出的），最后是 `index.json`（模式 [`export_index.schema.json`](../../schemas/export_index.schema.json)；
+`roles.yaml`、`pia/pia.zh.md` 和 `pia/pia.en.md`（若存在）、`report/report.<lang>.html`、`report/report.<lang>.pdf`
+和 `report/dossier.pdf`（若已指定），最后是 `index.json`（模式 [`export_index.schema.json`](../../schemas/export_index.schema.json)；
 键已排序、以 LF 换行的规范化 JSON）：`format_version`（1）、`disclaimer`（`zh`、`en`）、`tool`（`name`、`version`）、
 `parts`（每个成员：`part` 为 `manifest`、`access_log`、`roles`、`pia` 或 `report`；`file` 为归档中的名称；`sha256`；
 `size`；个人信息保护影响评估文件或报告的 `lang`；报告的 `format`：`html`、`pdf` 或 `dossier`）、`manifest`
-（原存储的 `manifest_hash`、所读文件的 `source_sha256`、`pseudonymized`：归档的副本以假名 ID 命名数据文件）以及
+（原存储的 `manifest_hash`、所读文件的 `source_sha256`、`pseudonymized`：归档的副本以假名化 ID 命名数据文件）以及
 `access_log`（`head` 为导出事件的哈希值；`events`；`intact`；`deviations`）。不含时间、归档以外的路径以及用户名或
 计算机名。
 
@@ -157,7 +157,7 @@ vault（`[vault] path`，默认 `.neurogrid/vault`）中的 `access.jsonl`，由
 | 退出码 | 含义 |
 |---|---|
 | 0 | 没有未通过的错误级规则，错误级规则也没有待补的证明材料 |
-| 1 | 有检查结果，或存在不一致（`verify`），或有文件未转换（`convert`），或有新的错误级结果（`diff`） |
+| 1 | 有未通过的检查结果，或存在不一致（`verify`），或有文件未转换（`convert`），或有新的错误级结果（`diff`） |
 | 2 | 工具错误 |
 
 各命令的详细说明见[命令](../commands.md)。

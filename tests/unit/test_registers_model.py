@@ -599,7 +599,7 @@ def test_the_commented_examples_parse_when_used_as_the_headers_say() -> None:
 
 
 PIA_HEADERS = {
-    "pia.zh.md": "草稿/占位文本 – 不构成法律意见 – 使用前须经在中华人民共和国获准执业的法律顾问审核",
+    "pia.zh.md": "草稿/占位文本——不构成法律意见——使用前须经在中华人民共和国获准执业的法律顾问审核",
     "pia.en.md": (
         "DRAFT/PLACEHOLDER – not legal advice – to be reviewed before use by a legal adviser admitted in the "
         "People's Republic of China"

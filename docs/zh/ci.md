@@ -38,7 +38,7 @@ jobs:
           fail-on: new-errors
 ```
 
-!!! warning "占位"
+!!! warning "占位符"
     `<owner>/neurogrid` 是位于 `<REPO_URL>` 的公开仓库，将在仓库发布时填写。`v<version>` 是 1.0 版起的 NeuroGrid
     发布版本。
 
@@ -52,7 +52,7 @@ jobs:
 | `out` | `neurogrid-results/results.json` | `check` 写入的 `results.json`；报告和 `diff.json` 写在它旁边。 |
 | `strict` | `false` | 为 `true` 时运行 `check --strict`。 |
 | `role` | – | `check` 在 vault 中记录的访问事件的角色（`check --role`）；为空时：`[vault] role`。 |
-| `report-formats` | `html` | 用于 `report --format` 的格式（`html`、`pdf`、`html,pdf`；PDF 需要运行器上的 [PDF 浏览器](installation.md#pdf-browser)）；为 `none` 时不生成报告。 |
+| `report-formats` | `html` | 用于 `report --format` 的格式（`html`、`pdf`、`html,pdf`；PDF 需要运行器上的 [PDF 生成浏览器](installation.md#pdf-browser)）；为 `none` 时不生成报告。 |
 | `report-lang` | `zh,en` | 用于 `report --lang` 的语言。 |
 | `baseline` | – | 较早运行的 `results.json`；给出时，`diff` 将其与本次运行比较并写入 `diff.json`。 |
 | `fail-on` | `errors` | 步骤何时失败，见下文。 |

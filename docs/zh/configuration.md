@@ -10,7 +10,7 @@
 找到同一个 vault。路径必须是普通的相对路径（不得含 `..`、盘符、网络或设备路径）。
 从不跟随链接。
 
-**优先顺序。** 元数据：`neurogrid.toml` > BIDS 附带文件 > 文件头 > 未记录（作为检查结果，不中止运行）。阈值：
+**优先顺序。** 元数据：`neurogrid.toml` > BIDS 附属元数据文件 > 文件头 > 未记录（作为检查结果，不中止运行）。阈值：
 `neurogrid.toml`（`[rules."ID".params]`）> 规则包 > 检查项默认值。每条检查结果都会写明生效的阈值及其来源。
 
 ## [dataset] {#dataset}
@@ -30,7 +30,7 @@
 
 ## [sampling] {#sampling}
 
-M06 和 M09 在抽样上运行：`mode = "sample"` 在等分的各段中间各取 `segments`（默认 10）个长为 `segment_s`
+M06 和 M09 基于抽样片段运行：`mode = "sample"` 将记录等分为 `segments`（默认 10）段，在每段中间各取一个长为 `segment_s`
 （默认 60）秒的片段；不超过 10 分钟的记录整体使用。`mode = "full"` 使用整条记录（[指标](metrics.md#M06)）。
 
 ## [quality] {#quality}
@@ -54,11 +54,11 @@ M06 和 M09 在抽样上运行：`mode = "sample"` 在等分的各段中间各�
 | 键 | 含义 |
 |---|---|
 | `rule` | 规则 ID（必填）。 |
-| `object` | 对象的匹配模式：相对 POSIX 路径或假名 ID；`**` 匹配任意多个路径段，`*` 匹配一个路径段，区分大小写。 |
+| `object` | 对象的匹配模式：相对 POSIX 路径或假名化 ID；`**` 匹配任意多个路径段，`*` 匹配一个路径段，区分大小写。 |
 | `subkey` | 子键，例如字段名、通道或验证器代码。 |
 | `reason` | 理由（必填，不得为空；缺少时退出码为 2）。 |
-| `approved_by` | 角色或姓名缩写，从不填写全名。 |
-| `valid_until` | 有效期的最后一天；晚于 `as_of` 后该例外不再生效，并给出警告。 |
+| `approved_by` | 角色或姓名缩写，切勿填写全名。 |
+| `valid_until` | 有效期的最后一天；`as_of` 晚于该日期时，该例外不再生效，并给出警告。 |
 
 ## [metadata] {#metadata}
 
@@ -174,8 +174,8 @@ splits = ".neurogrid/splits.tsv"
 
 | 文件 | 内容 |
 |---|---|
-| `evidence.yaml` | 人工和半自动规则的证明材料：`format_version: 1`，`evidence: {规则 ID: {status, document, sha256, reviewer, date, comment, justification}}`；status 为 `open`、`provided`、`partial` 或 `not_applicable`（须写明理由）。NeuroGrid 计算每份文件的 SHA-256，并与记录的值比较。`reviewer`：角色或姓名缩写，从不填写全名；`document` 请使用中性的文件名，`comment` 和 `justification` 中不要写人名。这四个字段按原样出现在 `results.json` 和报告中，在原始数据文件夹中不使用 `--show-paths` 时也是如此（[隐私](privacy.md#outputs)）。 |
-| `splits.tsv` | 列 `recording`（相对路径或假名 ID）和 `split`（train、val、test）。 |
+| `evidence.yaml` | 人工和半自动规则的证明材料：`format_version: 1`，`evidence: {规则 ID: {status, document, sha256, reviewer, date, comment, justification}}`；status 为 `open`、`provided`、`partial` 或 `not_applicable`（须写明理由）。NeuroGrid 计算每份文件的 SHA-256，并与记录的值比较。`reviewer`：角色或姓名缩写，切勿填写全名；`document` 请使用中性的文件名，`comment` 和 `justification` 中不要写人名。这四个字段按原样出现在 `results.json` 和报告中，在原始数据文件夹中不使用 `--show-paths` 时也是如此（[隐私](privacy.md#outputs)）。 |
+| `splits.tsv` | 列 `recording`（相对路径或假名化 ID）和 `split`（train、val、test）。 |
 | `provenance.yaml` | `processing_steps` 和 `software`（CORE-M13-03）；`processing_steps: []` 表示“未经处理”。 |
 | `manifest.json` | 由 `manifest` 写入（[输出文件](reference/outputs.md#manifest)）。 |
 | `vault/` | 默认 `[vault] path` 处的 vault：`consents.yaml`、访问日志、登记册 `roles.yaml`、`risks.yaml` 和 `retention.yaml` 以及个人信息保护影响评估 `pia/`（[NeuroVault](vault.md#folder)）。 |

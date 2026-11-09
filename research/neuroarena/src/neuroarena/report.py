@@ -1137,8 +1137,8 @@ TEXTS: dict[str, dict[str, Any]] = {
             "`{mode}`。下文中的每个数字都来自 `results/` 中已发布的文件。"
         ),
         "mode_smoke": (
-            "> **smoke 模式：** 本报告基于对数据集合成替代数据的短时运行生成（未下载数据，EEGNet 只训练少数几"
-            "轮），其中的数字不代表这些数据集。"
+            "> **smoke 模式：** 本报告基于一次短时运行生成，该运行使用的是各数据集的合成替代数据（未下载数据"
+            "，EEGNet 只训练少数几轮），其中的数字不代表这些数据集。"
         ),
         "mode_pilot": "> **pilot 模式：** 本报告基于试运行（A-109）生成，而非完整运行。",
         "h_goal": "## 目标",
@@ -1178,8 +1178,8 @@ TEXTS: dict[str, dict[str, Any]] = {
             "- 下载来源处的许可协议：{licence}。说明（英文原文）：{note}",
         ],
         "attribution_note": (
-            "数据在内存中劣化；NeuroGrid 读取的是临时 FIF 文件，每种条件处理完毕后即被删除。NeuroArena 不再分"
-            "发这些数据：本代码库只包含代码、汇总结果、图和本报告，不包含任何记录。"
+            "数据在内存中劣化；NeuroGrid 读取的是临时 FIF 文件，每种条件处理完毕后即被删除。NeuroArena 不对这"
+            "些数据进行再分发：本代码库只包含代码、汇总结果、图和本报告，不包含任何记录。"
         ),
         "h_method": "## 方法",
         "h_neurogrid": "### NeuroGrid 与质量等级（A-101、A-102）",
@@ -1218,7 +1218,7 @@ TEXTS: dict[str, dict[str, Any]] = {
         ),
         "line_noise": (
             "- **工频干扰：** 在数据集的工频处叠加一个正弦波，并在其二次谐波处（低于奈奎斯特频率时）叠加振幅"
-            "为其 {harmonic} 的正弦波，每个通道的相位随机；相对于该通道 {band} Hz 频段功率，其功率在等级 "
+            "为基波 {harmonic} 倍的正弦波，每个通道的相位随机；相对于该通道 {band} Hz 频段功率，其功率在等级 "
             "{first}{dash}{last} 依次为 {db} dB。"
         ),
         "channels": (
@@ -1242,7 +1242,7 @@ TEXTS: dict[str, dict[str, Any]] = {
         "eegnet": (
             "- **EEGNet：** 采用默认结构的 `{cls}`，作为 skorch 分类器；{band} Hz 带通滤波并重采样至 {rate} "
             "Hz；优化器 `{opt}`，学习率 {lr}，批大小 {batch}，损失函数 `{crit}`，最多 {max_epochs} 轮（本次运"
-            "行 {mode_epochs} 轮），在训练试次中按分层且固定种子的方式划出 {share} 作为验证集，以 "
+            "行的上限为 {mode_epochs} 轮），在训练试次中按分层且固定种子的方式划出 {share} 作为验证集，以 "
             "`{monitor}` 早停，耐心值 {patience}，保留最佳一轮的权重；设备 `{device}`。不在测试数据上调参。"
         ),
         "scale": (
@@ -1255,12 +1255,12 @@ TEXTS: dict[str, dict[str, Any]] = {
         "evaluation": (
             "训练和测试在同一条件下进行：NeuroGrid 检查的是训练数据，因此问题在于某一质量等级的数据能支持多高"
             "的准确率。在每个会话内进行 {folds} 折分层交叉验证（打乱，固定种子），与 MOABB 的会话内评估标准一"
-            "致。会话的准确率为所有折中预测正确的测试试次数除以测试试次总数；其随机水平为该会话中最常见类别所"
-            "占的比例。曲线上的每个点是其中各（会话，条件）组合的平均准确率，并给出均值的 {confidence} 百分位"
-            "自助法区间（{resamples} 次重抽样，固定种子）：主曲线按会话的质量等级对所有条件下的组合进行分组，"
-            "第二张图按每种类型的劣化等级分组，干净数据位于 0。配对设计：一个会话的折划分和 EEGNet 的初始权重"
-            "使用种子 `{session_seed}`，在每种条件下、对两种解码器都相同，因此曲线反映的是数据的变化，而不是"
-            "划分的变化。"
+            "致。会话的准确率为各折中预测正确的测试试次数之和除以测试试次总数；其随机水平为该会话中最常见类别"
+            "所占的比例。曲线上的每个点是其中各（会话，条件）组合的平均准确率，并给出均值的 {confidence} 自助"
+            "法区间（百分位法，{resamples} 次重抽样，固定种子）：主曲线按会话的质量等级对所有条件下的组合进行"
+            "分组，第二张图按每种类型的劣化等级分组，干净数据位于 0。配对设计：一个会话的折划分和 EEGNet 的初"
+            "始权重使用种子 `{session_seed}`，在每种条件下、对两种解码器都相同，因此曲线反映的是数据的变化，"
+            "而不是划分的变化。"
         ),
         "h_reproducibility": "### 可复现性（A-106）",
         "reproducibility": (
@@ -1278,9 +1278,9 @@ TEXTS: dict[str, dict[str, Any]] = {
         "figure1_alt": "图 1：准确率随质量等级的变化",
         "figure1_caption": (
             "图 1. 各数据集、各解码器的准确率随会话质量等级的变化：该等级下各（会话，条件）组合的平均值及其 "
-            "{confidence} 自助法区间；虚线：该数据集的平均随机水平；n：每个等级的组合数（两种解码器不同时写作"
-            " CSP+LDA/EEGNet）；每个子图下方注明没有等级的组合数。没有组合的等级不画点。图中文字为英文。另有 "
-            "[PNG 版本]({png})。"
+            "{confidence} 自助法区间；虚线：该数据集的平均随机水平；n：每个等级的组合数（两种解码器的组"
+            "合数不同时，写作 CSP+LDA/EEGNet）；每个子图下方注明没有等级的组合数。没有组合的等级不画点。图"
+            "中文字为英文。另有 [PNG 版本]({png})。"
         ),
         "cells_note": "单元格：平均准确率 [自助法区间]（组合数）；{dash}：该等级没有组合，不作填补。",
         "quality_header": ["数据集", "解码器", "无等级"],
@@ -1317,17 +1317,17 @@ TEXTS: dict[str, dict[str, Any]] = {
         "verdicts": {"exact": "完全相同", "tolerance": "在 EEGNet 容差范围内相同", "different": "不同"},
         "tolerance_none": "无（每个 EEGNet 折都完全相同，每个 CSP+LDA 折和每个 NeuroGrid 测量值也是如此）",
         "tolerance_relaxed": (
-            "每折最多 {trials} 个测试试次，每个单元的平均值最多相差 {points} 个百分点（F3）；CSP+LDA 折和 "
-            "NeuroGrid 测量值完全相同"
+            "每折正确预测的测试试次数最多相差 {trials} 个，每个单元的平均值最多相差 {points} 个百分点（F3）；"
+            "CSP+LDA 折和 NeuroGrid 测量值完全相同"
         ),
         "differences_head": "前几项差异（文件和键：运行 A，运行 B）：",
         "h_limitations": "## 局限性",
         "lim_clean": (
             "- **干净数据已处于 {worse}（试运行发现，A-109）。** 处于 {worse}的干净记录：{shares}。决定干净记"
             "录等级的规则（比值最大）：{worst}。试运行在完整运行之前就测得了这一点；负责人决定继续，并将其作"
-            "为一项发现报告，数据集和 NeuroGrid 均保持不变。NeuroGrid 的校准阈值（M06、M07、M09）取自由其他记"
-            "录组成的公开测试语料的第 95 百分位数，并未针对这些数据集调整；当干净数据已达到或超过某个阈值"
-            "时，该数据集的质量轴在 {threshold_level} 以下几乎没有跨度。"
+            "为一项发现报告，数据集和 NeuroGrid 均保持不变。NeuroGrid 的校准阈值（M06、M07、M09）取自公开测试"
+            "语料（由其他记录组成）的第 95 百分位数，并未针对这些数据集调整；当干净数据已达到或超过某个阈值时"
+            "，该数据集的质量轴在 {threshold_level} 以下几乎没有跨度。"
         ),
         "lim_m09a": (
             "- **M09a 可能漏掉局部伪迹。** M09a 是局部 autoreject 拒绝的分段所占比例，而 autoreject 会"
@@ -1341,9 +1341,9 @@ TEXTS: dict[str, dict[str, Any]] = {
         ),
         "lim_m09b_data": "没有 M09b 的干净记录：{values}。",
         "lim_saturation": (
-            "- **“比值最大”规则会饱和（A-102，关于 A-45 的发现）。** 一个平直通道使 M08 的平直比例等于整个时"
-            "长，而阈值为 {threshold}，比值为 {ratio}，因此通道阶梯的每个等级都落在 Q{top}，主曲线在该处把它"
-            "们混在一起；第二张图把它们区分开来。"
+            "- **“比值最大”规则会饱和（A-102，关于 A-45 的发现）。** 一个平直通道使 M08 的平直比例为 1（即整"
+            "个时长），而阈值为 {threshold}，比值即为 {ratio}，因此通道阶梯的每个等级都落在 Q{top}，主曲线在"
+            "该处把它们混在一起；第二张图把它们区分开来。"
         ),
         "lim_saturation_data": "通道阶梯第一级处于 Q{top} 的记录：{values}。",
         "lim_line": (
@@ -1388,7 +1388,7 @@ TEXTS: dict[str, dict[str, Any]] = {
             "练和测试都限于同一会话、同一条件（A-104）。"
         ),
         "lim_design_channels": (
-            "EEG 通道较少时（{values}），M06 和 M09 所能反映的信息少于高密度电极布局（F5d）。"
+            "EEG 通道较少时（{values}），M06 和 M09 所能反映的信息少于在高密度电极布局下（F5d）。"
         ),
         "h_scope": "## 适用范围声明",
         "scope": (
@@ -1544,7 +1544,7 @@ class _View:
                 [
                     name,
                     t["paradigms"].get(spec["paradigm"], spec["paradigm"]),
-                    ", ".join(spec["events"]),
+                    self.t["inner"].join(spec["events"]),
                     str(len(method["subjects"][name])),
                     row.get("n_sessions", DASH),
                     row.get("n_recordings", DASH),
@@ -1638,7 +1638,7 @@ class _View:
             t["line_noise"].format(
                 harmonic=_num(constants["line_noise_harmonic_amplitude"]),
                 band=_range(constants["line_noise_reference_band_hz"]),
-                db=", ".join(_signed(v) for v in constants["line_noise_db"]),
+                db=self.t["inner"].join(_signed(v) for v in constants["line_noise_db"]),
                 first=LEVELS[0],
                 last=LEVELS[-1],
                 dash=DASH,
@@ -1646,21 +1646,22 @@ class _View:
         )
         per_dataset = t["sep"].join(
             t["channel_item"].format(
-                name=name, counts=", ".join(map(str, self.method["datasets"][name]["flattened_channels"]))
+                name=name,
+                counts=self.t["inner"].join(map(str, self.method["datasets"][name]["flattened_channels"])),
             )
             for name in self.datasets
         )
         lines.append(
             t["channels"].format(
                 flat=_num(constants["flat_value_v"]),
-                fractions=", ".join(_share(v) for v in constants["channel_fractions"]),
-                minimums=", ".join(map(str, constants["channel_minimums"])),
+                fractions=self.t["inner"].join(_share(v) for v in constants["channel_fractions"]),
+                minimums=self.t["inner"].join(map(str, constants["channel_minimums"])),
                 per_dataset=per_dataset,
             )
         )
         lines.append(
             t["artifacts"].format(
-                fractions=", ".join(_share(v) for v in constants["artifact_fractions"]),
+                fractions=self.t["inner"].join(_share(v) for v in constants["artifact_fractions"]),
                 epoch=_num(constants["artifact_epoch_s"]),
                 blink_s=_num(constants["blink_duration_s"]),
                 blink_uv=_range(constants["blink_amplitude_uv"]),
@@ -1722,7 +1723,7 @@ class _View:
             ),
             "",
         ]
-        env = ", ".join(f"`{k}={v}`" for k, v in sorted(method["worker_environment"].items()))
+        env = self.t["inner"].join(f"`{k}={v}`" for k, v in sorted(method["worker_environment"].items()))
         locks = t["inner"].join(f"`{name}` `{value}`" for name, value in sorted(method["locks"].items()))
         versions = t["inner"].join(f"{name} {value}" for name, value in sorted(method["versions"].items()))
         machine = method.get("machine") or {}
@@ -1980,7 +1981,7 @@ class _View:
         line_text = t["lim_line"].format(
             mi_band=_range(decoders["mi_band_csp_hz"]),
             eegnet_band=_range(decoders["eegnet_band_hz"]),
-            lines=", ".join(_num(v) for v in lines_hz),
+            lines=self.t["inner"].join(_num(v) for v in lines_hz),
         )
         line_item = self._with_data(line_text, t["lim_line_data"], self._accuracy_change("line_noise"))
         phase = PHASE_LOCKED_LINE_NOISE if PHASE_LOCKED_LINE_NOISE in self.datasets else None

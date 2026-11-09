@@ -248,10 +248,13 @@ def threshold_block(metric: str, ctx: Context, env: Environment) -> str:
         else:
             text = str(labels["origin_with_ref"]).format(origin=labels[f"origin_{kind}"], ref=origin["ref"])
         severity = ctx.t(f"severity.{rule.severity.value}")
+        # full-width brackets and colon in zh text (zh review, D-22)
+        opening, closing, colon = ("\uff08", "\uff09", "\uff1a") if ctx.lang == "zh" else (" (", ")", ": ")
         if rule.strict_severity is not None:
-            severity += f" (--strict: {ctx.t(f'severity.{rule.strict_severity.value}')})"
+            strict = ctx.t(f"severity.{rule.strict_severity.value}")
+            severity += f"{opening}--strict{colon}{strict}{closing}"
         if rule.check == CONSENT_CHECK:  # M14: strict and [consent] change the status, not the severity
-            severity += f" ({labels['consent_note']})"
+            severity += f"{opening}{labels['consent_note']}{closing}"
         title = rule.title_zh if ctx.lang == "zh" else rule.title_en
         rows.append(
             {

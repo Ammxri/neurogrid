@@ -117,7 +117,7 @@ NeuroGrid 的公开格式（results.json、规则包、neurogrid.toml）使用�
 
 vault 中 `consents.yaml` 的一条知情同意记录（[输出文件](reference/outputs.md#consents)）。
 
-| 规格书字段 | 字段 |
+| 规格字段 | 字段 |
 |---|---|
 | subject | subject |
 | version | version |
@@ -131,7 +131,7 @@ weitergabe → `sharing`，kommerziell → `commercial`。
 
 ### AccessEvent {#access-event}
 
-访问日志 `access.jsonl` 中的一行；JSON 模式为 [`access_event.schema.json`](../schemas/access_event.schema.json)。
+访问日志 `access.jsonl` 中的一行；JSON schema 为 [`access_event.schema.json`](../schemas/access_event.schema.json)。
 
 | 规格字段 | 字段 |
 |---|---|
@@ -154,13 +154,13 @@ weitergabe → `sharing`，kommerziell → `commercial`。
 
 ### Role {#role}
 
-角色登记册 `roles.yaml` 中的一个条目（[NeuroVault](vault.md#roles)）；JSON 模式为
+角色登记册 `roles.yaml` 中的一个条目（[NeuroVault](vault.md#roles)）；JSON schema 为
 [`roles.schema.json`](../schemas/roles.schema.json)。字段：`role`、`description`、`actions`（访问事件的操作）、
 `objects`（路径和模式，与事件的对象相同）、`ethics_approval_ref`（伦理审批编号）。
 
 ### RetentionItem {#retention-item}
 
-`retention.yaml` 中的一个条目（[NeuroVault](vault.md#retention)）；JSON 模式为
+`retention.yaml` 中的一个条目（[NeuroVault](vault.md#retention)）；JSON schema 为
 [`retention.schema.json`](../schemas/retention.schema.json)。字段：`object`、`created`、`min_until`、`review_at`。
 ## Risk（风险） {#risk}
 
@@ -173,10 +173,10 @@ schema 为 [`risks.schema.json`](../schemas/risks.schema.json)。其字段由 Ne
 
 `results.json` 包含上述对象以及本次运行的上下文：规则包和规则、生效配置、各记录及其指标和抽样、检查结果
 及按次数统计的通过项、提示、证明材料记录、例外、重复组、汇总的 AI 结构（`ai`）和清单比对结果。字段列于
-[输出文件](reference/outputs.md#results-json)；JSON 模式为 [`results.schema.json`](../schemas/results.schema.json)。
+[输出文件](reference/outputs.md#results-json)；JSON schema 为 [`results.schema.json`](../schemas/results.schema.json)。
 
 ## DiffResult（版本比较） {#diff-result}
 
-`neurogrid diff` 对两次运行的比较（[命令](commands.md#diff)）；不属于规范中的对象。它列出两次运行、只在其中一次
+`neurogrid diff` 对两次运行的比较（[命令](commands.md#diff)）；不属于产品规格书中的对象。它列出两次运行、只在其中一次
 运行中加载的规则、各类别的数量以及新增、已消除、已移除或已变化的检查结果；针对知情同意记录的规则只按规则和类别
-计数。字段列于[输出文件](reference/outputs.md#diff-json)；JSON 模式为 [`diff.schema.json`](../schemas/diff.schema.json)。
+计数。字段列于[输出文件](reference/outputs.md#diff-json)；JSON schema 为 [`diff.schema.json`](../schemas/diff.schema.json)。

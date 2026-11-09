@@ -172,7 +172,7 @@ Address and SHA-256 of the script of this version:
 <!-- BEGIN GENERATED pdf installer -->
 ```text
 <REPO_URL>/releases/download/v<version>/install_pdf_browser.py
-SHA-256: 3e713e1400cde83a93782d1dacd0e8201fcb74693c787987e7e5ca51cfd6b149
+SHA-256: bbfc4269cf73ce068a36519eb04ce9efe306002f99751d4865cc39c4c6138371
 ```
 <!-- END GENERATED -->
 

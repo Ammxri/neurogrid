@@ -22,9 +22,9 @@
 |---|---|
 | `id` | 规则 ID `PACK-PHASE-NNN`，阶段为 ACQ、PROC、ANN、STO 或 ACC（例如 `LABSOP-ACQ-001`）。`core` 规则包特意使用 `CORE-Mxx-NN`：其条款就是指标。 |
 | `clause` | 来源中的条款或章节；未知时写 `TBD`。 |
-| `title_zh`、`title_en` | 自拟的简短名称；从不引用标准原文。 |
+| `title_zh`、`title_en` | 自拟的简短名称；不得引用标准原文。 |
 | `phase` | `acquisition`、`processing`、`annotation`、`storage` 或 `access`。 |
-| `check` | [检查项注册表](reference/checks.md)中的检查项；未知的检查项以退出码 2 结束。 |
+| `check` | [检查项注册表](reference/checks.md)中的检查项；检查项未知时，命令以退出码 2 结束。 |
 | `params` | 该检查项声明的参数，例如 `{min_hz: 500}`；其他参数会报错。 |
 | `severity` | `error`、`warning` 或 `info`。 |
 | `strict_severity` | 可选，严格模式（`--strict`）下的严重程度。 |
@@ -37,14 +37,14 @@ YAML 读取器（不允许别名和重复键，有大小限制）。
 
 推荐的对应方式遵循中国标准的用语：含“应”或“不应”的条款对应严重程度为 `error` 的规则，含“宜”的对应 `warning`，
 含“可”的对应 `info`。每条规则归入五个阶段之一，并划分为 `automatic`（可从数据或元数据测量）、`semi_automatic`
-（可检查配置或文件是否存在）或 `manual`（需要证明文件）。
+（可对配置或文件进行检查）或 `manual`（需要证明文件）。
 
 规则包只包含条款号和自拟的简短说明，从不包含标准的原文、表格或图。
 
 ## 人工规则与证明材料 {#evidence}
 
 人工规则依据 `.neurogrid/evidence.yaml`（或 `--evidence`）评价。没有条目时，其状态为“证明材料待补”，并按其严重
-程度计入。“已提供”表示：证明材料已提交——这是用户的陈述，NeuroGrid 不对其作评价；NeuroGrid 只检查所指明的文件
+程度计入。状态 `provided` 表示：已提交证明材料——这是用户的陈述，NeuroGrid 不对其作评价；NeuroGrid 只检查所指明的文件
 存在、不是链接且与记录的哈希值一致。半自动规则在文件缺失或已更改时不通过。
 
 ## 占位规则包 {#placeholder}
@@ -113,13 +113,13 @@ neurogrid check tests/fixtures/synthetic/edf_ok --config tests/fixtures/document
 当一个条款可以有多种解读时，NeuroGrid 会在决策记录以及规则的名称或参数中写明所采用的解读。问题和其他解读的建议请
 提交到公开仓库的问题跟踪系统；下方的解读问题清单逐条记录这类条款。
 
-!!! warning "占位"
+!!! warning "占位符"
     公开仓库的地址为 `<REPO_URL>`，将在仓库发布时填写。
 
 <!-- BEGIN GENERATED interpretation questions -->
 ### 解读问题 {#questions}
 
-可以有多种解读的条款，列出可能的解读、NeuroGrid 采用的解读，以及已向哪类角色提出（只写角色，从不写姓名）。本清单由 `docs/_data/interpretation_questions.yaml` 生成；它不专属于某个规则包，凡对应一项标准的规则包均使用它。
+本页列出可有多种解读的条款，以及可能的解读、NeuroGrid 采用的解读和已向哪类角色提出（只写角色，从不写姓名）。本清单由 `docs/_data/interpretation_questions.yaml` 生成；它不专属于某个规则包，凡对应一项标准的规则包均使用它。
 
 目前尚未记录解读问题。将标准文本转化为规则时会补充条目；每个条目注明条款、可能的解读、NeuroGrid 采用的解读以及已向哪类角色提出。
 <!-- END GENERATED -->

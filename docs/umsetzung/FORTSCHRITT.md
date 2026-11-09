@@ -26,10 +26,11 @@ Die zh-Prüfung macht nach D-22 der Lead.
 
 ## Für STOPP G1 vorgemerkt
 
-Stand 29.10.2026 (D-18): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); offen sind zh-Prüfung, Sichtprüfung, die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (nach den beiden Prüfungen). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
+Stand 29.10.2026 (D-18): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); offen sind Sichtprüfung, die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (nach den beiden Prüfungen). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
-- **Muttersprachliche zh-Prüfung** (A-07, A-86, D-15, D-17): Das Paket erzeugt `tools/zh_review_package.py` nach dem
+- **zh-Prüfung** (A-07, A-86, D-15, D-17; seit D-22 durch den Lead, erledigt am 09.11.2026 nach A-112 über alle
+  4172 Texte, auch die unten genannten): Ursprüngliche Beschreibung: Das Paket erzeugt `tools/zh_review_package.py` nach dem
   letzten G1-Lauf (27c3e90, mit dessen Beispiel-PDFs); die Prüfperson stellt der Projektverantwortliche. Seit dem ersten
   Paket (Stand Abnahme: 2530 Texte aus 34 Dateien) neu oder geändert:
   - die Überschriften der Schweregrade (`report.text.severity_heading`, `report.text.severity_heading_none`,
@@ -135,7 +136,8 @@ den Projektverantwortlichen.
   - diese Lesart freigeben;
   - ein Brummen, dessen Phase nicht am Versuchsbeginn hängt, mit neuen Läufen. Das kostet eine Codeänderung und für
     die Netzbrummen-Bedingungen etwa 10–13 h je Lauf.
-- **zh-Prüfung der P9-Texte** (D-19 wie D-17 Option C): jetzt die Kernbegriffe, die vollständigen Texte in einer Runde
+- **zh-Prüfung der P9-Texte** (erledigt am 09.11.2026 durch den Lead, D-22, A-112; ursprünglich D-19 wie D-17
+  Option C): jetzt die Kernbegriffe, die vollständigen Texte in einer Runde
   vor dem Release von v1.0. Kernbegriffe aus den Berichten der Bereiche: 角色登记册 (Rollenregister), 保存期限 und
   最低保存期限 (Aufbewahrungsfrist, Mindestaufbewahrung), 个人信息保护影响评估 (Folgenabschätzung), 风险登记册
   (Risikoregister), 重新取得知情同意 (Neueinwilligung), 检查包 (Export-ZIP), 版本比较 (Versionsvergleich), 证明材料汇编
@@ -160,7 +162,7 @@ den Projektverantwortlichen.
 - **Sichtprüfung einer Nachweismappe** (`dossier.pdf`); bis dahin bleibt REP-08 `nicht verifiziert` (Muster D-18).
 - **Echter Lauf der GitLab-Vorlage:** nicht verifiziert sind die GitLab-Variable in `tags`, ein leerer Tag und die
   Kodierung unter PowerShell auf GitLab.
-- **zh-Runde der vollständigen P6-Texte** vor dem Release von v0.2 (D-17 Option C).
+- **zh-Runde der vollständigen P6-Texte** (erledigt am 09.11.2026 durch den Lead, D-22, A-112).
 - **Release v0.2.0**, falls gewünscht, aus dem Endstand von P6 auf einem Release-Zweig (D-19).
 - **Bekannte Grenzen zur Kenntnis** (zur Kenntnis genommen, D-21): Kürzen am Ende und Neuschreiben des Zugriffsprotokolls nur mit
   `vault verify --expect-head`; nur Zugriffe über NeuroGrid; Zeiten aus der lokalen Uhr; Sperre beratend; die Gültigkeit
@@ -171,7 +173,7 @@ den Projektverantwortlichen.
   im Speicher; Risiko-IDs erscheinen im Bericht wie geschrieben; Differenzen zweier veröffentlichter, sich
   überschneidender Risiken können Zahlen von 1 bis 4 ergeben (A-81 gilt je Tabelle); das Export-ZIP ist nur in einer
   Umgebung bytegleich (zlib); die Leistung mit etwa 1 000 Risiken ist nicht gemessen.
-- **zh-Prüfung des NeuroArena-Berichts** (F9 B, D-20; die Prüfung ist kein Gate für P11):
+- **zh-Prüfung des NeuroArena-Berichts** (erledigt am 09.11.2026 durch den Lead, D-22, A-112; F9 B, D-20):
   `research/neuroarena/report/zh/report.md` und die zh-Texte in `research/neuroarena/src/neuroarena/report.py`, beide
   im zh-Prüfpaket (`tools/zh_review_package.py`). Unsichere Begriffe aus Bereich D: 劣化 und 劣化阶梯
   (Verschlechterung, Leiter), 会话 (Sitzung), 运行 (Lauf), 组合 (Paar aus Sitzung und Bedingung), 随机水平
@@ -863,9 +865,9 @@ offen.
   kein Normtext.
 - **P12:** Die Abnahme mit der Matrix Zeile für Zeile folgt nach KONZEPT 5 auf P10.
 
-Beim Lead parallel (D-22): die zh-Prüfung (Kernbegriffe von P6 und P9, der zh-Bericht von NeuroArena, abgeglichen mit
-GB/T 47127), eine Beispiel-Nachweismappe für REP-08 und der Lauf auf dem eigenen Runner. Für den Runner braucht es
-die Registrierung durch den Projektverantwortlichen.
+Beim Lead parallel (D-22): eine Beispiel-Nachweismappe für REP-08 und der Lauf auf dem eigenen Runner. Für den Runner
+braucht es die Registrierung durch den Projektverantwortlichen. Die zh-Prüfung über alle 4172 Texte ist erledigt
+(09.11.2026, A-112).
 Beim Projektverantwortlichen: Sichtprüfung (die Berichte für STOPP G1, die Abbildungen von NeuroArena), die übrigen
 Punkte von „Für STOPP G2 vorgemerkt“ (die Entscheidung zu A-111, eigener Runner vor v1.0, juristische Prüfung der
 PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die Release-Zweige für v0.1.0 aus

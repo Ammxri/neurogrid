@@ -11,7 +11,7 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Source | NeuroGrid core metrics (docs/<lang>/metrics.md) |
 | Source status | final |
 | Maps a norm (coverage measure) | no |
-| SHA-256 | `db732c77f9c9704335214f6f765ee3dc37a07da6dc7a9ea2f8760280e08e8052` |
+| SHA-256 | `ae25a406b7275f4b5daf27c7ee9a5b9c22df03a285e598c83e5723b3f703dd12` |
 
 ### CORE-M01-01 {#CORE-M01-01}
 
@@ -580,7 +580,7 @@ The rules of the built-in rule packs of this NeuroGrid version, generated from t
 | Source | BIDS 1.11.1 via BIDS validator 3.0.2 |
 | Source status | final |
 | Maps a norm (coverage measure) | no |
-| SHA-256 | `373a7f5e92f812ae61cd4371f05e20c9addc6ff3ec26ae230e5558c326844c4f` |
+| SHA-256 | `e7f5aaf954710de2bb2aa8e7521d777f4cac7dff1c36e3b65564bbb8b7c1c615` |
 
 ### BIDS-STO-001 {#BIDS-STO-001}
 

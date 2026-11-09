@@ -14,7 +14,7 @@ M01–M14，用规则包对其进行评价，并写出 `results.json` 以及中�
 
 - 命令 `scan`、`convert --to bids`、`check`、`report`、`manifest` 和 `verify`（[命令](commands.md)）。
 - 规则包 `core`（指标 M01–M14，[指标](metrics.md)）、`bids`（BIDS 验证器 3.0.2）和 `gxdsl008`（产品规格书转引的
-  T/GXDSL 008-2025 起始值，二手来源）（[内置规则](reference/rules.md)）。
+  T/GXDSL 008-2025 初始值，二手来源）（[内置规则](reference/rules.md)）。
 - 使用已注册检查项编写的自定义 YAML 规则包（[规则包](rulepacks.md)）。
 - 作为规范结果的 `results.json` 以及中英文报告（[阅读报告](report.md)、[输出文件](reference/outputs.md)）。
 - 完全在本地运行，不建立任何网络连接（[隐私与离线运行](privacy.md)）。
@@ -24,7 +24,7 @@ M01–M14，用规则包对其进行评价，并写出 `results.json` 以及中�
 
 ## 从哪里开始 {#start}
 
-1. [安装](installation.md)：离线安装包、PDF 浏览器、从源代码安装。
+1. [安装](installation.md)：离线安装包、PDF 生成浏览器、从源代码安装。
 2. [快速开始](quickstart.md)：四条命令，从原始数据文件夹到报告。
 3. [配置](configuration.md)：在 `neurogrid.toml` 中记录元数据、阈值和有理由的例外。
 
@@ -35,7 +35,7 @@ NeuroGrid 是一个开放的参考实现：检验机构、标准起草人和制�
 
 关于条款或阈值如何解读的问题以及其他反馈，请提交到公开仓库的问题跟踪系统。
 
-!!! warning "占位"
+!!! warning "占位符"
     公开仓库的地址为 `<REPO_URL>`，将在仓库发布时填写。
 
 ## 许可证 {#licence}

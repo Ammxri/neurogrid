@@ -1858,3 +1858,40 @@ F4c; Bericht, Abschnitt „Limitations“).
 - **Nicht Teil von P11:** ein Brummen, dessen Phase nicht am Versuchsbeginn hängt (etwa eine leicht schwankende
   Netzfrequenz), und eine neue Messung damit. Das geht nur mit Freigabe.
 - Freigabe: offen (Liste STOPP G2).
+
+**A-112 zh-Prüfung durch den Lead: Vorgehen und Begriffsentscheidungen** (D-22; ersetzt die Prüfperson von A-07,
+D-15 und D-17).
+- **Vorgehen (09.11.2026):**
+  - Grundlage ist das zh-Prüfpaket (`tools/zh_review_package.py`, Stand f103c85: 4172 Texte aus 44 Dateien).
+  - Fünf unabhängige Prüfdurchgänge des Leads verglichen jeden Text mit seiner englischen Quelle, dem Code und den
+    Benennungen von GB/T 47127. Sie meldeten 248 Funde: 40 Fehler, 60 zur Einheitlichkeit, 103 zum Stil und 45
+    Begriffsfragen.
+  - Die Fehler- und Einheitlichkeitsfunde sind übernommen. Bei den Stilfunden fehlen nur die Zifferngruppierung
+    und die einsprachige Angabe `source` der Regelpakete.
+  - Generierte Seiten sind an ihrer Quelle korrigiert (`labels.zh.yaml`, `checks.zh.yaml`, Regelpakete,
+    `tools/gen_docs.py`).
+- **Begriffe (Entscheidung des Leads):**
+  - Versuchsperson bleibt 受试者, der übliche Begriff im NMPA- und klinischen Umfeld. Die GB/T-Benennungen (被试者
+    usw.) stehen nur dort, wo Elemente dieser Norm benannt werden.
+  - Abtastrate bleibt 采样率.
+  - Sidecar heißt überall 附属元数据文件 (Benennung aus GB/T 47127), auch in den Texten des Validators.
+  - Das EDF-Kopffeld „patient“ heißt 患者字段. Die Liste der verbotenen Aussagen nimmt es aus wie im Englischen
+    und Deutschen.
+  - Weitere Benennungen:
+    - Startwert der Produktspezifikation: 初始值;
+    - Browser für die PDF-Erzeugung: PDF 生成浏览器;
+    - pseudonym: 假名化;
+    - Herkunftsmanifest: 溯源清单;
+    - unterdrückte kleine Zellen: 已隐去 / 不显示;
+    - Muss-Klauseln: „含“应”或“不应”的条款“ (statt 强制性条款, das rechtlich zwingende Vorschriften meint).
+  - Lateinisch bleiben „schema“ (模式 heißt auf denselben Seiten auch Muster und Modus) und „vault“ als
+    Produktbegriff.
+  - Bad channel bleibt 坏通道, evidence bleibt 证明材料.
+- **Wortlisten:** die verbotenen zh-Formulierungen um 符合标准 und Verwandte, 符合性已确认, 满足…要求 und 不可/无法篡改
+  erweitert; das Muster für Gesetzesartikel erkennt auch „第 28 条“ mit Leerzeichen.
+- **Grenze:** Das ist eine Selbstprüfung eigener Texte und keine unabhängige muttersprachliche Prüfung (D-22). Die
+  Empfehlung bleibt, vor der Ansprache chinesischer Kunden eine chinesischsprachige Kontaktperson die Begriffsliste
+  und das Anschreiben durchsehen zu lassen.
+- **Nebenwirkung:** Die PIA-Vorlage `pia.zh.md` hat sich geändert. Ein vor dieser Änderung angelegter Tresor gilt
+  deshalb nicht mehr als „unveränderte Vorlage“. Es gibt noch keinen echten Tresor, also keine Auswirkung.
+- Freigabe: offen (Liste STOPP G2).

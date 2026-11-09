@@ -9,8 +9,8 @@ NeuroGrid 在本地运行。它不含网络代码，不上传、不传输任何�
 |---|---|
 | NeuroGrid 的 Python 进程 | 审计钩子阻止并记录所有指向非回环地址的套接字连接、数据报和名称解析。它只作用于该 Python 进程。 |
 | BIDS 验证器（deno） | 以 `--deny-net` 和 `DENO_NO_UPDATE_CHECK=1` 启动，只能读取数据集、只能写入其输出文件。 |
-| PDF 浏览器（Chrome Headless Shell） | 固定参数关闭后台联网、组件更新、崩溃报告和 ping；除报告文件和 `data:` 外的所有请求都被中止；HTML 带有不加载任何资源的内容安全策略。 |
-| ICLabel（onnxruntime） | 在第一次会话之前关闭其遥测。 |
+| PDF 生成浏览器（Chrome Headless Shell） | 固定参数关闭后台联网、组件更新、崩溃报告和 ping；除报告文件和 `data:` 外的所有请求都被中止；HTML 带有不加载任何资源的内容安全策略。 |
+| ICLabel（onnxruntime） | 在创建第一个 onnxruntime 推理会话之前关闭其遥测。 |
 
 PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一个 asyncio 循环；在 Windows 上，该循环通过一对回环
 套接字与自身通信。审计钩子只允许这一回环连接，其余一律阻止。
@@ -20,28 +20,28 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
 
 ## 输出中包含什么 {#outputs}
 
-- 只读取列出的文件头字段；对于可识别身份的文件头字段（EDF 的受试者字段和记录字段、真实日期、FIF 的受试者信息、
+- 只读取列出的文件头字段；对于可识别身份的文件头字段（EDF 的患者字段和记录字段、真实日期、FIF 的受试者信息、
   EEGLAB 注释），只报告字段名，从不报告字段值。
-- 在原始数据文件夹中，记录获得假名 ID（`rec-<8 位十六进制数>` 或 `neurogrid.toml` 中的映射）；数据集根目录显示为
+- 在原始数据文件夹中，记录获得假名化 ID（`rec-<8 位十六进制数>` 或 `neurogrid.toml` 中的映射）；数据集根目录显示为
   `<dataset>`，用户主文件夹显示为 `~`。`--show-paths` 显示真实名称——只在允许出现真实名称的场合使用。
-- 唯一的例外：`evidence.yaml` 中的 `document`（相对路径）、`reviewer`、`comment` 和 `justification` 字段按原样出现在
+- 一个例外：`evidence.yaml` 中的 `document`（相对路径）、`reviewer`、`comment` 和 `justification` 字段按原样出现在
   `results.json` 和报告第 5 部分中，在原始数据文件夹中不使用 `--show-paths` 时也是如此；报告需要每份文件的可读引用。
-  控制台从不输出这些字段。`reviewer` 请填写角色或姓名缩写，从不填写全名；证明材料文件请使用中性的文件名，`comment`
+  控制台从不输出这些字段。`reviewer` 请填写角色或姓名缩写，切勿填写全名；证明材料文件请使用中性的文件名，`comment`
   和 `justification` 中不要写人名。报告中的一条信息提示会统计审核人或文件名可能识别个人身份的条目。
 - 控制台显示本机路径时，用户主文件夹显示为 `~`，登录名和计算机名显示为 `<user>` 和 `<host>`，在用户主文件夹之外也是如此
   （例如 U 盘上的输出：`/media/<user>/…`）。
 - NeuroGrid 不对数据做假名化处理：ID 和文件名来自输入。`convert --strip-identifying-headers` 会在转换后的副本中把
   可识别身份的文件头字段替换为占位值。
-- 人口学信息和类别标签只以汇总形式出现；受试者层面的表格中若有非空单元格少于 5 名受试者，则扣留该表格。
+- 人口学信息和类别标签只以汇总形式出现；受试者层面的表格中若有非空单元格少于 5 名受试者，则不显示该表格。
 - 任何输出中都没有原始信号、信号哈希值和原始年龄。
-- vault 中的知情同意记录 `consents.yaml` 只含假名受试者 ID，从不含人名。它属于清单（更改会在 `verify` 中显示）；访问日志
-  只记录文件名，从不记录受试者。`results.json` 按假名受试者列出 M14 结果（用途、原因、知情同意版本），从不包含日期、伦理
-  审批编号或允许的用途；报告只按用途和原因汇总显示 M14，不含受试者 ID 和版本，某个单元格少于 5 名受试者时扣留其细分。
+- vault 中的知情同意记录 `consents.yaml` 只含假名化受试者 ID，从不含人名。它属于清单（更改会在 `verify` 中显示）；访问日志
+  只记录文件名，从不记录受试者。`results.json` 按假名化受试者列出 M14 结果（用途、原因、知情同意版本），从不包含日期、伦理
+  审批编号或允许的用途；报告只按用途和原因汇总显示 M14，不含受试者 ID 和版本，某个单元格少于 5 名受试者时不显示其细分数据。
   vault 导出不包含知情同意记录。
 - vault 中的登记册（`roles.yaml`、`risks.yaml`、`retention.yaml`）和个人信息保护影响评估保留在 vault 中：
   `results.json` 和报告只显示角色、操作和日志中的首行（CORE-NV04-01）、`retention.yaml` 中的对象和日期以及计数，从不显示
   说明、伦理审批编号或个人信息保护影响评估中的文字。看起来像人名或身份编号的说明和编号只在提示中计数。
-- vault 中的风险登记册 `risks.yaml` 含风险 ID、日期、用途、版本和描述；描述从不离开该文件。`results.json` 按假名受试者
+- vault 中的风险登记册 `risks.yaml` 含风险 ID、日期、用途、版本和描述；描述从不离开该文件。`results.json` 按假名化受试者
   列出 CORE-M14-02 的结果（风险 ID、知情同意版本、风险要求的版本）；报告只按风险计数，适用同一小单元格规则，`check` 的
   控制台给出其数量。
 - `neurogrid diff` 按 `results.json` 中的名称列出检查结果，但针对知情同意记录的规则（`consent.*` 检查）的检查结果
@@ -50,13 +50,13 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
   （[CI 集成](ci.md)）。
 - 不设用户账户；文件的访问权限由操作系统管理。有 vault 时，NeuroGrid 只保存一个日志：[NeuroVault](vault.md) 的
   访问日志 `access.jsonl`。每个条目包含时间（UTC）、角色（角色名称或姓名缩写）、操作、对象（`**` 表示整个数据集；
-  原始文件夹中的文件以其假名名称表示）、目的和批准编号——不含用户名、计算机名和绝对路径。NeuroGrid 不写入其他
+  原始文件夹中的文件以其假名化名称表示）、目的和批准编号——不含用户名、计算机名和绝对路径。NeuroGrid 不写入其他
   日志文件。
 - `vault export` 的检查包包含清单、访问日志、角色登记册、个人信息保护影响评估和所给的报告，另加含哈希值和计数的
   `index.json`；从不包含 `consents.yaml`、风险登记册、保存期限、`results.json` 或数据文件。在原始数据文件夹中，除非
-  使用 `--show-paths`，其清单以假名 ID 命名数据文件；报告和日志按原样打包。角色登记册按所写内容打包：描述角色时请勿
+  使用 `--show-paths`，其清单以假名化 ID 命名数据文件；报告和日志按原样打包。角色登记册按所写内容打包：描述角色时请勿
   写入个人数据。证明材料汇编（`report --format dossier`）只包含两份报告所含的内容以及 `results.json` 中的计数。
-- 每次运行在其输出旁边使用独立的工作文件夹，并在结束时删除。PDF 浏览器的工作文件夹则位于本机的临时文件夹中
+- 每次运行在其输出旁边使用独立的工作文件夹，并在结束时删除。PDF 生成浏览器的工作文件夹则位于本机的临时文件夹中
   （Windows 限制其路径长度），同样在结束时删除。某次运行被强行终止而未能删除的工作文件夹，会由下一次在同一位置
   工作的运行删除。
 
@@ -77,7 +77,7 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
   `http://127.0.0.1:9`）指向该端口，向其发送请求的程序实际上是在尝试访问网络。源代码仓库中的
   `python3 tools/strace_check.py <folder>` 对该文件夹中的每个 `strace-*.txt` 文件应用完全相同的规则，并列出其统计的
   回环调用。
-- **Windows。** 像 CI 一样，设置出站防火墙规则，阻止安装位置和 PDF 浏览器文件夹中的每个程序。这需要管理员权限，
+- **Windows。** 像 CI 一样，设置出站防火墙规则，阻止安装位置和 PDF 生成浏览器文件夹中的每个程序。这需要管理员权限，
   并会更改计算机的安全设置；之后请删除这些规则。
 
     ```powershell
@@ -90,14 +90,14 @@ PDF 打印使用 Playwright，其同步接口会在 NeuroGrid 进程内运行一
     ```
 
     这涵盖 `neurogrid.exe`、`python.exe`、`deno.exe`、Playwright 的 `node.exe` 和 `chrome-headless-shell.exe`。
-    PDF 浏览器自身的进程及其启动的每个进程都运行 `chrome-headless-shell.exe`，因此这一条规则涵盖所有这些进程。
-    从 PyPI 或源代码安装时，请填写其虚拟环境，并同时阻止创建该环境所用的 Python
+    PDF 生成浏览器自身的进程及其启动的每个进程都运行 `chrome-headless-shell.exe`，因此这一条规则涵盖所有这些进程。
+    从 PyPI 或源代码安装时，请在上面的 `<installation folder or virtual environment>` 处填入其虚拟环境，并同时阻止创建该环境所用的 Python
     （`python -c "import sys; print(sys._base_executable)"`）。
 
 - **决策。** 决策记录和需求矩阵是仓库的一部分（`docs/umsetzung/`）。
 
 | 证据 | 状态 |
 |---|---|
-| 源代码中的审计钩子和网络禁令（测试） | 已在本地验证，并已在 CI 中于 GitHub 的 `windows-latest` 和 `ubuntu-24.04` 运行器上用 Python 3.11–3.13 验证 |
+| 源代码中的审计钩子和禁止联网措施（测试） | 已在本地验证，并已在 CI 中于 GitHub 的 `windows-latest` 和 `ubuntu-24.04` 运行器上用 Python 3.11–3.13 验证 |
 | 无网络和 `strace` 下的 Linux 运行 | 已在 CI 中验证：离线安装包的安装程序和 0.1 版的每条命令在 `debian:12-slim` 中以 `--network none` 在 `strace` 下运行，包括 PDF 报告，没有指向回环地址以外地址的调用；Debian 12、Ubuntu 22.04 和 Ubuntu 24.04 上的无网络洁净环境测试也已通过 |
-| Windows 防火墙测试 | 已在 CI 中于 GitHub 的 Windows Server 运行器上，分别用 Windows PowerShell 5.1 和 PowerShell 7 验证：对安装包、安装位置和 PDF 浏览器的每个程序设置出站阻止规则，并审计每次连接（Windows 筛选平台）；没有指向回环地址以外地址的连接或连接尝试，包括 PDF 报告。未在 Windows 11 上运行（它会更改计算机的安全设置） |
+| Windows 防火墙测试 | 已在 CI 中于 GitHub 的 Windows Server 运行器上，分别用 Windows PowerShell 5.1 和 PowerShell 7 验证：对安装包、安装位置和 PDF 生成浏览器的每个程序设置出站阻止规则，并审计每次连接（Windows 筛选平台）；没有指向回环地址以外地址的连接或连接尝试，包括 PDF 报告。未在 Windows 11 上运行（它会更改计算机的安全设置） |

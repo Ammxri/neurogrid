@@ -2,9 +2,9 @@
 checks:
   title: "检查项注册表"
   intro: >-
-    规则包可在 `check` 中引用的全部检查项，由本版本 NeuroGrid 的注册表（`neurogrid.checks.registry`）生成。
-    规则包只能使用已注册的检查项及其声明的参数（A-13）；参数值依次取自 `neurogrid.toml`
-    （`[rules."ID".params]`）、规则包，最后为下表中的默认值。
+    规则包可在规则的 `check` 字段中引用的全部检查项，由本版本
+    NeuroGrid 的注册表（`neurogrid.checks.registry`）生成。规则包只能使用已注册的检查项及其声明的参数（A-13）；参数值优先取自
+    `neurogrid.toml`（`[rules."ID".params]`），其次取自规则包，最后取下表中的默认值。
   title_row: "名称"
   params: "参数"
   passes: "通过条件"
@@ -19,13 +19,13 @@ checks:
 rules:
   title: "内置规则"
   intro: >-
-    本版本 NeuroGrid 内置规则包中的规则，由规则包本身生成。SHA-256 按文件字节计算，与 results.json
-    （`rulepacks[].sha256`）一致。
+    本版本 NeuroGrid 内置规则包中的规则，由规则包本身生成。SHA-256 按文件字节计算，与
+    results.json（`rulepacks[].sha256`）一致。
   pack: "规则包"
   version: "版本"
   source: "来源"
   source_status: "来源状态"
-  norm: "对应标准（计算覆盖率）"
+  norm: "对应标准（覆盖率的前提之一）"
   sha256: "SHA-256"
   title_row: "名称"
   clause: "条款"
@@ -47,13 +47,13 @@ thresholds:
   params: "参数"
   origin: "来源"
   none: "–"
-  origin_spec: "产品规格书中的起始值"
-  origin_spec_second_hand: "产品规格书中的起始值，转引自 T/GXDSL 008-2025（二手来源）"
+  origin_spec: "产品规格书中的初始值"
+  origin_spec_second_hand: "产品规格书中的初始值，转引自 T/GXDSL 008-2025（二手来源）"
   origin_with_ref: "{origin}（{ref}）"
   origin_assumption: "假设 {ref}（决策记录）"
-  origin_calibrated: "已校准：公开语料库中 {n} 个{over}的第 95 百分位数（{ref}）"
-  over_recordings: "记录"
-  over_channels: "通道"
+  origin_calibrated: "已校准：公开语料库中 {n} {over}的第 95 百分位数（{ref}）"
+  over_recordings: "条记录"
+  over_channels: "个通道"
   consent_note: "没有知情同意数据：无法检查；--strict 或 [consent]：错误"
 calibration:
   dataset: "数据集"
@@ -65,7 +65,7 @@ calibration:
 questions:
   title: "解读问题"
   intro: >-
-    可以有多种解读的条款，列出可能的解读、NeuroGrid 采用的解读，以及已向哪类角色提出（只写角色，从不写姓名）。本清单由
+    本页列出可有多种解读的条款，以及可能的解读、NeuroGrid 采用的解读和已向哪类角色提出（只写角色，从不写姓名）。本清单由
     `docs/_data/interpretation_questions.yaml` 生成；它不专属于某个规则包，凡对应一项标准的规则包均使用它。
   empty: >-
     目前尚未记录解读问题。将标准文本转化为规则时会补充条目；每个条目注明条款、可能的解读、NeuroGrid 采用的解读以及已向哪类角色提出。

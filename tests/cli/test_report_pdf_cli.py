@@ -356,7 +356,7 @@ def test_pdf_without_shell_exits_2_with_hint_and_writes_nothing(
     code, _, err = run(
         ["--lang", "zh", "report", str(results_file), "--format", "pdf", "--out", str(out)], capsys
     )
-    assert code == 2 and "未安装 PDF 浏览器" in err and "“PDF 浏览器”一节" in err and not out.exists()
+    assert code == 2 and "未安装 PDF 生成浏览器" in err and "“PDF 生成浏览器”一节" in err and not out.exists()
 
 
 def test_bundle_installation_hint_names_its_own_installer_command(

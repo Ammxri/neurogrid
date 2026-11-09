@@ -6,7 +6,7 @@ access.log_writable:
   object: "数据集：其 vault 的访问日志（以追加方式打开，不写入任何内容）"
 ai.class_balance:
   object: "标签来源的每个范围（all、train、val、test）及每个类别"
-  passes: "该类别在其范围内的占比不低于 `min_share`；对于被扣留的标签来源（单元格少于 5 名受试者），只依据受试者人数本身可得出的信息判断（A-81）"
+  passes: "该类别在其范围内的占比不低于 `min_share`；对于类别已隐去的标签来源（存在少于 5 名受试者的单元格），只依据受试者人数本身可得出的信息判断（A-81）"
 ai.demographics_complete:
   object: "数据集（participants.tsv）：每名受试者的年龄和性别"
 ai.duplicate_recordings:
@@ -33,7 +33,7 @@ bids.validator_warnings:
   object: "BIDS 验证器报告的每个文件，按验证器代码"
 channels.count_consistent:
   object: "每条记录"
-  passes: "附带文件、channels.tsv 和数据文件中的 EEG 通道数一致，channels.tsv 与数据文件中的通道总数也一致"
+  passes: "附属元数据文件、channels.tsv 和数据文件中的 EEG 通道数一致，channels.tsv 与数据文件中的通道总数也一致"
 channels.only_1005:
   object: "记录中的每个 EEG 通道"
 channels.positions:
@@ -47,7 +47,7 @@ consent.covered:
   object: "每名受试者的每个所需用途；受试者未知的每条记录；没有知情同意数据时为数据集"
   passes: "基准日期时有效的知情同意允许该用途（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时为未通过）"
 consent.reconsent:
-  object: "risks.yaml 中日期在基准日期当日或之前的每项风险，以及其记录需要该风险所涉用途且知情同意有效的每名受试者；没有此类受试者的风险为数据集；没有风险或没有知情同意数据时为数据集"
+  object: "risks.yaml 中日期在基准日期当日或之前的每项风险，以及其记录需要该风险所涉用途且知情同意有效的每名受试者；某项风险没有此类受试者时，对象为数据集；没有风险或没有知情同意数据时为数据集"
   passes: "受试者有效知情同意的版本不低于该风险的 min_consent_version（没有知情同意数据时为无法检查，使用 --strict 或已配置 [consent] 时亦然；没有有效知情同意的受试者由 consent.covered 处理）"
 evidence.document:
   object: "规则本身（来自 evidence.yaml 的人工或半自动证明材料）"
@@ -101,8 +101,8 @@ signal.sampling_rate_uniform:
   object: "数据集"
   passes: "所有记录采样率相同，或混合采样率已在 [metadata] mixed_sampling_rates_reason 中说明"
 signal.sidecar_rate:
-  object: "每条带附带文件的记录"
-  passes: "附带文件中的采样率与数据的采样率相同（相对容差 1e-6）"
+  object: "每条带附属元数据文件的记录"
+  passes: "附属元数据文件中的采样率与数据的采样率相同（相对容差 1e-6）"
 structure.companions_present:
   object: "每条记录"
 structure.header_consistent:

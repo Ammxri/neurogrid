@@ -27,7 +27,7 @@ rules:
 
   - id: BIDS-STO-003
     clause: "BIDS 1.11.1"
-    title_zh: 离线可用 HED 模式
+    title_zh: HED schema 可离线使用
     title_en: HED schema available offline
     phase: storage
     check: bids.hed_schema_available

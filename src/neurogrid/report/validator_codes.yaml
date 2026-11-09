@@ -6,7 +6,7 @@
 ACCEL_CHANNEL_COUNT:
   category: "other_modality"
   en: "ACCELChannelCount in the NIRS sidecar does not match the number of ACCEL channels in channels.tsv."
-  zh: "NIRS sidecar 中的 ACCELChannelCount 与 channels.tsv 中 ACCEL 类型通道的数量不一致。"
+  zh: "NIRS 附属元数据文件中的 ACCELChannelCount 与 channels.tsv 中 ACCEL 类型通道的数量不一致。"
   de: "ACCELChannelCount im NIRS-Sidecar stimmt nicht mit der Anzahl der ACCEL-Kanäle in channels.tsv überein."
 AGE_89:
   category: "general"
@@ -144,7 +144,7 @@ DATATYPE_MISMATCH:
 DEPRECATED_ACQUISITION_DURATION:
   category: "other_modality"
   en: "The sidecar uses the deprecated AcquisitionDuration field instead of FrameAcquisitionDuration."
-  zh: "sidecar 使用了已弃用的 AcquisitionDuration 字段，而非 FrameAcquisitionDuration。"
+  zh: "附属元数据文件使用了已弃用的 AcquisitionDuration 字段，而非 FrameAcquisitionDuration。"
   de: "Das Sidecar verwendet das veraltete Feld AcquisitionDuration statt FrameAcquisitionDuration."
 DUPLICATE_FILES:
   category: "general"
@@ -164,7 +164,7 @@ DWI_MISSING_BVEC:
 ECG_CHANNEL_COUNT_MISMATCH:
   category: "eeg"
   en: "ECGChannelCount in the EEG sidecar does not match the number of ECG channels in channels.tsv."
-  zh: "EEG sidecar 中的 ECGChannelCount 与 channels.tsv 中 ECG 类型通道的数量不一致。"
+  zh: "EEG 附属元数据文件中的 ECGChannelCount 与 channels.tsv 中 ECG 类型通道的数量不一致。"
   de: "ECGChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der ECG-Kanäle in channels.tsv überein."
 ECHOTIME1_2_DIFFERENCE_UNREASONABLE:
   category: "other_modality"
@@ -184,7 +184,7 @@ ECHO_TIME_NOT_CONSISTENT:
 EEG_CHANNEL_COUNT_MISMATCH:
   category: "eeg"
   en: "EEGChannelCount in the sidecar does not match the number of EEG channels in channels.tsv."
-  zh: "sidecar 中的 EEGChannelCount 与 channels.tsv 中 EEG 类型通道的数量不一致。"
+  zh: "附属元数据文件中的 EEGChannelCount 与 channels.tsv 中 EEG 类型通道的数量不一致。"
   de: "EEGChannelCount im Sidecar stimmt nicht mit der Anzahl der EEG-Kanäle in channels.tsv überein."
 EFFECTIVEECHOSPACING_LARGER_THAN_TOTALREADOUTTIME:
   category: "other_modality"
@@ -200,7 +200,7 @@ EFFECTIVEECHOSPACING_TOO_LARGE:
 EMG_CHANNEL_COUNT_MISMATCH:
   category: "eeg"
   en: "EMGChannelCount in the sidecar does not match the number of EMG channels in channels.tsv."
-  zh: "sidecar 中的 EMGChannelCount 与 channels.tsv 中 EMG 类型通道的数量不一致。"
+  zh: "附属元数据文件中的 EMGChannelCount 与 channels.tsv 中 EMG 类型通道的数量不一致。"
   de: "EMGChannelCount im Sidecar stimmt nicht mit der Anzahl der EMG-Kanäle in channels.tsv überein."
 EMG_COORD_SYS_MISMATCH:
   category: "other_modality"
@@ -235,7 +235,7 @@ ENTITY_WITH_NO_LABEL:
 EOG_CHANNEL_COUNT_MISMATCH:
   category: "eeg"
   en: "EOGChannelCount in the EEG sidecar does not match the number of EOG channels in channels.tsv."
-  zh: "EEG sidecar 中的 EOGChannelCount 与 channels.tsv 中 EOG 类型通道的数量不一致。"
+  zh: "EEG 附属元数据文件中的 EOGChannelCount 与 channels.tsv 中 EOG 类型通道的数量不一致。"
   de: "EOGChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der EOG-Kanäle in channels.tsv überein."
 EPI_WITH_BVALS_NEEDS_SMALL_BVALS:
   category: "other_modality"
@@ -256,13 +256,13 @@ EVENT_ONSET_ORDER:
 EXCESSIVE_COORDSYSTEM_SPECIFICITY:
   category: "eeg"
   en: "A coordsystem.json file name has task, acq or run entities, although coordinate systems rarely change within a session."
-  zh: "coordsystem.json 文件名带有 task、acq 或 run 实体，而坐标系在同一 session 内通常不变。"
+  zh: "coordsystem.json 文件名带有 task、acq 或 run 实体，而坐标系在同一会话内通常不变。"
   de: "Der Name einer coordsystem.json enthält task-, acq- oder run-Entitäten, obwohl Koordinatensysteme je Session meist gleich bleiben."
 # Applies to every electrodes.tsv (EEG, iEEG, EMG); filed under eeg.
 EXCESSIVE_ELECTRODE_SPECIFICITY:
   category: "eeg"
   en: "An electrodes.tsv file name has task, acq or run entities, although electrode setups rarely change within a session."
-  zh: "electrodes.tsv 文件名带有 task、acq 或 run 实体，而电极定义在同一 session 内通常不变。"
+  zh: "electrodes.tsv 文件名带有 task、acq 或 run 实体，而电极定义在同一会话内通常不变。"
   de: "Der Name einer electrodes.tsv enthält task-, acq- oder run-Entitäten, obwohl Elektrodendefinitionen je Session meist gleich bleiben."
 EXTENSION_MISMATCH:
   category: "general"
@@ -272,7 +272,7 @@ EXTENSION_MISMATCH:
 FIELDMAP_WITHOUT_MAGNITUDE_FILE:
   category: "other_modality"
   en: "A fieldmap NIfTI file has no associated magnitude image."
-  zh: "fieldmap NIfTI 文件缺少对应的 magnitude 图像。"
+  zh: "场图 NIfTI 文件缺少对应的幅值（magnitude）图像。"
   de: "Zu einer fieldmap-NIfTI-Datei fehlt das zugehörige magnitude-Bild."
 FILENAME_MISMATCH:
   category: "general"
@@ -297,7 +297,7 @@ FLIP_ANGLE_NOT_MATCHING_NIFTI:
 GYRO_CHANNEL_COUNT:
   category: "other_modality"
   en: "GYROChannelCount in the NIRS sidecar does not match the number of GYRO channels in channels.tsv."
-  zh: "NIRS sidecar 中的 GYROChannelCount 与 channels.tsv 中 GYRO 类型通道的数量不一致。"
+  zh: "NIRS 附属元数据文件中的 GYROChannelCount 与 channels.tsv 中 GYRO 类型通道的数量不一致。"
   de: "GYROChannelCount im NIRS-Sidecar stimmt nicht mit der Anzahl der GYRO-Kanäle in channels.tsv überein."
 GZIP_HEADER_COMMENT:
   category: "general"
@@ -323,36 +323,36 @@ GZ_NOT_GZIPPED:
 HED_ERROR:
   category: "general"
   en: "Checking HED annotations produced an error, in an annotated file or while loading the HED schema named in dataset_description.json."
-  zh: "检查 HED 注释时出现错误，发生在某个含 HED 注释的文件中，或在加载 dataset_description.json 所指定的 HED schema 时。"
+  zh: "在检查含 HED 标注的文件或加载 dataset_description.json 所指定的 HED schema 时出现错误。"
   de: "Bei der Prüfung von HED-Annotationen ist ein Fehler aufgetreten, in einer annotierten Datei oder beim Laden des in dataset_description.json genannten HED-Schemas."
 # Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
 HED_INTERNAL_ERROR:
   category: "general"
   en: "An internal error occurred while checking HED annotations, so HED results may be incomplete."
-  zh: "检查 HED 注释时发生内部错误，HED 结果可能不完整。"
+  zh: "检查 HED 标注时发生内部错误，HED 结果可能不完整。"
   de: "Bei der Prüfung der HED-Annotationen trat ein interner Fehler auf; die HED-Ergebnisse sind womöglich unvollständig."
 # Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
 HED_INTERNAL_WARNING:
   category: "general"
   en: "An internal warning was raised while checking HED annotations."
-  zh: "检查 HED 注释时出现内部警告。"
+  zh: "检查 HED 标注时出现内部警告。"
   de: "Bei der Prüfung der HED-Annotationen wurde eine interne Warnung ausgegeben."
 # Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
 HED_MISSING_VALUE_IN_SIDECAR:
   category: "general"
   en: "A value in an events.tsv column has no corresponding HED entry in the JSON sidecar."
-  zh: "events.tsv 某列中的一个取值在 JSON sidecar 中没有对应的 HED 条目。"
+  zh: "events.tsv 某列中的一个取值在 JSON 附属元数据文件中没有对应的 HED 条目。"
   de: "Ein Wert in einer Spalte von events.tsv hat im JSON-Sidecar keinen zugehörigen HED-Eintrag."
 # Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
 HED_VERSION_NOT_DEFINED:
   category: "general"
   en: "HEDVersion is not defined, so HED annotations are checked against the latest available HED schema."
-  zh: "未定义 HEDVersion，HED 注释将按可用的最新 HED schema 进行检查。"
+  zh: "未定义 HEDVersion，HED 标注将按可用的最新 HED schema 进行检查。"
   de: "HEDVersion ist nicht angegeben; HED-Annotationen werden daher gegen das neueste verfügbare HED-Schema geprüft."
 HED_WARNING:
   category: "general"
   en: "Checking HED annotations produced a warning, in an annotated file or while loading the HED schema named in dataset_description.json."
-  zh: "检查 HED 注释时出现警告，发生在某个含 HED 注释的文件中，或在加载 dataset_description.json 所指定的 HED schema 时。"
+  zh: "在检查含 HED 标注的文件或加载 dataset_description.json 所指定的 HED schema 时出现警告。"
   de: "Bei der Prüfung von HED-Annotationen wurde eine Warnung ausgegeben, in einer annotierten Datei oder beim Laden des in dataset_description.json genannten HED-Schemas."
 IEEG_ELECTRODES_REQUIRED:
   category: "ieeg"
@@ -469,7 +469,7 @@ MAGNITUDE_FILE_WITH_TOO_MANY_DIMENSIONS:
 MAGN_CHANNEL_COUNT:
   category: "other_modality"
   en: "MAGNChannelCount in the NIRS sidecar does not match the number of MAGN channels in channels.tsv."
-  zh: "NIRS sidecar 中的 MAGNChannelCount 与 channels.tsv 中 MAGN 类型通道的数量不一致。"
+  zh: "NIRS 附属元数据文件中的 MAGNChannelCount 与 channels.tsv 中 MAGN 类型通道的数量不一致。"
   de: "MAGNChannelCount im NIRS-Sidecar stimmt nicht mit der Anzahl der MAGN-Kanäle in channels.tsv überein."
 # Only listed in the schema error catalogue (rules.errors) of the bundled schema; no code path in the 3.0.2 bundle emits it.
 MALFORMED_BVAL:
@@ -486,7 +486,7 @@ MALFORMED_BVEC:
 MISC_CHANNEL_COUNT_MISMATCH:
   category: "eeg"
   en: "MiscChannelCount in the EEG sidecar does not match the number of MISC channels in channels.tsv."
-  zh: "EEG sidecar 中的 MiscChannelCount 与 channels.tsv 中 MISC 类型通道的数量不一致。"
+  zh: "EEG 附属元数据文件中的 MiscChannelCount 与 channels.tsv 中 MISC 类型通道的数量不一致。"
   de: "MiscChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der MISC-Kanäle in channels.tsv überein."
 MISSING_DATASET_DESCRIPTION:
   category: "general"
@@ -522,17 +522,17 @@ MISSING_RESOLUTION_DESCRIPTION:
 MISSING_SESSION:
   category: "general"
   en: "The set of session directories differs between subjects."
-  zh: "各受试者的 session 目录集合不一致。"
+  zh: "各受试者的会话（session）目录集合不一致。"
   de: "Die Session-Verzeichnisse unterscheiden sich zwischen den Probanden."
 MRS_MATRIX_SIZE:
   category: "other_modality"
   en: "MatrixSize in the MRS sidecar does not match the spatial dimensions in the NIfTI header."
-  zh: "MRS sidecar 中的 MatrixSize 与 NIfTI 头中的空间维度不一致。"
+  zh: "MRS 附属元数据文件中的 MatrixSize 与 NIfTI 头中的空间维度不一致。"
   de: "MatrixSize im MRS-Sidecar stimmt nicht mit den räumlichen Dimensionen im NIfTI-Header überein."
 MRS_NIFTI_CONSISTENCY:
   category: "other_modality"
   en: "The sidecar values for ResonantNucleus or SpectrometerFrequency disagree with the NIfTI-MRS header extension."
-  zh: "NIfTI-MRS 头扩展与 sidecar 中的 ResonantNucleus 或 SpectrometerFrequency 不一致。"
+  zh: "NIfTI-MRS 头扩展与附属元数据文件中的 ResonantNucleus 或 SpectrometerFrequency 不一致。"
   de: "ResonantNucleus oder SpectrometerFrequency unterscheiden sich zwischen NIfTI-MRS-Header-Erweiterung und Sidecar."
 MULTIPLE_INHERITABLE_FILES:
   category: "general"
@@ -583,7 +583,7 @@ NIFTI_UNIT:
 NIRS_CHANNEL_COUNT:
   category: "other_modality"
   en: "NIRSChannelCount in the sidecar does not match the number of NIRS channels in channels.tsv."
-  zh: "sidecar 中的 NIRSChannelCount 与 channels.tsv 中 NIRS 类型通道的数量不一致。"
+  zh: "附属元数据文件中的 NIRSChannelCount 与 channels.tsv 中 NIRS 类型通道的数量不一致。"
   de: "NIRSChannelCount im Sidecar stimmt nicht mit der Anzahl der NIRS-Kanäle in channels.tsv überein."
 NIRS_RECOMMENDED_CHANNELS:
   category: "other_modality"
@@ -593,7 +593,7 @@ NIRS_RECOMMENDED_CHANNELS:
 NIRS_SAMPLING_FREQUENCY:
   category: "other_modality"
   en: "SamplingFrequency is n/a in the NIRS sidecar and channels.tsv has no sampling_frequency column."
-  zh: "NIRS sidecar 中的 SamplingFrequency 为 n/a，且 channels.tsv 中没有 sampling_frequency 列。"
+  zh: "NIRS 附属元数据文件中的 SamplingFrequency 为 n/a，且 channels.tsv 中没有 sampling_frequency 列。"
   de: "SamplingFrequency ist im NIRS-Sidecar n/a und channels.tsv hat keine Spalte sampling_frequency."
 NOSUBJECT_FOLDERS:
   category: "general"
@@ -640,7 +640,7 @@ PASL_BOLUS_CUT_OFF_TECHINIQUE:
 PDT2_ECHOS_SHOULD_MATCH_NIFTI_LENGTH:
   category: "other_modality"
   en: "EchoTime of a 4D PDT2 image does not provide exactly one value per volume."
-  zh: "四维 PDT2 图像的 EchoTime 未做到每个体积恰好一个值。"
+  zh: "四维 PDT2 图像的 EchoTime 并非每个体积恰好对应一个值。"
   de: "EchoTime eines 4D-PDT2-Bilds enthält nicht genau einen Wert pro Volumen."
 PDT2_FILE_SHOULD_HAVE_TWO_VOLUMES:
   category: "other_modality"
@@ -650,7 +650,7 @@ PDT2_FILE_SHOULD_HAVE_TWO_VOLUMES:
 PET_FRAME_CONSISTENCY:
   category: "other_modality"
   en: "FrameDuration and FrameTimesStart in the PET sidecar describe different numbers of frames."
-  zh: "PET sidecar 中 FrameDuration 与 FrameTimesStart 描述的帧数不同。"
+  zh: "PET 附属元数据文件中 FrameDuration 与 FrameTimesStart 描述的帧数不同。"
   de: "FrameDuration und FrameTimesStart im PET-Sidecar beschreiben unterschiedlich viele Frames."
 PET_FRAME_CONSISTENCY_FRAME_DURATION:
   category: "other_modality"
@@ -685,7 +685,7 @@ PHENOTYPE_SUBJECTS_MISSING:
 PIXEL_SIZE_INCONSISTENT:
   category: "other_modality"
   en: "PixelSize in the microscopy sidecar does not match the PhysicalSizeX/Y/Z values in the OME metadata."
-  zh: "显微 sidecar 中的 PixelSize 与 OME 元数据中的 PhysicalSizeX/Y/Z 不一致。"
+  zh: "显微附属元数据文件中的 PixelSize 与 OME 元数据中的 PhysicalSizeX/Y/Z 不一致。"
   de: "PixelSize im Mikroskopie-Sidecar stimmt nicht mit PhysicalSizeX/Y/Z in den OME-Metadaten überein."
 POST_LABELING_DELAY_GREATER:
   category: "other_modality"
@@ -735,7 +735,7 @@ REPETITION_TIME_GREATER_THAN:
 REPETITION_TIME_MISMATCH:
   category: "other_modality"
   en: "RepetitionTime in the sidecar does not match the repetition time stored in the NIfTI header."
-  zh: "sidecar 中的 RepetitionTime 与 NIfTI 头中记录的重复时间不一致。"
+  zh: "附属元数据文件中的 RepetitionTime 与 NIfTI 头中记录的重复时间不一致。"
   de: "RepetitionTime im Sidecar stimmt nicht mit der im NIfTI-Header gespeicherten Repetitionszeit überein."
 # Covers electrodes.tsv (all modalities except EMG) and NIRS optodes.tsv; filed under eeg.
 REQUIRED_COORDSYSTEM:
@@ -776,27 +776,27 @@ SFORM_AND_QFORM_IN_IMAGE_HEADER_ARE_ZERO:
 SHORT_CHANNEL_COUNT:
   category: "other_modality"
   en: "ShortChannelCount in the NIRS sidecar does not match the number of channels marked true in the short_channel column."
-  zh: "NIRS sidecar 中的 ShortChannelCount 与 short_channel 列中标记为 true 的通道数不一致。"
+  zh: "NIRS 附属元数据文件中的 ShortChannelCount 与 short_channel 列中标记为 true 的通道数不一致。"
   de: "ShortChannelCount im NIRS-Sidecar stimmt nicht mit der Zahl der in short_channel mit true markierten Kanäle überein."
 SIDECAR_FIELD_OVERRIDE:
   category: "general"
   en: "A sidecar field overrides a different value set by a sidecar at a higher directory level."
-  zh: "某个 sidecar 字段覆盖了更高目录层级 sidecar 中设置的不同取值。"
+  zh: "某个附属元数据文件字段覆盖了更高目录层级附属元数据文件中设置的不同取值。"
   de: "Ein Sidecar-Feld überschreibt einen abweichenden Wert aus einem Sidecar auf höherer Verzeichnisebene."
 SIDECAR_KEY_RECOMMENDED:
   category: "general"
   en: "A recommended field is missing in the JSON sidecar of a data file."
-  zh: "数据文件的 JSON sidecar 中缺少一个建议字段。"
+  zh: "数据文件的 JSON 附属元数据文件中缺少一个建议字段。"
   de: "Im JSON-Sidecar einer Datendatei fehlt ein empfohlenes Feld."
 SIDECAR_KEY_REQUIRED:
   category: "general"
   en: "A required field is missing in the JSON sidecar of a data file."
-  zh: "数据文件的 JSON sidecar 中缺少一个必需字段。"
+  zh: "数据文件的 JSON 附属元数据文件中缺少一个必需字段。"
   de: "Im JSON-Sidecar einer Datendatei fehlt ein Pflichtfeld."
 SIDECAR_WITHOUT_DATAFILE:
   category: "general"
   en: "A JSON sidecar exists for which no matching data file is present in the dataset."
-  zh: "某个 JSON sidecar 文件没有对应的数据文件。"
+  zh: "某个 JSON 附属元数据文件没有对应的数据文件。"
   de: "Zu einer JSON-Sidecar-Datei gibt es keine passende Datendatei."
 SINGLE_SOURCE_CITATION_FIELDS:
   category: "general"
@@ -811,7 +811,7 @@ SLICETIMING_ELEMENTS:
 SLICETIMING_VALUES_GREATER_THAN_REPETITION_TIME:
   category: "other_modality"
   en: "SliceTiming contains values greater than RepetitionTime, possibly because they are given in milliseconds."
-  zh: "SliceTiming 中存在大于 RepetitionTime 的值，可能误用了毫秒为单位。"
+  zh: "SliceTiming 中存在大于 RepetitionTime 的值，可能误以毫秒为单位。"
   de: "SliceTiming enthält Werte größer als RepetitionTime, möglicherweise weil sie in Millisekunden angegeben sind."
 SLICE_TIMING_NOT_DEFINED_2D_ASL:
   category: "other_modality"
@@ -906,12 +906,12 @@ TOTAL_READOUT_TIME_MUST_DEFINE:
 TRIGGER_CHANNEL_COUNT_MISMATCH:
   category: "eeg"
   en: "TriggerChannelCount in the EEG sidecar does not match the number of TRIG channels in channels.tsv."
-  zh: "EEG sidecar 中的 TriggerChannelCount 与 channels.tsv 中 TRIG 类型通道的数量不一致。"
+  zh: "EEG 附属元数据文件中的 TriggerChannelCount 与 channels.tsv 中 TRIG 类型通道的数量不一致。"
   de: "TriggerChannelCount im EEG-Sidecar stimmt nicht mit der Anzahl der TRIG-Kanäle in channels.tsv überein."
 TSV_ADDITIONAL_COLUMNS_MUST_DEFINE:
   category: "general"
   en: "A TSV file has non-standard columns without a sidecar description, which is mandatory for this file type."
-  zh: "TSV 文件含有未在 sidecar 中说明的非标准列，而该文件类型必须提供此类说明。"
+  zh: "TSV 文件含有未在附属元数据文件中说明的非标准列，而该文件类型必须提供此类说明。"
   de: "Eine TSV-Datei hat Zusatzspalten ohne Beschreibung im Sidecar, die bei diesem Dateityp Pflicht ist."
 TSV_ADDITIONAL_COLUMNS_NOT_ALLOWED:
   category: "general"
@@ -921,7 +921,7 @@ TSV_ADDITIONAL_COLUMNS_NOT_ALLOWED:
 TSV_ADDITIONAL_COLUMNS_UNDEFINED:
   category: "general"
   en: "A TSV file has columns beyond the standard set that its JSON sidecar does not describe."
-  zh: "TSV 文件含有未在其 JSON sidecar 中说明的额外列。"
+  zh: "TSV 文件含有未在其 JSON 附属元数据文件中说明的额外列。"
   de: "Eine TSV-Datei enthält zusätzliche Spalten, die im zugehörigen JSON-Sidecar nicht beschrieben sind."
 TSV_COLUMN_HEADER_DUPLICATE:
   category: "general"
@@ -941,7 +941,7 @@ TSV_COLUMN_ORDER_INCORRECT:
 TSV_COLUMN_TYPE_REDEFINED:
   category: "general"
   en: "A sidecar redefines a standard TSV column in a way that conflicts with its BIDS definition; the redefinition is ignored."
-  zh: "某个 sidecar 对标准 TSV 列的重新定义与其 BIDS 定义冲突，该重新定义被忽略。"
+  zh: "某个附属元数据文件对标准 TSV 列的重新定义与其 BIDS 定义冲突，该重新定义被忽略。"
   de: "Ein Sidecar definiert eine Standardspalte einer TSV-Datei abweichend von BIDS um; diese Umdefinition wird ignoriert."
 TSV_EMPTY_LINE:
   category: "general"
@@ -982,7 +982,7 @@ UNKNOWN_BIDS_VERSION:
 UNKNOWN_PUPIL_SIZE:
   category: "other_modality"
   en: "The sidecar description of pupil_size leaves open whether pupil area or pupil diameter was recorded."
-  zh: "眼动 sidecar 中 pupil_size 的描述未说明其为面积还是直径。"
+  zh: "眼动附属元数据文件中 pupil_size 的描述未说明其为面积还是直径。"
   de: "Die Beschreibung von pupil_size im Eyetracking-Sidecar gibt nicht an, ob es sich um Fläche oder Durchmesser handelt."
 # Only raised with the CLI option --datasetTypes; the code is missing from the 3.0.2 issue list, so the validator would throw UnknownIssueCodeError instead of reporting it.
 UNSUPPORTED_DATASET_TYPE:

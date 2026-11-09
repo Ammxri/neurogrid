@@ -14,6 +14,10 @@ zh:
   - "合规"
   - "通过\\s*(YY/T|GB/T|ISO)"
   - "防篡改"
+  - "符合\\s*(标准|规定|规范|YY/T|GB/T|ISO|IEC)"
+  - "符合性(已|经)确认"
+  - "满足.{0,12}要求"
+  - "(不可|无法)篡改"
 en:
   - "(?i)\\bconform(s|ity|ant|ing)?\\b"
   - "(?i)\\bcompliant\\b"

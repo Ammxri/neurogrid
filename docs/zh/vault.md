@@ -26,7 +26,7 @@ vault 是 `neurogrid.toml` 中 `[vault] path` 指定的文件夹，相对于项�
 
 | 文件 | 内容 |
 |---|---|
-| `consents.yaml` | 知情同意记录（只含受试者的假名 ID）。属于清单：`neurogrid verify` 会报告其更改。 |
+| `consents.yaml` | 知情同意记录（只含受试者的假名化 ID）。属于清单：`neurogrid verify` 会报告其更改。 |
 | `access.jsonl` | 访问日志，每行一个事件。不属于清单：它随每次访问而增长。 |
 | `access.jsonl.lock` | 所有读取或写入 vault 的 NeuroGrid 进程共用的锁文件。不属于清单。 |
 | `roles.yaml` | 角色登记册（[角色](#roles)）。属于清单。 |
@@ -82,9 +82,9 @@ vault 是 `neurogrid.toml` 中 `[vault] path` 指定的文件夹，相对于项�
 
 事件中不含用户名、计算机名、进程 ID 和绝对路径。对象分属两个命名空间：数据事件指向数据集——`**` 表示整个数据集，
 或者是交给 `vault log` 的、相对于数据集的路径和模式；涉及 vault 文件的事件以相对于项目根目录的路径指明该文件，例如
-`.neurogrid/vault/consents.yaml`。在原始文件夹中，`vault log` 的对象若指向现有文件，则以其假名文件名记录
+`.neurogrid/vault/consents.yaml`。在原始文件夹中，`vault log` 的对象若指向现有文件，则以其假名化文件名记录
 （`rec-<8 位十六进制数字>.<扩展名>`，与 `verify` 的显示相同），文件名含通配符，或在 Windows 下仅大小写或末尾的点和
-空格不同时也是如此；指向链接的对象会被拒绝。JSON 模式为
+空格不同时也是如此；指向链接的对象会被拒绝。JSON schema 为
 [`access_event.schema.json`](../schemas/access_event.schema.json)；与产品规格书术语的对应关系见
 [数据模型](data-model.md)。
 
@@ -157,7 +157,7 @@ print("head", previous)
 
 | 成员 | 内容 |
 |---|---|
-| `manifest.json` | 数据集的清单（或 `--manifest`）。在原始数据文件夹中且不使用 `--show-paths` 时，为一份以假名 ID 命名数据文件的副本（`rec-<sha8>.<ext>`，与 `verify` 的显示相同；NeuroGrid 自己在 `.neurogrid/` 中的文件以明文显示）；其 `manifest_hash` 保持原存储值，即报告显示的值，因此与副本不再一致。BIDS 数据集和 `--show-paths` 保持文件原样。 |
+| `manifest.json` | 数据集的清单（或 `--manifest`）。在原始文件夹中且不使用 `--show-paths` 时，为一份以假名化 ID 命名数据文件的副本（`rec-<sha8>.<ext>`，与 `verify` 的显示相同；NeuroGrid 自己在 `.neurogrid/` 中的文件以明文显示）；其 `manifest_hash` 保持原存储值，即报告显示的值，因此与副本不再一致。BIDS 数据集和 `--show-paths` 保持文件原样。 |
 | `access.jsonl` | 到导出事件为止（含该事件）的访问日志。 |
 | `roles.yaml` | 原样的角色登记册。 |
 | `pia/pia.zh.md`、`pia/pia.en.md` | 存在的个人信息保护影响评估文件（至少一份）。 |
@@ -181,7 +181,7 @@ print("head", previous)
 - 只记录通过 NeuroGrid 进行的访问：以退出码 2 结束的运行不作记录；`scan`、`manifest` 和 `verify` 只使用默认位置
   的 vault；`report` 只有在指定 `--config` 时才记录。
 - 时间取自本地时钟，未经核实。
-- 锁（`access.jsonl.lock`）只是协调性的：它使 NeuroGrid 进程彼此错开，但不能阻止编辑器等其他程序；它们所作的
+- 锁（`access.jsonl.lock`）只是建议性锁（advisory lock）：它使 NeuroGrid 进程彼此错开，但不能阻止编辑器等其他程序；它们所作的
   修改由哈希链显示出来。NeuroGrid 进程最多等待 10 秒获得锁：需要 vault 的命令此时以退出码 2 结束，只追加自身事件的
   运行给出警告，CORE-NV03-01 为无法检查。只要没有其他进程更长时间地占用锁，两次 `check` 运行就逐字节相同。
 - 因断电而写到一半的行始终作为一处不一致保留；下一个条目会越过它进行链接。
@@ -219,7 +219,7 @@ roles:
 
 角色登记册最多包含 200 个角色、1,000,000 字节。事件的角色在登记册中、该角色可以执行其操作，且该角色的某个对象模式
 覆盖事件的每个对象时，访问即为允许。本身就是模式的对象只被能覆盖其所有可能路径的模式覆盖：每个自动事件的对象 `**`
-只被 `**` 覆盖。在原始文件夹中，访问日志以假名文件名（`rec-<sha8>.<ext>`）记录文件，因此按真实文件名编写的模式在
+只被 `**` 覆盖。在原始文件夹中，访问日志以假名化文件名（`rec-<sha8>.<ext>`）记录文件，因此按真实文件名编写的模式在
 那里不会匹配。
 
 CORE-NV04-01 将访问日志与登记册比较（[指标](metrics.md#NV04)）。`check`、`convert`、`report --config`、`vault log`
@@ -252,7 +252,7 @@ objects:
 | `min_until` | 最低保存期限：不早于 `created` 之后三年；自 2 月 29 日起算时最早为三年后的 3 月 1 日。日期更早时 `check` 以退出码 2 结束。 |
 | `review_at` | 可选：介于 `created` 和 `min_until` 之间的复核日期。 |
 
-该文件最多 100,000 字节。CORE-NV05-01 要求 `pia` 和 `access_log` 各有一个条目：NeuroGrid 将 PIPL 中关于个人信息
+该文件最多 100,000 字节。CORE-NV05-01 要求 `pia` 和 `access_log` 各有一个条目：NeuroGrid 将《个人信息保护法》（PIPL）中关于个人信息
 保护影响评估的规定理解为要求影响评估报告和处理情况记录（此处即访问日志）至少保存三年。这是 NeuroGrid 的理解，
 不构成法律意见。CORE-NV05-01 还会报告文件缺失的已列出对象，以及开头条目被删除的访问日志。CORE-NV05-03 从
 `min_until` 之前 90 天起（参数 `days`）以及自 `review_at` 起给出提醒。提醒措辞中立：请在自行开展法律审查后，决定
@@ -261,7 +261,7 @@ objects:
 ## 个人信息保护影响评估 {#pia}
 
 `vault init` 以两份草稿写入个人信息保护影响评估：`pia/pia.zh.md` 和 `pia/pia.en.md`。每份的第一行都注明它是占位
-文本，不构成法律意见。草稿包含 PIPL 要求开展个人信息保护影响评估的情形的检查清单、作为标题的评估要点以及待填写的
+文本，不构成法律意见。草稿包含《个人信息保护法》要求开展个人信息保护影响评估的情形的检查清单、作为标题的评估要点以及待填写的
 字段，每个字段都带有占位标记（中文文件为【待填写】，英文文件为 `[to be completed]`）。模板以 NeuroGrid 自己的语言转述
 相关规定并注明条文；其中不含任何法律依据，也不含任何评估结论。模板在首次实际使用前，由在中华人民共和国获准执业的
 法律顾问审核；该审核不是 NeuroGrid 发布的前提条件。
@@ -308,5 +308,5 @@ CORE-M14-02 判断日期在基准日期（`--as-of`）当日或之前的每项�
 
 规则包 `core` 用 CORE-NV03-01（哈希链完整，错误）和 CORE-NV03-02（访问日志可写入，警告）检查日志：
 [指标](metrics.md#NV03)。CORE-NV04-01 将日志与角色登记册比较（警告），CORE-NV05-01 和 CORE-NV05-02 检查保存期限和
-个人信息保护影响评估（警告），CORE-NV05-03 提醒最低保存期限即将结束（信息）：[指标](metrics.md#NV04)、
+个人信息保护影响评估（警告），CORE-NV05-03 提醒最低保存期限即将结束（提示）：[指标](metrics.md#NV04)、
 [指标](metrics.md#NV05)。

@@ -152,7 +152,7 @@ def test_run_compare_names_both_runs(published: SimpleNamespace) -> None:
 def test_report_has_attribution_for_every_dataset(published: SimpleNamespace) -> None:
     """NA-01 (A-36): every dataset with citation, DOI of the paper, source, download source and the licence
     at the download source, and the note that the data were degraded in memory and not redistributed."""
-    notes = {"en": "does not redistribute the data", "zh": "不再分发这些数据"}
+    notes = {"en": "does not redistribute the data", "zh": "不对这些数据进行再分发"}
     for language, text in published.texts.items():
         assert notes[language] in text, language
         data = text[text.index(HEADINGS[language][1]) : text.index(HEADINGS[language][2])]

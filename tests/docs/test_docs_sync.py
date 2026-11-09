@@ -40,7 +40,7 @@ LANGUAGES = ("en", "zh")
 FIXTURES = ROOT / "tests" / "fixtures"
 CALIBRATION = ROOT / "src" / "neurogrid" / "rulepacks" / "calibration" / "core.json"
 PLACEHOLDERS = {"REPO_URL", "PYPI_RELEASE"}
-PLACEHOLDER_TITLE = {"en": "Placeholder", "zh": "占位"}
+PLACEHOLDER_TITLE = {"en": "Placeholder", "zh": "占位符"}
 
 
 def _page(lang: str, name: str) -> str:
@@ -633,15 +633,15 @@ EVIDENCE_IN_CLEAR = {
             "按原样出现在 `results.json` 和报告第 5 部分中，"
             "在原始数据文件夹中不使用 `--show-paths` 时也是如此",
             "控制台从不输出这些字段。",
-            "`reviewer` 请填写角色或姓名缩写，从不填写全名",
+            "`reviewer` 请填写角色或姓名缩写，切勿填写全名",
         ),
         "report.md#evidence": (
             "按 `evidence.yaml` 中的原样显示，在原始数据文件夹中不使用 `--show-paths` 时也是如此",
-            "审核人请填写角色或姓名缩写，从不填写全名",
+            "审核人请填写角色或姓名缩写，切勿填写全名",
         ),
         "report.md#pseudonymity": ("字段，它们按原样显示",),
         "configuration.md#files": (
-            "`reviewer`：角色或姓名缩写，从不填写全名",
+            "`reviewer`：角色或姓名缩写，切勿填写全名",
             "这四个字段按原样出现在 `results.json` 和报告中，"
             "在原始数据文件夹中不使用 `--show-paths` 时也是如此",
         ),
@@ -917,8 +917,8 @@ CLEAN_ROOM = {
         "windows": (
             "在 Windows 上，它是运行器上的一个全新文件夹，运行器的网络保持开启：`PATH` 上找不到任何 Python "
             "或 uv（运行器预装的 Python 仍然安装着，只是其文件夹已从 `PATH` 中移除），一条出站防火墙规则阻"
-            "止安装包、安装位置和 PDF 浏览器的每个程序，Windows 筛选平台审计每次连接；这些程序向回环地址以"
-            "外的地址发起的任何连接或连接尝试都会使运行失败"
+            "止安装包、安装位置和 PDF 生成浏览器的每个程序，Windows 筛选平台审计每次连接；这些程序向回环地"
+            "址以外的地址发起的任何连接或连接尝试都会使运行失败"
         ),
     },
 }
@@ -960,7 +960,7 @@ def test_clean_room_definition_matches_each_platforms_clean_room() -> None:
 ONE_EXECUTABLE = {
     "en": "The PDF browser's own process and every process it starts run `{}`, so this one rule covers all"
     " of them.",
-    "zh": "PDF 浏览器自身的进程及其启动的每个进程都运行 `{}`，因此这一条规则涵盖所有这些进程。",
+    "zh": "PDF 生成浏览器自身的进程及其启动的每个进程都运行 `{}`，因此这一条规则涵盖所有这些进程。",
 }
 # A page that says a part of the PDF browser runs inside the browser process on Windows (the wording the
 # pages had up to 901bda6) names the part; each part has the launch argument that puts it there.
@@ -969,7 +969,7 @@ LAYOUT_PARTS = {"en": ("GPU", "network service"), "zh": ("GPU", "网络服务")}
 OLD_LAYOUT_CLAIM = {
     "en": "Every process of the PDF browser runs `chrome-headless-shell.exe`; on Windows its GPU and its"
     " network service run inside the browser process itself, so this one rule covers them.",
-    "zh": "PDF 浏览器的每个进程都运行 `chrome-headless-shell.exe`；在 Windows 上，其 GPU 和网络服务就在"
+    "zh": "PDF 生成浏览器的每个进程都运行 `chrome-headless-shell.exe`；在 Windows 上，其 GPU 和网络服务就在"
     "浏览器进程内运行，因此这一条规则也涵盖它们。",
 }
 
@@ -1075,7 +1075,7 @@ def test_layout_claims_are_checked_against_the_windows_launch_arguments(
 
 INSTALLER = ROOT / "tools" / "install_pdf_browser.py"
 INSTALLER_ADDRESS = "<REPO_URL>/releases/download/v<version>/install_pdf_browser.py"
-PDF_SECTION = {"en": "PDF browser", "zh": "PDF 浏览器", "de": "PDF-Browser"}
+PDF_SECTION = {"en": "PDF browser", "zh": "PDF 生成浏览器", "de": "PDF-Browser"}
 
 
 def test_pdf_browser_section_gives_the_installers_address_and_sha256() -> None:

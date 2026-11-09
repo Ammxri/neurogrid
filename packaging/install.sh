@@ -87,9 +87,9 @@ install.sh [--prefix DIR] [--cosign PATH] [--skip-signature-check] [--verify-onl
            [--pdf-browser-zip ZIP --pdf-browser-sha256 HEX]
   --prefix DIR              安装文件夹 / install folder (default ${XDG_DATA_HOME:-~/.local/share}/neurogrid/<version>)
   --cosign PATH             用于核验签名的 cosign / cosign used to verify the signature
-  --skip-signature-check    已在联网电脑上核验签名 / the signature was verified on a connected machine
+  --skip-signature-check    已在联网计算机上核验签名 / the signature was verified on a connected machine
   --verify-only             仅核验完整性和签名 / only verify integrity and signature
-  --pdf-browser-zip ZIP     从客户提供的 zip 安装 PDF 浏览器 / install the PDF browser from a provided zip
+  --pdf-browser-zip ZIP     从提供的 zip 安装 PDF 生成浏览器 / install the PDF browser from a provided zip
   --pdf-browser-sha256 HEX  该 zip 的 SHA-256 / SHA-256 of that zip
 EOF
 }
@@ -171,7 +171,7 @@ main() {
   fi
   if [ -n "$pdf_zip$pdf_sha" ]; then
     [ -n "$pdf_zip" ] && [[ "$pdf_sha" =~ ^[0-9a-fA-F]{64}$ ]] \
-      || fail 2 "--pdf-browser-zip 须与 --pdf-browser-sha256（64 位十六进制）同时使用" \
+      || fail 2 "--pdf-browser-zip 须与 --pdf-browser-sha256（64 位十六进制数字）同时使用" \
         "--pdf-browser-zip needs --pdf-browser-sha256 (64 hex digits)"
     shown="$(show "$pdf_zip")"
     [ -f "$pdf_zip" ] || fail 2 "找不到文件：$shown" "file not found: $shown"
@@ -220,7 +220,7 @@ main() {
       run_shown "$cosign" verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json --certificate-identity \
         "$identity" --certificate-oidc-issuer "$ISSUER" >&2 && verified=1
       if [ "$verified" -eq 0 ] && [ "$on_path" -eq 1 ] && [ "$skip_signature" -eq 1 ]; then
-        fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。--skip-signature-check 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的环境中加 --skip-signature-check 运行" \
+        fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。--skip-signature-check 不会跳过 PATH 中 cosign 的核验；若已在联网计算机上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的环境中加 --skip-signature-check 运行" \
           "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). --skip-signature-check does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with --skip-signature-check where cosign is not on PATH"
       fi
       [ "$verified" -eq 1 ] || fail 4 "签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）" \
@@ -231,10 +231,10 @@ main() {
       say "请将此签名者身份与项目发布页面（$RELEASES）发布说明中的身份核对；安装包内部的核验只能证明文件完整，不能证明来源" \
         "compare this signer identity with the one in the release notes on the project's release page ($RELEASES); a check inside the archive proves that the files are intact, not who made them"
     elif [ "$skip_signature" -eq 1 ]; then
-      say "按要求未在本机核验签名；请确认已在联网电脑上核验" \
+      say "按要求未在本机核验签名；请确认已在联网计算机上核验" \
         "signature not verified here, as requested; make sure it was verified on a connected machine"
     else
-      fail 4 "未找到 cosign：请先在联网电脑上核验签名（见 README.txt），然后加 --skip-signature-check，或用 --cosign 指定" \
+      fail 4 "未找到 cosign：请先在联网计算机上核验签名（见 README.txt），然后加 --skip-signature-check，或用 --cosign 指定 cosign 的路径" \
         "cosign not found: verify the signature on a connected machine first (see README.txt), then pass --skip-signature-check, or name cosign with --cosign"
     fi
   elif [ "$skip_signature" -eq 1 ]; then
@@ -260,7 +260,7 @@ main() {
   #    minus the longest relative path below it, which BUNDLE.json predicts (tools/bundle.py). LC_ALL=C above
   #    makes ${#prefix} count bytes, also for Chinese folder names.
   if [ -z "$prefix" ]; then
-    [ -n "${XDG_DATA_HOME:-}${HOME:-}" ] || fail 2 "未设置 HOME，请用 --prefix 指定" "HOME is not set; choose the folder with --prefix"
+    [ -n "${XDG_DATA_HOME:-}${HOME:-}" ] || fail 2 "未设置 HOME，请用 --prefix 指定安装文件夹" "HOME is not set; choose the folder with --prefix"
     prefix="${XDG_DATA_HOME:-$HOME/.local/share}/neurogrid/$version"
   fi
   case "$prefix" in
@@ -325,8 +325,8 @@ main() {
   if [ -n "$pdf_zip" ]; then
     run_shown "$prefix/python/bin/python3.12" -I "$prefix/tools/install_pdf_browser.py" --from-zip "$pdf_zip" \
       --sha256 "$(printf '%s' "$pdf_sha" | tr 'A-F' 'a-f')" \
-      || fail 2 "NeuroGrid 已安装，但 PDF 浏览器未安装" "NeuroGrid is installed, but the PDF browser is not"
-    say "PDF 浏览器已安装；它还需要系统库（见 docs/installation.html）" \
+      || fail 2 "NeuroGrid 已安装，但 PDF 生成浏览器未安装" "NeuroGrid is installed, but the PDF browser is not"
+    say "PDF 生成浏览器已安装；它还需要系统库（见 docs/installation.html）" \
       "PDF browser installed; it also needs system libraries (see docs/installation.html)"
   fi
 
@@ -338,7 +338,7 @@ main() {
   # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
   local pdf_folder="\${XDG_DATA_HOME:-~/.local/share}/neurogrid/pdf-browser"
   [ -z "${NEUROGRID_PDF_BROWSER_DIR:-}" ] || pdf_folder="$(show "$NEUROGRID_PDF_BROWSER_DIR")"
-  say "卸载：删除文件夹 $shown（若装过 PDF 浏览器，另删 $pdf_folder）" \
+  say "卸载：删除文件夹 $shown（若装过 PDF 生成浏览器，另删 $pdf_folder）" \
     "uninstall: delete the folder $shown (and $pdf_folder if the PDF browser was installed)"
   printf '%s\n' "使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。"
   printf '%s\n' "Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations."

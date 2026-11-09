@@ -1,13 +1,13 @@
 # 指标 {#metrics}
 
-规则包 `core` 评价指标 M01–M14 和 NeuroVault 的 NV03 至 NV05；本页是它的来源（core 规则的条款即为指标）。对每个指标，本页说明测量什么、如何测量、
+规则包 `core` 对指标 M01–M14 以及 NeuroVault 的 NV03 至 NV05 进行评估；本页是其来源（core 规则的条款即为指标）。对每个指标，本页说明测量什么、如何测量、
 在什么对象上测量、何时无法判断、哪些规则使用它及其阈值，以及该阈值的来源。所有阈值都可以在 `neurogrid.toml`
 （`[rules."ID".params]`）中覆盖。
 
 **状态。** 无法判断的值为*无法检查*并附原因（例如数据太少）；不适用于该记录的规则为*不适用*。两者都不是工具错误：
 数据从不导致退出码 2。
 
-**来源。** *产品规格书中的起始值*：NeuroGrid 的产品规格书规定的数值。*已校准*：公开测试语料库上的第 95 百分位数，见
+**来源。** *产品规格书中的初始值*：NeuroGrid 的产品规格书规定的数值。*已校准*：公开测试语料库上的第 95 百分位数，见
 [校准](#calibration)。*假设*：记录在仓库决策记录 `docs/umsetzung/ENTSCHEIDUNGEN.md` 中的解读。
 
 **依赖库。** MNE-Python 1.13.2、edfio 0.4.18、MNE-BIDS 0.20.0、BIDS 验证器 3.0.2（deno 2.9.7）、pyprep 0.9.0、
@@ -18,17 +18,17 @@ autoreject 0.5.1、python-picard 0.8.2、mne-icalabel 0.10.0 及 onnxruntime 1.3
 
 **测量内容。** 打开每个数据文件：MNE 读取第一个和最后一个 1 秒的数据块。EDF 文件头用 edfio 检查，BDF、BrainVision
 和 EEGLAB 文件头用自有解析器检查：文件大小与文件头是否一致、字段、数字格式、开始日期。伴随文件（`.eeg`、`.vmrk`、
-`.fdt`、FIF 分段文件）必须是引用它的文件旁边的普通文件名；其他引用不会被打开。NeuroGrid 无法读取的格式（例如
-`.cnt`、`.mff`、`.xdf`）的文件会以其（假名）文件名作为检查结果列出。
+`.fdt`、FIF 分段文件）必须以不含路径的普通文件名引用，并位于引用它的文件所在的文件夹中；其他引用不会被打开。NeuroGrid 无法读取的格式（例如
+`.cnt`、`.mff`、`.xdf`）的文件会以其（假名化）文件名作为检查结果列出。
 
-**可识别身份的文件头字段**（CORE-M01-05，提示）：EDF/EDF+ 的受试者字段和记录字段、真实的开始日期、FIF 的
+**可识别身份的文件头字段**（CORE-M01-05，提示）：EDF/EDF+ 的患者字段和记录字段、真实的开始日期、FIF 的
 `subject_info` 和 `experimenter`、EEGLAB 的 `subject` 和注释字段。只报告字段名，从不报告字段值。
 
 <!-- BEGIN GENERATED thresholds M01 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M01-01](reference/rules.md#CORE-M01-01) 数据文件可读取 | 错误 | – | 产品规格书中的起始值（A-65） |
-| [CORE-M01-02](reference/rules.md#CORE-M01-02) 文件头一致 | 错误 | – | 产品规格书中的起始值（A-46） |
+| [CORE-M01-01](reference/rules.md#CORE-M01-01) 数据文件可读取 | 错误 | – | 产品规格书中的初始值（A-65） |
+| [CORE-M01-02](reference/rules.md#CORE-M01-02) 文件头一致 | 错误 | – | 产品规格书中的初始值（A-46） |
 | [CORE-M01-03](reference/rules.md#CORE-M01-03) 伴随文件和引用存在 | 错误 | – | 假设 A-46（决策记录） |
 | [CORE-M01-04](reference/rules.md#CORE-M01-04) 数据文件格式受支持 | 错误 | – | 假设 A-12（决策记录） |
 | [CORE-M01-05](reference/rules.md#CORE-M01-05) 文件头不含个人标识或真实日期 | 提示 | – | 假设 A-64（决策记录） |
@@ -42,41 +42,41 @@ EEGLAB 数据集无法分块读取；报告会注明这一点。
 **测量内容。** EEG-BIDS 必填字段 `EEGReference`、`SamplingFrequency`、`PowerLineFrequency`、`SoftwareFilters` 和
 `TaskName`，以及 `channels.tsv` 的 `name`、`type`、`units` 列；每个缺失字段一条检查结果（子键 = 字段名）。对
 `EEGReference` 和 `PowerLineFrequency`，`n/a` 视为缺失；对 `SoftwareFilters`，`n/a` 是有效值。来源顺序：
-`neurogrid.toml` > BIDS 附带文件 > 文件头。CORE-M02-02 将 `TaskName` 与任务标签比较，并检查 `BIDSVersion` 的格式和
+`neurogrid.toml` > BIDS 附属元数据文件 > 文件头。CORE-M02-02 将 `TaskName` 与任务标签比较，并检查 `BIDSVersion` 的格式和
 `Name` 是否为空。
 
 <!-- BEGIN GENERATED thresholds M02 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M02-01](reference/rules.md#CORE-M02-01) EEG-BIDS 必填字段已记录 | 错误 | – | 产品规格书中的起始值（A-03） |
-| [CORE-M02-02](reference/rules.md#CORE-M02-02) 元数据一致（TaskName、BIDSVersion、名称） | 警告 | – | 假设 A-46（决策记录） |
+| [CORE-M02-01](reference/rules.md#CORE-M02-01) EEG-BIDS 必填字段已记录 | 错误 | – | 产品规格书中的初始值（A-03） |
+| [CORE-M02-02](reference/rules.md#CORE-M02-02) 元数据一致（TaskName、BIDSVersion、Name） | 警告 | – | 假设 A-46（决策记录） |
 <!-- END GENERATED -->
 
 ## M03 采样率 {#M03}
 
 **测量内容。** 每条记录的采样率（最低的 EEG 采样率），按文件头中的 ASCII 字段精确计算（例如每 1.1 秒 550 个样本
-= 500 Hz）。采样率不同的记录需要在 `[metadata] mixed_sampling_rates_reason` 中说明理由。BIDS 附带文件中的采样率
+= 500 Hz）。采样率不同的记录需要在 `[metadata] mixed_sampling_rates_reason` 中说明理由。BIDS 附属元数据文件中的采样率
 必须与数据的采样率相同。
 
 <!-- BEGIN GENERATED thresholds M03 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M03-01](reference/rules.md#CORE-M03-01) 采样率不低于最低值 | 警告 | `min_hz` = 500（规则包） | 产品规格书中的起始值，转引自 T/GXDSL 008-2025（二手来源）（A-40） |
-| [CORE-M03-02](reference/rules.md#CORE-M03-02) 采样率统一或已说明原因 | 警告 | – | 产品规格书中的起始值（A-18） |
-| [CORE-M03-03](reference/rules.md#CORE-M03-03) 附带文件中的采样率与数据一致 | 警告 | – | 假设 A-46（决策记录） |
+| [CORE-M03-01](reference/rules.md#CORE-M03-01) 采样率不低于最低值 | 警告 | `min_hz` = 500（规则包） | 产品规格书中的初始值，转引自 T/GXDSL 008-2025（二手来源）（A-40） |
+| [CORE-M03-02](reference/rules.md#CORE-M03-02) 采样率统一或已说明原因 | 警告 | – | 产品规格书中的初始值（A-18） |
+| [CORE-M03-03](reference/rules.md#CORE-M03-03) 附属元数据文件中的采样率与数据一致 | 警告 | – | 假设 A-46（决策记录） |
 <!-- END GENERATED -->
 
 ## M04 通道组与导联 {#M04}
 
 **测量内容。** 将通道名与 MNE 导联 `standard_1020` 和 `standard_1005` 的 10-20/10-10 名称列表比较（去掉前缀
 “EEG”和 REF、AVG 等参考后缀；双极导联的两部分都是标准名称时视为标准）。`[metadata] channel_map` 可映射自定义标签。
-只存在于 10-05 中的名称给出提示。另外检查：是否有电极位置、每个任务的通道组是否相同、附带文件、`channels.tsv`
+只存在于 10-05 中的名称给出提示。另外检查：是否有电极位置、同一任务内各记录的通道组是否相同、附属元数据文件、`channels.tsv`
 和数据文件中的通道数。
 
 <!-- BEGIN GENERATED thresholds M04 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M04-01](reference/rules.md#CORE-M04-01) 通道名符合 10-20/10-10 或已映射 | 错误 | – | 产品规格书中的起始值（A-18） |
+| [CORE-M04-01](reference/rules.md#CORE-M04-01) 通道名符合 10-20/10-10 或已映射 | 错误 | – | 产品规格书中的初始值（A-18） |
 | [CORE-M04-02](reference/rules.md#CORE-M04-02) 电极位置已记录 | 警告 | – | 假设 A-18（决策记录） |
 | [CORE-M04-03](reference/rules.md#CORE-M04-03) 同一任务的通道组相同 | 警告 | – | 假设 A-18（决策记录） |
 | [CORE-M04-04](reference/rules.md#CORE-M04-04) 通道数一致 | 警告 | – | 假设 A-46（决策记录） |
@@ -86,19 +86,19 @@ EEGLAB 数据集无法分块读取；报告会注明这一点。
 ## M05 阻抗 {#M05}
 
 **测量内容。** 每个 EEG 通道是否有阻抗值（BIDS `electrodes.tsv` 或 BrainVision 文件头），以及在湿电极时是否不超过
-限值。电极是湿电极还是干电极只在 `neurogrid.toml`（`[metadata.defaults] electrode_type`）中记录；未记录时该限值
-无法检查，干电极时不适用，因为该起始值适用于湿电极。
+阈值。电极是湿电极还是干电极只在 `neurogrid.toml`（`[metadata.defaults] electrode_type`）中记录；未记录时该阈值
+无法检查，干电极时不适用，因为该初始值适用于湿电极。
 
 <!-- BEGIN GENERATED thresholds M05 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M05-01](reference/rules.md#CORE-M05-01) 阻抗已记录 | 警告 | – | 产品规格书中的起始值（A-83） |
-| [CORE-M05-02](reference/rules.md#CORE-M05-02) 阻抗低于阈值（湿电极） | 警告 | `max_kohm` = 5（规则包） | 产品规格书中的起始值，转引自 T/GXDSL 008-2025（二手来源）（A-40） |
+| [CORE-M05-01](reference/rules.md#CORE-M05-01) 阻抗已记录 | 警告 | – | 产品规格书中的初始值（A-83） |
+| [CORE-M05-02](reference/rules.md#CORE-M05-02) 阻抗低于阈值（湿电极） | 警告 | `max_kohm` = 5（规则包） | 产品规格书中的初始值，转引自 T/GXDSL 008-2025（二手来源）（A-40） |
 <!-- END GENERATED -->
 
 ## M06 坏通道 {#M06}
 
-**测量内容。** pyprep `NoisyChannels`（`find_all_bads` 的各项判据，RANSAC 最后进行且只在有电极位置时进行）在抽样上
+**测量内容。** pyprep `NoisyChannels`（`find_all_bads` 的各项判据，RANSAC 最后进行且只在有电极位置时进行）在抽样数据上
 发现的坏 EEG 通道所占比例。抽样：在 10 个等分段的中间各取 60 秒，共 10 段；不超过 10 分钟的记录整体使用。每段先
 重采样到 250 Hz，再将各段拼接（滤波不跨越拼接边界），然后在工频及其低于 125 Hz 的谐波处陷波滤波，并进行 1–100 Hz
 带通滤波。M06 在这些数据上测量；随后 M09 使用去除 M06 坏通道后的平均参考。抽样情况记录在 `results.json` 和报告中。
@@ -109,14 +109,14 @@ EEGLAB 数据集无法分块读取；报告会注明这一点。
 <!-- BEGIN GENERATED thresholds M06 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M06-01](reference/rules.md#CORE-M06-01) 坏通道比例不超过阈值 | 警告 | `max_fraction` = 0.30625（规则包） | 已校准：公开语料库中 22 个记录的第 95 百分位数（A-20, A-44） |
+| [CORE-M06-01](reference/rules.md#CORE-M06-01) 坏通道比例不超过阈值 | 警告 | `max_fraction` = 0.30625（规则包） | 已校准：公开语料库中 22 条记录的第 95 百分位数（A-20, A-44） |
 <!-- END GENERATED -->
 
 ## M07 工频干扰 {#M07}
 
-**测量内容。** 对每个通道全长按 60 秒数据块计算：采用 2 秒周期汉宁窗、无重叠的 Welch 频谱；比值
+**测量内容。** 对每个通道全长按 60 秒数据块计算：采用 2 秒窗长、周期型汉宁窗、无重叠的 Welch 功率谱；比值
 P(f₀ ± 1 Hz) / P(1–40 Hz)；通道值为各数据块的中位数。f₀ 为记录的工频，否则为 50 Hz。采样率低于 2·(f₀ + 1) 时
-不适用。CORE-M07-02 还会在另一工频（50/60 Hz）处测量，若后者按因子 `min_factor` 更为吻合，则给出提示。
+不适用。CORE-M07-02 还会在另一工频（50/60 Hz）处测量，若该处的比值超过已记录工频处比值的 `min_factor` 倍（即另一工频与数据更吻合），则给出提示。
 
 <!-- BEGIN GENERATED thresholds M07 -->
 | 规则 | 严重程度 | 参数 | 来源 |
@@ -127,7 +127,7 @@ P(f₀ ± 1 Hz) / P(1–40 Hz)；通道值为各数据块的中位数。f₀ 为
 
 ## M08 平直段与削波 {#M08}
 
-**测量内容。** 对每个通道全长按 1 秒窗口计算。平直：方差不超过最低有效位（EDF/BDF 由数字量程和物理量程得出，
+**测量内容。** 对每个通道全长按 1 秒窗口计算。平直：信号变化不超出最低有效位（EDF/BDF 由数字量程和物理量程得出，
 BrainVision 由分辨率得出）；浮点格式（EEGLAB、FIF）中峰峰值低于 `[quality] flat_tolerance_uv`（0.1 µV）。削波：在
 已知量程（EDF/BDF）时为位于量程边界的值，否则为极值处至少 `[quality] plateau_samples`（10）个相同样本的平台。
 削波窗口不再同时计为平直。数值为所占时长的比例。相邻窗口合并为时间段：`results.json` 中每个通道最多保留 100 个
@@ -136,13 +136,13 @@ BrainVision 由分辨率得出）；浮点格式（EEGLAB、FIF）中峰峰值�
 <!-- BEGIN GENERATED thresholds M08 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M08-01](reference/rules.md#CORE-M08-01) 平直段不超过时长的 5% | 错误 | `max_fraction` = 0.05（规则包） | 产品规格书中的起始值（A-18） |
-| [CORE-M08-02](reference/rules.md#CORE-M08-02) 削波不超过时长的 5% | 错误 | `max_fraction` = 0.05（规则包） | 产品规格书中的起始值（A-18） |
+| [CORE-M08-01](reference/rules.md#CORE-M08-01) 平直段不超过时长的 5% | 错误 | `max_fraction` = 0.05（规则包） | 产品规格书中的初始值（A-18） |
+| [CORE-M08-02](reference/rules.md#CORE-M08-02) 削波不超过时长的 5% | 错误 | `max_fraction` = 0.05（规则包） | 产品规格书中的初始值（A-18） |
 <!-- END GENERATED -->
 
 ## M09 伪迹比例 {#M09}
 
-**在 M06 的抽样上测量。** M09a：局部 autoreject（`cv=10`、`n_interpolate=[1, 4, 32]`）拒绝的 2 秒分段所占比例。
+**在 M06 的抽样数据上测量。** M09a：局部 autoreject（`cv=10`、`n_interpolate=[1, 4, 32]`）拒绝的 2 秒分段所占比例。
 M09b：ICA 成分（picard，extended，20 个成分，`decim=4`）中最可能的 ICLabel 类别不是“brain”的比例；ICLabel 通过
 onnxruntime 运行，其遥测已关闭。
 
@@ -151,11 +151,11 @@ onnxruntime 运行，其遥测已关闭。
 <!-- BEGIN GENERATED thresholds M09 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M09-01](reference/rules.md#CORE-M09-01) autoreject 拒绝率不超过阈值 | 警告 | `max_fraction` = 0.305083（规则包） | 已校准：公开语料库中 22 个记录的第 95 百分位数（A-20, A-44） |
-| [CORE-M09-02](reference/rules.md#CORE-M09-02) 非脑源 ICA 成分比例不超过阈值 | 警告 | `max_fraction` = 0.6（规则包） | 已校准：公开语料库中 22 个记录的第 95 百分位数（A-20, A-44） |
+| [CORE-M09-01](reference/rules.md#CORE-M09-01) autoreject 拒绝率不超过阈值 | 警告 | `max_fraction` = 0.305083（规则包） | 已校准：公开语料库中 22 条记录的第 95 百分位数（A-20, A-44） |
+| [CORE-M09-02](reference/rules.md#CORE-M09-02) 非脑源 ICA 成分比例不超过阈值 | 警告 | `max_fraction` = 0.6（规则包） | 已校准：公开语料库中 22 条记录的第 95 百分位数（A-20, A-44） |
 <!-- END GENERATED -->
 
-**局限。** 对干净数据，autoreject 常常拒绝 0 %，ICLabel 比例则取决于成分数量；两个数值都难以在不同设备之间比较。
+**局限。** 对干净数据，autoreject 常常拒绝 0%，ICLabel 比例则取决于成分数量；两个数值都难以在不同设备之间比较。
 阈值在公开语料库上校准，可以覆盖。
 
 ## M10 标注 {#M10}
@@ -163,12 +163,12 @@ onnxruntime 运行，其遥测已关闭。
 **测量内容。** 标注来自 EDF+/BDF+ 标注通道、BrainVision 标记、EEGLAB 事件、FIF 标注和 BIDS `events.tsv`。κ：在网格上
 （连续模式 30 秒，事件模式 1 秒；`[annotation]` 的 `mode`、`epoch_s`）计算两两之间不加权的 Cohen's κ，“无事件”是单独
 的一类；将各对的平均值与 `min_kappa` 比较，最小值和最弱的一对写在详情中。代码：在词表范围内，且每个标签只对应一个
-代码。空隙（仅连续模式）和每名标注者内部的重叠。只有一名标注者时 κ 不适用。
+代码。此外检查间隙（仅连续模式）以及同一标注者的标注之间的重叠。只有一名标注者时 κ 不适用。
 
 <!-- BEGIN GENERATED thresholds M10 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M10-01](reference/rules.md#CORE-M10-01) 标注者间一致性（Cohen κ）不低于 0.6 | 警告 | `min_kappa` = 0.6（规则包） | 产品规格书中的起始值（A-80） |
+| [CORE-M10-01](reference/rules.md#CORE-M10-01) 标注者间一致性（Cohen κ）不低于 0.6 | 警告 | `min_kappa` = 0.6（规则包） | 产品规格书中的初始值（A-80） |
 | [CORE-M10-02](reference/rules.md#CORE-M10-02) 标注代码统一且在词表内 | 警告 | – | 假设 A-17（决策记录） |
 | [CORE-M10-03](reference/rules.md#CORE-M10-03) 连续标注无间隙 | 警告 | – | 假设 A-17（决策记录） |
 | [CORE-M10-04](reference/rules.md#CORE-M10-04) 同一标注者的标注无重叠 | 警告 | – | 假设 A-17（决策记录） |
@@ -179,26 +179,26 @@ onnxruntime 运行，其遥测已关闭。
 **测量内容。** 按 `[ai] labels` 中的标签来源（`events:<column>`、`participants:<column>` 或 `annotations`）计算各范围
 （all、train、val、test）中每个类别的占比，以及每名受试者的年龄和性别是否已记录（`participants.tsv`）。年龄只以
 10 岁分组出现，从不出现原始年龄。小单元格：受试者层面的表格只有在每个非空单元格至少有 5 名受试者时才显示，否则
-扣留该表格，只显示其总数。
+不显示该表格，只显示其总数。
 
 <!-- BEGIN GENERATED thresholds M11 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M11-01](reference/rules.md#CORE-M11-01) 每个类别不低于最小占比 | 警告 | `min_share` = 0.05（规则包） | 产品规格书中的起始值（A-81） |
-| [CORE-M11-02](reference/rules.md#CORE-M11-02) 年龄和性别已记录 | 警告 | – | 产品规格书中的起始值（A-81） |
+| [CORE-M11-01](reference/rules.md#CORE-M11-01) 每个类别不低于最小占比 | 警告 | `min_share` = 0.05（规则包） | 产品规格书中的初始值（A-81） |
+| [CORE-M11-02](reference/rules.md#CORE-M11-02) 年龄和性别已记录 | 警告 | – | 产品规格书中的初始值（A-81） |
 <!-- END GENERATED -->
 
 ## M12 数据划分完整性 {#M12}
 
 **测量内容。** 每名受试者至多属于一个数据划分（`.neurogrid/splits.tsv` 或 `participants.tsv` 中的 `split` 列），
 且没有重复的记录：信号哈希 NG-SIGHASH-v1（对每个 EEG 通道按 0.1 µV 取整的数值连同采样率计算 SHA-256）可发现完全
-相同的记录。哈希值从不输出；检查结果只列出重复组及其（假名）记录。
+相同的记录。哈希值从不输出；检查结果只列出重复组及其（假名化）记录。
 
 <!-- BEGIN GENERATED thresholds M12 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M12-01](reference/rules.md#CORE-M12-01) 每名受试者只属于一个数据划分 | 错误 | – | 产品规格书中的起始值（A-81） |
-| [CORE-M12-02](reference/rules.md#CORE-M12-02) 无重复记录（信号哈希） | 错误 | – | 产品规格书中的起始值（A-21） |
+| [CORE-M12-01](reference/rules.md#CORE-M12-01) 每名受试者只属于一个数据划分 | 错误 | – | 产品规格书中的初始值（A-81） |
+| [CORE-M12-02](reference/rules.md#CORE-M12-02) 无重复记录（信号哈希） | 错误 | – | 产品规格书中的初始值（A-21） |
 <!-- END GENERATED -->
 
 **局限。** 只能发现完全相同的重复，不能发现部分重复（例如截取的记录）。
@@ -212,8 +212,8 @@ onnxruntime 运行，其遥测已关闭。
 <!-- BEGIN GENERATED thresholds M13 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M13-01](reference/rules.md#CORE-M13-01) 来源清单存在 | 警告 (--strict: 错误) | – | 产品规格书中的起始值（A-22, A-82） |
-| [CORE-M13-02](reference/rules.md#CORE-M13-02) 文件与清单一致 | 错误 | – | 产品规格书中的起始值（A-82） |
+| [CORE-M13-01](reference/rules.md#CORE-M13-01) 溯源清单存在 | 警告（--strict：错误） | – | 产品规格书中的初始值（A-22, A-82） |
+| [CORE-M13-02](reference/rules.md#CORE-M13-02) 文件与清单一致 | 错误 | – | 产品规格书中的初始值（A-82） |
 | [CORE-M13-03](reference/rules.md#CORE-M13-03) 已记录处理步骤和软件版本 | 警告 | – | 假设 A-22（决策记录） |
 <!-- END GENERATED -->
 
@@ -238,7 +238,7 @@ onnxruntime 运行，其遥测已关闭。
 - **没有所需用途**（既无数据划分，也无 `dataset_uses`）：不适用，即使没有 vault 或使用 `--strict` 也是如此，因为没有需要
   覆盖的内容。
 
-**输出。** `results.json` 按受试者列出结果：假名受试者 ID、用途、原因、有效版本和最多 20 个记录 ID；从不出现知情同意的
+**输出。** `results.json` 按受试者列出结果：假名化受试者 ID、用途、原因、有效版本和最多 20 个记录 ID；从不出现知情同意的
 日期、伦理审批编号和允许的用途。报告只按用途、状态和原因汇总显示 M14，不含受试者 ID 和版本；某个单元格少于 5 名受试者时，
 每个用途只显示总数（[阅读报告](report.md#findings)）。
 
@@ -254,8 +254,8 @@ onnxruntime 运行，其遥测已关闭。
 <!-- BEGIN GENERATED thresholds M14 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-M14-01](reference/rules.md#CORE-M14-01) 数据划分中的用途在知情同意范围内 | 错误 (没有知情同意数据：无法检查；--strict 或 [consent]：错误) | – | 产品规格书中的起始值（A-30, A-91） |
-| [CORE-M14-02](reference/rules.md#CORE-M14-02) 根据风险登记册可能需要重新取得知情同意 | 警告 | – | 产品规格书中的起始值（A-30, A-95） |
+| [CORE-M14-01](reference/rules.md#CORE-M14-01) 数据划分中的用途在知情同意范围内 | 错误（没有知情同意数据：无法检查；--strict 或 [consent]：错误） | – | 产品规格书中的初始值（A-30, A-91） |
+| [CORE-M14-02](reference/rules.md#CORE-M14-02) 根据风险登记册可能需要重新取得知情同意 | 警告 | – | 产品规格书中的初始值（A-30, A-95） |
 <!-- END GENERATED -->
 
 **局限。** NeuroGrid 记录用户关于知情同意的说明，不判断其在法律上是否有效（[局限](limitations.md#consent)）。
@@ -265,12 +265,12 @@ onnxruntime 运行，其遥测已关闭。
 **测量内容。** 数据集 vault 的访问日志（`[vault] path` 中的 `access.jsonl`，默认为 `.neurogrid/vault`；参见
 [NeuroVault](vault.md)）。CORE-NV03-01：哈希链完整——每个条目存储的哈希值与其内容一致，每个条目都链接到其前一个
 条目，哈希链从创世哈希值开始。CORE-NV03-02：访问日志可写入——以追加方式打开，不写入任何内容；vault 为只读时给出
-此警告和发现，绝不产生退出码 2。日志读取到短暂获得 vault 锁时的大小为止；本次运行自身的访问事件在写入
+这条警告级别的检查结果，绝不产生退出码 2。日志读取到短暂获得 vault 锁时的大小为止；本次运行自身的访问事件在写入
 `results.json` 之后才追加，因此对相同数据的两次运行结果相同。
 
 **无法检查、不适用。** 没有 vault 时两条规则均为无法检查，使用 `--strict` 时也是如此；以单个文件为目标时没有
 vault（不适用）。另一个 NeuroGrid 进程占用 vault 锁超过 10 秒，或日志无法读取时，CORE-NV03-01 为无法检查。vault
-中没有 `access.jsonl` 时两条规则均不通过：NeuroGrid 不会自动重建日志。vault 路径中有链接时，`check` 在读取数据之前
+中没有 `access.jsonl` 时两条规则均为未通过：NeuroGrid 不会自动重建日志。vault 路径中有链接时，`check` 在读取数据之前
 以退出码 2 结束。
 
 **详细信息。** 哈希链断开时给出第一处不一致所在的行、其类型和不一致总数；`neurogrid vault verify` 会列出每处不一致及其
@@ -279,7 +279,7 @@ vault（不适用）。另一个 NeuroGrid 进程占用 vault 锁超过 10 秒�
 <!-- BEGIN GENERATED thresholds NV03 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-NV03-01](reference/rules.md#CORE-NV03-01) 访问日志哈希链完整 | 错误 | – | 产品规格书中的起始值（A-30, A-90） |
+| [CORE-NV03-01](reference/rules.md#CORE-NV03-01) 访问日志哈希链完整 | 错误 | – | 产品规格书中的初始值（A-30, A-90） |
 | [CORE-NV03-02](reference/rules.md#CORE-NV03-02) 访问日志可写入 | 警告 | – | 假设 A-30, A-90（决策记录） |
 <!-- END GENERATED -->
 
@@ -289,7 +289,7 @@ vault（不适用）。另一个 NeuroGrid 进程占用 vault 锁超过 10 秒�
 事件的角色在登记册中、该角色允许其操作，且该角色的某个对象模式覆盖事件的每个对象时，访问即为允许；本身就是模式的对象
 （例如每个自动事件的 `**`）只被能覆盖其所有可能路径的模式（`**`）覆盖。CORE-NV04-01 只评判时间早于基准日期前一天
 00:00 UTC 的格式正确的事件：本次运行自身的事件以及同一天其他运行的事件都不会改变结果，因此两次运行得到相同的
-`results.json`。每个角色和操作给出一个结果：该组合的所有事件都被允许时为通过，否则为不通过，原因取自其中第一个
+`results.json`。每个角色和操作给出一个结果：该组合的所有事件都被允许时为通过，否则为未通过，原因取自其中第一个
 不被允许的事件。登记册仅供参考：NeuroGrid 不会因此拒绝任何访问；`check`、`convert`、`report --config`、`vault log`
 和 `vault consent add` 在登记册不允许其自身访问时给出警告，并照常记录事件。
 
@@ -311,14 +311,14 @@ vault（不适用）。另一个 NeuroGrid 进程占用 vault 锁超过 10 秒�
 
 **测量内容。** vault 中的保存期限 `retention.yaml` 以及个人信息保护影响评估 `pia/pia.zh.md`、`pia/pia.en.md`
 （[NeuroVault](vault.md#retention)）。CORE-NV05-01：`retention.yaml` 为每个必需对象（`pia` 和 `access_log`，即
-NeuroGrid 对 PIPL 中关于个人信息保护影响评估规定的理解）都有条目，且每个已列出对象的文件都存在；访问日志仍从创世哈希
+NeuroGrid 对《个人信息保护法》（PIPL）中关于个人信息保护影响评估的规定的理解）都有条目，且每个已列出对象的文件都存在；访问日志仍从创世哈希
 开始（开头的条目被删除时报告结果）。CORE-NV05-02：至少有一个 PIA 文件已被编辑，且不含任一模板的占位标记；NeuroGrid
 不评判其内容。CORE-NV05-03：每个条目从基准日期到 `min_until` 的天数；天数不超过 `days` 或已到复核日期 `review_at`
-时给出提醒（信息）。提醒措辞中立：请在自行开展法律审查后，决定继续保存或删除。此处不为 EEG 数据设定保存期限。
+时给出提醒（提示）。提醒措辞中立：请在自行开展法律审查后，决定继续保存或删除。此处不为 EEG 数据设定保存期限。
 
 **无法检查、不适用。** 没有 vault 时这些规则为无法检查；以单个文件为目标时没有 vault（不适用）。vault 中没有
-`retention.yaml` 时 CORE-NV05-01 不通过一次；此时 CORE-NV05-03 为不适用，`objects: []` 时也是如此。PIA 文件大于
-4,000,000 字节或无法读取时，CORE-NV05-02 为无法检查。`min_until` 不足 `created` 之后三年（自 2 月 29 日起算时为
+`retention.yaml` 时 CORE-NV05-01 给出一条未通过结果；此时 CORE-NV05-03 为不适用，`objects: []` 时也是如此。PIA 文件大于
+4,000,000 字节或无法读取时，CORE-NV05-02 为无法检查。`min_until` 距 `created` 不足三年（自 2 月 29 日起算时为
 三年后的 3 月 1 日）以及 `retention.yaml` 的其他无效内容，会使 `check` 在读取数据之前以退出码 2 结束。
 
 **详细信息。** 对象及其日期（CORE-NV05-01、CORE-NV05-03），PIA 文件数以及待填写字段数（CORE-NV05-02）；从不包含
@@ -327,7 +327,7 @@ NeuroGrid 对 PIPL 中关于个人信息保护影响评估规定的理解）都�
 <!-- BEGIN GENERATED thresholds NV05 -->
 | 规则 | 严重程度 | 参数 | 来源 |
 |---|---|---|---|
-| [CORE-NV05-01](reference/rules.md#CORE-NV05-01) 已记录 vault 文件的保存期限 | 警告 | – | 产品规格书中的起始值（A-30, A-94） |
+| [CORE-NV05-01](reference/rules.md#CORE-NV05-01) 已记录 vault 文件的保存期限 | 警告 | – | 产品规格书中的初始值（A-30, A-94） |
 | [CORE-NV05-02](reference/rules.md#CORE-NV05-02) 个人信息保护影响评估已填写 | 警告 | – | 假设 A-30, A-94（决策记录） |
 | [CORE-NV05-03](reference/rules.md#CORE-NV05-03) 最低保存期限结束前的提醒 | 提示 | `days` = 90（规则包） | 假设 A-30, A-94（决策记录） |
 <!-- END GENERATED -->

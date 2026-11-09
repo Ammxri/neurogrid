@@ -10,7 +10,7 @@
 
 | 选项 | 含义 |
 |---|---|
-| `--lang zh` / `--lang en` | 所有消息（包括 `--help`）的语言。未指定时依次使用环境变量 `NEUROGRID_LANG`、系统语言，否则为英文。未知或空的取值以退出码 2 结束。 |
+| `--lang zh` / `--lang en` | 所有消息（包括 `--help`）的语言。未指定时依次使用环境变量 `NEUROGRID_LANG`、系统语言，否则为英文。取值未知或为空时，以退出码 2 结束。 |
 | `--debug` | 发生内部错误时，另外显示不含控制字符、用户主文件夹和数据集路径的回溯信息。 |
 | `--help` | 显示帮助并退出。 |
 
@@ -25,7 +25,7 @@
 |---|---|
 | `PATH` | 数据集文件夹或单个数据文件。 |
 | `--out FILE` | 另将清点结果写为 JSON（[输出文件](reference/outputs.md#scan-json)）。 |
-| `--show-paths` | 显示真实路径，而非假名 ID（原始文件夹）。 |
+| `--show-paths` | 显示真实路径，而非假名化 ID（原始文件夹）。 |
 
 | 退出码 | 含义 |
 |---|---|
@@ -45,7 +45,7 @@
 | `--to bids` | 目标结构；0.1 版支持 `bids`。 |
 | `--out FOLDER` | 输出文件夹；必须为空或尚不存在，且位于输入之外。 |
 | `--config FILE` | `neurogrid.toml`（默认：原始数据文件夹中的 `.neurogrid/neurogrid.toml`），其中记录文件到受试者、会话、任务和运行编号的映射。 |
-| `--strip-identifying-headers` | 在转换后的副本中，将可识别身份的文件头字段（EDF/BDF 的受试者字段和记录字段、开始日期、BrainVision 注释）替换为占位值。 |
+| `--strip-identifying-headers` | 在转换后的副本中，将可识别身份的文件头字段（EDF/BDF 的患者字段和记录字段、开始日期、BrainVision 注释）替换为占位值。 |
 
 | 退出码 | 含义 |
 |---|---|
@@ -69,7 +69,7 @@
 | `--strict` | 严格模式：缺少清单即为错误（CORE-M13-01）。 |
 | `--as-of YYYY-MM-DD` | 判断例外和日期所用的基准日期（默认：今天）；它是结果的一部分。 |
 | `--allow-draft-rulepacks` | 允许加载占位规则包；其规则会显示，但从不计入统计。`neurogrid.toml` 中没有相应的设置：每次运行单独决定。 |
-| `--show-paths` | 显示真实路径，而非假名 ID（原始文件夹）。 |
+| `--show-paths` | 显示真实路径，而非假名化 ID（原始文件夹）。 |
 | `--jobs N` | 计算信号指标所用的进程数，1–64；结果与 `--jobs 1` 逐字节相同。 |
 | `--evidence FILE` | `evidence.yaml`（默认：数据集中的 `.neurogrid/evidence.yaml`）。 |
 | `--manifest FILE` | 用于比对的清单（默认：数据集中的 `.neurogrid/manifest.json`）。 |
@@ -100,14 +100,14 @@
 |---|---|
 | `RESULTS_FILE` | 由 `check` 写入的 `results.json`。 |
 | `--lang` | 报告语言 `zh`、`en`（默认 `zh,en`）。 |
-| `--format` | `html`、`pdf`、`dossier`（默认 `html`）；PDF 和证明材料汇编需要 [PDF 浏览器](installation.md#pdf-browser)。多种格式要么全部写出，要么都不写出。 |
+| `--format` | `html`、`pdf`、`dossier`（默认 `html`）；PDF 和证明材料汇编需要 [PDF 生成浏览器](installation.md#pdf-browser)。多种格式要么全部写出，要么都不写出。 |
 | `--out FOLDER` | 输出文件夹（默认：`results.json` 所在的文件夹）。 |
-| `--config FILE` | 报告显示其 vault 的 `neurogrid.toml`：封面增加访问日志一行（条目数、链头哈希值、哈希链状态，在生成报告前读取），报告在写出文件之后追加其访问事件（操作 `report`）。不指定 `--config` 时，报告不读取也不写入任何 vault。 |
+| `--config FILE` | `neurogrid.toml`，报告显示其所指定的 vault：封面增加访问日志一行（条目数、链头哈希值、哈希链状态，在生成报告前读取），报告在写出文件之后追加其访问事件（操作 `report`）。不指定 `--config` 时，报告不读取也不写入任何 vault。 |
 
 | 退出码 | 含义 |
 |---|---|
 | 0 | 已写出所有要求的报告 |
-| 2 | 工具错误：结果无法读取、未知的语言或格式、缺少 PDF 浏览器或 Linux 系统库（此时不写出任何文件）、`--config` 无效、vault 路径中有链接 |
+| 2 | 工具错误：结果无法读取、未知的语言或格式、缺少 PDF 生成浏览器或 Linux 系统库（此时不写出任何文件）、`--config` 无效、vault 路径中有链接 |
 
 ## manifest {#manifest}
 
@@ -119,7 +119,7 @@
 |---|---|
 | `PATH` | 数据集文件夹。 |
 | `--out FILE` | 清单文件（默认：数据集中的 `.neurogrid/manifest.json`）。 |
-| `--show-paths` | 显示真实路径，而非假名 ID（原始文件夹）。 |
+| `--show-paths` | 显示真实路径，而非假名化 ID（原始文件夹）。 |
 
 | 退出码 | 含义 |
 |---|---|
@@ -137,7 +137,7 @@
 |---|---|
 | `PATH` | 数据集文件夹。 |
 | `--manifest FILE` | 由 `manifest` 写入的 `manifest.json`（必填）。 |
-| `--show-paths` | 显示真实路径，而非假名 ID（原始文件夹）。 |
+| `--show-paths` | 显示真实路径，而非假名化 ID（原始文件夹）。 |
 
 | 退出码 | 含义 |
 |---|---|
@@ -157,12 +157,12 @@
 | 新增 | 该键只在 `NEW` 中 |
 | 已消除 | 该键只在 `OLD` 中，且其规则在 `NEW` 中对同一对象计有通过结果 |
 | 已移除 | 该键只在 `OLD` 中的其他情况：规则不再加载或对象已不存在 |
-| 已变化 | 该键在两者中都有，但状态、有效严重程度或测量值不同（数值四舍五入到 6 位有效数字） |
+| 已变化 | 该键在两者中都有，但状态、生效的严重程度或测量值不同（数值四舍五入到 6 位有效数字） |
 
 占位规则包的检查结果不参与比较，只计数。针对知情同意记录的规则（`consent.*` 检查，例如 CORE-M14-01）的检查结果
 按规则和类别计数，从不逐项列出，因此版本比较中不会出现任何受试者。文本显示两次运行（NeuroGrid 版本、基准日期、
 规则包）、配置是否变化，数据集 ID 或名称不同时给出警告，然后每个类别最多 200 行（JSON 列出全部）、计数的知情同意
-规则、汇总和退出码的原因。对象与 `results.json` 中一致：在原始数据文件夹中为假名，除非检查时使用了 `--show-paths`。
+规则、汇总和退出码的原因。对象与 `results.json` 中一致：在原始数据文件夹中为假名化，除非检查时使用了 `--show-paths`。
 
 | 参数 / 选项 | 含义 |
 |---|---|
@@ -220,9 +220,9 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 
 手动记录一次访问，例如 NeuroGrid 无法看到的、交给审阅人员的副本。角色和目的为必填：`--role` 优先于
 `[vault] role`，`--purpose` 优先于 `[vault] purpose`；`--approval-ref` 优先于 `[vault] approval_ref`，可选。
-在原始文件夹中，指向现有文件的对象以其假名文件名记录（与 `verify` 的显示相同）；在对象被视为模式之前，先按操作系统
+在原始文件夹中，指向现有文件的对象以其假名化文件名记录（与 `verify` 的显示相同）；在对象被视为模式之前，先按操作系统
 读取文件名的方式查找该名称，因此含 `[`、`*` 或 `?` 的文件名，以及在 Windows 下大小写不同或末尾带点或空格的名称，也算
-作现有文件。指向数据集中的链接或目录联接（或经过链接的路径）的对象以退出码 2 结束（从不跟随链接）。模式、文件夹和 BIDS
+作现有文件。指向数据集中的链接或目录联接（或经过链接的路径）的对象会使命令以退出码 2 结束（从不跟随链接）。模式、文件夹和 BIDS
 路径按原样记录。
 看起来像人名或身份编号的对象、目的或角色会给出提示，并按原样记录。命令输出新条目的序号和哈希值。
 
@@ -272,7 +272,7 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 | `--report FILE` | 要纳入的 NeuroGrid 报告，须为 `neurogrid report` 写出且未经修改：`report.<lang>.html`、`report.<lang>.pdf` 或 `dossier.pdf`。重复该选项可给出 1 至 5 份报告，每种一次；其他文件一律拒绝。 |
 | `--out FILE.zip` | 要写出的 ZIP 文件；不得位于 vault 文件夹内。已有文件会被替换。 |
 | `--manifest FILE` | 要纳入的清单（默认：数据集中的 `.neurogrid/manifest.json`）；必须有效。 |
-| `--show-paths` | 在导出的清单中保留真实文件名；否则在原始数据文件夹中以假名 ID 命名文件，与 `verify` 的显示相同。 |
+| `--show-paths` | 在导出的清单中保留真实文件名；否则在原始数据文件夹中以假名化 ID 命名文件，与 `verify` 的显示相同。 |
 | `--config FILE` | `neurogrid.toml`；其 `[vault] path` 指定 vault。 |
 | `--role ROLE` | 访问事件中的角色（默认：`[vault] role`；没有角色时退出码为 2）。 |
 | `--purpose TEXT`、`--approval-ref REF` | 访问事件的目的和批准编号（默认：`[vault] purpose` 和 `approval_ref`，否则为空）。 |
@@ -295,7 +295,7 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 `check`、`convert`、`report --config`、`vault log` 和 `vault consent add` 在开始时将自身的访问与角色登记册
 `roles.yaml` 比较（[NeuroVault](vault.md#roles)）：登记册不允许该访问（未知角色，或该角色没有的操作或对象），或无法
 读取 `roles.yaml` 时，它们给出警告，但仍记录该事件；退出码不变。只有 `check` 会因无效的 `roles.yaml`（CORE-NV04-01
-读取该文件）以退出码 2 结束。没有登记册、为 `roles: []`，以及不记录角色的 `scan`、`manifest` 和 `verify`，均不作比较。
+读取该文件）以退出码 2 结束。没有登记册或登记册为 `roles: []` 时，以及对不记录角色的 `scan`、`manifest` 和 `verify`，均不作比较。
 
 ### vault consent add {#vault-consent-add}
 
@@ -306,7 +306,7 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 
 | 选项 | 含义 |
 |---|---|
-| `--subject` | 假名受试者，可带或不带 `sub-`。 |
+| `--subject` | 假名化受试者，可带或不带 `sub-`。 |
 | `--version` | 知情同意的版本，1 到 1000000 之间的整数；更改记录为一个更高的新版本。 |
 | `--date` | 知情同意或撤回的日期，`YYYY-MM-DD`。 |
 | `--uses` | 允许的用途（可重复指定或用逗号分隔）：`training`、`validation`、`publication`、`sharing`、`commercial`。部分撤回是用途更少的新版本。 |
@@ -327,5 +327,5 @@ NeuroVault 命令作用于 vault 文件夹：`neurogrid.toml` 中的 `[vault] pa
 - **0** – 没有未通过的错误级规则，错误级规则也没有待补的证明材料；仅有警告从不改变退出码。
 - **1** – 检查结果：未通过的错误级规则、错误级规则待补的证明材料、无法读取或不受支持的数据文件、没有可读取的记录；
   对 `verify` 和 `vault verify` 为存在不一致，对 `convert` 为有文件未转换，对 `diff` 为有新的错误级结果。
-- **2** – 仅限工具错误：配置、规则包、验证器、PDF 浏览器、不允许的路径、内部错误、明确指定的未知格式的单个文件。
+- **2** – 仅限工具错误：配置、规则包、验证器、PDF 生成浏览器、不允许的路径、内部错误、明确指定的未知格式的单个文件。
   数据集中的数据从不导致退出码 2。

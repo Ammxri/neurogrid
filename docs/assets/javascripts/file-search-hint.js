@@ -8,7 +8,7 @@
   }
   var hints = {
     en: "Search needs a local server (see Installation)",
-    zh: "搜索需通过本地服务器打开（见“安装”）"
+    zh: "搜索需要本地服务器（见“安装”）"
   };
   function disable() {
     var lang = (document.documentElement.lang || "en").toLowerCase().slice(0, 2);

@@ -93,9 +93,9 @@ MESSAGES: dict[str, tuple[str, str]] = {
         "service apply; it contains open-source components such as FFmpeg under LGPL-2.1+). You download it "
         "yourself; NeuroGrid does not distribute it.",
     ),
-    "target": ("安装目录：{folder}", "Installation folder: {folder}"),
+    "target": ("安装文件夹：{folder}", "Installation folder: {folder}"),
     "already": (
-        "PDF 浏览器（修订版 {revision}）已安装且完整：{folder}",
+        "PDF 生成浏览器（修订版 {revision}）已安装且完整：{folder}",
         "The PDF browser (revision {revision}) is already installed and complete: {folder}",
     ),
     "downloading": ("正在下载 {url}（{size} 字节）……", "Downloading {url} ({size} bytes) ..."),
@@ -119,20 +119,20 @@ MESSAGES: dict[str, tuple[str, str]] = {
         "zip 不安全或不是预期的文件（{problem}）。未安装任何内容。",
         "The zip is unsafe or not the expected file ({problem}). Nothing was installed.",
     ),
-    "installed": ("PDF 浏览器已安装：{folder}", "The PDF browser was installed: {folder}"),
+    "installed": ("PDF 生成浏览器已安装：{folder}", "The PDF browser was installed: {folder}"),
     "downloaded": (
         "已下载并校验：{file}。请将其复制到目标计算机并运行：{command}",
         "Downloaded and verified: {file}. Copy it to the target computer and run: {command}",
     ),
     "check_ok": (
-        "已安装的 PDF 浏览器完整（修订版 {revision}，{files} 个文件）。",
+        "已安装的 PDF 生成浏览器完整（修订版 {revision}，{files} 个文件）。",
         "The installed PDF browser is complete (revision {revision}, {files} files).",
     ),
     "check_failed": (
-        "已安装的 PDF 浏览器不完整或已被更改（{problem}）。请使用 --force 重新安装。",
+        "已安装的 PDF 生成浏览器不完整或已被更改（{problem}）。请使用 --force 重新安装。",
         "The installed PDF browser is incomplete or was changed ({problem}). Reinstall it with --force.",
     ),
-    "not_installed": ("{folder} 中未安装 PDF 浏览器。", "The PDF browser is not installed in {folder}."),
+    "not_installed": ("{folder} 中未安装 PDF 生成浏览器。", "The PDF browser is not installed in {folder}."),
     "folder_invalid": (
         "{variable} 必须是本机上的绝对文件夹路径（不得为网络路径或设备路径）。",
         "{variable} must be an absolute folder on this computer (no network or device path).",
@@ -158,7 +158,7 @@ MESSAGES: dict[str, tuple[str, str]] = {
         "Linux ({distribution}) system packages: apt-get install --no-install-recommends {packages}",
     ),
     "info_packages_missing": (
-        "未找到 Linux 软件包列表；请参阅文档“安装”中的“PDF 浏览器”一节。",
+        "未找到 Linux 软件包列表；请参阅文档“安装”中的“PDF 生成浏览器”一节。",
         "The Linux package list was not found; see the section 'PDF browser' of the installation page "
         "in the documentation.",
     ),
