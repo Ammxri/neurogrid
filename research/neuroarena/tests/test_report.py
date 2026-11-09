@@ -10,6 +10,7 @@ import dataclasses
 import json
 import re
 import shutil
+import statistics
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -218,6 +219,44 @@ def test_missing_levels_are_not_invented(published: SimpleNamespace) -> None:
         line for line in published.texts["en"].splitlines() if line.startswith("| Kalunga2016 | EEGNet | –")
     ]
     assert kalunga and kalunga[0].endswith("| 1 |")
+
+
+def test_cho2017_line_noise_finding_follows_the_line_noise_item(
+    published: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A-111: the line-noise item points to the next item, which states the finding for Cho2017 with the
+    ladder's mean accuracies from curve.csv and the EEGNet pairs at the top level with and without the
+    ladder from sessions.csv; without Cho2017 among the phase-locked datasets neither appears."""
+    curve = records.read_curve(published.results / paths.CURVE_FILE)
+    ladder = {
+        (p.decoder, p.x): p.mean_accuracy
+        for p in curve
+        if p.dataset == "Cho2017" and p.axis == "degradation" and p.kind == "line_noise"
+    }
+    sessions = records.read_sessions(published.results / paths.SESSIONS_FILE)
+    top = [s for s in sessions if s.dataset == "Cho2017" and s.decoder == "eegnet" and s.quality_level == 5]
+    line, rest = [s for s in top if s.kind == "line_noise"], [s for s in top if s.kind != "line_noise"]
+    assert line and rest
+    starts = {
+        "en": ("- **Band-pass filters", "- **Cho2017: the added line noise"),
+        "zh": ("- **带通滤波", "- **Cho2017："),
+    }
+    for language, text in published.texts.items():
+        t = report.TEXTS[language]
+        lines = text.splitlines()
+        index = next(i for i, x in enumerate(lines) if x.startswith(starts[language][0]))
+        assert lines[index].endswith(t["lim_line_except"].format(name="Cho2017"))
+        item = lines[index + 1]
+        assert item.startswith(starts[language][1]) and "A-111" in item and "F4c" in item
+        eegnet = " \N{RIGHTWARDS ARROW} ".join(report._percent(ladder["eegnet", x]) for x in (0, 5))
+        assert t["named"].format(name="EEGNet", items=eegnet) in item
+        assert report._percent(statistics.fmean(s.accuracy for s in rest)) in item
+        assert f"{len(top)}" in item and f"{len(line)}" in item and f"{len(rest)}" in item
+    monkeypatch.setattr(report, "PHASE_LOCKED_LINE_NOISE", "Nowhere2000")
+    copy = published.base / "no-phase"
+    shutil.copytree(published.results, copy / "results")
+    en, zh = report.render(copy / "results", copy / "report" / "en", copy / "report" / "zh")
+    assert "A-111" not in en.read_text(encoding="utf-8") and "A-111" not in zh.read_text(encoding="utf-8")
 
 
 def test_report_is_rendered_from_the_results_folder_only(published: SimpleNamespace) -> None:

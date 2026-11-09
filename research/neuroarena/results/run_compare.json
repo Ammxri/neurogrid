@@ -1,0 +1,16 @@
+{
+  "compared": {
+    "fold": 12160,
+    "neurogrid": 1696,
+    "quality": 48
+  },
+  "differences": [],
+  "exact": true,
+  "ok": true,
+  "runs": [
+    "full-1",
+    "full-2"
+  ],
+  "tolerance": null,
+  "version": 1
+}

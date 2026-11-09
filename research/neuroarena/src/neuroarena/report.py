@@ -123,6 +123,10 @@ LEVEL_COLOURS = ("#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281")
 NO_LEVEL_COLOUR = "#f0efec"
 PARADIGM_LABELS = {"imagery": "motor imagery", "ssvep": "SSVEP"}
 KIND_LABELS = {"line_noise": "line noise", "channels": "flat channels", "artifacts": "artefacts"}
+# The dataset whose MOABB loader joins one block of trials per class, with the trial onsets a whole number
+# of line periods apart and a zero gap between the blocks that is not: the line-noise sinusoid has one
+# phase per class at the trial onsets (finding after the full runs, A-111).
+PHASE_LOCKED_LINE_NOISE = "Cho2017"
 FIGURE_RC = {
     "svg.hashsalt": "neuroarena",
     "svg.fonttype": "path",
@@ -1040,6 +1044,29 @@ TEXTS: dict[str, dict[str, Any]] = {
             "ladder can therefore move the quality level (M07) without moving the accuracy."
         ),
         "lim_line_data": "Mean accuracy, clean and at the highest line-noise level of the run: {values}.",
+        "lim_line_except": "For {name} with EEGNet this does not hold; see the next item.",
+        "lim_phase": (
+            "- **{name}: the added line noise carries the class (finding after the full runs, A-111).** "
+            "MOABB's loader of {name} puts the trials of each class into one block, with the trial onsets a "
+            "whole number of periods of the line frequency apart, and joins the two blocks with a gap of "
+            "zeros that is not a whole number of periods. The sinusoid of the line-noise ladder runs "
+            "through the whole recording, so it has one phase at the onset of every trial of one class and "
+            "another phase at the onset of every trial of the other class: the added noise is locked to "
+            "the class. EEGNet's temporal convolutions respond to the phase and can learn such a signal "
+            "from what the band-pass filter leaves of it; CSP+LDA uses the variance of the signal, which "
+            "does not depend on the phase. Along the line-noise ladder of {name} the EEGNet accuracy rises "
+            "and the CSP+LDA accuracy does not. The EEGNet accuracies of this ladder, and the EEGNet point "
+            "of {name} at Q{top} in the main figure, which contains its pairs, therefore cannot be read as "
+            "decoding of EEG under line noise. The degradation was not changed after the results were "
+            "seen (F4c)."
+        ),
+        "lim_phase_data": (
+            "Mean accuracy of {name} over the line-noise ladder (clean, levels {levels}): {values}."
+        ),
+        "lim_phase_top": (
+            "EEGNet at Q{top} of {name}: {all} over {n} pairs, {n_line} of them from the line-noise ladder; "
+            "without these {rest} over {n_rest} pairs (mean only, no interval)."
+        ),
         "lim_equality": (
             "- **Equality only per machine and lock (A-106).** Another machine, another BLAS build or "
             "another lock can give other EEGNet weights and so other accuracies; the comparison of the two "
@@ -1325,6 +1352,23 @@ TEXTS: dict[str, dict[str, Any]] = {
             "干扰阶梯可能改变质量等级（M07），而准确率不变。"
         ),
         "lim_line_data": "干净数据和本次运行中最高工频干扰等级下的平均准确率：{values}。",
+        "lim_line_except": "对 {name} 的 EEGNet 而言并非如此，见下一条。",
+        "lim_phase": (
+            "- **{name}：添加的工频干扰携带了类别信息（完整运行后的发现，A-111）。** {name} 的 MOABB 加载器把"
+            "每个类别的试次放进一个块，试次起点之间相隔工频周期的整数倍，再用一段零值把两个块连接"
+            "起来，而这段零值的长度不是周期的整数倍。工频干扰阶梯的正弦波贯穿整条记录，因此它在一个"
+            "类别每个试次的起点处相位相同，在另一类别每个试次的起点处是另一个相位：添加的干扰与类别"
+            "锁定。EEGNet 的时间卷积对相位敏感，能够从带通滤波后残留的部分中学到这种信号；CSP+LDA "
+            "使用信号的方差，而方差与相位无关。沿 {name} 的工频干扰阶梯，EEGNet 的准确率上升，"
+            "CSP+LDA 的准确率不变。因此，该阶梯上 EEGNet 的准确率，以及主图中包含这些组合的 {name} "
+            "EEGNet 在 Q{top} 的点，都不能解读为在工频干扰下对脑电的解码。看到结果后没有更改劣化方法"
+            "（F4c）。"
+        ),
+        "lim_phase_data": "{name} 在工频干扰阶梯上的平均准确率（干净数据，等级 {levels}）：{values}。",
+        "lim_phase_top": (
+            "{name} EEGNet 在 Q{top}：{n} 个组合的平均为 {all}，其中 {n_line} 个来自工频干扰阶梯；"
+            "去掉这些后，{n_rest} 个组合的平均为 {rest}（只有均值，没有区间）。"
+        ),
         "lim_equality": (
             "- **结果相同只限于同一台机器和同一组锁文件（A-106）。** 换一台机器、换一个 BLAS 版本或换一组锁文"
             "件，都可能得到不同的 EEGNet 权重，进而得到不同的准确率；两次运行的比较只对一台机器和一组锁文件成"
@@ -1938,7 +1982,13 @@ class _View:
             eegnet_band=_range(decoders["eegnet_band_hz"]),
             lines=", ".join(_num(v) for v in lines_hz),
         )
-        lines.append(self._with_data(line_text, t["lim_line_data"], self._accuracy_change("line_noise")))
+        line_item = self._with_data(line_text, t["lim_line_data"], self._accuracy_change("line_noise"))
+        phase = PHASE_LOCKED_LINE_NOISE if PHASE_LOCKED_LINE_NOISE in self.datasets else None
+        if phase and self._highest("line_noise") is not None:
+            lines.append(f"{line_item}{t['space']}{t['lim_line_except'].format(name=phase)}")
+            lines.append(self._phase_item(phase))
+        else:
+            lines.append(line_item)
         lines.append(t["lim_equality"])
         if "Cho2017" in clean:
             median = clean["Cho2017"]["median_ratio_CORE-M09-01"]
@@ -1997,6 +2047,48 @@ class _View:
                 )
             )
         return self.t["sep"].join(parts)
+
+    def _phase_item(self, name: str) -> str:
+        """The finding A-111 for ``name``: its mean accuracy per decoder along the line-noise ladder
+        (curve.csv, degradation axis) and the EEGNet pairs at the top level of the main curve with and
+        without the pairs of that ladder (sessions.csv)."""
+        t = self.t
+        top = self.levels[-1]
+        ladder = sorted(c.level for c in self.conditions if c.kind == "line_noise")
+        points = {
+            (p.decoder, p.x): p
+            for p in self.data.curve
+            if p.dataset == name and p.axis == "degradation" and p.kind == "line_noise"
+        }
+        values = t["sep"].join(
+            t["named"].format(
+                name=self._decoder(decoder),
+                items=" \N{RIGHTWARDS ARROW} ".join(
+                    _percent(points[decoder, x].mean_accuracy) if (decoder, x) in points else DASH
+                    for x in (0, *ladder)
+                ),
+            )
+            for decoder in self.decoders
+        )
+        text = self._with_data(
+            t["lim_phase"].replace("{name}", name).replace("{top}", str(top)),
+            t["lim_phase_data"].replace("{name}", name).replace("{levels}", _span(ladder)),
+            values,
+        )
+        pairs = [row for row in self._rows(name, decoder="eegnet") if row.quality_level == top]
+        line_pairs = [row for row in pairs if row.kind == "line_noise"]
+        rest = [row for row in pairs if row.kind != "line_noise"]
+        if line_pairs and rest:
+            text += t["space"] + t["lim_phase_top"].format(
+                name=name,
+                top=top,
+                all=_percent(statistics.fmean(row.accuracy for row in pairs)),
+                n=len(pairs),
+                n_line=len(line_pairs),
+                rest=_percent(statistics.fmean(row.accuracy for row in rest)),
+                n_rest=len(rest),
+            )
+        return text
 
     def _accuracy_change(self, kind: str) -> str:
         """Mean accuracy, clean (x = 0) and at the highest level of ``kind`` in the run, per dataset and

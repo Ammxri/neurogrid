@@ -1,0 +1,466 @@
+{
+  "base_seed": 20261102,
+  "config": {
+    "conditions": [
+      "clean",
+      "line_noise-1",
+      "line_noise-2",
+      "line_noise-3",
+      "line_noise-4",
+      "line_noise-5",
+      "channels-1",
+      "channels-2",
+      "channels-3",
+      "channels-4",
+      "channels-5",
+      "artifacts-1",
+      "artifacts-2",
+      "artifacts-3",
+      "artifacts-4",
+      "artifacts-5"
+    ],
+    "datasets": [
+      "Zhou2016",
+      "Cho2017",
+      "Kalunga2016"
+    ],
+    "decoders": [
+      "csp_lda",
+      "eegnet"
+    ],
+    "subjects": null
+  },
+  "datasets": {
+    "Cho2017": {
+      "citation": "Cho, H., Ahn, M., Ahn, S., Kwon, M. and Jun, S.C., 2017. EEG datasets for motor imagery brain computer interface. GigaScience. https://doi.org/10.1093/gigascience/gix034",
+      "download": "https://s3.ap-northeast-1.wasabisys.com/gigadb-datasets/live/pub/10.5524/100001_101000/100295/mat_data/",
+      "events": [
+        "left_hand",
+        "right_hand"
+      ],
+      "flattened_channels": [
+        3,
+        6,
+        13,
+        22,
+        32
+      ],
+      "licence": "CC0-1.0",
+      "licence_note": "CC0-1.0 at GigaDB doi:10.5524/100295 (DataCite rightsIdentifier cc0-1.0, checked 2026-11-02; 9.97 GB per DataCite, about 0.2 GB per subject file). MOABB's own metadata says CC-BY-4.0, which is not what the source states.",
+      "licence_verified": true,
+      "line_frequency_hz": 60.0,
+      "mne_sign": "GIGADB",
+      "n_eeg_channels": 64,
+      "n_subjects": 52,
+      "name": "Cho2017",
+      "paper_doi": "10.1093/gigascience/gix034",
+      "paradigm": "imagery",
+      "sampling_rate_hz": 512.0,
+      "source": "doi:10.5524/100295"
+    },
+    "Kalunga2016": {
+      "citation": "Emmanuel K. Kalunga, Sylvain Chevallier, Quentin Barthelemy. \"Online SSVEP-based BCI using Riemannian Geometry\". Neurocomputing, 2016. arXiv report: https://arxiv.org/abs/1501.03227",
+      "download": "https://zenodo.org/record/2392979/files/",
+      "events": [
+        "13",
+        "17",
+        "21",
+        "rest"
+      ],
+      "flattened_channels": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "licence": "CC-BY-4.0",
+      "licence_note": "CC-BY-4.0 at Zenodo record 2392979 (Zenodo API, checked 2026-11-02; 36 FIF files, 0.110 GB).",
+      "licence_verified": true,
+      "line_frequency_hz": 50.0,
+      "mne_sign": "SSVEPEXO",
+      "n_eeg_channels": 8,
+      "n_subjects": 12,
+      "name": "Kalunga2016",
+      "paper_doi": "10.1016/j.neucom.2016.01.007",
+      "paradigm": "ssvep",
+      "sampling_rate_hz": 256.0,
+      "source": "https://zenodo.org/record/2392979"
+    },
+    "Zhou2016": {
+      "citation": "Zhou B, Wu X, Lv Z, Zhang L, Guo X (2016) A Fully Automated Trial Selection Method for Optimization of Motor Imagery Based Brain-Computer Interface. PLoS ONE 11(9). https://doi.org/10.1371/journal.pone.0162657",
+      "download": "https://zenodo.org/api/records/16534752",
+      "events": [
+        "left_hand",
+        "right_hand",
+        "feet"
+      ],
+      "flattened_channels": [
+        1,
+        2,
+        3,
+        5,
+        7
+      ],
+      "licence": "CC-BY-4.0",
+      "licence_note": "CC-BY-4.0 at the download source of moabb 1.7.2, the BIDS conversion by MOABB in Zenodo record 16534752 (Zenodo API, checked 2026-11-02; 8 files, 0.126 GB). The original figshare item doi:10.6084/m9.figshare.2061654 is CC0-1.0 (figshare API).",
+      "licence_verified": true,
+      "line_frequency_hz": 50.0,
+      "mne_sign": "ZHOU2016",
+      "n_eeg_channels": 14,
+      "n_subjects": 4,
+      "name": "Zhou2016",
+      "paper_doi": "10.1371/journal.pone.0162657",
+      "paradigm": "imagery",
+      "sampling_rate_hz": 250.0,
+      "source": "doi:10.6084/m9.figshare.2061654"
+    }
+  },
+  "decoders": {
+    "covariance_estimator": "oas",
+    "csp_filters": 6,
+    "device": "cpu",
+    "eegnet_band_hz": [
+      4.0,
+      40.0
+    ],
+    "eegnet_batch_size": 16,
+    "eegnet_class": "braindecode.models.EEGNet",
+    "eegnet_criterion": "torch.nn.CrossEntropyLoss",
+    "eegnet_drop_last": true,
+    "eegnet_early_stopping_monitor": "valid_loss",
+    "eegnet_epochs_in_this_mode": 300,
+    "eegnet_input_scale": 1000000.0,
+    "eegnet_learning_rate": 0.001,
+    "eegnet_load_best": true,
+    "eegnet_max_epochs": 300,
+    "eegnet_optimizer": "torch.optim.Adam",
+    "eegnet_patience": 50,
+    "eegnet_sampling_rate_hz": 128.0,
+    "eegnet_shuffle": true,
+    "eegnet_validation_share": 0.2,
+    "lda_solver": "svd",
+    "mi_band_csp_hz": [
+      8.0,
+      32.0
+    ],
+    "ssvep_band_half_width_hz": 0.5
+  },
+  "degradation": {
+    "artifact_epoch_s": 2.0,
+    "artifact_fractions": [
+      0.05,
+      0.1,
+      0.2,
+      0.35,
+      0.5
+    ],
+    "artifact_types": [
+      "blink",
+      "muscle",
+      "pop"
+    ],
+    "blink_amplitude_uv": [
+      100.0,
+      200.0
+    ],
+    "blink_duration_s": 0.4,
+    "blink_falloff_m": 0.06,
+    "blink_reference_y_m": 0.115,
+    "blink_unknown_y_m": 0.0,
+    "channel_fractions": [
+      0.05,
+      0.1,
+      0.2,
+      0.35,
+      0.5
+    ],
+    "channel_minimums": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "flat_value_v": 0.0,
+    "line_noise_db": [
+      -15.0,
+      -10.0,
+      -5.0,
+      0.0,
+      10.0
+    ],
+    "line_noise_harmonic_amplitude": 0.5,
+    "line_noise_reference_band_hz": [
+      1.0,
+      40.0
+    ],
+    "muscle_amplitude_uv": [
+      20.0,
+      50.0
+    ],
+    "muscle_duration_s": 1.0,
+    "muscle_head_centre_m": [
+      0.0,
+      0.015,
+      0.039
+    ],
+    "muscle_low_hz": 20.0,
+    "muscle_nyquist_margin_hz": 5.0,
+    "muscle_source_azimuths_deg": [
+      30.0,
+      90.0,
+      150.0,
+      210.0,
+      270.0,
+      330.0
+    ],
+    "muscle_source_distance_m": 0.06,
+    "muscle_source_elevation": -0.2,
+    "muscle_taper": 0.2,
+    "pop_amplitude_uv": [
+      100.0,
+      300.0
+    ],
+    "pop_channels": 1,
+    "pop_decay_s": 0.3,
+    "pop_onset_share": 0.5,
+    "type_checking": false
+  },
+  "evaluation": {
+    "bootstrap_resamples": 10000,
+    "confidence": 0.95,
+    "n_folds": 5,
+    "session_seed": "derive_seed(dataset, subject, session)"
+  },
+  "locks": {
+    "research/neuroarena/uv.lock": "34835bf5b9155adcf7a700966fb5d168867dc4e01383a70319b739a11ab8cc83",
+    "uv.lock": "febbebaf723ce0eb1df935b372ad279b47e385a1f4c8ea4c5ff65fc8e92d3f2d"
+  },
+  "machine": {
+    "machine": "AMD64",
+    "system": "Windows"
+  },
+  "mode": "full",
+  "neurogrid": {
+    "call": "uv run --project <repo> --locked neurogrid check <folder> --config <toml> --show-paths --jobs N --out <file>",
+    "configuration": {
+      "Cho2017": {
+        "metadata": {
+          "defaults": {
+            "line_frequency_hz": 60.0
+          }
+        },
+        "quality": {
+          "min_channels": 64
+        }
+      },
+      "Kalunga2016": {
+        "metadata": {
+          "defaults": {
+            "line_frequency_hz": 50.0
+          }
+        },
+        "quality": {
+          "min_channels": 8
+        }
+      },
+      "Zhou2016": {
+        "metadata": {
+          "defaults": {
+            "line_frequency_hz": 50.0
+          }
+        },
+        "quality": {
+          "min_channels": 14
+        }
+      }
+    },
+    "fif_format": "single",
+    "settings": {
+      "quality": {
+        "flat_tolerance_uv": 0.1,
+        "min_seconds": 60.0,
+        "plateau_samples": 10
+      },
+      "sampling": {
+        "mode": "sample",
+        "segment_s": 60.0,
+        "segments": 10
+      },
+      "seed": 20261011
+    },
+    "thresholds": {
+      "CORE-M06-01": 0.30625,
+      "CORE-M07-01": 0.407669,
+      "CORE-M08-01": 0.05,
+      "CORE-M08-02": 0.05,
+      "CORE-M09-01": 0.305083,
+      "CORE-M09-02": 0.6
+    },
+    "version": "neurogrid 1.0.0.dev0"
+  },
+  "pilot": null,
+  "quality": {
+    "boundaries": [
+      0.5,
+      0.75,
+      1.0,
+      1.5
+    ],
+    "levels": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "rules": [
+      {
+        "field": "value",
+        "metric": "M06",
+        "parameter": "max_fraction",
+        "per_channel": false,
+        "rule_id": "CORE-M06-01"
+      },
+      {
+        "field": "ratio",
+        "metric": "M07",
+        "parameter": "max_ratio",
+        "per_channel": true,
+        "rule_id": "CORE-M07-01"
+      },
+      {
+        "field": "flat_fraction",
+        "metric": "M08",
+        "parameter": "max_fraction",
+        "per_channel": true,
+        "rule_id": "CORE-M08-01"
+      },
+      {
+        "field": "clipped_fraction",
+        "metric": "M08",
+        "parameter": "max_fraction",
+        "per_channel": true,
+        "rule_id": "CORE-M08-02"
+      },
+      {
+        "field": "value",
+        "metric": "M09a",
+        "parameter": "max_fraction",
+        "per_channel": false,
+        "rule_id": "CORE-M09-01"
+      },
+      {
+        "field": "value",
+        "metric": "M09b",
+        "parameter": "max_fraction",
+        "per_channel": false,
+        "rule_id": "CORE-M09-02"
+      }
+    ]
+  },
+  "runs": [
+    "full-1",
+    "full-2"
+  ],
+  "subjects": {
+    "Cho2017": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47,
+      48,
+      49,
+      50,
+      51,
+      52
+    ],
+    "Kalunga2016": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+    ],
+    "Zhou2016": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "version": 1,
+  "versions": {
+    "braindecode": "1.8.1",
+    "mne": "1.13.2",
+    "moabb": "1.7.2",
+    "neuroarena": "0.1.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0",
+    "pyriemann": "0.12",
+    "python": "3.12.15",
+    "scikit-learn": "1.9.1",
+    "scipy": "1.18.1",
+    "skorch": "1.4.0",
+    "torch": "2.15.0+cpu"
+  },
+  "worker_environment": {
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "PYTHONHASHSEED": "0",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  }
+}
