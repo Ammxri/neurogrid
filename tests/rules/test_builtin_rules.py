@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from consent_setups import CONSENT_SETUPS  # type: ignore[import-not-found]
+from gbt47127_setups import FAILING, GBT47127_SETUPS  # type: ignore[import-not-found]
 from provenance_setups import PROVENANCE_SETUPS  # type: ignore[import-not-found]
 from reconsent_setups import RECONSENT_SETUPS  # type: ignore[import-not-found]
 from register_setups import REGISTER_SETUPS  # type: ignore[import-not-found]
@@ -46,6 +47,7 @@ SETUPS.update(CONSENT_SETUPS)  # P6 M14: a copy with a vault and consent records
 SETUPS.update(VAULT_SETUPS)  # P6 NV03: a vault with an intact, broken, missing, read-only or locked log
 SETUPS.update(REGISTER_SETUPS)  # P9 NV04, NV05: role register, retention periods, impact assessment
 SETUPS.update(RECONSENT_SETUPS)  # P9 M14-02: consent records and a risk register (A-95)
+SETUPS.update(GBT47127_SETUPS)  # P7 gbt47127: a GB/T 47127 data set built from bids_ok
 
 
 def _ai_duplicate_copy(fixture: Path, tmp: Path) -> tuple[Path, dict[str, object]]:
@@ -615,6 +617,20 @@ CASES = [
     Case("CORE-NV05-03", "edf_ok", Status.NOT_APPLICABLE, setup="reg_template"),  # retention.no_entries
     Case("CORE-NV05-03", "edf_ok", Status.NOT_CHECKABLE),
     Case("CORE-NV05-03", "edf_ok/rec_a.edf", Status.NOT_APPLICABLE),
+]
+
+# P7 gbt47127 (A-113): the complete GB/T data set built from bids_ok passes every rule (the timestamp
+# rule on a file name with a timestamp); each rule fails with its own change (gbt47127_setups.FAILING)
+GBT = ("gbt47127",)
+CASES += [
+    Case(rule, "bids_ok", Status.PASSED, rulepacks=GBT, setup="gbt_ok")
+    for rule in sorted(FAILING)
+    if rule != "GBT47127-STO-011"
+]
+CASES += [Case("GBT47127-STO-011", "bids_ok", Status.PASSED, rulepacks=GBT, setup="gbt_timestamp_ok")]
+CASES += [
+    Case(rule, "bids_ok", Status.FAILED, rulepacks=GBT, setup=f"gbt_{rule.split('-', 1)[1].lower()}")
+    for rule in sorted(FAILING)
 ]
 
 
