@@ -256,6 +256,51 @@ Antworten des Projektverantwortlichen auf die Fragen der P9-Vorgaben, aufgezeich
 - **Übrige Fragen:** Es gelten die Empfehlungen der Vorlage als Annahmen A-100 bis A-110, vorgemerkt für die
   Freigabe nach P11.
 
+## Entscheidungen vom 09.11.2026
+
+**D-21 Freigabe der Annahmen aus P6, P9 und P11 (09.11.2026).** Der Projektverantwortliche hat auf die Liste der
+offenen Freigaben vom 07.11.2026 hin entschieden, bei den Entscheidungen den Empfehlungen des Leads zu folgen:
+- **Annahmen A-90 bis A-110 freigegeben**, mit den dort genannten Lesarten (Überblick in FORTSCHRITT „Für STOPP G2
+  vorgemerkt“ bis zu dieser Entscheidung).
+- **Die beiden Abweichungen freigegeben:** A-95 (der neue optionale Block `reconsent` in results.json und die
+  strengere Lesart der kleinen Zellen) und A-105 (EEGNet mit Eingabe ×1e6 statt ×1000 wie im Referenzbeispiel, dazu
+  20 % Validierung und Geduld 50).
+- Damit gelten auch die Empfehlungen der P11-Vorlage, die D-20 als Annahmen geführt hat, als entschieden.
+- **Bekannte Grenzen zur Kenntnis genommen** (09.11.2026): die Listen „Bekannte Grenzen zur Kenntnis“ von STOPP G1
+  und STOPP G2 in FORTSCHRITT, Stand dieser Entscheidung.
+- **Nicht Teil dieser Entscheidung**, weiter beim Projektverantwortlichen: die Prüfungen (zh-Prüfung mit Prüfperson,
+  Sichtprüfung der PDFs und einer Nachweismappe, juristische Prüfung der PIA-Vorlage), das Absenden der Anfrage an die
+  Entwickler des BIDS-Validators, jeder Schritt von Merge und
+  Veröffentlichung (nach D-18 erst nach zh- und Sichtprüfung), der eigene Runner vor v1.0 und die Normtexte für P7, P8
+  und P10.
+
+**D-22 Normtext GB/T 47127, zh-Prüfung, Nachweismappe und eigener Runner (09.11.2026).** Der Projektverantwortliche
+hat entschieden:
+- **GB/T 47127—2026 übergeben:** als `.local/normen/GBT-47127-2026.pdf` (23 Seiten, Text auslesbar, unversioniert).
+  Damit ist G-A erfüllt, und P7 kann beginnen. Für YY/T 2029 (G-B) und ISO/IEC TS 27571 (G-C) hat der Lead
+  empfohlen, YY/T 2029 jetzt zu beschaffen und über den Kauf der TS nach P8 zu entscheiden. Darüber hat der
+  Projektverantwortliche noch nicht entschieden.
+- **zh-Prüfung durch den Lead statt durch einen Muttersprachler.** Das ändert den letzten Punkt von A-07 und die
+  Prüfperson von D-15 und D-17.
+  - Der Lead prüft die zh-Texte selbst, nach der Liste des zh-Prüfpakets.
+  - Die Fachbegriffe gleicht er gegen die Benennungen von GB/T 47127 ab.
+  - Grenze: Das ist eine Selbstprüfung eigener Texte und keine unabhängige muttersprachliche Prüfung.
+  - Empfehlung des Leads, kein Gate: Vor der Ansprache chinesischer Kunden sieht eine chinesischsprachige
+    Kontaktperson des Projektverantwortlichen die Begriffsliste und das Anschreiben durch.
+- **Nachweismappe (REP-08):** Für die Sichtprüfung genügt vorerst eine Beispielmappe aus synthetischen Testdaten. Der
+  Lead erzeugt sie, prüft sie und gibt sie dem Projektverantwortlichen.
+- **Eigener Runner:**
+  - Der Lead hat den Runner auf dem Rechner des Projektverantwortlichen vorbereitet: offizielle Version 2.338.2,
+    SHA-256 gegen das Release geprüft, in `%USERPROFILE%\actions-runner`.
+  - Registrierung mit Token und das Auslösen des Workflows macht der Projektverantwortliche. Der Lead gibt keine
+    Zugangsdaten ein.
+  - Nach dem Lauf wird der Runner wieder entfernt.
+- **Weiter beim Projektverantwortlichen:** die Sichtprüfung der G1-PDFs; die Veröffentlichung, also PyPI-Konto mit
+  Trusted Publishing, Gitee-Spiegel und Eintrag der Repository-Adresse; jeder Schritt von Merge und Release.
+- **Ansprache von Interessenten per E-Mail:** Das ist Sache des Projektverantwortlichen und nicht Teil der PRD. Der
+  Lead hat auf die Einwilligungsregeln für Werbe-E-Mails hingewiesen (§ 7 UWG; die chinesischen Regeln für
+  E-Mail-Dienste).
+
 ## Annahmen (Nicht-Blocker)
 
 **A-00 Nicht ausgefüllte Eingaben des Auftrags.** Ausgangslage: neues Projekt unter `Projekte/neurogrid`.
@@ -1749,6 +1794,24 @@ nach P11.
     (exakt).
 - Beide vollen Läufe laufen mit denselben Einstellungen: 12 Prozesse und 6 Jobs für NeuroGrid; jede Einheit rechnet
   einzeln in einem Prozess mit einem Thread (A-106).
+- **Verlauf der vollen Läufe (Befund, nur CPU auf dem Rechner des Leads, NACHBAU 1.1 und 4.10.6):**
+  - `full-1` vom 03.11. 04:20 bis 07.11. 19:52: 2224 Einheiten, keine fehlgeschlagen, vier Anläufe. Unterbrochen durch
+    den modernen Standby (Deckel zu 04:57–06:00), danach lief die CPU unter Last mit etwa 12 % der Nennleistung bis zum
+    Neustart durch ein Windows-Update am 04.11. 03:55; Abbruch durch den Neustart der Claude-App am 04.11. 08:05 (seitdem
+    laufen die Läufe abgekoppelt); Absturz des Rechners unter Last am 05.11. 02:25 (Kernel-Power 41), fortgesetzt
+    am 07.11. 15:23. Alle fertigen Einheiten waren danach lesbar; der Runner setzt mit derselben Run-ID fort.
+  - Die Wandzeit von `full-1` liegt durch die Unterbrechungen weit über 48 h. Die Summe der Einheiten beträgt
+    2 098 073 s (davon EEGNet 2 029 373 s), geteilt durch 12 Prozesse 48,6 h einschließlich der gedrosselten Stunden.
+  - `full-2` vom 07.11. 19:52 bis 09.11. 08:19: 2224 Einheiten, keine fehlgeschlagen, zwei Anläufe. Abbruch am 09.11.
+    05:30 bei 1789 fertigen Einheiten durch einen Neustart des Rechners über das Startmenü (Ereignis User32 1074); alle
+    fertigen Einheiten waren danach lesbar, fortgesetzt 06:44 mit 435 offenen Einheiten. Rechenzeit ohne die Pause
+    35,2 h. Die Summe der Einheiten beträgt 1 509 553 s (davon EEGNet 1 461 766 s), geteilt durch 12 Prozesse 34,9 h.
+    Beim erneuten Start des Skripts am 09.11. 06:43 bekam `full-1` einen fünften, leeren Anlauf (nichts offen, Exit 0).
+  - Die Hochrechnung vor dem Lauf (32–40 h) löste keine Rückfrage aus; `full-2` liegt mit 34,9 h darin. Die Abweichung
+    von `full-1` kommt von den Unterbrechungen und der Drosselung, nicht vom Umfang. Sie ist ein Befund dieses Rechners
+    und kein Ergebnis der Arena; die Zahlen prüft der Vergleich der beiden Läufe.
+  - Vergleich (09.11.2026, `report publish full-1 full-2`): exakt gleich, ohne Toleranz – 12 160 Folds, die
+    NeuroGrid-Werte von 1696 Aufnahmen und 48 quality.json, 0 Unterschiede (`results/run_compare.json`).
 
 **A-110 CI research** (F11 B).
 - `.github/workflows/research.yml` auf Ubuntu 24.04 bei Änderungen unter `research/`, `license-gate/research/`,
@@ -1756,3 +1819,42 @@ nach P11.
   Unit-Tests (`-m "not smoke"`) und Smoke (`-m smoke`) mit JUnit-Annotationen. Kein Datensatz-Download, kein
   Upload. Das Smoke-Laufpaar läuft einmal je Sitzung und wird von den Smoke-Tests von C und D geteilt
   (`conftest.smoke_runs`).
+
+**A-111 Befund nach den vollen Läufen: das zugesetzte Netzbrummen von Cho2017 trägt die Klasse** (A-103, A-104,
+F4c; Bericht, Abschnitt „Limitations“).
+- **Befund:** Entlang der Netzbrummen-Leiter steigt die mittlere EEGNet-Genauigkeit von Cho2017 von 66,2 % (sauber)
+  über 66,8 %, 67,3 %, 68,4 % und 75,4 % auf 96,8 % (Stufe 5). CSP+LDA bleibt bei 65,8–66,1 %. Bei Zhou2016 und
+  Kalunga2016 steigt entlang dieser Leiter keine Genauigkeit.
+- **Ursache (geprüft am 09.11.2026 an den Ereignissen des MOABB-Loaders 1.7.2, alle 52 Probanden, Daten und
+  Quelleneinstellung der Läufe):**
+  - Der Loader legt alle Versuche einer Klasse als einen Block an. Ein Versuch beginnt alle 3584 Abtastwerte (7 s bei
+    512 Hz), das sind genau 420 Perioden von 60 Hz und 840 von 120 Hz.
+  - Die beiden Blöcke verbindet er mit 500 Nullwerten, das sind 58,59 Perioden.
+  - Die Sinusschwingung der Leiter hat nach A-103 je Kanal eine feste Phase über die ganze Aufnahme. Sie hat daher an
+    jedem Beginn eines Versuchs der linken Hand die Phase 0,8828 Perioden (120 Hz: 0,7656), an jedem der rechten
+    Hand 0,4766 (120 Hz: 0,9531). Das gilt bei allen 52 Probanden; je Klasse gibt es genau eine Phase.
+  - Das zugesetzte Brummen ist damit an die Klasse gekoppelt. EEGNet arbeitet phasenempfindlich und kann das aus dem
+    Rest nach dem Bandpass 4–40 Hz lernen. CSP+LDA nutzt Varianzen, und die hängen nicht von der Phase ab.
+  - Dass EEGNet genau dieses Signal nutzt, ist die naheliegende Erklärung des Anstiegs. Ein eigener Versuch dazu
+    wurde nicht gemacht.
+  - Die Versuchsbeginne von Zhou2016 und Kalunga2016 wurden nicht auf eine solche Kopplung geprüft.
+- **Folge:** Zwei Werte sind keine Messung der Decodierung von EEG unter Netzbrummen:
+  - die EEGNet-Werte dieser Leiter;
+  - der EEGNet-Punkt von Cho2017 bei Q5 der Hauptkurve. Er enthält 260 Kombinationen der Leiter und liegt bei
+    69,7 % über 725 Kombinationen, ohne sie bei 66,7 % über 465 Kombinationen (nur Mittelwert).
+- **Lesart des Leads (vorläufig, wie D-20): als Befund berichten, nicht neu rechnen.**
+  - Ein anderes Brummmodell, gewählt nach Sicht der Ergebnisse, widerspräche F4c: Verfahren und Stufen standen vor
+    dem ersten Lauf fest und werden nie an Ergebnisse angepasst.
+  - Beide Läufe sind exakt gleich.
+  - Neu rechnen hätte eine Codeänderung bedeutet und für die Netzbrummen-Bedingungen etwa 10–13 h je Lauf gekostet.
+- **Umsetzung:**
+  - Der Bericht (en und zh) bekommt unter „Limitations“ einen eigenen Punkt direkt nach dem Punkt zum Bandpass, und
+    dieser verweist auf ihn.
+  - Der Punkt nennt die Mittelwerte der Leiter aus `curve.csv` und den EEGNet-Punkt bei Q5 mit und ohne die
+    Kombinationen der Leiter aus `sessions.csv`. Alle Zahlen kommen aus `results/`.
+  - Die Phasenwerte oben stehen nur hier, weil sie nicht aus `results/` stammen.
+  - Im Code: die Konstante `PHASE_LOCKED_LINE_NOISE` in `report.py` und der Test
+    `test_cho2017_line_noise_finding_follows_the_line_noise_item`.
+- **Nicht Teil von P11:** ein Brummen, dessen Phase nicht am Versuchsbeginn hängt (etwa eine leicht schwankende
+  Netzfrequenz), und eine neue Messung damit. Das geht nur mit Freigabe.
+- Freigabe: offen (Liste STOPP G2).

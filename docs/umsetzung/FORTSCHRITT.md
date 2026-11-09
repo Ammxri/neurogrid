@@ -6,9 +6,11 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P9 abgeschlossen (`dev` 5596a8d: Bereiche Register, Neueinwilligung, Paket und Vergleich, Merge-Entscheidungen des Leads, Querschnittstests; vor P7 und P8 vorgezogen nach D-13 und D-19, weil G-A und G-B nicht erfüllt sind); CI auf 5596a8d grün (`ci` 41447040471, `offline` 41447040492, `ci-integration` 41447040527); nächster Schritt P11 (NeuroArena) vor P10, weil G-C fehlt.**
+**Phase P11 abgeschlossen (Ergebnisse 00f63a5 auf `dev`, Phasencommit danach: NeuroArena unter `research/neuroarena` mit eigenem Lock und Lizenz-Gate, zwei volle Läufe `full-1` und `full-2` exakt gleich, Bericht en und zh mit dem Befund A-111; vor P10 gezogen, weil G-C fehlt); CI auf 00f63a5 grün bis auf `offline` (Bündelbau in der CI abgebrochen, lokal ohne Fehler nachgebaut). Nächste Phase P7: GB/T 47127 liegt seit 09.11.2026 in `.local/normen/` (G-A erfüllt); P8 und P10 warten auf YY/T 2029 (G-B) und ISO/IEC TS 27571 (G-C).**
+Stand P9: `dev` 5596a8d (Bereiche Register, Neueinwilligung, Paket und Vergleich; vor P7 und P8 vorgezogen nach D-13
+und D-19), CI grün (`ci` 41447040471, `offline` 41447040492, `ci-integration` 41447040527).
 Freigabemodus A. Git: `main` (Doku-Commit), Arbeitszweig `dev`, gepusht nach `https://github.com/Ammxri/neurogrid`
-(D-15; nur `dev`, D-09; zuletzt gepusht: 5596a8d). Version auf `dev` 1.0.0.dev0 seit 8e9575f (D-19); v0.1.0 wird
+(D-15; nur `dev`, D-09; zuletzt gepusht: 00f63a5). Version auf `dev` 1.0.0.dev0 seit 8e9575f (D-19); v0.1.0 wird
 später aus dem P5-Stand c4f240a plus den Korrekturen der Prüfungen auf einem Release-Zweig geschnitten, ein v0.2.0
 ebenso aus dem Endstand von P6 (0ffdd90), jeweils mit Freigabe.
 Stand P6: `dev` 0ffdd90, CI ganz grün (`ci` 41422859481, `offline` 41422859830); davor auf d50158b `ci` 41402168683
@@ -17,13 +19,14 @@ lokal liefen nur die betroffenen Tests (Zahlen in den Einträgen von P9 und P6).
 auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`).
 STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 lief parallel zur zh-Prüfung und zur Sichtprüfung; das Release v0.1.0 erst danach.
 Offen beim Nutzer: die übrigen Punkte von „Für STOPP G1 vorgemerkt“ (darunter die Kernbegriffe von P6 für die
-zh-Prüfung), die Punkte von „Für STOPP G2 vorgemerkt“ (darunter A-90 bis A-99, die Kernbegriffe von P9, die
-Sichtprüfung einer Nachweismappe, vor v1.0 ein eigener Runner für den echten Lauf der CI-Integration, D-19),
-GB/T-47127-PDF vor P7, YY/T-2029-Text vor P8, ISO-TS vor P10, Docker Desktop bei Gelegenheit.
+zh-Prüfung), die Punkte von „Für STOPP G2 vorgemerkt“ (darunter die Kernbegriffe von P9, der zh-Bericht von
+NeuroArena, die Sichtprüfung einer Nachweismappe, vor v1.0 ein eigener Runner für den echten Lauf der CI-Integration, D-19),
+YY/T-2029-Text vor P8, ISO-TS vor P10 (GB/T 47127 übergeben am 09.11.2026, D-22), Docker Desktop bei Gelegenheit.
+Die zh-Prüfung macht nach D-22 der Lead.
 
 ## Für STOPP G1 vorgemerkt
 
-Stand 29.10.2026 (D-18): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); offen sind zh-Prüfung, Sichtprüfung, die Anfrage an die Entwickler des BIDS-Validators, die Kenntnisnahme der Grenzen sowie Merge und Veröffentlichung (nach den beiden Prüfungen).
+Stand 29.10.2026 (D-18): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); offen sind zh-Prüfung, Sichtprüfung, die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (nach den beiden Prüfungen). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
 - **Muttersprachliche zh-Prüfung** (A-07, A-86, D-15, D-17): Das Paket erzeugt `tools/zh_review_package.py` nach dem
@@ -87,7 +90,7 @@ Projektverantwortlichen.
   Identität zum Vergleich mit den Release-Notes.
 - **Lesart von D-15 bei core-js-pure 3.49.0 bestätigen:** Die Version stammt aus dem Quelltext der Source-Map, nicht aus
   einem Pfad (NACHBAU 8).
-- **Bekannte Grenzen zur Kenntnis:**
+- **Bekannte Grenzen zur Kenntnis** (zur Kenntnis genommen, D-21):
   - Die Ausgabe von `convert` ist zwischen den Betriebssystemen nicht bytegleich: MNE-BIDS und pybv schreiben Textdateien
     mit `os.linesep` („Übergreifend“, BrainVision unter Linux).
   - Die Codepage-Werte `mbcs`, `dbcs` und `oem` bleiben plattformabhängig (unter Linux LookupError).
@@ -120,40 +123,18 @@ Projektverantwortlichen.
 
 ## Für STOPP G2 vorgemerkt
 
-Stand 03.11.2026 (nach P6, P9 und P11). STOPP G2 folgt nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf
-die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
-- **Annahmen A-90 bis A-92 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P6“), darunter die Lesarten:
-  - A-90: Zugriffsereignisse von `scan`, `manifest` und `verify` nur im Vault am Standardort, von `report` nur mit
-    `--config`, keine Ereignisse bei Exit 2; das Ereignis erst nach allen Ausgaben; Leser halten die Sperre nur für die
-    Größe des Protokolls (Lesart von „Dateisperre um Lesen und Anhängen“); die wahrscheinliche Ursache einer Abweichung
-    nicht in results.json; `vault log --show` ohne `--last`; Projektwurzel von `report --config` wie bei `check`, mit der
-    benannten Einengung für eine toml außerhalb des Datensatzes.
-  - A-91: Sobald Einwilligungsdaten vorliegen, ist jede nicht gedeckte Nutzung ein Fehler, mit oder ohne `[consent]`;
-    ohne benötigte Nutzung ist M14 not_applicable, auch mit `--strict`; der Preis der Tabellenregel im M14-Block (in
-    kleinen oder gemischten Datensätzen fast immer nur Summen je Nutzung).
-  - A-92: `title_zh` des Gerüsts aus der veröffentlichten Prüfung statt aus dem Beispiel; der Gesamtsatz mit core und
-    `yyt2029` bleibt „besteht die Prüfungen der geladenen Regelpakete“ (Banner und Abschnitt grenzen ab).
-- **Annahmen A-93 bis A-99 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P9“; vorgemerkt für die
-  Freigabe nach P9), darunter die Lesarten:
-  - A-93: Rollenregister beratend; CORE-NV04-01 beurteilt nur Ereignisse vor dem Vortag des Stichtags (UTC), damit
-    zwei `check` bytegleich bleiben, Ereignisse ohne Rolle sind not_checkable; die Befehle warnen und schreiben ihr
-    Ereignis trotzdem; eine ungültige `roles.yaml` ist nur für `check` Exit 2.
-  - A-94: Pflichtobjekte `pia` und `access_log` als Lesart von PIPL Art. 56; der 29. Februar plus drei Jahre ist der
-    1. März; die Erinnerung ohne „muss löschen“; die beiden PIA-Vorlagen als einzige Ausnahme des Worttests für
-    Gesetzesartikel (D-19).
-  - A-95: CORE-M14-02 je Proband mit gültiger Einwilligung, Probanden ohne gültige Einwilligung bleiben CORE-M14-01;
-    **Abweichung vom Entwurf, braucht die Freigabe mit A-95:** der neue optionale Block `reconsent` in results.json und
-    die Lesart der kleinen Zellen (ein zurückgehaltenes Risiko zeigt nur `subjects`, Anhang 6.1 ohne Zahl für ein
-    zurückgehaltenes CORE-M14-02); der Preis: Summen, Ampel und Überschrift zählen verletzte Ergebnisse, mit einem
-    beurteilten Risiko ist die Zahl unter der Version ablesbar (wie bei M14-01 hingenommen).
-  - A-96: fünf Pflichtteile, Ereignis vor dem Packen, Kopie des Manifests mit pseudonymen Namen in Rohordnern,
-    `roles.yaml` und die PIA-Dateien so im ZIP, wie sie geschrieben sind („Rollen ohne personenbezogene Daten
-    beschreiben“), kein Hash von `consents.yaml` im Ereignis.
-  - A-97: Kategorie „entfallen“ neben „behoben“, der Schweregrad als Änderung, Rundung auf 6 signifikante Stellen,
-    Regeln der Einwilligungsprüfungen nur gezählt (D-19).
-  - A-98: Schutz der Action über `runner.environment` (Wert nicht verifiziert), GitLab nur über den Runner-Tag, kein
-    Upload, fail-on errors als Standard.
-  - A-99: Aufbau der Nachweismappe, immer zh und en, Zusammenführen mit pypdf, Metadaten und QA-Gate.
+Stand 09.11.2026 (nach P6, P9 und P11; D-21): erledigt sind die Freigabe der Annahmen A-90 bis A-110 und die
+Kenntnisnahme der bekannten Grenzen; neu offen ist A-111. STOPP G2 folgt
+nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf die Normtexte (G-A, G-B). Jeder offene Punkt braucht
+den Projektverantwortlichen.
+- **Annahmen A-90 bis A-110:** freigegeben mit D-21 (09.11.2026), einschließlich der Abweichungen A-95 und A-105;
+  die Lesarten stehen in ENTSCHEIDUNGEN.
+- **Annahme A-111** (Befund nach den vollen Läufen, 09.11.2026): Das zugesetzte Netzbrummen von Cho2017 trägt die
+  Klasse. Der Lead hat es als Befund berichtet und nicht neu gerechnet, weil F4c das Anpassen an Ergebnisse
+  ausschließt. Zu entscheiden ist eines von beiden:
+  - diese Lesart freigeben;
+  - ein Brummen, dessen Phase nicht am Versuchsbeginn hängt, mit neuen Läufen. Das kostet eine Codeänderung und für
+    die Netzbrummen-Bedingungen etwa 10–13 h je Lauf.
 - **zh-Prüfung der P9-Texte** (D-19 wie D-17 Option C): jetzt die Kernbegriffe, die vollständigen Texte in einer Runde
   vor dem Release von v1.0. Kernbegriffe aus den Berichten der Bereiche: 角色登记册 (Rollenregister), 保存期限 und
   最低保存期限 (Aufbewahrungsfrist, Mindestaufbewahrung), 个人信息保护影响评估 (Folgenabschätzung), 风险登记册
@@ -181,7 +162,7 @@ die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
   Kodierung unter PowerShell auf GitLab.
 - **zh-Runde der vollständigen P6-Texte** vor dem Release von v0.2 (D-17 Option C).
 - **Release v0.2.0**, falls gewünscht, aus dem Endstand von P6 auf einem Release-Zweig (D-19).
-- **Bekannte Grenzen zur Kenntnis:** Kürzen am Ende und Neuschreiben des Zugriffsprotokolls nur mit
+- **Bekannte Grenzen zur Kenntnis** (zur Kenntnis genommen, D-21): Kürzen am Ende und Neuschreiben des Zugriffsprotokolls nur mit
   `vault verify --expect-head`; nur Zugriffe über NeuroGrid; Zeiten aus der lokalen Uhr; Sperre beratend; die Gültigkeit
   einer Einwilligung beurteilt NeuroGrid nicht; das Ziel „10⁶ Einträge in < 30 s“ für `vault verify` ist nicht gemessen.
   Aus P9: Rollen bleiben beratend, und mit einem Stichtag mehr als einen Tag in der Zukunft kann das eigene Ereignis
@@ -190,34 +171,106 @@ die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
   im Speicher; Risiko-IDs erscheinen im Bericht wie geschrieben; Differenzen zweier veröffentlichter, sich
   überschneidender Risiken können Zahlen von 1 bis 4 ergeben (A-81 gilt je Tabelle); das Export-ZIP ist nur in einer
   Umgebung bytegleich (zlib); die Leistung mit etwa 1 000 Risiken ist nicht gemessen.
-- **Annahmen A-100 bis A-110 zur Freigabe** (ENTSCHEIDUNGEN „Annahmen aus der Umsetzung von P11“; vorgemerkt für die
-  Freigabe nach P11), darunter die Lesarten:
-  - A-100: torchaudio als direkte Abhängigkeit aus dem CPU-Index von PyTorch (das Linux-Wheel von PyPI linkt CUDA);
-    ein Lauf startet aus dem Checkout, in dem die Daten liegen.
-  - A-101 und A-102: NeuroGrid über die CLI auf temporären FIF-Dateien, die toml setzt nur `min_channels` und die
-    Netzfrequenz; die Stufe aus dem größten Verhältnis zu den wirksamen Schwellen von M06, M07, M08 und M09, die Stufe
-    einer Sitzung ist die schlechteste ihrer Läufe.
-  - A-103: Stufenwerte vor dem ersten Lauf festgelegt; die Artefaktformen stammen von Bereich B und sind nicht an
-    NeuroGrid angepasst.
-  - A-104: Kreuzvalidierung innerhalb jeder Sitzung, Zufallsniveau als Anteil der häufigsten Klasse, gepaartes Design.
-  - A-105: die SSVEP-Filterbank mit CSP ist eine eigene Konstruktion (MOABB hat keine); **Abweichung vom
-    Referenzbeispiel von EEGNet:** Eingabe ×1e6 statt ×1000, dazu 20 % Validierung und Geduld 50 als Wahl des Leads.
-  - A-106: Gleichheit zweier Läufe nur je Maschine und Lock.
-  - A-107: die zh-Abgrenzung ist ein Entwurf für die zh-Prüfrunde.
-  - A-108: Ausnahmen des Forschungs-Gates (pycountry, libsndfile, libquadmath, pybv, debugpy, Intel OpenMP),
-    versionsgebunden.
-  - A-109: Pilotbefund Q4 oder schlechter bei Zhou2016 (88 %) und Cho2017 (87 %) der sauberen Aufnahmen, nach D-20 als
-    Befund berichtet.
-  - A-110: `research.yml` nur auf Ubuntu 24.04, ohne Datensatz-Download.
 - **zh-Prüfung des NeuroArena-Berichts** (F9 B, D-20; die Prüfung ist kein Gate für P11):
   `research/neuroarena/report/zh/report.md` und die zh-Texte in `research/neuroarena/src/neuroarena/report.py`, beide
   im zh-Prüfpaket (`tools/zh_review_package.py`). Unsichere Begriffe aus Bereich D: 劣化 und 劣化阶梯
   (Verschlechterung, Leiter), 会话 (Sitzung), 运行 (Lauf), 组合 (Paar aus Sitzung und Bedingung), 随机水平
   (Zufallsniveau), 自助法区间 (Bootstrap-Intervall), 平直通道 (flacher Kanal), 电极跳变 (Elektrodensprung), 肌电爆发
   (Muskelartefakt), 早停 (Early Stopping), 耐心值 (Geduld), 比值最大 (größtes Verhältnis), 适用范围声明
-  (Abgrenzung) und der Satz der Abgrenzung; Artikelverweise der Form „第…条“ kommen nicht vor.
+  (Abgrenzung) und der Satz der Abgrenzung; Artikelverweise der Form „第…条“ kommen nicht vor. Neu mit A-111
+  (`lim_line_except`, `lim_phase`, `lim_phase_data`, `lim_phase_top`): 携带了类别信息 (trägt die Klasse), 与类别锁定
+  (an die Klasse gekoppelt), 时间卷积 (zeitliche Faltung), 只有均值，没有区间 (nur Mittelwert, kein Intervall).
+- **Sichtprüfung der Abbildungen von NeuroArena:** `research/neuroarena/results/accuracy_over_quality.{svg,png}` und
+  `accuracy_over_degradation.{svg,png}`; eingebunden in beide Berichte.
 
 ## Verlauf
+
+### 2026-11-09 – P11 NeuroArena: Benchmark der Datenqualität gegen die Decoderleistung, Bericht en und zh (NG-F17, NA-01, NA-02, NA-03, NA-04, NA-05)
+- **Abgeschlossen:** NG-F17, NA-01 bis NA-05. Die Ergebnisse und Berichte der beiden vollen Läufe liegen in 00f63a5;
+  `test_published_results.py` prüft sie streng (7 bestanden). Die Nachweise je Anforderung stehen in der Matrix.
+  CI auf 00f63a5: `ci` 42580352024, `research` 42580352023 und `ci-integration` 42580352074 grün. `offline`
+  42580352035 ist rot im Schritt „Wheel, sdist, documentation site and the two bundles“ (Exit 2; die Ursache ist
+  ohne Anmeldung nicht einsehbar). Derselbe Schritt lief lokal auf 00f63a5 für beide Plattformen ohne Fehler, mit
+  gefülltem Bündel-Cache. Das Paket enthält weder `research/` noch `docs/umsetzung/`. Der Phasencommit startet
+  `offline` erneut.
+- **Beigetragen zu:** NG-N07 und CON-01 (Lizenz-Gate `--target research` mit eigener Allowlist, versionsgebundenen
+  Ausnahmen und der Komponentenprüfung beider Ziele, A-108), TECH-05 (`research.yml`, A-110).
+- **Gebaut** (Gerüst des Leads, dann drei Bereiche nach dem eingefrorenen Vertrag, ENTSCHEIDUNGEN A-100 bis A-110):
+  - Gerüst (74ce4aa, 9c0556f, 80a3c5b; Gate-Ausnahmen 99a8c06): `research/neuroarena/` als eigenes uv-Projekt
+    (Python 3.12, universeller Lock, torch und torchaudio aus dem CPU-Index von PyTorch), Vertragstests,
+    `license-gate/research/`, `.github/workflows/research.yml`.
+  - Bereich B „Daten und Qualität“ (c6d6bad, ac62bff; Merge 519be71): `datasets.py` (Zhou2016, Cho2017, Kalunga2016
+    mit den an der Quelle geprüften Lizenzen), `degradation.py` (16 Bedingungen), FIF-Export, Aufruf von
+    `neurogrid check` (`neurogrid_cli.py`), `quality.py` (Stufe je Aufnahme und Sitzung), Synthetik für die Tests.
+  - Bereich C „Decoder und Auswertung“ (433e21b, 38ad106, 83ca05e; Merge 3146cc0; Eingabeskala 29cfc47):
+    `decoders.py` (CSP+LDA nach MOABB `CSP.yml`, Filterbank für SSVEP, EEGNet aus braindecode), `determinism.py`,
+    Auswertung innerhalb der Sitzung mit Bootstrap, fortsetzbarer Runner, `compare.compare_runs`.
+  - Bereich D „Bericht“ (942651c, 7fed448, 720980a; Merge b5e4472; zh-Prüfpaket 9755b02, 3059f40):
+    `report.publish` und `report.render` (Bericht en und zh allein aus `results/`, beide Abbildungen, aggregierte
+    CSV), `notebooks/neuroarena.ipynb` ohne Oberfläche, die zh-Texte des Berichts im zh-Prüfpaket.
+- **Daten:** Zhou2016 0,126 GB, Cho2017 9,97 GB, Kalunga2016 0,110 GB (Lizenzen und Größen an der Quelle, D-20) in
+  `.local/arena/mne_data`.
+- **Läufe** (Windows 11, 8 Kerne / 16 Threads, nur CPU, 12 Prozesse, 6 Jobs für NeuroGrid; je Lauf 2224 Einheiten):
+  - `pilot-1` (03.11.2026, 2,5 h): Ergebnis und Auslöser in A-109; Antwort in D-20: weiter, als Befund berichten.
+  - `full-1` (Start 03.11. 04:20, Ende 07.11. 19:52; 2224 Einheiten, keine fehlgeschlagen, vier Anläufe in
+    `run.json`): angehalten durch Standby bei zugeklapptem Deckel 04:57–06:00, danach lief die CPU bis zum Neustart
+    nur mit ≈ 12 % der Nennleistung; dreimal abgebrochen und mit derselben Run-ID fortgesetzt: Neustart durch ein
+    Windows-Update am 04.11. 03:55 (338 von 2224 Einheiten fertig, fortgesetzt 04:07); Neustart der Claude-App
+    08:05 (552 fertig, fortgesetzt 08:14, seitdem vom Lead abgekoppelt gestartet); Absturz des Rechners am 05.11. 02:25
+    (1576 fertig; Kernel-Power 41 ohne Bugcheck; alle Ergebnisdateien danach lesbar), fortgesetzt 07.11. 15:23. Die
+    Wandzeit liegt dadurch weit über 48 h. Summe der Einheiten 2 098 073 s (EEGNet 2 029 373 s), geteilt durch 12
+    Prozesse 48,6 h, einschließlich der Stunden mit gedrosselter CPU (A-109).
+  - `full-2` (Start 07.11. 19:52 direkt nach `full-1`, Ende 09.11. 08:19; 2224 Einheiten, keine fehlgeschlagen, zwei
+    Anläufe): abgebrochen am 09.11. 05:30 durch einen Neustart des Rechners über das Startmenü (1789 fertig; alle
+    Ergebnisdateien danach lesbar), fortgesetzt 06:44. Rechenzeit ohne die Pause 35,2 h. Summe der Einheiten
+    1 509 553 s (EEGNet 1 461 766 s), geteilt durch 12 Prozesse 34,9 h, also innerhalb der Hochrechnung (A-109).
+- **Ergebnisse** (alle aus `results/`, Bericht `research/neuroarena/report/{en,zh}/report.md`):
+  - Vergleich (`run_compare.json`): `full-1` und `full-2` exakt gleich, ohne Toleranz. Verglichen wurden 12 160 Folds,
+    die NeuroGrid-Werte von 1696 Aufnahmen und 48 quality.json; 0 Unterschiede.
+  - Sauber, CSP+LDA / EEGNet gegen das mittlere Zufallsniveau:
+    - Zhou2016: 82,6 % / 78,7 % gegen 33,4 %;
+    - Cho2017: 65,9 % / 66,2 % gegen 50,0 %;
+    - Kalunga2016: 56,5 % / 37,4 % gegen 25,0 %.
+  - Hauptkurve (Genauigkeit über der Qualitätsstufe der Sitzung; 0 Kombinationen ohne Stufe):
+    - Zhou2016 hat nur Kombinationen bei Q3 bis Q5 (2 / 72 / 118).
+    - Bei Cho2017 liegen 725 von 832 Kombinationen bei Q5.
+    - Kalunga2016 verteilt sich über Q1 bis Q5 (29 / 10 / 35 / 14 / 104).
+  - Zweite Kurve (Genauigkeit über der Verschlechterungsstufe):
+    - Flache Kanäle senken Zhou2016 bis Stufe 5 auf 71,1 % / 67,7 % und Kalunga2016 auf 49,6 % / 28,1 %.
+    - Artefakte senken Zhou2016 auf 67,4 % / 65,9 %; Cho2017 und Kalunga2016 bleiben fast gleich.
+    - Netzbrummen ändert die Genauigkeit nicht, mit einer Ausnahme: EEGNet bei Cho2017 steigt auf 96,8 %. Das ist
+      Befund A-111: das zugesetzte Brummen ist dort an die Klasse gekoppelt. Er steht im Bericht unter
+      „Limitations“.
+  - Qualitätsstufen:
+    - Saubere Aufnahmen bei Q4 oder schlechter: Zhou2016 87,5 %, Cho2017 86,5 %, Kalunga2016 13,3 % (A-109).
+    - Netzbrummen ab Stufe 4 und jede Stufe der flachen Kanäle bringen jede Aufnahme auf Q5 (Sättigung, A-102).
+    - M09b ist bei Zhou2016 nie messbar und bei Cho2017 meist nicht; Grund ist `quality.too_few_channels`.
+- **Tests:**
+  - Lokal (Windows 11, A-87): Forschungsprojekt in Bereich D 98 bestanden (`-m "not smoke"`), Smoke 9 bestanden;
+    Smoke-Laufpaar exakt gleich (80 Folds, 16 NeuroGrid-Ergebnisse, 4 quality.json). Auf 00f63a5 bestanden 106
+    (`-m "not smoke"`). Darin sind der neue Test zu A-111 und `test_published_results.py` (7) auf den
+    veröffentlichten Ergebnissen; ebenso `tests/acceptance/test_zh_review_package.py` (9).
+  - CI: `research` auf a8451e0 rot in den Unit-Tests (das Linux-Wheel von torchaudio auf PyPI linkt gegen CUDA),
+    behoben in 7fed448; `research` auf b5e4472 grün (41565057018). `ci` auf b5e4472 rot am Vollständigkeitstest des
+    zh-Prüfpakets (`tests/acceptance/test_zh_review_package.py`: neue zh-Texte unter `research/neuroarena/`), behoben
+    in 9755b02 und 3059f40. Auf 3059f40 grün: `ci` 41571999041, `offline` 41571998990, `ci-integration`
+    41571999049; Testjobs laut Notice-Annotationen: windows-latest Python 3.11 4823 bestanden / 20 übersprungen, 3.12
+    und 3.13 je 4824 / 19 (von 4843); ubuntu-24.04 Python 3.11, 3.12 und 3.13 je 4723 / 125 (von 4848); 0 Fehler;
+    Abdeckung Kern 94,3–94,4 %, Prüfer 97,0–97,1 %. Auf 00f63a5 (`ci` 42580352024) dieselben Zahlen: windows-latest
+    4823–4824 bestanden / 19–20 übersprungen, ubuntu-24.04 je 4723 / 125, 0 Fehler. Außerdem grün: `research`
+    42580352023 und `ci-integration` 42580352074; zu `offline` siehe „Abgeschlossen“.
+- **Annahmen:** A-100 bis A-110, freigegeben mit D-21 (09.11.2026, mit der Abweichung A-105); angewandt: D-20.
+  Neu: A-111 (Befund nach den vollen Läufen, als Befund berichtet und nicht neu gerechnet; Freigabe offen, STOPP G2).
+- **Nicht verifiziert:**
+  - zh-Fassung des Berichts: muttersprachliche Prüfung in der zh-Prüfrunde (Begriffe unter „Für STOPP G2
+    vorgemerkt“); nach D-20 kein Gate für P11.
+  - Gleichheit der Läufe ist nur je Maschine und Lock zugesichert (A-106); ein voller Lauf unter Linux oder auf anderer
+    Hardware fand nicht statt.
+  - A-111: Dass EEGNet bei Cho2017 die an die Klasse gekoppelte Phase des Brummens nutzt, ist die naheliegende
+    Erklärung, aber durch keinen eigenen Versuch belegt. Die Versuchsbeginne von Zhou2016 und Kalunga2016 wurden
+    nicht auf eine solche Kopplung geprüft.
+  - Die Abbildungen hat der Lead nur am PNG der Hauptabbildung angesehen. Die Sichtprüfung beider Abbildungen durch
+    den Projektverantwortlichen steht unter „Für STOPP G2 vorgemerkt“.
 
 ### 2026-11-02 – P9 v1.0 normunabhängig: Register, Neueinwilligung, Export und Nachweismappe, diff und CI-Integration (NV-F04, NV-F05, NV-F06, NV-F07, NG-F15, NG-F16, CLI-07, CLI-08, CON-02, UF-02, UF-03, UF-06, REP-08, V-03)
 - **Abgeschlossen:** NV-F04, NV-F05 (Software; PIA-Vorlage = Platzhalter nach A-30, juristische Prüfung vor erster
@@ -800,12 +853,21 @@ die Normtexte (G-A, G-B). Jeder Punkt braucht den Projektverantwortlichen.
 
 ## Nächster Schritt
 
-P9 ist abgeschlossen (`dev` 5596a8d; CI auf 5596a8d grün: `ci` 41447040471, `offline` 41447040492, `ci-integration`
-41447040527). Weil weder das GB/T-47127-PDF (G-A) noch der YY/T-2029-Text (G-B) noch ISO/IEC TS 27571 (G-C) vorliegt
-(`.local/normen/` gibt es nicht), folgt nach D-13 und KONZEPT 5 als nächste normunabhängige Phase **P11 NeuroArena**
-(`research/neuroarena` mit eigenem Lock; KONZEPT 6) vor P10; P7, P8 und P10 warten auf die Normtexte.
-Parallel beim Projektverantwortlichen: zh-Prüfung (Kernbegriffe von P6 und P9) und Sichtprüfung (die Berichte für STOPP
-G1, eine Nachweismappe für REP-08), die übrigen Punkte von „Für STOPP G2 vorgemerkt“ (A-90 bis A-99, eigener Runner vor
-v1.0, juristische Prüfung der PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die
-Release-Zweige für v0.1.0 aus dem P5-Stand c4f240a und, falls gewünscht, für v0.2.0 aus dem P6-Endstand 0ffdd90,
-jeweils nach den Prüfungen und mit Freigabe.
+P11 ist abgeschlossen (Ergebnisse 00f63a5; CI siehe den Eintrag von P11). Keine normunabhängige Phase ist mehr
+offen.
+- **P7:** Als Nächstes folgt P7 (GB/T 47127). Den Normtext hat der Projektverantwortliche am 09.11.2026 übergeben. Er
+  liegt als `.local/normen/GBT-47127-2026.pdf`, 23 Seiten, Text auslesbar; G-A ist damit erfüllt.
+- **P8 und P10:** P8 wartet auf den YY/T-2029-Text (G-B), P10 auf ISO/IEC TS 27571 (G-C). Empfehlung an den
+  Projektverantwortlichen: YY/T 2029 jetzt beschaffen, über den Kauf der TS nach P8 entscheiden.
+- **Keine Normtexte:** Die am 07.11.2026 übergebene Zusammenfassung „BCI-Datenstandards“ ist eine Sekundärquelle und
+  kein Normtext.
+- **P12:** Die Abnahme mit der Matrix Zeile für Zeile folgt nach KONZEPT 5 auf P10.
+
+Beim Lead parallel (D-22): die zh-Prüfung (Kernbegriffe von P6 und P9, der zh-Bericht von NeuroArena, abgeglichen mit
+GB/T 47127), eine Beispiel-Nachweismappe für REP-08 und der Lauf auf dem eigenen Runner. Für den Runner braucht es
+die Registrierung durch den Projektverantwortlichen.
+Beim Projektverantwortlichen: Sichtprüfung (die Berichte für STOPP G1, die Abbildungen von NeuroArena), die übrigen
+Punkte von „Für STOPP G2 vorgemerkt“ (die Entscheidung zu A-111, eigener Runner vor v1.0, juristische Prüfung der
+PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die Release-Zweige für v0.1.0 aus
+dem P5-Stand c4f240a und, falls gewünscht, für v0.2.0 aus dem P6-Endstand 0ffdd90, jeweils nach den Prüfungen und mit
+Freigabe.

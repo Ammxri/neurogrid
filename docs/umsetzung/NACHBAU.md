@@ -2820,7 +2820,7 @@ $PY = ".\.venv\Scripts\python.exe"
 & $PY -m pytest -q -p no:cacheprovider tests\docs\test_docs_sync.py tests\docs\test_licensing.py tests\packaging\test_packaging_texts.py tests\packaging\test_workflows.py tests\unit\test_architecture.py::test_matrix_coverage tests\unit\test_small_units.py::test_commit_message_cleanup
 ```
 
-### 4.10 P11 – NeuroArena (2026-11-02 bis 11-03)
+### 4.10 P11 – NeuroArena (2026-11-02 bis 11-09)
 
 Matrix: NG-F17 und NA-01 bis NA-05 (DoD in KONZEPT 6: zwei volle Läufe mit gleichen Zahlen, Kurve für beide Decoder,
 eigenes Lizenz-Gate grün). P11 lief vor P10, weil G-C fehlt. Grundlage: die Vorlage des Leads (privat:
@@ -2887,6 +2887,91 @@ Abhängigkeit aus dem CPU-Index.
 cd research\neuroarena
 uv run --no-sync pytest -q -m "not smoke"
 uv run --no-sync pytest -q -m smoke     # braucht uv für die Kommandozeile von NeuroGrid
+```
+
+#### 4.10.6 Verlauf der vollen Läufe
+
+Ein voller Lauf rechnet auf dem Rechner aus 1.1 mehr als 40 h. Er muss deshalb unabhängig von der Sitzung laufen, aus
+der er gestartet wird: Prozesse, die als Kinder einer Sitzung der Claude-App laufen, enden mit deren Neustart (so am
+04.11. 08:05). Die Claude-App für Windows ist ein MSIX-Paket; uv und die von uv verwaltete Python-Installation liegen
+unter `AppData\Roaming` nur in dessen virtueller Sicht. Abgekoppelt gestartet wurde deshalb eine PowerShell-Datei mit
+den beiden Runner-Aufrufen aus 4.10.3 und einer Statusdatei je Start und Ende [R]:
+```powershell
+Invoke-CommandInDesktopPackage -PackageFamilyName "<Paketfamilie der App>" -AppId "Claude" -Command "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Args "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"<Skript>`"" -PreventBreakaway
+```
+Außerhalb der App reicht jede Shell, die nicht an einer Sitzung hängt. Weitere Fallen: Windows PowerShell 5.1
+schreibt `*>`-Umleitungen als UTF-16 LE mit BOM, und `$ErrorActionPreference = "Stop"` macht aus den
+Fortschrittszeilen des Runners auf stderr Fehler. Den Energiesparmodus nicht zulassen: Nach dem modernen Standby lief die
+CPU unter Last mit etwa 12 % der Nennleistung (Zähler `\Prozessorinformationen(_Total)\% Prozessorleistung`, sonst
+etwa 75 % im Energieschema des Herstellers) bis zum nächsten Neustart.
+
+| Lauf | Start | Ende | Anläufe | Einheiten | Summe der Einheiten |
+|---|---|---|---|---|---|
+| `full-1` | 03.11. 04:20 | 07.11. 19:52 | 4 (Neustart durch Windows-Update 04.11. 03:55, Neustart der App 04.11. 08:05, Absturz 05.11. 02:25) | 2224, keine fehlgeschlagen | 2 098 073 s |
+| `full-2` | 07.11. 19:52 | 09.11. 08:19 | 2 (Neustart des Rechners über das Startmenü 09.11. 05:30, fortgesetzt 06:44) | 2224, keine fehlgeschlagen | 1 509 553 s |
+
+Beim zweiten Start des Skripts bekommt `full-1` einen leeren Anlauf in `run.json` (nichts offen, Exit 0), danach
+setzt `full-2` fort. Die Summe von `full-2` geteilt durch 12 Prozesse sind 34,9 h und liegen in der Hochrechnung aus
+dem Pilotlauf. Bei `full-1` sind die gedrosselten Stunden eingerechnet.
+
+Der Absturz am 05.11. (Kernel-Power 41 ohne Bugcheck) blieb bis zum 07.11. 15:20 unbemerkt, weil die Wächter mit der
+Sitzung endeten. Danach waren alle 1576 fertigen Einheiten und alle Ergebnisdateien von NeuroGrid lesbar [G]; der Lauf
+wurde mit derselben Run-ID fortgesetzt. Bei einem langen Lauf deshalb nach jedem Neustart zuerst die Statusdatei und
+die Python-Prozesse prüfen.
+
+#### 4.10.7 Ergebnisse
+
+Aus dem Hauptcheckout, nachdem beide Läufe fertig sind [R]:
+```powershell
+uv run --no-sync --project research/neuroarena python -m neuroarena.report publish full-1 full-2
+uv run --no-sync --project research/neuroarena python -m neuroarena.report render
+uv run --no-sync --project research/neuroarena pytest -q research/neuroarena/tests/test_published_results.py
+```
+`publish` schreibt die zehn Dateien von `results/` und endet mit Exit 1, wenn sich die Läufe unterscheiden. `render`
+schreibt `report/en/report.md` und `report/zh/report.md` allein aus `results/`. Ergebnis am 09.11.2026 [G]:
+- Vergleich: exakt gleich, ohne Toleranz – 12 160 Folds, die NeuroGrid-Werte von 1696 Aufnahmen und 48 quality.json,
+  0 Unterschiede.
+- Genauigkeit sauber (CSP+LDA / EEGNet, Zufallsniveau):
+
+  | Datensatz | CSP+LDA | EEGNet | Zufallsniveau |
+  |---|---|---|---|
+  | Zhou2016 | 82,6 % | 78,7 % | 33,4 % |
+  | Cho2017 | 65,9 % | 66,2 % | 50,0 % |
+  | Kalunga2016 | 56,5 % | 37,4 % | 25,0 % |
+
+- Qualitätsstufen der Hauptkurve: Zhou2016 nur Q3 bis Q5, Cho2017 zu 87 % bei Q5, Kalunga2016 über alle fünf Stufen.
+  Keine Kombination ist ohne Stufe.
+- Befund A-111: Unter Netzbrummen steigt EEGNet bei Cho2017 von 66,2 % auf 96,8 %, CSP+LDA bleibt. Der MOABB-Loader
+  legt die Versuche je Klasse als Block an. Ein Versuch beginnt alle 3584 Abtastwerte, das sind 420 Perioden von
+  60 Hz. Zwischen den Blöcken liegen 500 Nullwerte. Die Sinusschwingung hat daher je Klasse eine eigene Phase am
+  Versuchsbeginn. Prüfen lässt sich das so: `neuroarena.datasets.configure_storage()` aufrufen, dann für jeden
+  Probanden `mne.events_from_annotations` auf den Rohdaten von `Cho2017().get_data()` anwenden und
+  `(Beginn · 60 / 512) mod 1` je Klasse bilden. Am 09.11. ergab das bei allen 52 Probanden 0,8828 (linke Hand)
+  gegen 0,4766 (rechte Hand).
+- Vorsicht beim Nachprüfen: Ohne `configure_storage()` lädt moabb 1.7.2 vom NEMAR-Spiegel und nicht von der geprüften
+  Quelle. Außerdem schreibt `mne.set_config` eine Konfigurationsdatei unter `~/.mne`.
+
+#### 4.10.8 Stand heute und was zu P11 noch fehlt
+
+P11 ist abgeschlossen (Ergebnisse 00f63a5, Phasencommit danach). Offen sind nur Punkte beim Projektverantwortlichen:
+- die Entscheidung zu A-111;
+- die zh-Prüfung des Berichts;
+- die Sichtprüfung der beiden Abbildungen.
+
+`.local/arena/` (Daten 10,2 GB, Läufe, Logs) bleibt unversioniert liegen. Ein Nachbau braucht die Läufe nicht: Die
+Tests von `results/` laufen ohne Laufordner.
+
+#### 4.10.9 Prüfbefehle der Doku von P11
+
+Wie in 4.9.10, dazu der Ergebnistest im Forschungsprojekt:
+```powershell
+$PY = ".\.venv\Scripts\python.exe"
+.\.venv\Scripts\ruff.exe check .
+.\.venv\Scripts\ruff.exe format --check .
+& $PY tools\check_matrix_coverage.py
+& $PY tools\check_commit_ids.py --since c1f5129
+& $PY -m pytest -q -p no:cacheprovider tests\docs\test_docs_sync.py tests\docs\test_licensing.py tests\packaging\test_packaging_texts.py tests\packaging\test_workflows.py tests\unit\test_architecture.py::test_matrix_coverage tests\unit\test_small_units.py::test_commit_message_cleanup
+uv run --no-sync --project research/neuroarena pytest -q research/neuroarena/tests/test_published_results.py
 ```
 
 ---
