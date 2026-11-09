@@ -387,3 +387,60 @@ def test_output_must_be_empty(tmp_path: Path) -> None:
     with pytest.raises(InputError, match="convert.output_not_empty"):
         _convert(BIDS, out)
     assert (out / "keep.txt").is_file()
+
+
+# --- every modality of the format (tables 4 to 18) ---------------------------------------------------------
+
+_SAMPLE = {"s": "x", "n": 1, "b": True, "S": ["x"], "N": [0.0]}
+_CELL = {"s": "x", "n": "1"}
+
+
+def _modality_set(root: Path, modality: str) -> Path:
+    """A data set with one subject and one recording of ``modality``: the sidecar with every required field
+    and the channel and position tables of the modality, from the field tables of the checks module."""
+    from neurogrid.checks import gbt47127 as checks
+
+    make = root / modality
+    make.mkdir(parents=True)
+    (make / "dataset_description.json").write_text(
+        json.dumps({"Name": "demo", "Version": "1"}), encoding="utf-8"
+    )
+    _tsv(make / "participants.tsv", ["ParticipantId"], [["sub-01"]])
+    folder = make / "sub-01" / modality
+    folder.mkdir(parents=True)
+    stem = f"sub-01_task-rest_{modality}"
+    (folder / f"{stem}.dat").write_bytes(b"0")
+    sidecar = {f.name: _SAMPLE[f.kind] for f in checks.SIDECAR_FIELDS_BY_MODALITY[modality] if f.required}
+    (folder / f"{stem}.json").write_text(json.dumps(sidecar), encoding="utf-8")
+    tables = []
+    if modality in checks.CHANNEL_FIELDS_BY_MODALITY:
+        tables.append(("channels", checks.CHANNEL_FIELDS_BY_MODALITY[modality]))
+    if modality in checks.POSITION_TABLES:
+        kind, fields, _ = checks.POSITION_TABLES[modality]
+        tables.append((kind, fields))
+    for kind, fields in tables:
+        header = [f.name for f in fields if f.required]
+        row = [
+            "source" if f.name == "Type" and kind == "optodes" else _CELL[f.kind]
+            for f in fields
+            if f.required
+        ]
+        _tsv(folder / f"sub-01_task-rest_{kind}.tsv", header, [row])
+    return make
+
+
+@pytest.mark.parametrize("modality", gbt.MODALITIES)
+def test_every_modality_is_checked(modality: str, tmp_path: Path) -> None:
+    """NG-F03 'all required elements': a complete recording of each modality passes the pack; without one
+    required sidecar field it fails (tables 4, 7, 10, 12, 13, 16)."""
+    from neurogrid.checks import gbt47127 as checks
+
+    root = _modality_set(tmp_path, modality)
+    assert gbt.looks_like_gbt47127(root)
+    assert [f for f in _failed(_check(root)) if f[0] != "GBT47127-STO-002"] == []
+    required = next(
+        f.name for f in checks.SIDECAR_FIELDS_BY_MODALITY[modality] if f.required and f.name != "TaskName"
+    )
+    _edit_json(root / "sub-01" / modality / f"sub-01_task-rest_{modality}.json", **{required: None})
+    failed = _failed(_check(root))
+    assert ("GBT47127-ACQ-001", required, "gbt47127.field_missing") in {f[:3] for f in failed}, failed

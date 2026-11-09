@@ -355,8 +355,9 @@ def measure_description_name(ctx: CheckContext) -> list[Measurement]:
     if (single := _single(ctx, DESCRIPTION_NAME)) is not None:
         return single
     found = dataset(ctx).description
-    name = found.data.get("Name") if found is not None and found.data is not None else None
-    if not isinstance(name, str) or not name.strip():
+    data = found.data if found is not None else None
+    name = data.get("Name") if data is not None else None
+    if found is None or not isinstance(name, str) or not name.strip():
         return [
             Measurement(
                 check_id=DESCRIPTION_NAME, object=DATASET, state="not_checkable", reason=f"{PREFIX}.no_name"
@@ -647,7 +648,10 @@ def measure_sidecar(ctx: CheckContext) -> list[Measurement]:
     out = []
     for _, _, _, signal in _signals(dataset(ctx)):
         found, problems = _one(SIDECAR, signal.sidecars, signal.relative, "sidecar")
-        out.extend(problems or [_measure(SIDECAR, found.relative, "sidecar", True)])
+        if found is None:
+            out.extend(problems)
+        else:
+            out.append(_measure(SIDECAR, found.relative, "sidecar", True))
     return out or _no_signal(SIDECAR)
 
 
@@ -657,9 +661,9 @@ def measure_sidecar_fields(ctx: CheckContext) -> list[Measurement]:
         return single
     out = []
     for _, _, _, signal in _signals(dataset(ctx)):
-        if len(signal.sidecars) != 1 or signal.sidecars[0].data is None:
+        sidecar = signal.sidecars[0] if len(signal.sidecars) == 1 else None
+        if sidecar is None or sidecar.data is None:
             continue  # reported by gbt47127.sidecar
-        sidecar = signal.sidecars[0]
         specs = SIDECAR_FIELDS_BY_MODALITY[signal.modality]
         out.extend(
             _fields_of_mapping(
@@ -820,6 +824,13 @@ def measure_timestamp(ctx: CheckContext) -> list[Measurement]:
     return out
 
 
+def _as_float(value: Any) -> float | None:
+    """A sidecar number: a JSON number, or the text of an XML element (IQ-004); else None."""
+    if _number(value, isinstance(value, str)):
+        return float(value)
+    return None
+
+
 def _close(a: float, b: float) -> bool:
     return math.isclose(a, b, rel_tol=1e-6, abs_tol=1e-9)
 
@@ -834,22 +845,22 @@ def measure_signal_consistency(ctx: CheckContext) -> list[Measurement]:
     read = {rec.found.relative.as_posix(): rec.recording for rec in ctx.recordings}
     out = []
     for _, _, folder, signal in _signals(ds):
-        if len(signal.sidecars) != 1 or signal.sidecars[0].data is None:
+        data = signal.sidecars[0].data if len(signal.sidecars) == 1 else None
+        if data is None:
             continue
-        data = signal.sidecars[0].data
         relative = signal.relative
-        count = data.get("ChannelCount")
+        count = _as_float(data.get("ChannelCount"))
         tables = _tables_for(folder, "channels", signal)
-        if _number(count, isinstance(count, str)) and len(tables) == 1 and tables[0].problem is None:
+        if count is not None and len(tables) == 1 and tables[0].problem is None:
             rows = len(tables[0].rows)
             out.append(
                 _measure(
                     SIGNAL_CONSISTENCY,
                     relative,
                     "ChannelCount:table",
-                    _close(float(count), rows),
+                    _close(count, rows),
                     "count_table",
-                    sidecar=float(count),
+                    sidecar=count,
                     table=rows,
                 )
             )
@@ -869,9 +880,9 @@ def measure_signal_consistency(ctx: CheckContext) -> list[Measurement]:
                 )
             )
             continue
-        rate = data.get("SamplingFrequency")
-        if _number(rate, isinstance(rate, str)) and recording.sampling_rate_hz is not None:
-            ok = _close(float(rate), recording.sampling_rate_hz)
+        rate = _as_float(data.get("SamplingFrequency"))
+        if rate is not None and recording.sampling_rate_hz is not None:
+            ok = _close(rate, recording.sampling_rate_hz)
             out.append(
                 _measure(
                     SIGNAL_CONSISTENCY,
@@ -879,20 +890,20 @@ def measure_signal_consistency(ctx: CheckContext) -> list[Measurement]:
                     "SamplingFrequency",
                     ok,
                     "rate_signal",
-                    sidecar=float(rate),
+                    sidecar=rate,
                     signal=recording.sampling_rate_hz,
                 )
             )
-        if _number(count, isinstance(count, str)):
+        if count is not None:
             channels = len(recording.channels)
             out.append(
                 _measure(
                     SIGNAL_CONSISTENCY,
                     relative,
                     "ChannelCount:signal",
-                    _close(float(count), channels),
+                    _close(count, channels),
                     "count_signal",
-                    sidecar=float(count),
+                    sidecar=count,
                     signal=channels,
                 )
             )
