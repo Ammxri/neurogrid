@@ -6,7 +6,7 @@ Tabellen §12/§13 sind in `*.raw.txt` besser lesbar; Architekturbild: `architek
 
 ## Aktueller Stand
 
-**Phase P7 abgeschlossen (`dev` 2358e45, f842fc0, 36b9ddf und Phasencommit danach: GB/T 47127 – Leser und Schreiber, Regelpaket `gbt47127` mit 18 Regeln, `convert --to gbt47127`, Rundreise ohne Fehler; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub)). P8 wartet auf YY/T 2029 (G-B), P10 auf ISO/IEC TS 27571 (G-C).**
+**Phase P7 abgeschlossen (`dev` 2358e45, f842fc0, 36b9ddf und Phasencommit danach: GB/T 47127 – Leser und Schreiber, Regelpaket `gbt47127` mit 18 Regeln, `convert --to gbt47127`, Rundreise ohne Fehler; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub); CI auf dem Phasencommit 024c737 ganz grün: `ci` 42621117127, `offline` 42621117307, `ci-integration` 42621117128). P8 wartet auf YY/T 2029 (G-B), P10 auf ISO/IEC TS 27571 (G-C).**
 Stand P11: abgeschlossen (Ergebnisse 00f63a5, Phasencommit f103c85, CI auf f103c85 ganz grün: `ci` 42588250869, `offline` 42588250867, `ci-integration` 42588250897; NeuroArena, zwei volle Läufe exakt gleich, Bericht en und zh mit dem Befund A-111).
 Stand P9: `dev` 5596a8d (Bereiche Register, Neueinwilligung, Paket und Vergleich; vor P7 und P8 vorgezogen nach D-13
 und D-19), CI grün (`ci` 41447040471, `offline` 41447040492, `ci-integration` 41447040527).
@@ -21,7 +21,7 @@ auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfül
 STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 lief parallel zur zh-Prüfung und zur Sichtprüfung; das Release v0.1.0 erst danach.
 Offen beim Nutzer: die übrigen Punkte von „Für STOPP G1 vorgemerkt“ (darunter die Kernbegriffe von P6 für die
 zh-Prüfung), die Punkte von „Für STOPP G2 vorgemerkt“ (darunter die Kernbegriffe von P9, der zh-Bericht von
-NeuroArena, die Sichtprüfung einer Nachweismappe, vor v1.0 ein eigener Runner für den echten Lauf der CI-Integration, D-19),
+NeuroArena, die Sichtprüfung einer Nachweismappe; der Lauf auf eigenem Runner ist seit 13.11.2026 erledigt, D-19),
 YY/T-2029-Text vor P8, ISO-TS vor P10 (GB/T 47127 übergeben am 09.11.2026, D-22), Docker Desktop bei Gelegenheit.
 Die zh-Prüfung macht nach D-22 der Lead.
 
@@ -155,9 +155,10 @@ den Projektverantwortlichen.
   `errors.diff.*`, `cli.help.vault.export.*`, `cli.help.diff.*`, `cli.help.report.format`, die Texte der Action und der
   GitLab-Vorlage, `pia.zh.md` und die zh-Doku (`vault.md`, `metrics.md`, `commands.md`, `report.md`,
   `reference/outputs.md`, `data-model.md`, `privacy.md`, `limitations.md`, `index.md`, `ci.md`).
-- **Eigener Runner vor v1.0** (D-19): ein vorübergehend registrierter Runner mit dem Label `neurogrid`, nur per Dispatch
-  und nie für Pull Requests, für den echten Lauf von `ci-integration.yml` (Job `self-hosted`); bis dahin bleibt V-03
-  `teilweise`.
+- **Eigener Runner vor v1.0** (erledigt am 13.11.2026, D-19, D-22): ein vorübergehend registrierter Runner mit dem
+  Label `neurogrid`, nur per Dispatch und nie für Pull Requests; `ci-integration` 43405451313 auf 024c737 grün, der Job
+  `self-hosted` ohne `allow-hosted-runner` mit Exit 0 (Verlauf 2026-11-13). V-03 bleibt `teilweise` wegen P10,
+  REP-08 und der GitLab-Vorlage.
 - **Juristische Prüfung der PIA-Vorlage** durch eine in der VR China zugelassene Rechtsberatung vor der ersten echten
   Verwendung (D-19; kein Release-Gate).
 - **Sichtprüfung einer Nachweismappe** (`dossier.pdf`); bis dahin bleibt REP-08 `nicht verifiziert` (Muster D-18).
@@ -188,8 +189,25 @@ den Projektverantwortlichen.
 
 ## Verlauf
 
+### 2026-11-13 – Lauf von ci-integration auf eigenem Runner (V-03, D-19)
+- **Beigetragen zu:** V-03 (CI-Integration: der Lauf auf eigenem Runner vor v1.0). V-03 bleibt `teilweise`: Abbildung
+  ISO/IEC TS 27571 (P10), REP-08 bis zur Sichtprüfung, GitLab-Vorlage nie auf GitLab gelaufen.
+- **Ablauf** (D-22): Runner 2.338.2 vom Lead in `%USERPROFILE%\actions-runner` vorbereitet und geprüft; registriert vom
+  Projektverantwortlichen mit seinem Token (der Lead sieht keinen Token); gestartet vom Lead mit `run.cmd`, nicht als
+  Dienst; `ci-integration.yml` von Hand auf `dev` mit `self_hosted` gestartet durch den Projektverantwortlichen.
+- **Ergebnis:** `ci-integration` 43405451313 auf 024c737 grün, alle fünf Jobs. Der Job `self-hosted` lief auf `neurogrid-temp` (Windows 11,
+  Labels `self-hosted` und `neurogrid`) in 2 min ohne `allow-hosted-runner`: Exit 0, results.json, report.zh.html,
+  report.en.html. Der Schutz der Action lässt nur `runner.environment` = `self-hosted` durch; damit ist dieser Wert auf
+  einem eigenen Windows-Runner belegt. Nicht gelaufen: der Bash-Zweig auf einem eigenen Linux- oder macOS-Runner.
+- **Fund:** Der erste Lauf 43393416317 blieb über eine Stunde in der Warteschlange: Der Runner war ohne das Label
+  `neurogrid` registriert (`_diag`: `Arg 'labels': ''`). Nach dem Nachtragen des Labels und einem Neustart des Runners
+  nahm GitHub den wartenden Job nicht an; abgebrochen und neu gestartet lief er sofort (NACHBAU 4.11.6).
+- **Danach:** Runner gestoppt, sein Ordner mit den gespeicherten Zugangsdaten gelöscht; die Registrierung bei GitHub
+  entfernt der Projektverantwortliche.
+- **CI:** CI auf dem Phasencommit 024c737 ganz grün: `ci` 42621117127, `offline` 42621117307, `ci-integration` 42621117128.
+
 ### 2026-11-09 – P7 GB/T 47127: Leser und Schreiber, Regelpaket gbt47127, convert --to gbt47127 (NG-F03, RP-11, ARC-04)
-- **Abgeschlossen:** NG-F03, RP-11, ARC-04 (Code 2358e45, f842fc0, 36b9ddf; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub)).
+- **Abgeschlossen:** NG-F03, RP-11, ARC-04 (Code 2358e45, f842fc0, 36b9ddf; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub); CI auf dem Phasencommit 024c737 ganz grün: `ci` 42621117127, `offline` 42621117307, `ci-integration` 42621117128).
 - **Beigetragen zu:** V-02 (GB/T-Teil; yyt2029 wartet auf G-B), CLI-02 (`--to gbt47127`).
 - **Gebaut** (Normtext seit D-22 lokal, Inventar `.local/p7/inventory.md`):
   - Leser und Schreiber `io/gbt47127.py`.
@@ -887,18 +905,18 @@ den Projektverantwortlichen.
 
 P11 ist abgeschlossen (Ergebnisse 00f63a5; CI siehe den Eintrag von P11). Keine normunabhängige Phase ist mehr
 offen.
-- **P7:** abgeschlossen am 09.11.2026 (2358e45, f842fc0, 36b9ddf; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub)).
+- **P7:** abgeschlossen am 09.11.2026 (2358e45, f842fc0, 36b9ddf; CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub); CI auf dem Phasencommit 024c737 ganz grün: `ci` 42621117127, `offline` 42621117307, `ci-integration` 42621117128).
 - **P8 und P10:** P8 wartet auf den YY/T-2029-Text (G-B), P10 auf ISO/IEC TS 27571 (G-C). Empfehlung an den
   Projektverantwortlichen: YY/T 2029 jetzt beschaffen, über den Kauf der TS nach P8 entscheiden.
 - **Keine Normtexte:** Die am 07.11.2026 übergebene Zusammenfassung „BCI-Datenstandards“ ist eine Sekundärquelle und
   kein Normtext.
 - **P12:** Die Abnahme mit der Matrix Zeile für Zeile folgt nach KONZEPT 5 auf P10.
 
-Beim Lead parallel (D-22): eine Beispiel-Nachweismappe für REP-08 und der Lauf auf dem eigenen Runner. Für den Runner
-braucht es die Registrierung durch den Projektverantwortlichen. Die zh-Prüfung über alle 4172 Texte ist erledigt
+Beim Lead parallel (D-22): die Beispiel-Nachweismappe für REP-08 liegt vor; der Lauf auf dem eigenen Runner ist
+erledigt (13.11.2026, `ci-integration` 43405451313). Die zh-Prüfung über alle 4172 Texte ist erledigt
 (09.11.2026, A-112).
 Beim Projektverantwortlichen: Sichtprüfung (die Berichte für STOPP G1, die Abbildungen von NeuroArena), die übrigen
-Punkte von „Für STOPP G2 vorgemerkt“ (die Entscheidung zu A-111, eigener Runner vor v1.0, juristische Prüfung der
+Punkte von „Für STOPP G2 vorgemerkt“ (die Entscheidungen zu A-111 bis A-117, juristische Prüfung der
 PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die Release-Zweige für v0.1.0 aus
 dem P5-Stand c4f240a und, falls gewünscht, für v0.2.0 aus dem P6-Endstand 0ffdd90, jeweils nach den Prüfungen und mit
 Freigabe.

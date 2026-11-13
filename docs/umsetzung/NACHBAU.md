@@ -3064,6 +3064,30 @@ jede Regel eines eingebauten Pakets braucht einen positiven und einen negativen 
 - Die XML-Struktur ist eine Lesart (IQ-004).
 - Für NG-F04 (Abbildung ISO/IEC TS 27571 ↔ BIDS ↔ GB/T, P10) liegt die GB/T-Seite jetzt vor.
 
+#### 4.11.6 Lauf auf eigenem Runner (2026-11-13, V-03, D-19)
+
+Einmal vor v1.0 läuft `ci-integration.yml` mit dem Job `self-hosted` auf einem eigenen Runner, nur per Dispatch:
+
+1. Runner herunterladen (hier 2.338.2, Windows x64), die Prüfsumme mit der Release-Seite von `actions/runner`
+   vergleichen, nach `%USERPROFILE%\actions-runner` entpacken.
+2. Registrieren mit dem Token von Settings → Actions → Runners → New self-hosted runner (gilt eine Stunde; das macht der
+   Projektverantwortliche): `.\config.cmd --url https://github.com/<owner>/<repo> --token <TOKEN> --labels neurogrid
+   --name neurogrid-temp --unattended`. Ohne `--labels neurogrid` nimmt der Runner den Job nie an; im Protokoll
+   `_diag/Runner_*.log` steht dann `Arg 'labels': ''`.
+3. `run.cmd` starten (kein Dienst) und auf „Listening for Jobs“ warten.
+4. Erst dann `ci-integration` von Hand starten: Branch `dev`, Eingabe `self_hosted` an. Einen Job, der eingereiht wurde,
+   als noch kein Runner das Label hatte, teilt GitHub nicht neu zu, auch nicht nach dem Nachtragen des Labels und einem
+   Neustart des Runners: den Lauf abbrechen und neu starten.
+5. Erwartet: alle fünf Jobs grün; der Job `self-hosted` in etwa 2 min; der Schritt „Exit code and files as expected“
+   wird übersprungen (er läuft nur, wenn etwas fehlt).
+6. Danach `Runner.Listener` beenden, den Ordner löschen (er enthält `.credentials`) und den Runner unter Settings →
+   Actions → Runners entfernen.
+
+Ein neu gestarteter Runner meldet einige Minuten „A session for this runner already exists“ (Conflict), bis GitHub die
+alte Sitzung verwirft; er versucht es selbst weiter.
+
+Ergebnis am 13.11.2026: `ci-integration` 43405451313 auf 024c737 grün (FORTSCHRITT, Verlauf 2026-11-13).
+
 ---
 
 ## 5 Prüfwerkzeuge (`tools/`)
@@ -3366,8 +3390,8 @@ Cache entfernt).
   Namen, ein fremdes Programm, das es dazwischen ersetzt, bleibt unbemerkt; die Berichte liegen bis zu 5 × 256 MB im
   Speicher; `roles.yaml` und die PIA-Dateien kommen so ins ZIP, wie sie geschrieben sind (Rollen ohne personenbezogene
   Daten beschreiben).
-- CI-Integration [NV]: der Wert von `runner.environment` in einem zusammengesetzten Schritt (der Schutz lehnt auch
-  einen leeren Wert ab), der Lauf auf eigenem Runner (vor v1.0, D-19), die GitLab-Vorlage auf GitLab (Variable in
+- CI-Integration [NV]: der Wert von `runner.environment` auf einem eigenen Linux- oder macOS-Runner (auf einem
+  eigenen Windows-Runner belegt, 4.11.6), die GitLab-Vorlage auf GitLab (Variable in
   `tags`, leerer Tag, Kodierung unter PowerShell); die PowerShell-7-Variante von `test_cli_diff.py` läuft nur in der CI.
 - Nachweismappe [NV]: Sichtprüfung durch den Projektverantwortlichen (REP-08); mit `--config` sind zwei Bauten mit
   Absicht verschieden (das eigene Ereignis des Berichts).

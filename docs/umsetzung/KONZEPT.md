@@ -244,7 +244,7 @@ hoch; sie bricht mit Exit 1 ab, wenn `runner.environment` nicht `self-hosted` is
 (öffentliche oder synthetische Daten); Eingaben erreichen die Skripte nur über `env:`; `fail-on` errors, new-errors oder
 never. `ci-templates/gitlab-ci.yml` bietet die versteckten Jobs `.neurogrid` und `.neurogrid-powershell`, die nur der
 Runner mit dem Tag `$NEUROGRID_RUNNER_TAG` nimmt, ohne `artifacts:`. Die GitLab-Vorlage lief nie auf GitLab; der Lauf auf
-eigenem Runner ist vor v1.0 offen (D-19).
+eigenem Runner ist am 13.11.2026 grün gelaufen (`ci-integration` 43405451313, Windows, D-19).
 
 **Workflows** (A-87; Actions per Commit-SHA gepinnt, oberste Rechte `contents: read`):
 
