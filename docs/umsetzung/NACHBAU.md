@@ -3059,7 +3059,7 @@ jede Regel eines eingebauten Pakets braucht einen positiven und einen negativen 
 
 #### 4.11.5 Stand heute und was offen ist
 
-- Die Annahmen A-113 bis A-117 warten auf die Freigabe bei STOPP G2.
+- Die Annahmen A-113 bis A-117 sind freigegeben mit D-23 (13.11.2026).
 - Echte GB/T-Datensätze von Geräten gibt es nicht öffentlich: Die Tests nutzen synthetische Daten.
 - Die XML-Struktur ist eine Lesart (IQ-004).
 - Für NG-F04 (Abbildung ISO/IEC TS 27571 ↔ BIDS ↔ GB/T, P10) liegt die GB/T-Seite jetzt vor.

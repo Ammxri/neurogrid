@@ -301,6 +301,26 @@ hat entschieden:
   Lead hat auf die Einwilligungsregeln für Werbe-E-Mails hingewiesen (§ 7 UWG; die chinesischen Regeln für
   E-Mail-Dienste).
 
+## Entscheidungen vom 13.11.2026
+
+**D-23 Freigabe der Annahmen A-111 bis A-117 (13.11.2026).** Der Projektverantwortliche hat entschieden:
+- **A-111, Option a:** Das zugesetzte Netzbrummen von Cho2017, das die Klasse trägt, bleibt ein offen berichteter
+  Befund in beiden Berichten von NeuroArena. Keine Codeänderung und keine neuen Läufe (F4c). Ein Brummen, dessen Phase
+  nicht am Versuchsbeginn hängt, bleibt außerhalb von P11.
+- **A-112 bis A-117 freigegeben**, mit den dort genannten Lesarten:
+  - A-112: Vorgehen und Begriffsentscheidungen der zh-Prüfung durch den Lead;
+  - A-113: Umfang und Einstufung des Regelpakets `gbt47127` („应“ Fehler, „宜“ Hinweis, STO-012 und ACQ-004 als
+    Warnung);
+  - A-114: der Weg von `convert --to gbt47127`, ohne Erfundenes;
+  - A-115: Erkennung und Kernprüfungen eines GB/T-47127-Datensatzes;
+  - A-116: die vorläufigen Lesarten der Auslegungsfragen IQ-001 bis IQ-005; die Fragen selbst bleiben `open`, bis
+    sie einer zuständigen Stelle gestellt sind;
+  - A-117: Namen in fremden Ordnern pseudonym.
+- **Nicht Teil dieser Entscheidung**, weiter beim Projektverantwortlichen: die Sichtprüfungen (G1-PDFs,
+  Nachweismappe, Abbildungen von NeuroArena), die juristische Prüfung der PIA-Vorlage, das Absenden der Anfrage an die
+  Entwickler des BIDS-Validators, jeder Schritt von Merge und Veröffentlichung, der Kauf von YY/T 2029 und
+  ISO/IEC TS 27571.
+
 ## Annahmen (Nicht-Blocker)
 
 **A-00 Nicht ausgefüllte Eingaben des Auftrags.** Ausgangslage: neues Projekt unter `Projekte/neurogrid`.
@@ -1857,7 +1877,7 @@ F4c; Bericht, Abschnitt „Limitations“).
     `test_cho2017_line_noise_finding_follows_the_line_noise_item`.
 - **Nicht Teil von P11:** ein Brummen, dessen Phase nicht am Versuchsbeginn hängt (etwa eine leicht schwankende
   Netzfrequenz), und eine neue Messung damit. Das geht nur mit Freigabe.
-- Freigabe: offen (Liste STOPP G2).
+- Freigabe: freigegeben mit D-23 (13.11.2026), Option a (Befund ohne neue Läufe).
 
 **A-112 zh-Prüfung durch den Lead: Vorgehen und Begriffsentscheidungen** (D-22; ersetzt die Prüfperson von A-07,
 D-15 und D-17).
@@ -1894,7 +1914,7 @@ D-15 und D-17).
   und das Anschreiben durchsehen zu lassen.
 - **Nebenwirkung:** Die PIA-Vorlage `pia.zh.md` hat sich geändert. Ein vor dieser Änderung angelegter Tresor gilt
   deshalb nicht mehr als „unveränderte Vorlage“. Es gibt noch keinen echten Tresor, also keine Auswirkung.
-- Freigabe: offen (Liste STOPP G2).
+- Freigabe: freigegeben mit D-23 (13.11.2026).
 
 ## Annahmen aus der Umsetzung von P7
 
@@ -1921,7 +1941,7 @@ D-15 und D-17).
   - Felder, die nicht aufgeführt sind, dürfen vorkommen (die Norm schreibt „等“).
   - Ein Pflichtfeld fehlt, wenn es leer ist oder `n/a` enthält. Ein optionales Feld zählt nur, wenn es vorhanden
     ist und den falschen Typ hat.
-- Freigabe: offen (Liste STOPP G2).
+- Freigabe: freigegeben mit D-23 (13.11.2026).
 
 **A-114 `convert --to gbt47127`** (NG-F03, CLI-02).
 - **Weg:**
@@ -1949,7 +1969,7 @@ D-15 und D-17).
   - Exit 0 nur, wenn alles konvertiert ist und kein Fehler bleibt (A-77).
   - Je geschriebener Aufnahme ein Verarbeitungsschritt `convert_to_gbt47127` (DM-07); bei einem Rohordner davor
     der BIDS-Schritt.
-- Freigabe: offen (Liste STOPP G2).
+- Freigabe: freigegeben mit D-23 (13.11.2026).
 
 **A-115 Erkennung und Kernprüfungen in einem GB/T-47127-Datensatz** (NG-F03, ARC-04).
 - **Erkennung:** Ein Ordner gilt als GB/T 47127, wenn alles drei zutrifft:
@@ -1974,7 +1994,7 @@ D-15 und D-17).
   - Impedanzen kennt das Format nicht.
 - **Wiederverwendung (ARC-04):** `neurogrid.io.gbt47127.read_dataset` und `from_bids` sind die Schnittstelle des
   Adapters.
-- Freigabe: offen (Liste STOPP G2).
+- Freigabe: freigegeben mit D-23 (13.11.2026).
 
 **A-116 Auslegungsfragen von GB/T 47127** (RP-08). Eingetragen in `docs/_data/interpretation_questions.yaml`, auf
 der Seite der Regelpakete, alle mit Status `open`:
@@ -1989,9 +2009,9 @@ der Seite der Regelpakete, alle mit Status `open`:
     nur für die Strukturregeln.
   - Beim Schreiben entsteht die Sitzungsebene nur, wenn BIDS Sitzungen hat.
   - Die Einheit der Koordinaten nennt die Norm nicht. Zahlen werden wie in der Quelle geschrieben.
-- Freigabe: offen (Liste STOPP G2).
+- Freigabe: freigegeben mit D-23 (13.11.2026).
 
 **A-117 Namen in fremden Ordnern** (A-51). Prüft `--rulepack gbt47127` einen Ordner, der weder BIDS noch GB/T ist:
 - Objekte und Dateien erscheinen pseudonym wie jeder Name eines Rohordners.
 - Werte aus den Daten als Teilschlüssel oder Liste entfallen, etwa eine ParticipantId.
-- Freigabe: offen (Liste STOPP G2).
+- Freigabe: freigegeben mit D-23 (13.11.2026).

@@ -125,18 +125,15 @@ Projektverantwortlichen.
 
 ## Für STOPP G2 vorgemerkt
 
-Stand 09.11.2026 (nach P6, P9 und P11; D-21): erledigt sind die Freigabe der Annahmen A-90 bis A-110 und die
-Kenntnisnahme der bekannten Grenzen; neu offen ist A-111. STOPP G2 folgt
-nach Abschluss von v0.2 (A-37, KONZEPT 6); P7 und P8 warten auf die Normtexte (G-A, G-B). Jeder offene Punkt braucht
+Stand 13.11.2026 (nach P6, P9, P11 und P7; D-21, D-23): erledigt sind die Freigabe der Annahmen A-90 bis A-117
+und die Kenntnisnahme der bekannten Grenzen. STOPP G2 folgt
+nach Abschluss von v0.2 (A-37, KONZEPT 6); P8 wartet auf den Normtext (G-B). Jeder offene Punkt braucht
 den Projektverantwortlichen.
 - **Annahmen A-90 bis A-110:** freigegeben mit D-21 (09.11.2026), einschließlich der Abweichungen A-95 und A-105;
   die Lesarten stehen in ENTSCHEIDUNGEN.
 - **Annahme A-111** (Befund nach den vollen Läufen, 09.11.2026): Das zugesetzte Netzbrummen von Cho2017 trägt die
-  Klasse. Der Lead hat es als Befund berichtet und nicht neu gerechnet, weil F4c das Anpassen an Ergebnisse
-  ausschließt. Zu entscheiden ist eines von beiden:
-  - diese Lesart freigeben;
-  - ein Brummen, dessen Phase nicht am Versuchsbeginn hängt, mit neuen Läufen. Das kostet eine Codeänderung und für
-    die Netzbrummen-Bedingungen etwa 10–13 h je Lauf.
+  Klasse; freigegeben mit D-23 (13.11.2026), Option a: bleibt ein berichteter Befund, ohne Codeänderung und ohne neue Läufe.
+- **Annahmen A-112 bis A-117** (zh-Prüfung; P7 GB/T 47127): freigegeben mit D-23 (13.11.2026).
 - **zh-Prüfung der P9-Texte** (erledigt am 09.11.2026 durch den Lead, D-22, A-112; ursprünglich D-19 wie D-17
   Option C): jetzt die Kernbegriffe, die vollständigen Texte in einer Runde
   vor dem Release von v1.0. Kernbegriffe aus den Berichten der Bereiche: 角色登记册 (Rollenregister), 保存期限 und
@@ -229,7 +226,7 @@ den Projektverantwortlichen.
     - 6 behoben: Rekursionsschutz für JSON, Paketlisten, KNOWN, ausgelieferte Auslegungsfragen, zh-Paket,
       `--to` im CLI-Test.
   - CI: CI auf 36b9ddf: `offline` 42611386571 und `ci-integration` 42611386557 grün, `ci` 42611386560 mit 5 von 6 Testjobs grün (windows-latest 4895–4896 bestanden / 19–20 übersprungen, ubuntu-24.04 Python 3.11/3.12 je 4795 / 125, 0 Fehler, Abdeckung Kern 94,3–94,4 %, Prüfer 95,8–95,9 %; der Job ubuntu-24.04 Python 3.13 verlor die Verbindung zum Runner, Störung bei GitHub).
-- **Annahmen:** A-113 bis A-117, Freigabe offen (STOPP G2). Dazu A-112 (zh-Prüfung, D-22).
+- **Annahmen:** A-113 bis A-117, freigegeben mit D-23 (13.11.2026). Dazu A-112 (zh-Prüfung, D-22; ebenfalls D-23).
 - **Nicht verifiziert:**
   - echte GB/T-Datensätze von Geräten (nicht öffentlich verfügbar; nur synthetische Daten);
   - die XML-Lesart (IQ-004) an Dateien Dritter;
@@ -310,7 +307,7 @@ den Projektverantwortlichen.
     4823–4824 bestanden / 19–20 übersprungen, ubuntu-24.04 je 4723 / 125, 0 Fehler. Außerdem grün: `research`
     42580352023 und `ci-integration` 42580352074; zu `offline` siehe „Abgeschlossen“.
 - **Annahmen:** A-100 bis A-110, freigegeben mit D-21 (09.11.2026, mit der Abweichung A-105); angewandt: D-20.
-  Neu: A-111 (Befund nach den vollen Läufen, als Befund berichtet und nicht neu gerechnet; Freigabe offen, STOPP G2).
+  Neu: A-111 (Befund nach den vollen Läufen, als Befund berichtet und nicht neu gerechnet; freigegeben mit D-23 (13.11.2026), Option a).
 - **Nicht verifiziert:**
   - zh-Fassung des Berichts: muttersprachliche Prüfung in der zh-Prüfrunde (Begriffe unter „Für STOPP G2
     vorgemerkt“); nach D-20 kein Gate für P11.
@@ -916,7 +913,7 @@ Beim Lead parallel (D-22): die Beispiel-Nachweismappe für REP-08 liegt vor; der
 erledigt (13.11.2026, `ci-integration` 43405451313). Die zh-Prüfung über alle 4172 Texte ist erledigt
 (09.11.2026, A-112).
 Beim Projektverantwortlichen: Sichtprüfung (die Berichte für STOPP G1, die Abbildungen von NeuroArena), die übrigen
-Punkte von „Für STOPP G2 vorgemerkt“ (die Entscheidungen zu A-111 bis A-117, juristische Prüfung der
+Punkte von „Für STOPP G2 vorgemerkt“ (juristische Prüfung der
 PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die Release-Zweige für v0.1.0 aus
 dem P5-Stand c4f240a und, falls gewünscht, für v0.2.0 aus dem P6-Endstand 0ffdd90, jeweils nach den Prüfungen und mit
 Freigabe.

@@ -45,6 +45,7 @@ Jede Zeile hat genau eine abschließende Phase im Phasenplan (KONZEPT.md Abschni
 | D-20 | NeuroArena (P11): Zhou2016, Cho2017 statt PhysionetMI, Kalunga2016; eine Leiter je Art mit fünf Stufen; Lizenz-Gate research mit versionsgebundenen Ausnahmen (auch debugpy, Intel OpenMP); Bericht en und zh; Pilotbefund als Befund berichtet | entschieden (02.–03.11.2026) |
 | D-21 | Freigabe der Annahmen A-90 bis A-110 nach Empfehlung, einschließlich der Abweichungen A-95 und A-105; Kenntnisnahme der bekannten Grenzen von G1 und G2 | entschieden (09.11.2026), dazu die bekannten Grenzen zur Kenntnis genommen; offen: Prüfungen, Veröffentlichung |
 | D-22 | GB/T 47127 übergeben (G-A erfüllt); zh-Prüfung durch den Lead statt durch einen Muttersprachler; Beispiel-Nachweismappe aus synthetischen Daten; eigener Runner vom Lead vorbereitet, Registrierung durch den Projektverantwortlichen | entschieden (09.11.2026); offen: Kauf von YY/T 2029 und ISO/IEC TS 27571, Sichtprüfung der G1-PDFs, Veröffentlichung |
+| D-23 | Freigabe der Annahmen A-111 (Option a: Befund ohne neue Läufe) bis A-117 (zh-Prüfung, GB/T 47127) | entschieden (13.11.2026) |
 
 
 ---
