@@ -14,7 +14,7 @@ Merges `9272cd9`, `3646997`, `c516598`, den Querschnittstests `40d6d16`, den Mer
 CI-Korrekturen `2f2a5a5` und der Fix-Runde nach dem Review (Zweig `p6-fix`, Merge `0ffdd90`; 4.8). CI auf `d50158b`:
 `ci` 41402168683 rot nur an fünf Tests außerhalb der Bereiche, `offline` 41402168572 grün [G, CI d50158b]; CI auf
 `0ffdd90`: ganz grün (`ci` 41422859481, `offline` 41422859830). Version auf `dev` `0.2.0.dev0`; v0.1.0 entsteht später aus `c4f240a` auf einem
-Release-Zweig (D-19). STOPP G1 ist nach D-18 teilweise entschieden; offen sind zh- und Sichtprüfung (4.7.21).
+Release-Zweig (D-19). STOPP G1 ist nach D-18 teilweise entschieden; zh-Prüfung (09.11.2026, D-22) und Sichtprüfung (14.11.2026, D-24) sind erledigt, offen sind Merge und Release (4.7.21).
 
 **Stand P5:** Zweig `dev`, Commit `27c3e90` (28.10.2026): P5 nach Bau, Integration, Abnahme, Review, Fix-Runde, Merge
 `55335ca`, Doku-Fix `181654e`, zweiter CI-Fix-Runde (Zweige `p5-ci2-*`, 4.7.14), Lizenztexten nach D-17 (4.7.15),
@@ -68,14 +68,14 @@ nachstellen (1.6 Punkt 20–22).
 | Freigabe von Downloads außerhalb D-06 | CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators (D-15); LGPL-3.0/GPL-3.0-Texte für isomorphic-git (D-16); URL-Liste der acht übrigen Lücken (D-17) | freigegeben und abgelegt (`LICENSES/`, `license-gate/third_party/`, `license-gate/licence_texts.toml`; D-15/D-16 in 4.7.7) [G] |
 | Entscheidung zu den übrigen fehlenden Lizenztexten | Pakete im dist von hed-validator, hash-wasm (Brumme, argon2), `@jspm/core`, libaec/libsz im Linux-h5py-Wheel, Bibliotheken von python-build-standalone, focus-visible und material-design-color der Doku | entschieden (D-17, 27.10.2026); `license-gate/known_missing.toml` ist leer |
 | Versand der Anfrage an die Validator-Entwickler (D-16) | Ersatz des LGPL-Abschnitts in isomorphic-git | Entwurf liegt privat in `.local/p5/upstream_issue_bids_validator.md`; Versand durch den Projektverantwortlichen [NV] |
-| muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1); Prüfpaket aus `tools/zh_review_package.py` (4.7.8), nach dem letzten G1-Lauf neu erzeugt | offen |
+| muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1); Prüfpaket aus `tools/zh_review_package.py` (4.7.8), nach dem letzten G1-Lauf neu erzeugt | erledigt am 09.11.2026 durch den Lead (D-22, A-112) |
 | Bestätigung der Annahmen A-78..A-89, der R16-Lesart und der bekannten Grenzen; Freigabe von Merge und Release | STOPP G1 (4.7.21) | Annahmen und Lesarten bestätigt (D-18, 29.10.2026); offen: Kenntnisnahme der Grenzen, Release v0.1.0 aus `c4f240a` auf einem Release-Zweig (D-19) |
 | Kernbegriffe von P6 in der zh-Prüfung, vollständige P6-Texte vor v0.2 | D-17 Option C (Liste in FORTSCHRITT „Für STOPP G1 vorgemerkt“) | offen |
 | Bestätigung der Annahmen A-90..A-92 | STOPP G2 (4.8.11) | offen |
-| vorübergehender eigener Runner für den echten Lauf der CI-Integration | V-03, vor dem Release von v1.0 (D-19) | offen; `ci-integration.yml` hat den Job `self-hosted` (nur von Hand, 4.9.6) |
+| vorübergehender eigener Runner für den echten Lauf der CI-Integration | V-03, vor dem Release von v1.0 (D-19) | erledigt am 13.11.2026 (`ci-integration` 43405451313, 4.11.6); Registrierung entfernt |
 | Bestätigung der Annahmen A-93..A-99 (darunter die Abweichung von A-95 vom Entwurf) | Freigabe nach P9, STOPP G2 (4.9.9) | offen |
 | Kernbegriffe von P9 in der zh-Prüfung, vollständige P9-Texte vor v1.0 | D-19 wie D-17 Option C (Liste in FORTSCHRITT „Für STOPP G2 vorgemerkt“) | offen |
-| Sichtprüfung einer Nachweismappe (`dossier.pdf`) | REP-08 (Muster D-18) | offen |
+| Sichtprüfung einer Nachweismappe (`dossier.pdf`) | REP-08 (Muster D-18) | erledigt am 14.11.2026 an der Beispielmappe, ohne Befund (D-24) |
 | juristische Prüfung der PIA-Vorlage durch eine in der VR China zugelassene Rechtsberatung | NV-F05, vor der ersten echten Verwendung, kein Release-Gate (D-19) | offen |
 | ein echter Lauf der GitLab-Vorlage | V-03 (A-98) | offen, nie auf GitLab gelaufen |
 
@@ -3597,8 +3597,8 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
       D-17), `known_missing.toml` leer und Notices neu
 - [x] M14 Option B, zh-Prüfung der P6-Texte Option C, zh-Paket nach der zweiten CI-Fix-Runde (D-17)
 - [ ] Anfrage an die Validator-Entwickler versendet (D-16)
-- [ ] zh-Prüfung mit dem Paket nach dem letzten G1-Lauf (neue Schlüssel und Sätze in 4.7.8), Sichtprüfung der
-      Beispiel-PDFs
+- [x] zh-Prüfung mit dem Paket nach dem letzten G1-Lauf (neue Schlüssel und Sätze in 4.7.8; durch den Lead am
+      09.11.2026, D-22), Sichtprüfung der Beispiel-PDFs (14.11.2026, D-24)
 - [x] Bestätigung A-78..A-89 und R16-Installationshinweis (D-18, 29.10.2026)
 - [ ] Kenntnisnahme der bekannten Grenzen (4.7.21, Abschnitt 8); zh-Prüfung mit den Kernbegriffen von P6 (FORTSCHRITT)
 - [ ] für STOPP G2 und v1.0: Bestätigung A-90..A-99, Kernbegriffe von P9 in der zh-Prüfung (vollständige Texte vor

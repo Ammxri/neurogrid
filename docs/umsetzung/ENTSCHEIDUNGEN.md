@@ -321,6 +321,23 @@ hat entschieden:
   Entwickler des BIDS-Validators, jeder Schritt von Merge und Veröffentlichung, der Kauf von YY/T 2029 und
   ISO/IEC TS 27571.
 
+## Entscheidungen vom 14.11.2026
+
+**D-24 Sichtprüfung bestanden (14.11.2026).** Der Projektverantwortliche hat die Sichtprüfung gemacht; sie ist ohne
+Befund:
+- **G1-PDFs:** die 12 Berichte zh und en des G1-Endlaufs auf 27c3e90 (`.local/acceptance/g1/run1/`, sechs Datensätze in
+  fünf Formaten). Damit sind NG-F13, REP-00 und UF-01 `erfüllt` (nach D-18 `nicht verifiziert` bis zur Sichtprüfung;
+  die Lesart A-84 ist mit D-18 freigegeben, die zh-Prüfung mit D-22 erledigt).
+- **Nachweismappe:** die Beispielmappe aus synthetischen Testdaten (`.local/dossier_sample/dossier_beispiel.pdf`, D-22).
+  Damit ist REP-08 `erfüllt`; V-03 bleibt `teilweise` (P10, Bash-Zweig des Schutzes, GitLab-Vorlage).
+- **Abbildungen von NeuroArena:** `accuracy_over_quality.png` und `accuracy_over_degradation.png` (NA-05 war schon
+  `erfüllt`).
+- **Folge für STOPP G1:** zh- und Sichtprüfung liegen ohne offene Befunde vor (D-18). Merge nach `main` und das Release
+  v0.1.0 aus `c4f240a` auf einem Release-Zweig (D-19) bleiben je Schritt an die Freigabe des Projektverantwortlichen
+  gebunden; dazu gehören die Konten bei PyPI und TestPyPI.
+- **Grenze:** Geprüft sind die PDFs des Stands 27c3e90 und die Beispielmappe vom 09.11.2026. Spätere Änderungen am
+  Bericht decken die Tests und das PDF-QA-Gate ab, keine neue Sichtprüfung.
+
 ## Annahmen (Nicht-Blocker)
 
 **A-00 Nicht ausgefüllte Eingaben des Auftrags.** Ausgangslage: neues Projekt unter `Projekte/neurogrid`.

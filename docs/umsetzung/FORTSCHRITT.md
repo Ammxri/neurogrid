@@ -18,16 +18,16 @@ Stand P6: `dev` 0ffdd90, CI ganz grün (`ci` 41422859481, `offline` 41422859830)
 rot nur an fünf Tests außerhalb der Bereiche, behoben in 2f2a5a5. Die volle Testsuite läuft nur in der CI (A-87);
 lokal liefen nur die betroffenen Tests (Zahlen in den Einträgen von P9 und P6). Stand P5: CI auf 27c3e90 ganz grün (`ci` 40680346160, `offline` 40680346176); G1-Endlauf
 auf 27c3e90: 6 von 6 Datensätzen in 5 Formaten bestanden, alle Kriterien erfüllt, 0 Probleme, V-01 erfüllt, V-06 ja (149 min 28 s; `.local/p5/ci3/g1_summary_27c3e90.md`).
-STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 lief parallel zur zh-Prüfung und zur Sichtprüfung; das Release v0.1.0 erst danach.
+STOPP G1 (29.10.2026, D-18): Annahmen A-78 bis A-89, R16 und die D-15-Lesart zu core-js-pure freigegeben; P6 lief parallel zur zh-Prüfung und zur Sichtprüfung; das Release v0.1.0 erst danach. Beide Prüfungen sind erledigt (zh-Prüfung 09.11.2026, D-22; Sichtprüfung 14.11.2026 ohne Befund, D-24).
 Offen beim Nutzer: die übrigen Punkte von „Für STOPP G1 vorgemerkt“ (darunter die Kernbegriffe von P6 für die
 zh-Prüfung), die Punkte von „Für STOPP G2 vorgemerkt“ (darunter die Kernbegriffe von P9, der zh-Bericht von
-NeuroArena, die Sichtprüfung einer Nachweismappe; der Lauf auf eigenem Runner ist seit 13.11.2026 erledigt, D-19),
+NeuroArena; erledigt sind der Lauf auf eigenem Runner am 13.11.2026, D-19, und die Sichtprüfung am 14.11.2026, D-24),
 YY/T-2029-Text vor P8, ISO-TS vor P10 (GB/T 47127 übergeben am 09.11.2026, D-22), Docker Desktop bei Gelegenheit.
 Die zh-Prüfung macht nach D-22 der Lead.
 
 ## Für STOPP G1 vorgemerkt
 
-Stand 29.10.2026 (D-18): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); offen sind Sichtprüfung, die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (nach den beiden Prüfungen). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
+Stand 14.11.2026 (D-18, D-24): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); offen sind die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (die beiden Prüfungen liegen vor). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
 - **zh-Prüfung** (A-07, A-86, D-15, D-17; seit D-22 durch den Lead, erledigt am 09.11.2026 nach A-112 über alle
@@ -68,8 +68,8 @@ Projektverantwortlichen.
     Die vollständigen P6-Texte (u. a. die übrigen Meldungen von Vault und Einwilligung, `docs/zh/vault.md`, die neuen
     Schlüssel der Fix-Runde `report.consent.*` und `errors.vault.object_link`) bekommen eine eigene Runde vor dem
     Release von v0.2 (D-17).
-- **Sichtprüfung der PDFs** zh/en (KONZEPT 4; NG-F13, REP-00, UF-01). Bis dahin bleiben NG-F13, REP-00 und UF-01
-  `nicht verifiziert`, auch nach bestandenem G1-Lauf.
+- **Sichtprüfung der PDFs** zh/en (KONZEPT 4; NG-F13, REP-00, UF-01): erledigt am 14.11.2026 ohne Befund (D-24), an den 12 PDFs des
+  Endlaufs auf 27c3e90; NG-F13, REP-00 und UF-01 sind damit `erfüllt`.
 - **Annahmen A-78 bis A-89 zur Freigabe**, darunter:
   - A-84: höchstens 50 Befundzeilen je Regel plus Sammelzeile als Lesart von „jeder Befund“ (NG-F13); Abschnitt 4
     mit den datensatzweiten Werten von M11/M12, Anhang 6.1 (geprüfte Regeln) und 6.6 (Umgebung) als Lesart von
@@ -155,10 +155,10 @@ den Projektverantwortlichen.
 - **Eigener Runner vor v1.0** (erledigt am 13.11.2026, D-19, D-22): ein vorübergehend registrierter Runner mit dem
   Label `neurogrid`, nur per Dispatch und nie für Pull Requests; `ci-integration` 43405451313 auf 024c737 grün, der Job
   `self-hosted` ohne `allow-hosted-runner` mit Exit 0 (Verlauf 2026-11-13). V-03 bleibt `teilweise` wegen P10,
-  REP-08 und der GitLab-Vorlage.
+  des Bash-Zweigs auf Linux oder macOS und der GitLab-Vorlage (REP-08 erfüllt seit 14.11.2026, D-24).
 - **Juristische Prüfung der PIA-Vorlage** durch eine in der VR China zugelassene Rechtsberatung vor der ersten echten
   Verwendung (D-19; kein Release-Gate).
-- **Sichtprüfung einer Nachweismappe** (`dossier.pdf`); bis dahin bleibt REP-08 `nicht verifiziert` (Muster D-18).
+- **Sichtprüfung einer Nachweismappe** (`dossier.pdf`): erledigt am 14.11.2026 ohne Befund (D-24) an der Beispielmappe; REP-08 ist `erfüllt`.
 - **Echter Lauf der GitLab-Vorlage:** nicht verifiziert sind die GitLab-Variable in `tags`, ein leerer Tag und die
   Kodierung unter PowerShell auf GitLab.
 - **zh-Runde der vollständigen P6-Texte** (erledigt am 09.11.2026 durch den Lead, D-22, A-112).
@@ -182,9 +182,24 @@ den Projektverantwortlichen.
   (`lim_line_except`, `lim_phase`, `lim_phase_data`, `lim_phase_top`): 携带了类别信息 (trägt die Klasse), 与类别锁定
   (an die Klasse gekoppelt), 时间卷积 (zeitliche Faltung), 只有均值，没有区间 (nur Mittelwert, kein Intervall).
 - **Sichtprüfung der Abbildungen von NeuroArena:** `research/neuroarena/results/accuracy_over_quality.{svg,png}` und
-  `accuracy_over_degradation.{svg,png}`; eingebunden in beide Berichte.
+  `accuracy_over_degradation.{svg,png}`; eingebunden in beide Berichte. Erledigt am 14.11.2026 ohne Befund (D-24), geprüft
+  an den PNG.
 
 ## Verlauf
+
+### 2026-11-14 – Sichtprüfung bestanden (NG-F13, REP-00, UF-01, REP-08; D-24)
+- **Abgeschlossen:** NG-F13, REP-00, UF-01 (v0.1) und REP-08 (v1.0) von `nicht verifiziert` auf `erfüllt`.
+- **Geprüft vom Projektverantwortlichen:** die 12 PDFs zh/en des G1-Endlaufs auf 27c3e90
+  (`.local/acceptance/g1/run1/`), die Beispiel-Nachweismappe (`.local/dossier_sample/dossier_beispiel.pdf`) und die zwei
+  Abbildungen von NeuroArena (PNG). Geprüft wurden Schrift (zh-Zeichen ohne Ersatzkästchen), Layout (nichts
+  abgeschnitten oder überlappend, Tabellen in der Seite), Vollständigkeit und Gleichlauf von zh und en, lange Tabellen der
+  Mappe sowie Achsen und Legenden der Abbildungen.
+- **Ergebnis:** ohne Befund. STOPP G1 hat damit keine offenen Prüfungen mehr; offen sind die Anfrage an die Entwickler
+  des BIDS-Validators sowie Merge und Release v0.1.0, je Schritt mit Freigabe (D-18, D-19).
+- **Grenze:** Spätere Änderungen am Bericht decken Tests und das PDF-QA-Gate ab, keine neue Sichtprüfung (D-24).
+- **Nebenbei:** Die Registrierung des Runners `neurogrid-temp` hat der Projektverantwortliche am 13.11.2026 bei GitHub
+  entfernt.
+- **CI:** auf 12e12c1 ganz grün (`ci` 43413899458, `offline` 43413899444, `ci-integration` 43413899537).
 
 ### 2026-11-13 – Lauf von ci-integration auf eigenem Runner (V-03, D-19)
 - **Beigetragen zu:** V-03 (CI-Integration: der Lauf auf eigenem Runner vor v1.0). V-03 bleibt `teilweise`: Abbildung
@@ -200,7 +215,7 @@ den Projektverantwortlichen.
   `neurogrid` registriert (`_diag`: `Arg 'labels': ''`). Nach dem Nachtragen des Labels und einem Neustart des Runners
   nahm GitHub den wartenden Job nicht an; abgebrochen und neu gestartet lief er sofort (NACHBAU 4.11.6).
 - **Danach:** Runner gestoppt, sein Ordner mit den gespeicherten Zugangsdaten gelöscht; die Registrierung bei GitHub
-  entfernt der Projektverantwortliche.
+  hat der Projektverantwortliche am 13.11.2026 entfernt.
 - **CI:** CI auf dem Phasencommit 024c737 ganz grün: `ci` 42621117127, `offline` 42621117307, `ci-integration` 42621117128.
 
 ### 2026-11-09 – P7 GB/T 47127: Leser und Schreiber, Regelpaket gbt47127, convert --to gbt47127 (NG-F03, RP-11, ARC-04)
@@ -912,7 +927,7 @@ offen.
 Beim Lead parallel (D-22): die Beispiel-Nachweismappe für REP-08 liegt vor; der Lauf auf dem eigenen Runner ist
 erledigt (13.11.2026, `ci-integration` 43405451313). Die zh-Prüfung über alle 4172 Texte ist erledigt
 (09.11.2026, A-112).
-Beim Projektverantwortlichen: Sichtprüfung (die Berichte für STOPP G1, die Abbildungen von NeuroArena), die übrigen
+Beim Projektverantwortlichen (die Sichtprüfung ist erledigt, 14.11.2026, D-24): die übrigen
 Punkte von „Für STOPP G2 vorgemerkt“ (juristische Prüfung der
 PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die Release-Zweige für v0.1.0 aus
 dem P5-Stand c4f240a und, falls gewünscht, für v0.2.0 aus dem P6-Endstand 0ffdd90, jeweils nach den Prüfungen und mit
