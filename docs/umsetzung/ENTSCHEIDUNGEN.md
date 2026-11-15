@@ -338,6 +338,28 @@ Befund:
 - **Grenze:** Geprüft sind die PDFs des Stands 27c3e90 und die Beispielmappe vom 09.11.2026. Spätere Änderungen am
   Bericht decken die Tests und das PDF-QA-Gate ab, keine neue Sichtprüfung.
 
+## Entscheidungen vom 15.11.2026
+
+**D-25 Freigabe von v0.1.0 (15.11.2026).** Der Projektverantwortliche hat v0.1.0 freigegeben, mit der Adresse
+`https://github.com/Ammxri/neurogrid`.
+- **Vom Projektverantwortlichen eingerichtet:** Konten bei PyPI und TestPyPI mit je einem wartenden Trusted Publisher
+  (Owner `Ammxri`, Repository `neurogrid`, Workflow `publish-pypi.yml`, Umgebung `pypi` bzw. `testpypi`) und die
+  GitHub-Umgebungen `testpypi` und `pypi` mit ihm als Prüfer, ohne „Prevent self-review“. Die Umgebungen hat der Lead am
+  15.11.2026 über die API bestätigt; die wartenden Publisher sieht er nicht [NV]. Der Name `neurogrid` war an diesem Tag
+  auf PyPI und TestPyPI frei.
+- **Release-Zweig `release/v0.1.0`** aus `c4f240a` (D-19), vorerst nur lokal:
+  - b54a077: die Korrekturen der zh-Prüfung (3dfb795, A-112) für jeden zh-Text, den es in 0.1 schon gibt. Texte
+    späterer Phasen bleiben draußen (Vault, Einwilligung, CI-Integration, NeuroArena, Auslegungsfragen). Die
+    generierten Seiten sind neu erzeugt; der SHA-256 von `core` ändert sich, weil sich seine zh-Titel geändert haben.
+  - 1ee4299: Adresse und PyPI-Adresse (`https://pypi.org/project/neurogrid/0.1.0/`) statt der Platzhalter in docs/en
+    und docs/zh, die Adresse des PDF-Installers, Version 0.1.0.
+  - Aus der Sichtprüfung kommt keine Korrektur (D-24).
+  - Lokal auf dem Zweig (Windows 11, Python 3.12): tests/docs, tests/unit, tests/rules, test_packaging_texts.py, test_release_check.py, test_zh_review_package.py und test_report_pdf_cli.py 2708 bestanden, 18 übersprungen; ruff sauber; gen_docs.py --check aktuell. Die volle Suite und Linux prüft die CI auf main.
+- **Je Schritt eine eigene Freigabe** (D-18): Merge nach `main` und Push (startet `ci.yml`, `offline.yml`, `docs.yml`
+  und `corpus.yml`); der Tag `v0.1.0` (startet `release.yml`); in GitHub die Freigabe der Umgebung `testpypi` und nach
+  der Prüfung der Installation von dort die von `pypi`. Den Tag setzt der Lead erst, wenn die CI auf `main` grün ist.
+- **`dev` behält die Platzhalter** bis zu seinem eigenen Release.
+
 ## Annahmen (Nicht-Blocker)
 
 **A-00 Nicht ausgefüllte Eingaben des Auftrags.** Ausgangslage: neues Projekt unter `Projekte/neurogrid`.

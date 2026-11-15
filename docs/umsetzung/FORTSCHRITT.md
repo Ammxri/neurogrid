@@ -27,7 +27,7 @@ Die zh-Prüfung macht nach D-22 der Lead.
 
 ## Für STOPP G1 vorgemerkt
 
-Stand 14.11.2026 (D-18, D-24): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); offen sind die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (die beiden Prüfungen liegen vor). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
+Stand 14.11.2026 (D-18, D-24): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); offen sind die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (v0.1.0 freigegeben am 15.11.2026, D-25; Merge, Tag und Uploads je mit eigener Freigabe). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
 - **zh-Prüfung** (A-07, A-86, D-15, D-17; seit D-22 durch den Lead, erledigt am 09.11.2026 nach A-112 über alle
@@ -114,7 +114,7 @@ Projektverantwortlichen.
     nicht verifiziert (NG-N04 `teilweise`).
 - **Anfrage an die Entwickler des BIDS-Validators** (D-16): den Entwurf
   (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) prüft und sendet der Projektverantwortliche.
-- **Merge und Veröffentlichung** (je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
+- **Merge und Veröffentlichung** (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
   P5-Stand c4f240a plus den Korrekturen aus zh- und Sichtprüfung auf einem Release-Zweig, nicht aus `dev`, das seit
   8391420 0.2.0.dev0 trägt; `tools/release_check.py` verlangt den Tag-Commit in `origin/main`, A-87): Merge nach `main` und Push;
   Version 0.1.0, Tag `v0.1.0` und `release.yml` (vorher die Platzhalter `<REPO_URL>` und `<PYPI_RELEASE>` in docs/en und
@@ -186,6 +186,21 @@ den Projektverantwortlichen.
   an den PNG.
 
 ## Verlauf
+
+### 2026-11-15 – Freigabe von v0.1.0 und Release-Zweig (V-01, POS-02, CON-05; D-25)
+- **Beigetragen zu:** V-01 (Release v0.1), POS-02 und CON-05 (Platzhalter `<REPO_URL>` auf dem Release-Zweig gefüllt).
+  Die Zeilen bleiben `teilweise` bis zum Release.
+- **Freigabe** (D-25): v0.1.0 mit der Adresse https://github.com/Ammxri/neurogrid. Die GitHub-Umgebungen `testpypi` und `pypi` haben Ammxri als
+  Prüfer, ohne „Prevent self-review“ (API, 15.11.2026). Der Name `neurogrid` ist auf PyPI und TestPyPI frei.
+- **Release-Zweig `release/v0.1.0`** aus `c4f240a` in einem eigenen Worktree: Die zh-Korrekturen aus 3dfb795 gingen mit
+  `cherry-pick` darauf; 41 Konfliktblöcke (diff3) in 17 Dateien sind von Hand gelöst. Dateien späterer Phasen sind entfernt
+  (`docs/zh/ci.md`, `docs/zh/vault.md`, `pia.zh.md`, NeuroArena, `test_registers_model.py`), `docs/umsetzung` bleibt
+  auf dem Stand von `c4f240a`. Übernommen in den Konfliktblöcken sind nur Korrekturen an Text, den es in 0.1 gibt, z. B.
+  PDF 生成浏览器, 假名化 ID, 初始值, JSON schema, 条记录/个通道. Danach sind die generierten Seiten neu erzeugt. Eine
+  Suche nach den alten Begriffen PDF 浏览器, 假名 ID, 起始值, JSON 模式, 强制性条款 und 来源清单 findet nichts mehr.
+  Commits b54a077 (zh) und 1ee4299 (Adresse, PyPI-Adresse, Version 0.1.0).
+- **Geprüft:** Lokal auf dem Zweig (Windows 11, Python 3.12): tests/docs, tests/unit, tests/rules, test_packaging_texts.py, test_release_check.py, test_zh_review_package.py und test_report_pdf_cli.py 2708 bestanden, 18 übersprungen; ruff sauber; gen_docs.py --check aktuell. Die volle Suite und Linux prüft die CI auf main.
+- **Offen, je mit Freigabe:** Merge nach `main` und Push, Tag `v0.1.0`, Freigabe von `testpypi`, dann `pypi`.
 
 ### 2026-11-14 – Sichtprüfung bestanden (NG-F13, REP-00, UF-01, REP-08; D-24)
 - **Abgeschlossen:** NG-F13, REP-00, UF-01 (v0.1) und REP-08 (v1.0) von `nicht verifiziert` auf `erfüllt`.

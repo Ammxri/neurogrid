@@ -69,7 +69,7 @@ nachstellen (1.6 Punkt 20–22).
 | Entscheidung zu den übrigen fehlenden Lizenztexten | Pakete im dist von hed-validator, hash-wasm (Brumme, argon2), `@jspm/core`, libaec/libsz im Linux-h5py-Wheel, Bibliotheken von python-build-standalone, focus-visible und material-design-color der Doku | entschieden (D-17, 27.10.2026); `license-gate/known_missing.toml` ist leer |
 | Versand der Anfrage an die Validator-Entwickler (D-16) | Ersatz des LGPL-Abschnitts in isomorphic-git | Entwurf liegt privat in `.local/p5/upstream_issue_bids_validator.md`; Versand durch den Projektverantwortlichen [NV] |
 | muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1); Prüfpaket aus `tools/zh_review_package.py` (4.7.8), nach dem letzten G1-Lauf neu erzeugt | erledigt am 09.11.2026 durch den Lead (D-22, A-112) |
-| Bestätigung der Annahmen A-78..A-89, der R16-Lesart und der bekannten Grenzen; Freigabe von Merge und Release | STOPP G1 (4.7.21) | Annahmen und Lesarten bestätigt (D-18, 29.10.2026); offen: Kenntnisnahme der Grenzen, Release v0.1.0 aus `c4f240a` auf einem Release-Zweig (D-19) |
+| Bestätigung der Annahmen A-78..A-89, der R16-Lesart und der bekannten Grenzen; Freigabe von Merge und Release | STOPP G1 (4.7.21) | Annahmen und Lesarten bestätigt (D-18, 29.10.2026); Grenzen zur Kenntnis genommen (D-21); v0.1.0 freigegeben (D-25), Release-Zweig `release/v0.1.0` vorbereitet; offen: Merge, Tag, Uploads |
 | Kernbegriffe von P6 in der zh-Prüfung, vollständige P6-Texte vor v0.2 | D-17 Option C (Liste in FORTSCHRITT „Für STOPP G1 vorgemerkt“) | offen |
 | Bestätigung der Annahmen A-90..A-92 | STOPP G2 (4.8.11) | offen |
 | vorübergehender eigener Runner für den echten Lauf der CI-Integration | V-03, vor dem Release von v1.0 (D-19) | erledigt am 13.11.2026 (`ci-integration` 43405451313, 4.11.6); Registrierung entfernt |
@@ -401,7 +401,8 @@ Logs und Messungen (`.local/perf/`), Review-Material. Nach einem Klon fehlt sie 
 
 - `main`: nur der erste Doku-Commit `75e05a6`; Releases kommen später von `main` (Release-Gate). Nach D-19 wird
   v0.1.0 aus dem P5-Stand `c4f240a` plus den Korrekturen der Prüfungen auf einem Release-Zweig geschnitten, nicht aus
-  `dev`; ein v0.2.0 ebenso aus dem Endstand von P6. Einen solchen Release-Zweig gibt es noch nicht [G: `git branch -a`].
+  `dev`; ein v0.2.0 ebenso aus dem Endstand von P6. Den Zweig `release/v0.1.0` gibt es seit dem 15.11.2026 (D-25), vorerst lokal: b54a077 (Korrekturen der
+  zh-Prüfung für die Texte von 0.1), 1ee4299 (Adresse, PyPI-Adresse, Version 0.1.0).
 - `dev`: Arbeitszweig (D-07, D-09). Remote `origin` = `https://github.com/Ammxri/neurogrid.git` [G]; seit dem
   26.10.2026 wird nur `dev` gepusht (D-15), `main`, Tags und Releases erst nach G1. Jeder Push auf `dev` startet
   `ci.yml` und `offline.yml` (4.7.12).
