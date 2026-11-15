@@ -2,7 +2,8 @@
 # only by hand on a tag v*, after the owner has published the GitHub Release. Trusted Publishing (OIDC): no API
 # token is stored. Uploads exactly the wheel and sdist of that release, after checking them against the signed
 # release SHA256SUMS - nothing is rebuilt. The owner registers this workflow as trusted publisher on test.pypi.org
-# and pypi.org and approves the "testpypi" / "pypi" environments.
+# and pypi.org and approves the "testpypi" / "pypi" environments. GitHub lists a workflow without a push trigger
+# (and offers "Run workflow") only after a push to the default branch has changed its file (D-25, 15.11.2026).
 name: publish-pypi
 
 on:
