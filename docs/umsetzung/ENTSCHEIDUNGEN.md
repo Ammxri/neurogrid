@@ -359,6 +359,7 @@ Befund:
   und `corpus.yml`); der Tag `v0.1.0` (startet `release.yml`); in GitHub die Freigabe der Umgebung `testpypi` und nach
   der Prüfung der Installation von dort die von `pypi`. Den Tag setzt der Lead erst, wenn die CI auf `main` grün ist.
 - **`dev` behält die Platzhalter** bis zu seinem eigenen Release.
+- **Umgesetzt am 15.11.2026**, jeder Schritt mit eigener Freigabe: `main` 1ee4299 (Fast-Forward), CI darauf grün (`ci`, `offline`, `docs`, `corpus`); Tag `v0.1.0`, `release.yml` 43687115010 grün (Release-Gate, `ci.yml` auf dem Tag, Reinräume); GitHub-Release veröffentlicht; `publish-pypi` 43733498024 (TestPyPI) und 43734938851 (PyPI); wheel und sdist auf beiden identisch mit den signierten SHA256SUMS. Der Projektverantwortliche hat den Entwurf veröffentlicht und beide Uploads freigegeben; der Lead hat die Installation von TestPyPI und PyPI geprüft. `publish-pypi` erschien in GitHub erst nach einem Push auf `dev`, der seine Datei ändert (765c2d1); ohne Push-Auslöser registriert GitHub einen Workflow erst dann. Der Gitee-Spiegel ist ohne die Variable `GITEE_MIRROR` übersprungen (R15, optional).
 
 ## Annahmen (Nicht-Blocker)
 

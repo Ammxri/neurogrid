@@ -27,7 +27,7 @@ Die zh-Prüfung macht nach D-22 der Lead.
 
 ## Für STOPP G1 vorgemerkt
 
-Stand 14.11.2026 (D-18, D-24): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); offen sind die Anfrage an die Entwickler des BIDS-Validators sowie Merge und Veröffentlichung (v0.1.0 freigegeben am 15.11.2026, D-25; Merge, Tag und Uploads je mit eigener Freigabe). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
+Stand 15.11.2026 (D-18, D-24, D-25): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); v0.1.0 ist am 15.11.2026 veröffentlicht (D-25: `main`, Tag, GitHub-Release, TestPyPI, PyPI); offen ist die Anfrage an die Entwickler des BIDS-Validators. Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
 - **zh-Prüfung** (A-07, A-86, D-15, D-17; seit D-22 durch den Lead, erledigt am 09.11.2026 nach A-112 über alle
@@ -114,7 +114,7 @@ Projektverantwortlichen.
     nicht verifiziert (NG-N04 `teilweise`).
 - **Anfrage an die Entwickler des BIDS-Validators** (D-16): den Entwurf
   (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) prüft und sendet der Projektverantwortliche.
-- **Merge und Veröffentlichung** (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
+- **Merge und Veröffentlichung** — erledigt am 15.11.2026 (D-25: `main` 1ee4299, Tag `v0.1.0`, GitHub-Release, TestPyPI und PyPI; Gitee-Spiegel optional, nicht eingerichtet). Bisheriger Plan: (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
   P5-Stand c4f240a plus den Korrekturen aus zh- und Sichtprüfung auf einem Release-Zweig, nicht aus `dev`, das seit
   8391420 0.2.0.dev0 trägt; `tools/release_check.py` verlangt den Tag-Commit in `origin/main`, A-87): Merge nach `main` und Push;
   Version 0.1.0, Tag `v0.1.0` und `release.yml` (vorher die Platzhalter `<REPO_URL>` und `<PYPI_RELEASE>` in docs/en und
@@ -186,6 +186,25 @@ den Projektverantwortlichen.
   an den PNG.
 
 ## Verlauf
+
+### 2026-11-15 – Release v0.1.0 veröffentlicht (V-01, POS-02, CON-05; D-25)
+- **Erfüllt:** V-01 (v0.1 ausgeliefert), POS-02 und CON-05 (öffentlicher Code mit Adresse in der Doku von 0.1.0,
+  signiertes Release).
+- **Schritte**, je mit Freigabe des Projektverantwortlichen: `main` per Fast-Forward von `75e05a6` auf 1ee4299 und
+  gepusht; CI darauf grün (`ci` 43683633337, `offline` 43683633274, `docs` 43683633331, `corpus` 43683633332). Die
+  Release-Prüfung lief lokal vorab grün. Dann Tag `v0.1.0` (annotiert): `release.yml` 43687115010 ganz grün
+  (Release-Gate, `ci.yml` auf dem Tag mit Windows und Ubuntu, Python 3.11 bis 3.13, Reinräume, Entwurf). Der
+  Projektverantwortliche hat den Entwurf veröffentlicht und `publish-pypi` erst mit `testpypi` (43733498024), dann mit
+  `pypi` (43734938851) gestartet und freigegeben.
+- **Registrierung von `publish-pypi`:** GitHub kannte den Workflow nicht (API 404), weil seine Datei seit dem ersten Push
+  nie geändert wurde und er keinen Push-Auslöser hat. Ein Kommentar in der Datei auf `dev` (765c2d1) hat ihn registriert.
+- **Geprüft:** wheel und sdist auf TestPyPI und PyPI sind Byte für Byte die Dateien der signierten SHA256SUMS des
+  Release. Installation in frischen Umgebungen (TestPyPI-Wheel mit Python 3.13; `pip install neurogrid==0.1.0` von PyPI
+  mit Python 3.12): Version 0.1.0, `scan`, `check` (Exit 0 bzw. 1, Meldungen zh), `report` HTML zh/en, `manifest` und
+  `verify` (Exit 0 gleich, 1 nach Änderung) auf den Testdatensätzen `bids_ok` und `bids_issues`. PDF nicht lokal (dafür
+  braucht es den PDF-Browser), aber im Release-Lauf in den Reinräumen grün.
+- **Offen und optional:** Gitee-Spiegel (ohne `GITEE_MIRROR` übersprungen, R15). `dev` behält die Platzhalter
+  `<REPO_URL>` und `<PYPI_RELEASE>` bis zu seinem eigenen Release.
 
 ### 2026-11-15 – Freigabe von v0.1.0 und Release-Zweig (V-01, POS-02, CON-05; D-25)
 - **Beigetragen zu:** V-01 (Release v0.1), POS-02 und CON-05 (Platzhalter `<REPO_URL>` auf dem Release-Zweig gefüllt).
@@ -944,6 +963,6 @@ erledigt (13.11.2026, `ci-integration` 43405451313). Die zh-Prüfung über alle 
 (09.11.2026, A-112).
 Beim Projektverantwortlichen (die Sichtprüfung ist erledigt, 14.11.2026, D-24): die übrigen
 Punkte von „Für STOPP G2 vorgemerkt“ (juristische Prüfung der
-PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage); danach die Release-Zweige für v0.1.0 aus
-dem P5-Stand c4f240a und, falls gewünscht, für v0.2.0 aus dem P6-Endstand 0ffdd90, jeweils nach den Prüfungen und mit
+PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage). v0.1.0 ist veröffentlicht
+(15.11.2026, D-25); falls gewünscht, ein Release-Zweig für v0.2.0 aus dem P6-Endstand 0ffdd90, nach den Prüfungen und mit
 Freigabe.

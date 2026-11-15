@@ -14,7 +14,7 @@ Merges `9272cd9`, `3646997`, `c516598`, den Querschnittstests `40d6d16`, den Mer
 CI-Korrekturen `2f2a5a5` und der Fix-Runde nach dem Review (Zweig `p6-fix`, Merge `0ffdd90`; 4.8). CI auf `d50158b`:
 `ci` 41402168683 rot nur an fünf Tests außerhalb der Bereiche, `offline` 41402168572 grün [G, CI d50158b]; CI auf
 `0ffdd90`: ganz grün (`ci` 41422859481, `offline` 41422859830). Version auf `dev` `0.2.0.dev0`; v0.1.0 entsteht später aus `c4f240a` auf einem
-Release-Zweig (D-19). STOPP G1 ist nach D-18 teilweise entschieden; zh-Prüfung (09.11.2026, D-22) und Sichtprüfung (14.11.2026, D-24) sind erledigt, offen sind Merge und Release (4.7.21).
+Release-Zweig (D-19). STOPP G1 ist nach D-18 teilweise entschieden; zh-Prüfung (09.11.2026, D-22) und Sichtprüfung (14.11.2026, D-24) sind erledigt, v0.1.0 ist am 15.11.2026 veröffentlicht (D-25).
 
 **Stand P5:** Zweig `dev`, Commit `27c3e90` (28.10.2026): P5 nach Bau, Integration, Abnahme, Review, Fix-Runde, Merge
 `55335ca`, Doku-Fix `181654e`, zweiter CI-Fix-Runde (Zweige `p5-ci2-*`, 4.7.14), Lizenztexten nach D-17 (4.7.15),
@@ -69,7 +69,7 @@ nachstellen (1.6 Punkt 20–22).
 | Entscheidung zu den übrigen fehlenden Lizenztexten | Pakete im dist von hed-validator, hash-wasm (Brumme, argon2), `@jspm/core`, libaec/libsz im Linux-h5py-Wheel, Bibliotheken von python-build-standalone, focus-visible und material-design-color der Doku | entschieden (D-17, 27.10.2026); `license-gate/known_missing.toml` ist leer |
 | Versand der Anfrage an die Validator-Entwickler (D-16) | Ersatz des LGPL-Abschnitts in isomorphic-git | Entwurf liegt privat in `.local/p5/upstream_issue_bids_validator.md`; Versand durch den Projektverantwortlichen [NV] |
 | muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1); Prüfpaket aus `tools/zh_review_package.py` (4.7.8), nach dem letzten G1-Lauf neu erzeugt | erledigt am 09.11.2026 durch den Lead (D-22, A-112) |
-| Bestätigung der Annahmen A-78..A-89, der R16-Lesart und der bekannten Grenzen; Freigabe von Merge und Release | STOPP G1 (4.7.21) | Annahmen und Lesarten bestätigt (D-18, 29.10.2026); Grenzen zur Kenntnis genommen (D-21); v0.1.0 freigegeben (D-25), Release-Zweig `release/v0.1.0` vorbereitet; offen: Merge, Tag, Uploads |
+| Bestätigung der Annahmen A-78..A-89, der R16-Lesart und der bekannten Grenzen; Freigabe von Merge und Release | STOPP G1 (4.7.21) | Annahmen und Lesarten bestätigt (D-18, 29.10.2026); Grenzen zur Kenntnis genommen (D-21); v0.1.0 freigegeben (D-25) und am 15.11.2026 veröffentlicht (`main` 1ee4299, Tag, GitHub-Release, TestPyPI, PyPI) |
 | Kernbegriffe von P6 in der zh-Prüfung, vollständige P6-Texte vor v0.2 | D-17 Option C (Liste in FORTSCHRITT „Für STOPP G1 vorgemerkt“) | offen |
 | Bestätigung der Annahmen A-90..A-92 | STOPP G2 (4.8.11) | offen |
 | vorübergehender eigener Runner für den echten Lauf der CI-Integration | V-03, vor dem Release von v1.0 (D-19) | erledigt am 13.11.2026 (`ci-integration` 43405451313, 4.11.6); Registrierung entfernt |
@@ -399,10 +399,11 @@ Logs und Messungen (`.local/perf/`), Review-Material. Nach einem Klon fehlt sie 
 
 ### 2.2 Zweige und Ablauf in git
 
-- `main`: nur der erste Doku-Commit `75e05a6`; Releases kommen später von `main` (Release-Gate). Nach D-19 wird
+- `main`: seit dem 15.11.2026 1ee4299 (Fast-Forward von `75e05a6`, Tag `v0.1.0`, D-25); Releases kommen von `main` (Release-Gate). Nach D-19 wird
   v0.1.0 aus dem P5-Stand `c4f240a` plus den Korrekturen der Prüfungen auf einem Release-Zweig geschnitten, nicht aus
   `dev`; ein v0.2.0 ebenso aus dem Endstand von P6. Den Zweig `release/v0.1.0` gibt es seit dem 15.11.2026 (D-25), vorerst lokal: b54a077 (Korrekturen der
-  zh-Prüfung für die Texte von 0.1), 1ee4299 (Adresse, PyPI-Adresse, Version 0.1.0).
+  zh-Prüfung für die Texte von 0.1), 1ee4299 (Adresse, PyPI-Adresse, Version 0.1.0). Der Zweig liegt nur lokal; sein Stand ist `main` mit dem Tag
+  `v0.1.0`.
 - `dev`: Arbeitszweig (D-07, D-09). Remote `origin` = `https://github.com/Ammxri/neurogrid.git` [G]; seit dem
   26.10.2026 wird nur `dev` gepusht (D-15), `main`, Tags und Releases erst nach G1. Jeder Push auf `dev` startet
   `ci.yml` und `offline.yml` (4.7.12).
@@ -3605,6 +3606,7 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
 - [ ] für STOPP G2 und v1.0: Bestätigung A-90..A-99, Kernbegriffe von P9 in der zh-Prüfung (vollständige Texte vor
       v1.0), Sichtprüfung einer Nachweismappe (REP-08), eigener Runner für den echten Lauf von `ci-integration.yml`
       (D-19), juristische Prüfung der PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage
-- [ ] danach Release-Zweig aus `c4f240a` (D-19), Merge nach `main`, `0.1.0`, Tag `v0.1.0`, `release.yml`, `publish-pypi.yml` (TestPyPI/PyPI, Trusted
-      Publishing), `mirror-gitee.yml` (Spiegel) und das Gitee-Release von Hand aus dem Artefakt des Jobs
-      `gitee-release` (R15); `docs.yml` und `corpus.yml` laufen erst mit `main`
+- [x] danach Release-Zweig aus `c4f240a` (D-19), Merge nach `main`, `0.1.0`, Tag `v0.1.0`, `release.yml`, `publish-pypi.yml` (TestPyPI/PyPI, Trusted
+      Publishing); `docs.yml` und `corpus.yml` laufen seit dem Push auf `main` (alles am 15.11.2026, D-25)
+- [ ] optional: `mirror-gitee.yml` (Spiegel) und das Gitee-Release von Hand aus dem Artefakt des Jobs
+      `gitee-release` (R15); ohne die Variable `GITEE_MIRROR` übersprungen (Lauf 43728807678)
