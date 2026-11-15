@@ -63,7 +63,7 @@ rules:
 
   - id: CORE-M02-02
     clause: M02
-    title_zh: 元数据一致（TaskName、BIDSVersion、名称）
+    title_zh: 元数据一致（TaskName、BIDSVersion、Name）
     title_en: Metadata are consistent (TaskName, BIDSVersion, Name)
     phase: acquisition
     check: metadata.consistent
@@ -91,7 +91,7 @@ rules:
 
   - id: CORE-M03-03
     clause: M03
-    title_zh: 附带文件中的采样率与数据一致
+    title_zh: 附属元数据文件中的采样率与数据一致
     title_en: Sampling rate in the sidecar matches the data
     phase: acquisition
     check: signal.sidecar_rate
@@ -275,7 +275,7 @@ rules:
   # CLI-04); CORE-M13-02 is an error also without --strict (NG-F10, KONZEPT 2.2).
   - id: CORE-M13-01
     clause: M13
-    title_zh: 来源清单存在
+    title_zh: 溯源清单存在
     title_en: Provenance manifest present
     phase: storage
     check: provenance.manifest_present

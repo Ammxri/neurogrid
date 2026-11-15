@@ -21,7 +21,7 @@ PDF 报告需要另外安装一次浏览器 Chrome Headless Shell；HTML 报告�
 离线安装包被安装在一个洁净环境中，并从安装位置运行了 0.1 版的每条命令，包括在 Windows 和 Debian 12 上生成 PDF 报告。
 在 Linux 上，洁净环境是一个全新的容器，没有网络（`--network none`），没有预装的 Python，以无特权用户身份运行。在
 Windows 上，它是运行器上的一个全新文件夹，运行器的网络保持开启：`PATH` 上找不到任何 Python 或 uv（运行器预装的
-Python 仍然安装着，只是其文件夹已从 `PATH` 中移除），一条出站防火墙规则阻止安装包、安装位置和 PDF 浏览器的每个程序，
+Python 仍然安装着，只是其文件夹已从 `PATH` 中移除），一条出站防火墙规则阻止安装包、安装位置和 PDF 生成浏览器的每个程序，
 Windows 筛选平台审计每次连接；这些程序向回环地址以外的地址发起的任何连接或连接尝试都会使运行失败
 （[隐私](privacy.md#check-yourself)）。“测试套件已在 CI 中验证”表示：在 CI 中，测试套件在 GitHub 的
 `windows-latest` 和 `ubuntu-24.04` 运行器上分别用 Python 3.11、3.12 和 3.13 运行，全部通过。“测试套件未在 CI 中运行”
@@ -44,13 +44,13 @@ Python 3.12。
 | `uv/` | uv 程序及其许可证 |
 | `wheels/`、`requirements.lock.txt` | 全部运行时依赖包的 wheel 文件，以 SHA-256 锁定 |
 | `docs/` | 本文档（中/英） |
-| `tools/install_pdf_browser.py` | PDF 浏览器的安装程序（见下文） |
+| `tools/install_pdf_browser.py` | PDF 生成浏览器的安装程序（见下文） |
 | `src/neurogrid-<version>.tar.gz` | 本版本的源代码 |
 | `install.cmd`、`install.ps1` / `install.sh` | 安装脚本（Windows / Linux） |
 | `README.txt`、`LICENSE`、`NOTICE`、`THIRD_PARTY_NOTICES.txt` | 简要说明和许可证 |
 | `BUNDLE.json`、`SHA256SUMS`、`SHA256SUMS.sigstore.json` | 内容清单、校验和、发布签名 |
 
-Chrome Headless Shell 不包含在安装包中，需要单独安装（见 [PDF 浏览器](#pdf-browser)）。
+Chrome Headless Shell 不包含在安装包中，需要单独安装（见 [PDF 生成浏览器](#pdf-browser)）。
 
 ### 校验下载的文件 {#verify}
 
@@ -64,7 +64,7 @@ cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
 sha256sum --check --ignore-missing SHA256SUMS
 ```
 
-!!! warning "占位"
+!!! warning "占位符"
     `<REPO_URL>` 是公开仓库的地址，将在仓库发布时填写。
 
 在 Windows 上，将 `Get-FileHash -Algorithm SHA256 <file>` 的结果与 `SHA256SUMS` 中该文件的那一行进行比较。安装脚本
@@ -125,9 +125,9 @@ Linux 安装包内置的 Python 不含 `dbm.ndbm` 模块（`_dbm`）：该模块
     "$HOME/.local/share/neurogrid/<version>/bin/neurogrid" --help
     ```
 
-卸载即删除安装目录；如已安装 PDF 浏览器，再删除其文件夹。
+卸载即删除安装目录；如已安装 PDF 生成浏览器，再删除其文件夹。
 
-## PDF 浏览器 {#pdf-browser}
+## PDF 生成浏览器 {#pdf-browser}
 
 PDF 报告由 Chrome Headless Shell 修订版 1243（Playwright 1.63.0 使用的版本）打印。它是 Google 的构建版本，
 有其自身的使用条款，因此不随 NeuroGrid 分发（D-08）。`tools/install_pdf_browser.py` 将其安装到 NeuroGrid 的文件夹中：
@@ -161,7 +161,7 @@ python tools/install_pdf_browser.py --check
 <!-- BEGIN GENERATED pdf installer -->
 ```text
 <REPO_URL>/releases/download/v<version>/install_pdf_browser.py
-SHA-256: 3e713e1400cde83a93782d1dacd0e8201fcb74693c787987e7e5ca51cfd6b149
+SHA-256: bbfc4269cf73ce068a36519eb04ce9efe306002f99751d4865cc39c4c6138371
 ```
 <!-- END GENERATED -->
 
@@ -179,7 +179,7 @@ Get-FileHash -Algorithm SHA256 install_pdf_browser.py    # Windows PowerShell
 
 ## 从 PyPI 安装 {#pypi}
 
-!!! warning "占位"
+!!! warning "占位符"
     NeuroGrid 将由项目负责人发布到 PyPI；在此之前，发布版本记为 `<PYPI_RELEASE>`。
 
 ```bash

@@ -124,7 +124,7 @@ def test_from_zip_installs_atomically_and_writes_record(
     target = tmp_path / "browser"
     code = ipb.main(["--dir", str(target), "--from-zip", str(zip_path), "--sha256", pin["sha256"].upper()])
     out = capsys.readouterr().out
-    assert code == 0 and "The PDF browser was installed" in out and "PDF 浏览器已安装" in out
+    assert code == 0 and "The PDF browser was installed" in out and "PDF 生成浏览器已安装" in out
     assert "NeuroGrid does not distribute it" in out  # D-08
     shell_dir = target / ipb.SHELL_DIRNAME
     record = json.loads((shell_dir / ipb.RECORD_NAME).read_text(encoding="utf-8"))

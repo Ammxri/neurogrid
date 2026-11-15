@@ -5,7 +5,7 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 
 ## results.json {#results-json}
 
-由 `check` 写入（`--out`，默认 `results.json`）；`report` 只读取该文件。JSON 模式：
+由 `check` 写入（`--out`，默认 `results.json`）；`report` 只读取该文件。JSON schema：
 [`results.schema.json`](../../schemas/results.schema.json)。
 
 | 字段 | 内容 |
@@ -18,14 +18,14 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 | `rulepacks` | 已加载的规则包：名称、版本、来源、来源状态、是否对应标准、文件的 SHA-256。 |
 | `rules` | 每条已加载的规则，含条款、名称、阶段、检查项、生效的严重程度、严格模式下的严重程度、核验方式。 |
 | `config` | 规范化配置的哈希值、`as_of`、随机种子、严格模式、抽样、生效阈值和设置（已清理）、`evidence.yaml` 的哈希值。 |
-| `recordings` | 每条记录：假名 ID、格式、能否分块读取、指标以及 M06/M09 的抽样。 |
+| `recordings` | 每条记录：假名化 ID、格式、能否分块读取、指标以及 M06/M09 的抽样。 |
 | `findings` | 每条未通过的检查结果，每个“规则 × 对象 × 子键”一条，带稳定的键。 |
 | `passed` | 通过的检查，按规则和对象计数。 |
 | `notices` | 本次运行的提示（级别、消息键、参数）。 |
 | `evidence` | 来自 `evidence.yaml` 的证明材料记录，含计算出的和记录的 SHA-256。 |
 | `exceptions` | 配置的例外及其是否被使用。 |
-| `duplicates` | 信号相同的记录组（假名 ID），或 `null`。 |
-| `ai` | 汇总的标签、人口学信息和数据划分计数（每个单元格少于 5 名受试者时扣留），或 `null`。 |
+| `duplicates` | 信号相同的记录组（假名化 ID），或 `null`。 |
+| `ai` | 汇总的标签、人口学信息和数据划分计数（每个单元格少于 5 名受试者时不予显示），或 `null`。 |
 | `summary` | 每个阶段的信号灯、错误、警告、待补的证明材料；每个规则包的覆盖率；合计和退出码。 |
 | `manifest` | 清单比对的结果，或 `null`。 |
 
@@ -59,7 +59,7 @@ NeuroGrid 写出的所有文件均为 UTF-8 编码、LF 换行。JSON 文件是�
 | 退出码 | 含义 |
 |---|---|
 | 0 | 没有未通过的错误级规则，错误级规则也没有待补的证明材料 |
-| 1 | 有检查结果，或存在不一致（`verify`），或有文件未转换（`convert`） |
+| 1 | 有未通过的检查结果，或存在不一致（`verify`），或有文件未转换（`convert`） |
 | 2 | 工具错误 |
 
 各命令的详细说明见[命令](../commands.md)。

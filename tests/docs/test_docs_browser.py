@@ -24,7 +24,7 @@ QUERIES = (
     ("zh/index.html", "阈值"),
     ("index.html", "line noise"),
 )
-HINTS = {"en": "Search needs a local server (see Installation)", "zh": "搜索需通过本地服务器打开（见“安装”）"}
+HINTS = {"en": "Search needs a local server (see Installation)", "zh": "搜索需要本地服务器（见“安装”）"}
 
 
 @pytest.fixture(scope="session")

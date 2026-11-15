@@ -1,7 +1,7 @@
 # 术语对照 {#terms}
 
-NeuroGrid 的代码和公开格式（YAML、JSON、TOML）使用英文标识符；其产品规格书使用德文术语。本页逐一列出成为公开
-标识符的规格书术语（决定 D-03）。数据模型的十个对象见[数据模型](data-model.md)。
+NeuroGrid 的代码和公开格式（YAML、JSON、TOML）使用英文标识符；其产品规格书使用德文术语。本页把每个成为公开
+标识符的规格书术语与其标识符一一对应列出（决定 D-03）。数据模型的十个对象见[数据模型](data-model.md)。
 
 ## 规则包格式 {#rulepack-format}
 
@@ -36,7 +36,7 @@ NeuroGrid 的代码和公开格式（YAML、JSON、TOML）使用英文标识符�
 | warnung | warning | 警告 | 严重程度 |
 | hinweis | info | 提示 | 严重程度 |
 | automatisch | automatic | 自动 | 可从数据或元数据测量 |
-| halbautomatisch | semi_automatic | 半自动 | 可检查配置或文件是否存在 |
+| halbautomatisch | semi_automatic | 半自动 | 可对配置或文件进行检查 |
 | manuell | manual | 人工 | 需要证明文件 |
 | nass | wet | 湿电极 | 电极类型（`[metadata.defaults] electrode_type`） |
 | trocken | dry | 干电极 | 电极类型 |

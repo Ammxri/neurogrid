@@ -5,7 +5,7 @@
 Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations.
 
 > Draft written by the release workflow. The project owner reviews and edits it before publishing it.
-> 本说明由发布流程生成草稿，由项目负责人审阅后发布。
+> 本说明由发布流程生成草稿，由项目负责人审阅并修改后发布。
 
 ## Files / 文件
 
@@ -20,7 +20,7 @@ Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA
 
 ## Verify before use / 使用前核验
 
-On a connected machine / 在联网电脑上：
+On a connected machine / 在联网计算机上：
 
 ```
 cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
@@ -38,7 +38,7 @@ page publishes outside the archive. 安装程序在核验后显示的身份以�
 
 Each offline bundle also carries its own signed `SHA256SUMS`. Its installer checks every file and stops unless the
 signature was verified with cosign or `-SkipSignatureCheck` / `--skip-signature-check` confirms the check above.
-每个离线安装包都带有自己的已签名 `SHA256SUMS`；安装脚本逐一核对文件，未核验签名时需明确加上跳过参数。
+每个离线安装包都带有自己的已签名 `SHA256SUMS`；安装程序逐一核对文件；只有用 cosign 核验了签名，或用 `-SkipSignatureCheck` / `--skip-signature-check` 确认已完成上述核验时，才会继续安装。
 
 ## Install / 安装
 
@@ -57,8 +57,10 @@ signature was verified with cosign or `-SkipSignatureCheck` / `--skip-signature-
   Ubuntu 24.04 上验证；CI 不在 Debian 12 和 Ubuntu 22.04 上运行测试套件。
   Windows 10、Windows 11 上的 PowerShell 7 以及 24.04 之后的 Ubuntu 版本未验证；其他 Linux 发行版和 ARM64 不受支持。
 - PDF reports need the separate Chrome Headless Shell (`install_pdf_browser.py`) and, on Linux, system libraries.
+  / PDF 报告需要单独的 Chrome Headless Shell（`install_pdf_browser.py`），在 Linux 上还需要系统库。
 - Linux bundle: the bundled Python lacks the `dbm.ndbm` module (`_dbm`, Berkeley DB licence; recorded in
-  `BUNDLE.json`); NeuroGrid does not use it. / Linux 安装包内置的 Python 不含 `dbm.ndbm` 模块（`_dbm`）。
+  `BUNDLE.json`); NeuroGrid does not use it. / Linux 安装包内置的 Python 不含 `dbm.ndbm` 模块（`_dbm`，Berkeley DB 许可证，记录在 `BUNDLE.json` 中）；NeuroGrid 不使用该模块。
 - Windows: the install folder path must be short (Windows limits paths of programs and of some modules even with
   long paths enabled); the installer names the limit. / Windows：安装文件夹路径须较短，安装程序会给出上限。
 - Operating system services such as virus scanners or cloud sync are not controlled by NeuroGrid.
+  / 病毒扫描程序或云同步等操作系统服务不受 NeuroGrid 控制。

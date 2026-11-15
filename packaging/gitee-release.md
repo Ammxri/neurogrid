@@ -4,7 +4,7 @@
 
 Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations.
 
-本发布与 GitHub 发布相同 / This release is the same as the GitHub release: {{github_release}}
+本发行版与 GitHub 上的发行版相同 / This release is the same as the GitHub release: {{github_release}}
 
 ## Files / 文件
 
@@ -13,7 +13,7 @@ Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA
 | `neurogrid-{{version}}-py3-none-any.whl`, `neurogrid-{{version}}.tar.gz` | Wheel and source distribution |
 | `SHA256SUMS`, `SHA256SUMS.sigstore.json` | Checksums of all release files and their keyless Sigstore signature |
 
-离线安装包、说明文档和 PDF 浏览器安装程序见 GitHub 发布 / The offline bundles, the documentation and the PDF browser
+离线安装包、说明文档和 PDF 生成浏览器安装程序见 GitHub 上的发行版 / The offline bundles, the documentation and the PDF browser
 installer are on the GitHub release.
 
 ## Verify before use / 使用前核验

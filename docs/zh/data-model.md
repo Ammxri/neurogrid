@@ -117,4 +117,4 @@ NeuroGrid 的公开格式（results.json、规则包、neurogrid.toml）使用�
 
 `results.json` 包含上述对象以及本次运行的上下文：规则包和规则、生效配置、各记录及其指标和抽样、检查结果
 及按次数统计的通过项、提示、证明材料记录、例外、重复组、汇总的 AI 结构（`ai`）和清单比对结果。字段列于
-[输出文件](reference/outputs.md#results-json)；JSON 模式为 [`results.schema.json`](../schemas/results.schema.json)。
+[输出文件](reference/outputs.md#results-json)；JSON schema 为 [`results.schema.json`](../schemas/results.schema.json)。

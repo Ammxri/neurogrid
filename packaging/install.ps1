@@ -112,7 +112,7 @@ try {
     }
     if ($PdfBrowserZip -or $PdfBrowserSha256) {
         if (-not $PdfBrowserZip -or $PdfBrowserSha256 -notmatch '^[0-9a-fA-F]{64}$') {
-            Fail 2 '-PdfBrowserZip 须与 -PdfBrowserSha256（64 位十六进制）同时使用' '-PdfBrowserZip needs -PdfBrowserSha256 (64 hex digits)'
+            Fail 2 '-PdfBrowserZip 须与 -PdfBrowserSha256（64 位十六进制数字）同时使用' '-PdfBrowserZip needs -PdfBrowserSha256 (64 hex digits)'
         }
         if (-not (Test-Path -LiteralPath $PdfBrowserZip -PathType Leaf)) { Fail 2 "找不到文件：$(Show $PdfBrowserZip)" "file not found: $(Show $PdfBrowserZip)" }
         $PdfBrowserZip = (Resolve-Path -LiteralPath $PdfBrowserZip).ProviderPath
@@ -182,7 +182,7 @@ try {
             $Cosign = (Resolve-Path -LiteralPath $Cosign).ProviderPath
             $code = Invoke-Native $Cosign @('verify-blob', $sumsPath, '--bundle', $signature, '--certificate-identity', $identity, '--certificate-oidc-issuer', $Issuer)
             if ($code -ne 0 -and $onPath -and $SkipSignatureCheck) {
-                Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。-SkipSignatureCheck 不会跳过 PATH 中 cosign 的核验；若已在联网电脑上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的会话中加 -SkipSignatureCheck 运行' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). -SkipSignatureCheck does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with -SkipSignatureCheck in a session without cosign on PATH"
+                Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）。-SkipSignatureCheck 不会跳过 PATH 中 cosign 的核验；若已在联网计算机上核验成功（README.txt 第 1 步）而本机没有信任根，请在 PATH 中没有 cosign 的会话中加 -SkipSignatureCheck 运行' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache). -SkipSignatureCheck does not skip the check of a cosign found on PATH; if the check on a connected machine passed (README.txt, step 1) and this computer lacks the trust root, run the installer with -SkipSignatureCheck in a session without cosign on PATH"
             }
             if ($code -ne 0) {
                 Fail 4 '签名核验失败，未安装：cosign 拒绝了签名，或无法获得 Sigstore 信任根（联网或已准备的缓存）' "signature check failed; nothing installed: cosign rejected the signature or could not reach Sigstore's trust root (network or a prepared cache)"
@@ -192,9 +192,9 @@ try {
             # only the comparison with the identity the project publishes shows who signed.
             Say "请将此签名者身份与项目发布页面（$Releases）发布说明中的身份核对；安装包内部的核验只能证明文件完整，不能证明来源" "compare this signer identity with the one in the release notes on the project's release page ($Releases); a check inside the archive proves that the files are intact, not who made them"
         } elseif ($SkipSignatureCheck) {
-            Say '按要求未在本机核验签名；请确认已在联网电脑上核验' 'signature not verified here, as requested; make sure it was verified on a connected machine'
+            Say '按要求未在本机核验签名；请确认已在联网计算机上核验' 'signature not verified here, as requested; make sure it was verified on a connected machine'
         } else {
-            Fail 4 '未找到 cosign：请先在联网电脑上核验签名（见 README.txt），然后加 -SkipSignatureCheck，或用 -Cosign 指定 cosign.exe' 'cosign not found: verify the signature on a connected machine first (see README.txt), then pass -SkipSignatureCheck, or name cosign.exe with -Cosign'
+            Fail 4 '未找到 cosign：请先在联网计算机上核验签名（见 README.txt），然后加 -SkipSignatureCheck，或用 -Cosign 指定 cosign.exe' 'cosign not found: verify the signature on a connected machine first (see README.txt), then pass -SkipSignatureCheck, or name cosign.exe with -Cosign'
         }
     } elseif ($SkipSignatureCheck) {
         Say '未签名的开发版本，签名未核验' 'unsigned development bundle, signature not verified'
@@ -307,8 +307,8 @@ try {
     if ($PdfBrowserZip) {
         $python = Join-Path $Prefix 'python\python.exe'
         $code = Invoke-Native $python @('-I', (Join-Path $Prefix 'tools\install_pdf_browser.py'), '--from-zip', $PdfBrowserZip, '--sha256', $PdfBrowserSha256.ToLowerInvariant())
-        if ($code -ne 0) { Fail 2 "NeuroGrid 已安装，但 PDF 浏览器未安装（退出码 $code）" "NeuroGrid is installed, but the PDF browser is not (exit code $code)" }
-        Say 'PDF 浏览器已安装' 'PDF browser installed'
+        if ($code -ne 0) { Fail 2 "NeuroGrid 已安装，但 PDF 生成浏览器未安装（退出码 $code）" "NeuroGrid is installed, but the PDF browser is not (exit code $code)" }
+        Say 'PDF 生成浏览器已安装' 'PDF browser installed'
     }
 
     Say "已安装：$(Show $launcher)" "installed: $(Show $launcher)"
@@ -317,7 +317,7 @@ try {
     # The PDF browser lies outside the prefix: NEUROGRID_PDF_BROWSER_DIR or NeuroGrid's default folder (D-08).
     $pdfFolder = '%LOCALAPPDATA%\NeuroGrid\pdf-browser'
     if ($env:NEUROGRID_PDF_BROWSER_DIR) { $pdfFolder = $env:NEUROGRID_PDF_BROWSER_DIR }
-    Say "卸载：删除文件夹 $(Show $Prefix)（若装过 PDF 浏览器，另删 $(Show $pdfFolder)）" "uninstall: delete the folder $(Show $Prefix) (and $(Show $pdfFolder) if the PDF browser was installed)"
+    Say "卸载：删除文件夹 $(Show $Prefix)（若装过 PDF 生成浏览器，另删 $(Show $pdfFolder)）" "uninstall: delete the folder $(Show $Prefix) (and $(Show $pdfFolder) if the PDF browser was installed)"
     [Console]::Out.WriteLine('使用 NeuroGrid 进行的预检。不构成国家药品监督管理局（NMPA）法规意义上的符合性评价。')
     [Console]::Out.WriteLine('Pre-check with NeuroGrid. Not a conformity assessment within the meaning of NMPA regulations.')
     exit 0
