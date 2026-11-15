@@ -35,8 +35,7 @@ NeuroGrid 是一个开放的参考实现：检验机构、标准起草人和制�
 
 关于条款或阈值如何解读的问题以及其他反馈，请提交到公开仓库的问题跟踪系统。
 
-!!! warning "占位符"
-    公开仓库的地址为 `<REPO_URL>`，将在仓库发布时填写。
+公开仓库的地址为 <https://github.com/Ammxri/neurogrid>。
 
 ## 许可证 {#licence}
 

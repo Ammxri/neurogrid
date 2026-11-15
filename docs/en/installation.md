@@ -64,13 +64,10 @@ target computer.
 ```bash
 # on a connected computer: signature of the release checksums (Sigstore, cosign)
 cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity "<REPO_URL>/.github/workflows/release.yml@refs/tags/v<version>" \
+  --certificate-identity "https://github.com/Ammxri/neurogrid/.github/workflows/release.yml@refs/tags/v<version>" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 sha256sum --check --ignore-missing SHA256SUMS
 ```
-
-!!! warning "Placeholder"
-    `<REPO_URL>` is the address of the public repository; it is filled in when the repository is published.
 
 On Windows, compare the value of `Get-FileHash -Algorithm SHA256 <file>` with the line of the file in
 `SHA256SUMS`. The installation script checks every file of the bundle against its `SHA256SUMS` again. A check by
@@ -113,7 +110,7 @@ On Windows the install folder needs a short path: Windows cannot start programs 
 longer paths, even with long paths enabled (`LongPathsEnabled`), so every installed file stays within 250
 characters. The installer accepts a prefix of at most 249 characters minus the longest relative path below it,
 which `BUNDLE.json` records as `max_relative_install_path`; a longer prefix stops it with exit code 2 before it
-creates anything. For NeuroGrid 0.1.0rc1 that path has 148 characters, so the limit is 101 characters. The
+creates anything. For NeuroGrid 0.1.0 that path has 148 characters, so the limit is 101 characters. The
 default prefix `%LOCALAPPDATA%\NeuroGrid\<version>` is much shorter.
 
 The Python of the Linux bundle lacks the module `dbm.ndbm` (`_dbm`): it links Berkeley DB, which is under the
@@ -171,7 +168,7 @@ Address and SHA-256 of the script of this version:
 
 <!-- BEGIN GENERATED pdf installer -->
 ```text
-<REPO_URL>/releases/download/v<version>/install_pdf_browser.py
+https://github.com/Ammxri/neurogrid/releases/download/v<version>/install_pdf_browser.py
 SHA-256: bbfc4269cf73ce068a36519eb04ce9efe306002f99751d4865cc39c4c6138371
 ```
 <!-- END GENERATED -->
@@ -192,8 +189,7 @@ list.
 
 ## From PyPI {#pypi}
 
-!!! warning "Placeholder"
-    NeuroGrid is published on PyPI by the project owner; until then the release is `<PYPI_RELEASE>`.
+NeuroGrid 0.1.0 on PyPI: <https://pypi.org/project/neurogrid/0.1.0/>.
 
 ```bash
 python -m pip install neurogrid

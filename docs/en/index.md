@@ -41,8 +41,7 @@ decision log (`docs/umsetzung/` in the repository) and these pages are public.
 Questions about how a clause or a threshold is read, and any other feedback, go to the issue tracker of the
 public repository.
 
-!!! warning "Placeholder"
-    The address of the public repository is `<REPO_URL>`; it is filled in when the repository is published.
+The address of the public repository is <https://github.com/Ammxri/neurogrid>.
 
 ## Licences {#licence}
 

@@ -1040,7 +1040,7 @@ def test_layout_claims_are_checked_against_the_windows_launch_arguments(
 
 
 INSTALLER = ROOT / "tools" / "install_pdf_browser.py"
-INSTALLER_ADDRESS = "<REPO_URL>/releases/download/v<version>/install_pdf_browser.py"
+INSTALLER_ADDRESS = "https://github.com/Ammxri/neurogrid/releases/download/v<version>/install_pdf_browser.py"
 PDF_SECTION = {"en": "PDF browser", "zh": "PDF 生成浏览器", "de": "PDF-Browser"}
 
 

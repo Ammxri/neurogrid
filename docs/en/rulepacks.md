@@ -111,5 +111,4 @@ When a clause can be read in more than one way, NeuroGrid records the reading in
 rule's title or parameters. Questions and proposals for another reading go to the issue tracker of the public
 repository; the list of interpretation questions follows in version 0.2 with the yyt2029 pack.
 
-!!! warning "Placeholder"
-    The address of the public repository is `<REPO_URL>`; it is filled in when the repository is published.
+The address of the public repository is <https://github.com/Ammxri/neurogrid>.

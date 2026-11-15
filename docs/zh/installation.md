@@ -59,13 +59,10 @@ Chrome Headless Shell 不包含在安装包中，需要单独安装（见 [PDF �
 ```bash
 # 在可联网的计算机上：校验发布校验和的签名（Sigstore，cosign）
 cosign verify-blob SHA256SUMS --bundle SHA256SUMS.sigstore.json \
-  --certificate-identity "<REPO_URL>/.github/workflows/release.yml@refs/tags/v<version>" \
+  --certificate-identity "https://github.com/Ammxri/neurogrid/.github/workflows/release.yml@refs/tags/v<version>" \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 sha256sum --check --ignore-missing SHA256SUMS
 ```
-
-!!! warning "占位符"
-    `<REPO_URL>` 是公开仓库的地址，将在仓库发布时填写。
 
 在 Windows 上，将 `Get-FileHash -Algorithm SHA256 <file>` 的结果与 `SHA256SUMS` 中该文件的那一行进行比较。安装脚本
 会再次按 `SHA256SUMS` 检查安装包中的每个文件。由同一压缩包内的脚本进行的检查只能证明文件完整，不能证明文件来自何
@@ -105,7 +102,7 @@ sha256sum --check --ignore-missing SHA256SUMS
 Windows 也无法从更长的路径启动程序或加载部分模块，因此每个已安装文件的路径都不超过 250 个字符。
 安装程序接受的安装目录最多为 249 个字符减去其下最长的相对路径（`BUNDLE.json` 中记录为
 `max_relative_install_path`）；安装目录更长时，安装程序在创建任何内容之前以退出码 2 停止。
-NeuroGrid 0.1.0rc1 的最长相对路径为 148 个字符，因此上限为 101 个字符。默认安装目录
+NeuroGrid 0.1.0 的最长相对路径为 148 个字符，因此上限为 101 个字符。默认安装目录
 `%LOCALAPPDATA%\NeuroGrid\<version>` 远短于此。
 
 Linux 安装包内置的 Python 不含 `dbm.ndbm` 模块（`_dbm`）：该模块链接 Berkeley DB（Sleepycat 许可），
@@ -160,7 +157,7 @@ python tools/install_pdf_browser.py --check
 
 <!-- BEGIN GENERATED pdf installer -->
 ```text
-<REPO_URL>/releases/download/v<version>/install_pdf_browser.py
+https://github.com/Ammxri/neurogrid/releases/download/v<version>/install_pdf_browser.py
 SHA-256: bbfc4269cf73ce068a36519eb04ce9efe306002f99751d4865cc39c4c6138371
 ```
 <!-- END GENERATED -->
@@ -179,8 +176,7 @@ Get-FileHash -Algorithm SHA256 install_pdf_browser.py    # Windows PowerShell
 
 ## 从 PyPI 安装 {#pypi}
 
-!!! warning "占位符"
-    NeuroGrid 将由项目负责人发布到 PyPI；在此之前，发布版本记为 `<PYPI_RELEASE>`。
+NeuroGrid 0.1.0 在 PyPI 上的发布版本：<https://pypi.org/project/neurogrid/0.1.0/>。
 
 ```bash
 python -m pip install neurogrid

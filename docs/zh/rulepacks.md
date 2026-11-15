@@ -104,5 +104,4 @@ neurogrid check tests/fixtures/synthetic/edf_ok --config tests/fixtures/document
 当一个条款可以有多种解读时，NeuroGrid 会在决策记录以及规则的名称或参数中写明所采用的解读。问题和其他解读的建议请
 提交到公开仓库的问题跟踪系统；解读问题清单将在 0.2 版中随 yyt2029 规则包提供。
 
-!!! warning "占位符"
-    公开仓库的地址为 `<REPO_URL>`，将在仓库发布时填写。
+公开仓库的地址为 <https://github.com/Ammxri/neurogrid>。
