@@ -27,7 +27,7 @@ Die zh-Prüfung macht nach D-22 der Lead.
 
 ## Für STOPP G1 vorgemerkt
 
-Stand 16.11.2026 (D-16, D-18, D-24, D-25): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); v0.1.0 ist am 15.11.2026 veröffentlicht (D-25: `main`, Tag, GitHub-Release, TestPyPI, PyPI); die Anfrage an die Entwickler des BIDS-Validators ist am 16.11.2026 gesendet (bids-standard/bids-validator#470, D-16); offen ist der Gitee-Spiegel (TECH-08). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
+Stand 16.11.2026 (D-16, D-18, D-24, D-25): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); v0.1.0 ist am 15.11.2026 veröffentlicht (D-25: `main`, Tag, GitHub-Release, TestPyPI, PyPI); die Anfrage an die Entwickler des BIDS-Validators ist am 16.11.2026 gesendet (bids-standard/bids-validator#470, D-16); Gitee-Spiegel und Gitee-Release stehen seit dem 16.11.2026 (TECH-08). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
 - **zh-Prüfung** (A-07, A-86, D-15, D-17; seit D-22 durch den Lead, erledigt am 09.11.2026 nach A-112 über alle
@@ -114,7 +114,7 @@ Projektverantwortlichen.
     nicht verifiziert (NG-N04 `teilweise`).
 - **Anfrage an die Entwickler des BIDS-Validators** (D-16) — erledigt am 16.11.2026: https://github.com/bids-standard/bids-validator/issues/470. Der Entwurf
   (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) war vorher nachgeprüft.
-- **Merge und Veröffentlichung** — erledigt am 15.11.2026 (D-25: `main` 1ee4299, Tag `v0.1.0`, GitHub-Release, TestPyPI und PyPI; Gitee-Spiegel offen (TECH-08, von der PRD für v0.1 verlangt; blockiert extern: Gitee-Konto und Secret)). Bisheriger Plan: (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
+- **Merge und Veröffentlichung** — erledigt am 15.11.2026 (D-25: `main` 1ee4299, Tag `v0.1.0`, GitHub-Release, TestPyPI und PyPI; Gitee-Spiegel und Gitee-Release am 16.11.2026, TECH-08). Bisheriger Plan: (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
   P5-Stand c4f240a plus den Korrekturen aus zh- und Sichtprüfung auf einem Release-Zweig, nicht aus `dev`, das seit
   8391420 0.2.0.dev0 trägt; `tools/release_check.py` verlangt den Tag-Commit in `origin/main`, A-87): Merge nach `main` und Push;
   Version 0.1.0, Tag `v0.1.0` und `release.yml` (vorher die Platzhalter `<REPO_URL>` und `<PYPI_RELEASE>` in docs/en und
@@ -186,6 +186,18 @@ den Projektverantwortlichen.
   an den PNG.
 
 ## Verlauf
+
+### 2026-11-16 – Gitee-Spiegel und Gitee-Release v0.1.0 (TECH-08; D-25)
+- **Erfüllt:** TECH-08. Der Projektverantwortliche hat das leere Repository https://gitee.com/Ammxri/neurogrid angelegt,
+  einen eigenen SSH-Schlüssel für den Spiegel erzeugt (öffentlicher Teil im Gitee-Konto, privater Teil als Secret
+  `GITEE_SSH_KEY`), die Verbindung mit dem Fingerabdruck des Host-Schlüssels geprüft und die Variablen `GITEE_MIRROR`,
+  `GITEE_REPOSITORY` und `GITEE_KNOWN_HOSTS` gesetzt; dann `mirror-gitee` von Hand mit dem Tag `v0.1.0` gestartet.
+- **Lauf:** `mirror-gitee` 43838642328 grün; der Job `mirror` brauchte für die Übertragung rund 12 Minuten (langsame
+  Verbindung von GitHub nach Gitee, Grenze des Jobs 15 Minuten), `gitee-release` prüfte Signatur und Prüfsummen.
+- **Geprüft:** auf Gitee `main` 1ee4299 und Tag `v0.1.0` (API); das Gitee-Release v0.1.0 nennt das Commit 1ee4299, sein
+  Text gleicht `gitee-release-text.md`, Wheel, sdist, `SHA256SUMS` und `SHA256SUMS.sigstore.json` sind Byte für Byte die
+  Dateien des signierten GitHub-Release.
+- **Ebenfalls am 16.11.2026:** die Anfrage an den BIDS-Validator gesendet (bids-standard/bids-validator#470, D-16).
 
 ### 2026-11-15 – Release v0.1.0 veröffentlicht (V-01, POS-02, CON-05; D-25)
 - **Erfüllt:** V-01 (v0.1 ausgeliefert), POS-02 und CON-05 (öffentlicher Code mit Adresse in der Doku von 0.1.0,
@@ -964,7 +976,6 @@ erledigt (13.11.2026, `ci-integration` 43405451313). Die zh-Prüfung über alle 
 Beim Projektverantwortlichen (die Sichtprüfung ist erledigt, 14.11.2026, D-24): die übrigen
 Punkte von „Für STOPP G2 vorgemerkt“ (juristische Prüfung der
 PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage). v0.1.0 ist veröffentlicht
-(15.11.2026, D-25); offen ist der Gitee-Spiegel (TECH-08: Gitee-Konto, Variable `GITEE_MIRROR`, Secret
-`GITEE_SSH_KEY`); die Anfrage an den BIDS-Validator ist gesendet (16.11.2026, #470). v0.2.0 (V-02)
+(15.11.2026, D-25), auf Gitee seit dem 16.11.2026 (TECH-08); die Anfrage an den BIDS-Validator ist gesendet (16.11.2026, #470). v0.2.0 (V-02)
 erst nach P8, weil `yyt2029` nach Klausel-Inventar fehlt; der P6-Endstand 0ffdd90 enthält P7 (GB/T 47127) nicht, die
 Basis nach D-19 wird dann neu vorgelegt.

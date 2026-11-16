@@ -399,7 +399,7 @@ Logs und Messungen (`.local/perf/`), Review-Material. Nach einem Klon fehlt sie 
 
 ### 2.2 Zweige und Ablauf in git
 
-- `main`: seit dem 15.11.2026 1ee4299 (Fast-Forward von `75e05a6`, Tag `v0.1.0`, D-25); Releases kommen von `main` (Release-Gate). Nach D-19 wird
+- `main`: seit dem 15.11.2026 1ee4299 (Fast-Forward von `75e05a6`, Tag `v0.1.0`, D-25; gespiegelt auf https://gitee.com/Ammxri/neurogrid seit dem 16.11.2026); Releases kommen von `main` (Release-Gate). Nach D-19 wird
   v0.1.0 aus dem P5-Stand `c4f240a` plus den Korrekturen der Prüfungen auf einem Release-Zweig geschnitten, nicht aus
   `dev`; ein v0.2.0 ebenso aus dem Endstand von P6. Den Zweig `release/v0.1.0` gibt es seit dem 15.11.2026 (D-25), vorerst lokal: b54a077 (Korrekturen der
   zh-Prüfung für die Texte von 0.1), 1ee4299 (Adresse, PyPI-Adresse, Version 0.1.0). Der Zweig liegt nur lokal; sein Stand ist `main` mit dem Tag
@@ -3608,5 +3608,7 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
       (D-19), juristische Prüfung der PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage
 - [x] danach Release-Zweig aus `c4f240a` (D-19), Merge nach `main`, `0.1.0`, Tag `v0.1.0`, `release.yml`, `publish-pypi.yml` (TestPyPI/PyPI, Trusted
       Publishing); `docs.yml` und `corpus.yml` laufen seit dem Push auf `main` (alles am 15.11.2026, D-25)
-- [ ] offen (TECH-08): `mirror-gitee.yml` (Spiegel) und das Gitee-Release von Hand aus dem Artefakt des Jobs
-      `gitee-release` (R15); ohne die Variable `GITEE_MIRROR` übersprungen (Lauf 43728807678)
+- [x] `mirror-gitee.yml` (Spiegel) und das Gitee-Release von Hand aus dem Artefakt des Jobs `gitee-release` (R15):
+      am 15.11.2026 ohne `GITEE_MIRROR` übersprungen (Lauf 43728807678), am 16.11.2026 nachgeholt (Lauf 43838642328,
+      https://gitee.com/Ammxri/neurogrid, TECH-08); Variablen und Secret auf Repository-Ebene, weil die Bedingung
+      des Jobs `GITEE_MIRROR` vor der Environment liest; die SSH-Übertragung dauert rund 12 Minuten
