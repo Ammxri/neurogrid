@@ -114,7 +114,7 @@ Projektverantwortlichen.
     nicht verifiziert (NG-N04 `teilweise`).
 - **Anfrage an die Entwickler des BIDS-Validators** (D-16): den Entwurf
   (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) prüft und sendet der Projektverantwortliche.
-- **Merge und Veröffentlichung** — erledigt am 15.11.2026 (D-25: `main` 1ee4299, Tag `v0.1.0`, GitHub-Release, TestPyPI und PyPI; Gitee-Spiegel optional, nicht eingerichtet). Bisheriger Plan: (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
+- **Merge und Veröffentlichung** — erledigt am 15.11.2026 (D-25: `main` 1ee4299, Tag `v0.1.0`, GitHub-Release, TestPyPI und PyPI; Gitee-Spiegel offen (TECH-08, von der PRD für v0.1 verlangt; blockiert extern: Gitee-Konto und Secret)). Bisheriger Plan: (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
   P5-Stand c4f240a plus den Korrekturen aus zh- und Sichtprüfung auf einem Release-Zweig, nicht aus `dev`, das seit
   8391420 0.2.0.dev0 trägt; `tools/release_check.py` verlangt den Tag-Commit in `origin/main`, A-87): Merge nach `main` und Push;
   Version 0.1.0, Tag `v0.1.0` und `release.yml` (vorher die Platzhalter `<REPO_URL>` und `<PYPI_RELEASE>` in docs/en und
@@ -203,7 +203,7 @@ den Projektverantwortlichen.
   mit Python 3.12): Version 0.1.0, `scan`, `check` (Exit 0 bzw. 1, Meldungen zh), `report` HTML zh/en, `manifest` und
   `verify` (Exit 0 gleich, 1 nach Änderung) auf den Testdatensätzen `bids_ok` und `bids_issues`. PDF nicht lokal (dafür
   braucht es den PDF-Browser), aber im Release-Lauf in den Reinräumen grün.
-- **Offen und optional:** Gitee-Spiegel (ohne `GITEE_MIRROR` übersprungen, R15). `dev` behält die Platzhalter
+- **Offen:** Gitee-Spiegel (TECH-08, von der PRD für v0.1 verlangt; ohne `GITEE_MIRROR` übersprungen, R15). `dev` behält die Platzhalter
   `<REPO_URL>` und `<PYPI_RELEASE>` bis zu seinem eigenen Release.
 
 ### 2026-11-15 – Freigabe von v0.1.0 und Release-Zweig (V-01, POS-02, CON-05; D-25)
@@ -964,5 +964,7 @@ erledigt (13.11.2026, `ci-integration` 43405451313). Die zh-Prüfung über alle 
 Beim Projektverantwortlichen (die Sichtprüfung ist erledigt, 14.11.2026, D-24): die übrigen
 Punkte von „Für STOPP G2 vorgemerkt“ (juristische Prüfung der
 PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage). v0.1.0 ist veröffentlicht
-(15.11.2026, D-25); falls gewünscht, ein Release-Zweig für v0.2.0 aus dem P6-Endstand 0ffdd90, nach den Prüfungen und mit
-Freigabe.
+(15.11.2026, D-25); offen sind der Gitee-Spiegel (TECH-08: Gitee-Konto, Variable `GITEE_MIRROR`, Secret
+`GITEE_SSH_KEY`) und das Senden der Anfrage an den BIDS-Validator (Entwurf am 16.11.2026 nachgeprüft). v0.2.0 (V-02)
+erst nach P8, weil `yyt2029` nach Klausel-Inventar fehlt; der P6-Endstand 0ffdd90 enthält P7 (GB/T 47127) nicht, die
+Basis nach D-19 wird dann neu vorgelegt.

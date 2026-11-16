@@ -3608,5 +3608,5 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
       (D-19), juristische Prüfung der PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage
 - [x] danach Release-Zweig aus `c4f240a` (D-19), Merge nach `main`, `0.1.0`, Tag `v0.1.0`, `release.yml`, `publish-pypi.yml` (TestPyPI/PyPI, Trusted
       Publishing); `docs.yml` und `corpus.yml` laufen seit dem Push auf `main` (alles am 15.11.2026, D-25)
-- [ ] optional: `mirror-gitee.yml` (Spiegel) und das Gitee-Release von Hand aus dem Artefakt des Jobs
+- [ ] offen (TECH-08): `mirror-gitee.yml` (Spiegel) und das Gitee-Release von Hand aus dem Artefakt des Jobs
       `gitee-release` (R15); ohne die Variable `GITEE_MIRROR` übersprungen (Lauf 43728807678)
