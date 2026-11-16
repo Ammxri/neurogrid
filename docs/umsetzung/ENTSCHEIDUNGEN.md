@@ -149,7 +149,8 @@ Aufruf nach A-06). Entscheidung nach Empfehlung:
   Lizenz, Urheber und Fundstelle; der Quelltext liegt lesbar im Wheel und im Bündel. Jede andere Version des
   Validators braucht eine neue Prüfung.
 - **Anfrage an die Entwickler** des Validators, den Abschnitt zu ersetzen: NeuroGrid entwirft den Text, der
-  Projektverantwortliche sendet ihn.
+  Projektverantwortliche sendet ihn. Gesendet am 16.11.2026: https://github.com/bids-standard/bids-validator/issues/470 (Entwurf vorher nachgeprüft: 3.0.2
+  weiter neueste Version, der Abschnitt auch in isomorphic-git 1.44.14, kein bestehendes Issue).
 - **Lizenzpolitik für gebündelte Teile:** Public Domain gilt als freizügig; bei einer Wahl-Lizenz mit mindestens einer
   freizügigen Option (z. B. „CC0-1.0 oder OpenSSL oder Apache-2.0“) gilt die freizügige Wahl, und NeuroGrid nennt sie.
 

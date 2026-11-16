@@ -27,7 +27,7 @@ Die zh-Prüfung macht nach D-22 der Lead.
 
 ## Für STOPP G1 vorgemerkt
 
-Stand 15.11.2026 (D-18, D-24, D-25): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); v0.1.0 ist am 15.11.2026 veröffentlicht (D-25: `main`, Tag, GitHub-Release, TestPyPI, PyPI); offen ist die Anfrage an die Entwickler des BIDS-Validators. Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
+Stand 16.11.2026 (D-16, D-18, D-24, D-25): erledigt sind die Freigabe der Annahmen A-78 bis A-89 und die Bestätigung der Lesarten R16 und D-15 (core-js-pure); die zh-Prüfung hat nach D-22 der Lead am 09.11.2026 gemacht (A-112); die Sichtprüfung hat der Projektverantwortliche am 14.11.2026 ohne Befund abgeschlossen (D-24); v0.1.0 ist am 15.11.2026 veröffentlicht (D-25: `main`, Tag, GitHub-Release, TestPyPI, PyPI); die Anfrage an die Entwickler des BIDS-Validators ist am 16.11.2026 gesendet (bids-standard/bids-validator#470, D-16); offen ist der Gitee-Spiegel (TECH-08). Die bekannten Grenzen sind seit D-21 (09.11.2026) zur Kenntnis genommen.
 Vollständige Liste nach P5 (Stand 27c3e90); sie ersetzt die Listen der früheren Einträge. Jeder Punkt braucht den
 Projektverantwortlichen.
 - **zh-Prüfung** (A-07, A-86, D-15, D-17; seit D-22 durch den Lead, erledigt am 09.11.2026 nach A-112 über alle
@@ -112,8 +112,8 @@ Projektverantwortlichen.
   - Nur in der CI belegt (D-09): alle POSIX-Teile von A-89 und die Behebung unter Python 3.11 auf windows-latest (CI auf
     27c3e90 grün); der Aufruf von `ci.yml` aus `release.yml` läuft erst am ersten Release-Tag (A-87). Windows 10 ist
     nicht verifiziert (NG-N04 `teilweise`).
-- **Anfrage an die Entwickler des BIDS-Validators** (D-16): den Entwurf
-  (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) prüft und sendet der Projektverantwortliche.
+- **Anfrage an die Entwickler des BIDS-Validators** (D-16) — erledigt am 16.11.2026: https://github.com/bids-standard/bids-validator/issues/470. Der Entwurf
+  (`.local/p5/upstream_issue_bids_validator.md`, nicht versioniert) war vorher nachgeprüft.
 - **Merge und Veröffentlichung** — erledigt am 15.11.2026 (D-25: `main` 1ee4299, Tag `v0.1.0`, GitHub-Release, TestPyPI und PyPI; Gitee-Spiegel offen (TECH-08, von der PRD für v0.1 verlangt; blockiert extern: Gitee-Konto und Secret)). Bisheriger Plan: (v0.1.0 freigegeben am 15.11.2026 mit der Adresse https://github.com/Ammxri/neurogrid, D-25; Release-Zweig `release/v0.1.0` vorbereitet, b54a077 und 1ee4299; je Schritt durch den Projektverantwortlichen; Release-Linie nach D-19: v0.1.0 aus dem
   P5-Stand c4f240a plus den Korrekturen aus zh- und Sichtprüfung auf einem Release-Zweig, nicht aus `dev`, das seit
   8391420 0.2.0.dev0 trägt; `tools/release_check.py` verlangt den Tag-Commit in `origin/main`, A-87): Merge nach `main` und Push;
@@ -964,7 +964,7 @@ erledigt (13.11.2026, `ci-integration` 43405451313). Die zh-Prüfung über alle 
 Beim Projektverantwortlichen (die Sichtprüfung ist erledigt, 14.11.2026, D-24): die übrigen
 Punkte von „Für STOPP G2 vorgemerkt“ (juristische Prüfung der
 PIA-Vorlage vor der ersten echten Verwendung, echter Lauf der GitLab-Vorlage). v0.1.0 ist veröffentlicht
-(15.11.2026, D-25); offen sind der Gitee-Spiegel (TECH-08: Gitee-Konto, Variable `GITEE_MIRROR`, Secret
-`GITEE_SSH_KEY`) und das Senden der Anfrage an den BIDS-Validator (Entwurf am 16.11.2026 nachgeprüft). v0.2.0 (V-02)
+(15.11.2026, D-25); offen ist der Gitee-Spiegel (TECH-08: Gitee-Konto, Variable `GITEE_MIRROR`, Secret
+`GITEE_SSH_KEY`); die Anfrage an den BIDS-Validator ist gesendet (16.11.2026, #470). v0.2.0 (V-02)
 erst nach P8, weil `yyt2029` nach Klausel-Inventar fehlt; der P6-Endstand 0ffdd90 enthält P7 (GB/T 47127) nicht, die
 Basis nach D-19 wird dann neu vorgelegt.

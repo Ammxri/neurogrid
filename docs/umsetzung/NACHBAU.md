@@ -67,7 +67,7 @@ nachstellen (1.6 Punkt 20–22).
 | Konten: Gitee, PyPI/TestPyPI (Trusted Publishing) | Spiegel, Veröffentlichung (D-07, D-15) | nicht bekannt; weder Projektdokumente noch Faktenbasis belegen ein angelegtes Konto [NV] |
 | Freigabe von Downloads außerhalb D-06 | CC-BY-4.0-Rechtstext, npm/jsr-Lizenzdateien des Validators (D-15); LGPL-3.0/GPL-3.0-Texte für isomorphic-git (D-16); URL-Liste der acht übrigen Lücken (D-17) | freigegeben und abgelegt (`LICENSES/`, `license-gate/third_party/`, `license-gate/licence_texts.toml`; D-15/D-16 in 4.7.7) [G] |
 | Entscheidung zu den übrigen fehlenden Lizenztexten | Pakete im dist von hed-validator, hash-wasm (Brumme, argon2), `@jspm/core`, libaec/libsz im Linux-h5py-Wheel, Bibliotheken von python-build-standalone, focus-visible und material-design-color der Doku | entschieden (D-17, 27.10.2026); `license-gate/known_missing.toml` ist leer |
-| Versand der Anfrage an die Validator-Entwickler (D-16) | Ersatz des LGPL-Abschnitts in isomorphic-git | Entwurf liegt privat in `.local/p5/upstream_issue_bids_validator.md`; Versand durch den Projektverantwortlichen [NV] |
+| Versand der Anfrage an die Validator-Entwickler (D-16) | Ersatz des LGPL-Abschnitts in isomorphic-git | Entwurf liegt privat in `.local/p5/upstream_issue_bids_validator.md`; am 16.11.2026 vom Projektverantwortlichen gesendet: https://github.com/bids-standard/bids-validator/issues/470 |
 | muttersprachliche zh-Prüfung | alle zh-Texte (A-07, STOPP G1); Prüfpaket aus `tools/zh_review_package.py` (4.7.8), nach dem letzten G1-Lauf neu erzeugt | erledigt am 09.11.2026 durch den Lead (D-22, A-112) |
 | Bestätigung der Annahmen A-78..A-89, der R16-Lesart und der bekannten Grenzen; Freigabe von Merge und Release | STOPP G1 (4.7.21) | Annahmen und Lesarten bestätigt (D-18, 29.10.2026); Grenzen zur Kenntnis genommen (D-21); v0.1.0 freigegeben (D-25) und am 15.11.2026 veröffentlicht (`main` 1ee4299, Tag, GitHub-Release, TestPyPI, PyPI) |
 | Kernbegriffe von P6 in der zh-Prüfung, vollständige P6-Texte vor v0.2 | D-17 Option C (Liste in FORTSCHRITT „Für STOPP G1 vorgemerkt“) | offen |
@@ -3598,7 +3598,7 @@ Werkzeug-Befehle: Abschnitt 5. Prüfbefehle je Phase: 4.0.
 - [x] Entscheidung zu den acht Lücken in `known_missing.toml` (D-17); fehlende Lizenztexte abgelegt (D-15, D-16,
       D-17), `known_missing.toml` leer und Notices neu
 - [x] M14 Option B, zh-Prüfung der P6-Texte Option C, zh-Paket nach der zweiten CI-Fix-Runde (D-17)
-- [ ] Anfrage an die Validator-Entwickler versendet (D-16)
+- [x] Anfrage an die Validator-Entwickler versendet (D-16; 16.11.2026, bids-standard/bids-validator#470)
 - [x] zh-Prüfung mit dem Paket nach dem letzten G1-Lauf (neue Schlüssel und Sätze in 4.7.8; durch den Lead am
       09.11.2026, D-22), Sichtprüfung der Beispiel-PDFs (14.11.2026, D-24)
 - [x] Bestätigung A-78..A-89 und R16-Installationshinweis (D-18, 29.10.2026)
